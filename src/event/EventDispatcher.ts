@@ -61,7 +61,7 @@ class EventDispatcher {
     let components = Array.from(this.ice.renderMap.values());
     for (let i = 0; i < components.length; i++) {
       let component: any = components[i];
-      this.findRecursively(x, y, component);
+      this.traverse(x, y, component);
     }
 
     //TODO: 按照 zIndex 倒排，然后取第0个元素。
@@ -76,14 +76,15 @@ class EventDispatcher {
   }
 
   /**
+   * 如果存在子组件，遍历。
    * @param x
    * @param y
    * @param component
    */
-  private findRecursively(x, y, component): void {
+  private traverse(x, y, component): void {
     if (component.childNodes && component.childNodes.length) {
       component.childNodes.forEach((child) => {
-        this.findRecursively(x, y, child);
+        this.traverse(x, y, child);
       });
     }
 
