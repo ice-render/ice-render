@@ -1,0 +1,6 @@
+**/*.md
+**/*.svg
+**/*.ejs
+**/*.html
+.fishx
+.cache

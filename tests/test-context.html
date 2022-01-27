@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICE-Interactive Canvas Engine</title>
+  <body>
+    <canvas id="canvas-1" width="800" height="600" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script>
+    const canvas = document.querySelector('#canvas-1');
+    const ctx = canvas.getContext('2d');
+
+    //测试变换矩阵
+    // let matrix=new DOMMatrix([0.8, 0, 0, 0.8, 0, 0]);
+    // console.log(matrix.invertSelf());
+    // ctx.setTransform(matrix);
+    // let storedTransform = ctx.getTransform();
+    // console.log(storedTransform);
+    // ctx.beginPath();
+    // ctx.arc(100, 75, 50, 0, 2 * Math.PI);
+    // ctx.stroke();
+    // // ctx.fill();
+    // ctx.restore();
+
+    //测试 restore 是否会恢复默认的变换矩阵
+    // console.log(ctx.getTransform());
+    // ctx.setTransform(matrix.invertSelf());
+    // ctx.beginPath();
+    // ctx.arc(200, 175, 50, 0, 2 * Math.PI);
+    // ctx.stroke();
+    // // ctx.fill();
+    // ctx.restore();//restore 不会恢复默认的 transformMatrix
+
+    //恢复默认的变换矩阵
+    // ctx.setTransform(1,0,0,1,0,0);//默认未经变换的矩阵
+    // ctx.beginPath();
+    // ctx.arc(300, 275, 50, 0, 2 * Math.PI);
+    // ctx.stroke();
+    // // ctx.fill();
+    // ctx.restore();//restore 不会恢复默认的 transformMatrix
+
+    //测试矩阵的变换顺序
+
+    //第一种：先变形再平移
+    // let matrix2=new DOMMatrix();
+    // matrix2.translateSelf(100,100);
+    // matrix2.scaleSelf(0.5,0.5);
+    // console.log("matrix2",matrix2);
+    // ctx.setTransform(matrix2);
+    // ctx.lineWidth=3;
+    // ctx.strokeStyle="#ff3300";
+    // ctx.fillStyle="#00ff00";
+    // ctx.beginPath();
+    // ctx.arc(400,400,50,0,2*Math.PI);
+    // ctx.stroke();
+    // ctx.fill();
+    // ctx.restore();
+
+    //第二种：先平移再变形
+    // let matrix3=new DOMMatrix();
+    // matrix3.scaleSelf(0.5,0.5);//先缩放再平移，会导致缩放量被复合运算到了平移量上
+    // matrix3.translateSelf(100,100);
+    // console.log("matrix3",matrix3);
+    // ctx.setTransform(matrix3);
+    // ctx.lineWidth=3;
+    // ctx.strokeStyle="#ff0000";
+    // ctx.fillStyle="#0000ff";
+    // ctx.beginPath();
+    // ctx.arc(400,400,50,0,2*Math.PI);
+    // ctx.stroke();
+    // ctx.fill();
+    // ctx.restore();
+
+
+    //测试中心点旋转计算公式
+    const x=100;
+    const y=100;
+    const width=50;
+    const height=50;
+
+    ctx.lineWidth=3;
+    ctx.strokeStyle="#ff0000";
+    ctx.fillStyle="#0000ff";
+    
+    ctx.beginPath();
+    ctx.rect(x,y,width,height);
+    ctx.stroke();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.translate(x+width/2,y+height/2);
+    ctx.rotate(45*Math.PI/180);
+    ctx.beginPath();
+    ctx.rect(-width/2,-height/2,width,height);
+    ctx.stroke();
+    ctx.fill();
+    ctx.restore();
+  </script>
+</html>

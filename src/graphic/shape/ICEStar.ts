@@ -1,0 +1,35 @@
+import ICEIsogon from './ICEIsogon';
+
+/**
+ * @class ICEStar 五角星
+ * TODO:实现正 N 角星
+ * @author 大漠穷秋<damoqiongqiu@126.com>
+ */
+class ICEStar extends ICEIsogon {
+  constructor(props: any = {}) {
+    super({ radius: 10, edges: 5, ...props });
+  }
+
+  protected doCreatePath(): Path2D {
+    this.path2D = new Path2D();
+    let counter = 0;
+    let i = 0;
+    while (counter < this.state.edges) {
+      let j = (i + 2) % this.state.edges;
+      let v1 = this.state.dots[i];
+      let v2 = this.state.dots[j];
+      if (counter == 0) {
+        this.path2D.moveTo(v1.x, v1.y);
+        this.path2D.lineTo(v2.x, v2.y);
+      } else {
+        this.path2D.lineTo(v2.x, v2.y);
+      }
+      i = j;
+      counter++;
+    }
+    this.path2D.closePath();
+    return this.path2D;
+  }
+}
+
+export default ICEStar;
