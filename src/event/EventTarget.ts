@@ -28,6 +28,11 @@ abstract class EventTarget {
     return true;
   }
 
+  /**
+   * 一次性回调，调用一次就自动删除。
+   * @param eventName
+   * @param fn
+   */
   once(eventName: string, fn: Function) {
     this.on(eventName, (evt: ICEEvent) => {
       this.off(eventName, fn);
@@ -80,7 +85,7 @@ abstract class EventTarget {
   }
 }
 
-//模拟 W3C 的 EventTarget 接口
+//增加别名，模拟 W3C 的 EventTarget 接口
 EventTarget.prototype.addEventListener = EventTarget.prototype.on;
 EventTarget.prototype.removeEventListener = EventTarget.prototype.off;
 EventTarget.prototype.dispatchEvent = EventTarget.prototype.trigger;
