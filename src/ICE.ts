@@ -9,6 +9,7 @@ import MouseEventInterceptor from './event/MouseEventInterceptor.js';
 import root from './nodejs-support/root.js';
 import CanvasRenderer from './renderer/CanvasRenderer';
 import IRenderer from './renderer/IRenderer';
+import TransformManager from './transformation/TransformManager';
 
 FrameManager.start();
 
@@ -36,6 +37,7 @@ class ICE {
   private animationManager: AnimationManager;
   private eventDispatcher: EventBridge;
   private ddManager: DragAndDropManager;
+  private transformManager: TransformManager;
   private renderer: IRenderer;
 
   constructor() {}
@@ -78,6 +80,7 @@ class ICE {
     this.animationManager = new AnimationManager(this).start();
     this.eventDispatcher = new EventBridge(this).start();
     this.ddManager = new DragAndDropManager(this).start();
+    this.transformManager = new TransformManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
 
     return this;
