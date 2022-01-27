@@ -35,7 +35,7 @@ class ICE {
   public selectionList: Array<any> = [];
 
   private animationManager: AnimationManager;
-  private eventDispatcher: EventBridge;
+  private eventBridge: EventBridge;
   private ddManager: DragAndDropManager;
   private transformManager: TransformManager;
   private renderer: IRenderer;
@@ -78,7 +78,7 @@ class ICE {
     MouseEventInterceptor.regitserEvtBus(this.evtBus);
     MouseEventInterceptor.start();
     this.animationManager = new AnimationManager(this).start();
-    this.eventDispatcher = new EventBridge(this).start();
+    this.eventBridge = new EventBridge(this).start();
     this.ddManager = new DragAndDropManager(this).start();
     this.transformManager = new TransformManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
