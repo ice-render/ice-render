@@ -3,8 +3,8 @@ import pkg from '../package.json';
 import AnimationManager from './animation/AnimationManager';
 import FrameManager from './animation/FrameManager';
 import DragAndDropManager from './drag-drop/DragAndDropManager';
+import EventBridge from './event/EventBridge';
 import EventBus from './event/EventBus';
-import EventDispatcher from './event/EventDispatcher';
 import MouseEventInterceptor from './event/MouseEventInterceptor.js';
 import root from './nodejs-support/root.js';
 import CanvasRenderer from './renderer/CanvasRenderer';
@@ -34,7 +34,7 @@ class ICE {
   public selectionList: Array<any> = [];
 
   private animationManager: AnimationManager;
-  private eventDispatcher: EventDispatcher;
+  private eventDispatcher: EventBridge;
   private ddManager: DragAndDropManager;
   private renderer: IRenderer;
 
@@ -76,7 +76,7 @@ class ICE {
     MouseEventInterceptor.regitserEvtBus(this.evtBus);
     MouseEventInterceptor.start();
     this.animationManager = new AnimationManager(this).start();
-    this.eventDispatcher = new EventDispatcher(this).start();
+    this.eventDispatcher = new EventBridge(this).start();
     this.ddManager = new DragAndDropManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
 
