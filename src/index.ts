@@ -19,3 +19,4 @@ export * from './ICE';
 export * from './renderer/CanvasRenderer';
 export * from './renderer/IRenderer';
 export * from './transformation/TransformControl';
+export * from './transformation/TransformManager';

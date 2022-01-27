@@ -13,13 +13,11 @@ abstract class EventTarget {
   constructor() {}
 
   on(eventName: string, fn: Function) {
-    //TODO:support event array using isArrayLikeObject from lodash.
     if (!this.listeners[eventName]) {
       this.listeners[eventName] = [];
     }
-    if (!this.listeners[eventName].includes(fn)) {
-      this.listeners[eventName].push(fn);
-    }
+    this.off(eventName, fn);
+    this.listeners[eventName].push(fn);
   }
 
   off(eventName: string, fn: Function) {
