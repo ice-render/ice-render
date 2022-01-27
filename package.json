@@ -1,7 +1,7 @@
 {
   "author": "大漠穷秋",
   "name": "interactive-canvas-engine",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "A canvas engine for interactive graphics, aka ICE.",
   "files": [
     "dist"
