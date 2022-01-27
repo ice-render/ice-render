@@ -18,7 +18,7 @@ export default class RotateControl extends ICECircle {
 
   private handleEvents() {
     let that = this;
-    that.on('moving', (evt) => {
+    that.on('after-move', (evt) => {
       let hostState = that.props.host.state;
       let hostOrigin = hostState.origin;
       let matrix = hostState.absoluteTranslateMatrix;

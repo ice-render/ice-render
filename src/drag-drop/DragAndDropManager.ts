@@ -36,8 +36,9 @@ class DragAndDropManager {
           ty = point.y;
         }
 
+        el.trigger('before-move', { ...evt, tx, ty });
         el.movePosition(tx, ty);
-        el.trigger('moving', { ...evt, tx, ty });
+        el.trigger('after-move', { ...evt, tx, ty });
       });
     }
 

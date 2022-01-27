@@ -20,7 +20,7 @@ export default class ScaleControl extends ICERect {
 
   private handleEvents() {
     let that = this;
-    this.on('moving', (evt) => {
+    this.on('after-move', (evt) => {
       that.scaleToCenter(evt);
     });
   }
