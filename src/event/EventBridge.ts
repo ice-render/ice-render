@@ -17,7 +17,8 @@ class EventBridge {
   }
 
   start() {
-    //FIXME:这里触发事件的频率太高，所有所有鼠标事件都会被触发出来
+    //FIXME:这里触发事件的频率太高，所有所有鼠标事件都会被触发出来。
+    //FIXME:这里需要增加节流机制，防止触发事件的频率过高导致 CPU 飙升。
     mouseEvents.forEach((evtMapping) => {
       this.ice.evtBus.on(evtMapping[1], (evt: ICEEvent) => {
         const el = this.findTargetElement(evt.clientX, evt.clientY);
