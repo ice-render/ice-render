@@ -30,7 +30,7 @@ class ICE {
   public canvasWidth: number = 0;
   public canvasHeight: number = 0;
   public canvasBoundingClientRect;
-  //当前选中的对象列表
+  //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
   public selectionList: Array<any> = [];
 
   private animationManager: AnimationManager;
