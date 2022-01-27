@@ -1,4 +1,5 @@
 /**
+ * @class ICEEvent
  * 在 ICE 中，所有事件都会被转化成 ICEEvent 进行处理。
  * ICEEvent 用来模拟 W3C 定义的 Event 接口，ICE 自定义的事件也使用此实现，事件对象上能获取到的属性不同。
  * 从原始 DOM 事件转发出来的 ICEEvent 实例包含 Event 接口上所定义的所有属性，ICE 内部代码创建的 ICEEvent 实例上只包含很少的自定义属性。

@@ -3,11 +3,12 @@ import ICEEvent from './ICEEvent';
 import mouseEvents from './MOUSE_EVENT_MAPPING_CONSTS';
 
 /**
- * @class EventDispatcher
- * 事件转发器
+ * @class EventBridge
+ * 事件桥接器，把 DOM 事件转发给 canvas 内部的对象。
+ *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-class EventDispatcher {
+class EventBridge {
   private selectionCandidates: Array<any> = [];
   private ice: ICE;
 
@@ -95,4 +96,4 @@ class EventDispatcher {
   }
 }
 
-export default EventDispatcher;
+export default EventBridge;
