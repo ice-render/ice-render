@@ -49,7 +49,6 @@ class EventDispatcher {
   /**
    * 找到被点击的对象，用代码触发 click 事件。
    * 在点击状态下，每次只能点击一个对象，当前不支持 DOM 冒泡特性。
-   * FIXME:当多个对象重叠时，选中 zIndex 最大的对象。
    * FIXME:这里需要进行优化，当存在大量对象时，每一个对象都进行比较会有性能问题。
    *
    * @param clientX
@@ -65,7 +64,8 @@ class EventDispatcher {
       this.findRecursively(x, y, component);
     }
 
-    //TODO: 按照 zIndex 倒排，然后取第0个元素
+    //TODO: 按照 zIndex 倒排，然后取第0个元素。
+    //TODO: 需要重构设置和修改 zIndex 参数的时机。
     this.selectionCandidates.sort((a, b) => {
       return a.zIndex - b.zIndex;
     });

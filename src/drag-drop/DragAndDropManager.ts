@@ -42,6 +42,7 @@ class DragAndDropManager {
     }
 
     //FIXME:需要处理鼠标在 canvas 范围之外弹起的情况，把 mousemove/mouseup 两个事件放在 root 对象上，而不是内部组件上。
+    //TODO:对于浏览器环境，事件直接挂在 window 上。
     function mouseUpHandler(evt: ICEEvent) {
       that.ice.evtBus.off('mousemove', mouseMoveHandler);
       that.ice.evtBus.off('mouseup', mouseUpHandler);
