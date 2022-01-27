@@ -3,7 +3,9 @@ import mouseEvents from './MOUSE_EVENT_MAPPING_CONSTS';
 
 /**
  * @class MouseEventInterceptor
- * 原生鼠标事件拦截器
+ * DOM 事件拦截器，拦截所有原生的 DOM 鼠标事件。
+ * 拦截到的事件全部转发到全局事件总线上去，EventBridge 会监听事件总线，把事件派发到 canvas 内部的组件上去。
+ *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 const MouseEventInterceptor = {
