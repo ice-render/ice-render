@@ -302,7 +302,7 @@ ice.addToDisplayMap(rect2);
 // });
 // ice.addToDisplayMap(circle3);
 
-// let th = new TransformControl({
+// let th = new TransformPanel({
 //   left: 400,
 //   top: 100,
 //   width: 100,
