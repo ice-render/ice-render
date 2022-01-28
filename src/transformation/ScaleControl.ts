@@ -1,3 +1,4 @@
+import ICEEvent from '../event/ICEEvent';
 import ICERect from '../graphic/shape/ICERect';
 
 /**
@@ -85,12 +86,15 @@ export default class ScaleControl extends ICERect {
         break;
     }
 
-    this.props.host.setState({
+    const param = {
       top: newTop,
       left: newLeft,
       width: Math.abs(newWidth),
       height: Math.abs(newHeight),
-    });
+    };
+    this.props.host.trigger('before-scale', new ICEEvent(param));
+    this.props.host.setState(param);
+    this.props.host.trigger('after-scale', new ICEEvent(param));
   }
 
   // private scaleToLeftTop(evt) {

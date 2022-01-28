@@ -50,6 +50,23 @@ export default class TransformControl extends ICEGroup {
   constructor(props) {
     super({ ...props, transformable: false });
     this.initTransformationHandles();
+    this.on('after-scale', this.scaleEvtHandler, this);
+    this.on('after-rotate', this.rotateEvtHandler, this);
+  }
+
+  private scaleEvtHandler(evt: any) {
+    console.log('after-scale...');
+    const { width, height } = this.state;
+    console.log(width, height);
+  }
+
+  private rotateEvtHandler(evt: any) {
+    const { rotate } = this.state.transform;
+    this.targetComponent.setState({
+      transform: {
+        rotate: rotate,
+      },
+    });
   }
 
   /**
@@ -99,16 +116,16 @@ export default class TransformControl extends ICEGroup {
   }
 
   /**
-   * 计算缩放手柄坐标位置，相对于父组件的本地坐标系。
-   * @returns
+   * 设置所有手柄在父组件中的位置，相对于父组件的本地坐标系。
    */
-  private calcScaleHandlePositions(): any {
+  public calcControlPositions() {
+    //计算8个缩放手柄坐标位置
     let width = this.state.width;
     let height = this.state.height;
     let halfWidth = width / 2;
     let halfHeight = height / 2;
     let halfHandleSize = this.scaleHandleSize / 2;
-    let result = {
+    let position = {
       tl: new DOMPoint(-halfHandleSize, -halfHandleSize),
       t: new DOMPoint(halfWidth - halfHandleSize, -halfHandleSize),
       tr: new DOMPoint(width - halfHandleSize, -halfHandleSize),
@@ -118,25 +135,6 @@ export default class TransformControl extends ICEGroup {
       lb: new DOMPoint(-halfHandleSize, height - halfHandleSize),
       l: new DOMPoint(-halfHandleSize, halfHeight - halfHandleSize),
     };
-    return result;
-  }
-
-  /**
-   * 计算旋转手柄坐标位置，相对于父组件的本地坐标系。
-   * @returns
-   */
-  private calcRotateHandlePosition(): any {
-    let left = this.state.width / 2 - this.rotateHandleSize;
-    let top = -this.rotateHandleOffsetY;
-    let point = new DOMPoint(left, top);
-    return point;
-  }
-
-  /**
-   * 设置所有手柄在父组件中的位置，相对于父组件的本地坐标系。
-   */
-  public calcHandlePosition() {
-    let position = this.calcScaleHandlePositions();
     this.scaleHandleInstanceCache.forEach((handle) => {
       let point = position[handle.props.position];
       handle.setState({
@@ -145,7 +143,10 @@ export default class TransformControl extends ICEGroup {
       });
     });
 
-    let point = this.calcRotateHandlePosition();
+    //计算旋转手柄坐标位置。
+    let left = this.state.width / 2 - this.rotateHandleSize;
+    let top = -this.rotateHandleOffsetY;
+    let point = new DOMPoint(left, top);
     this.rotateHandleInstance.setState({
       left: point.x,
       top: point.y,
@@ -153,16 +154,18 @@ export default class TransformControl extends ICEGroup {
   }
 
   protected renderChildren(): void {
-    this.calcHandlePosition();
+    this.calcControlPositions();
     super.renderChildren();
   }
 
   /**
-   * 变换工具跟随目标组件移动。
+   *
+   * 跟随目标组件的变换矩阵。
    * 只有在 setTargetComponent 的时候，变换工具才会同步目标组件的变换矩阵。
    * 在后续的绘制过程中，会反向把变换工具的参数同步给目标组件，让变换工具来控制目标组件的形态。
+   * @param evt
    */
-  private syncTransform(): void {
+  private syncTransform(evt: any = null): void {
     let translateMatrix = this.targetComponent.state.absoluteTranslateMatrix;
     let box = this.targetComponent.getMinBoundingBox();
     let angle = this.targetComponent.state.transform.rotate;
@@ -177,16 +180,12 @@ export default class TransformControl extends ICEGroup {
     });
   }
 
-  private componentMoveHandler(evt): void {
-    this.syncTransform();
-  }
-
   public set targetComponent(component: ICEComponent) {
-    this._targetComponent ? this._targetComponent.off('after-move', this.componentMoveHandler, this) : '';
+    this._targetComponent ? this._targetComponent.off('after-move', this.syncTransform, this) : '';
     if (component) {
       this._targetComponent = component;
       this.syncTransform();
-      this._targetComponent.on('after-move', this.componentMoveHandler, this);
+      this._targetComponent.on('after-move', this.syncTransform, this);
     }
   }
 
