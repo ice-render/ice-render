@@ -100,6 +100,7 @@ class ICE {
   }
 
   removeFromRenderMap(component) {
+    this.renderMap.delete(component.props.id);
     component.ctx = null;
     component.root = null;
     //TODO:停止动画效果
