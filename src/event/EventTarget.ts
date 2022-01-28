@@ -99,6 +99,7 @@ abstract class EventTarget {
     return true;
   }
 
+  //FIXME:加上 scope 控制
   suspend(eventName: string, fn: Function) {
     if (eventName && !this.suspendedEventNames.includes(eventName)) {
       this.suspendedEventNames.push(eventName);
@@ -108,6 +109,7 @@ abstract class EventTarget {
     }
   }
 
+  //FIXME:加上 scope 控制
   resume(eventName: string, fn: Function) {
     if (eventName && this.suspendedEventNames.includes(eventName)) {
       this.suspendedEventNames.splice(this.suspendedEventNames.findIndex(eventName), 1);

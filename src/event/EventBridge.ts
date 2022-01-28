@@ -21,28 +21,26 @@ class EventBridge {
     //FIXME:这里需要增加节流机制，防止触发事件的频率过高导致 CPU 飙升。
     mouseEvents.forEach((evtMapping) => {
       this.ice.evtBus.on(evtMapping[1], (evt: ICEEvent) => {
-        const el = this.findTargetElement(evt.clientX, evt.clientY);
-        if (el) {
-          evt.target = el;
-          el.trigger(evtMapping[0], evt);
+        const component = this.findTargetComponent(evt.clientX, evt.clientY);
+        if (component) {
+          evt.target = component;
+          component.trigger(evtMapping[0], evt);
         }
         this.ice.evtBus.trigger(evtMapping[0], evt); //this.ice.evtBus 本身一定会触发一次事件。
       });
     });
 
     this.ice.evtBus.on('mousedown', (evt: ICEEvent) => {
-      //TODO:选中列表中的原有对象取消选中状态?
-
-      //重新记录当前选中的对象列表
-      let el = evt.target;
-      console.log(el);
-      if (!el.state.interactive) {
+      //FIXME:选中列表中的原有对象取消选中状态?
+      let component = evt.target;
+      console.log(component);
+      if (!component.state.interactive) {
         return;
       }
       if (evt.ctrlKey) {
-        this.ice.selectionList.push(el);
+        this.ice.selectionList.push(component);
       } else {
-        this.ice.selectionList = [el];
+        this.ice.selectionList = [component];
       }
       this.ice.evtBus.trigger('select', evt);
     });
@@ -58,7 +56,7 @@ class EventBridge {
    * @param clientY
    * @returns
    */
-  private findTargetElement(clientX, clientY) {
+  private findTargetComponent(clientX, clientY) {
     let x = clientX - this.ice.canvasBoundingClientRect.left;
     let y = clientY - this.ice.canvasBoundingClientRect.top;
     let components = Array.from(this.ice.renderMap.values());
