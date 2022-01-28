@@ -31,6 +31,7 @@
 - TODO:实现连接线 &Visio 形态的连接线
 - TODO:优化编译和测试环境参数配置
 - TODO:ICE 全局单例重构
+- TODO:补用例，跑测试。
 
 ## Shape
 矩形 x/y/width/height
