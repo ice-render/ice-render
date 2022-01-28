@@ -1,10 +1,12 @@
 import ICEGroup from '../graphic/container/ICEGroup';
+import ICEComponent from '../graphic/ICEComponent';
 import RotateControl from './RotateControl';
 import ScaleControl from './ScaleControl';
 
 /**
  * @class TransformControl 变换操作手柄
  * - TransformControl 不能单独存在，只能附属于某个组件之上。
+ * - TransformControl 只跟随目标对象的 width/height/rotate 这3个参数，其它所有参数都不跟随。
  * - TransformControl 总是直接画在 canvas 上，不是任何组件的孩子。
  * - TransformControl 是全局单例的，在任意时刻，不可能同时出现多个 TransformControl 的实例。
  *
@@ -12,11 +14,12 @@ import ScaleControl from './ScaleControl';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default class TransformControl extends ICEGroup {
+  private _targetComponent;
   private scaleHandleInstanceCache = [];
   private rotateHandleInstance;
   private scaleHandleSize: number = 15;
   private rotateHandleSize: number = 8;
-  private rotateHandleOffsetY: number = 60; //offset in y axis.
+  private rotateHandleOffsetY: number = 60;
   private scaleHandleConfig: Array<any> = [
     {
       position: 'tl',
@@ -45,9 +48,8 @@ export default class TransformControl extends ICEGroup {
   ];
 
   constructor(props) {
-    super(props);
+    super({ ...props, draggable: false }); //变换控制器自身不可拖拽、不可变换
     this.initTransformationHandles();
-    // this.calcHandlePosition();
   }
 
   /**
@@ -152,5 +154,43 @@ export default class TransformControl extends ICEGroup {
   protected renderChildren(): void {
     this.calcHandlePosition();
     super.renderChildren();
+  }
+
+  /**
+   * 变换工具跟随目标组件移动。
+   * 只有在 setTargetComponent 的时候，变换工具才会同步目标组件的变换矩阵。
+   * 在后续的绘制过程中，会反向把变换工具的参数同步给目标组件，让变换工具来控制目标组件的形态。
+   */
+  private syncTransform(): void {
+    let translateMatrix = this.targetComponent.state.absoluteTranslateMatrix;
+    let box = this.targetComponent.getMinBoundingBox();
+    let angle = this.targetComponent.state.transform.rotate;
+    this.setState({
+      // left: translateMatrix.e,
+      // top: translateMatrix.f,
+      width: box.width,
+      height: box.height,
+      transform: {
+        translate: [translateMatrix.e, translateMatrix.f],
+        rotate: angle,
+      },
+    });
+  }
+
+  private componentMoveHandler(evt): void {
+    // this.syncTransform();
+  }
+
+  public set targetComponent(component: ICEComponent) {
+    this._targetComponent ? this._targetComponent.off('after-move', this.componentMoveHandler, this) : '';
+    if (component) {
+      this._targetComponent = component;
+      this.syncTransform();
+      this._targetComponent.on('after-move', this.componentMoveHandler, this);
+    }
+  }
+
+  public get targetComponent(): ICEComponent {
+    return this._targetComponent;
   }
 }

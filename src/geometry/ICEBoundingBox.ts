@@ -1,3 +1,5 @@
+import GeometryUtil from './GeometryUtil';
+
 /**
  * @class ICEBoundingBox 用4点法描述的边界盒子。
  *
@@ -158,11 +160,11 @@ class ICEBoundingBox {
   }
 
   public get width(): number {
-    return Math.abs(this.br.x - this.tl.x);
+    return GeometryUtil.getLength(this.br.x, this.br.y, this.bl.x, this.bl.y);
   }
 
   public get height(): number {
-    return Math.abs(this.br.y - this.tl.y);
+    return GeometryUtil.getLength(this.br.x, this.br.y, this.tr.x, this.tr.y);
   }
 
   public get left(): number {

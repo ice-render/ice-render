@@ -1,4 +1,8 @@
 // import ICEStar from '../src/graphic/shape/ICEStar';
+import ICERect from '../src/graphic/shape/ICERect';
+// import ICEGroup from '../src/graphic/container/ICEGroup';
+// import ICECircle from '../src/graphic/shape/ICECircle';
+// import ICEIsogon from '../src/graphic/shape/ICEIsogon';
 // import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
 import TransformControl from '../src/transformation/TransformControl';
@@ -60,12 +64,18 @@ let ice = new ICE().init('canvas-1');
 // });
 // ice.addToRenderMap(img);
 
-// //正三角形
+//正三角形
 // let isogon3 = new ICEIsogon({
-//   left: 300,
-//   top: 0,
+//   left: 600,
+//   top: 100,
 //   radius: 50,
 //   edges: 3,
+//   transform: {
+//     // translate: [10, -10],
+//     scale: [1.5, 1.5],
+//     // skew: [50, 0],
+//     rotate: 45,
+//   },
 // });
 // ice.addToRenderMap(isogon3);
 
@@ -226,19 +236,19 @@ let ice = new ICE().init('canvas-1');
 // group1.addChild(rect5);
 
 // let rect6 = new ICERect({
-//   left: 20,
-//   top: 20,
-//   with: 10,
-//   height: 10,
+//   left: 300,
+//   top: 100,
+//   width: 200,
+//   height: 200,
 // });
-// group1.addChild(rect6);
+// ice.addToRenderMap(rect6);
 
 // let circle2 = new ICECircle({
-//   left: 30,
-//   top: 30,
-//   radius: 5,
+//   left: 200,
+//   top: 10,
+//   radius: 10,
 // });
-// group1.addChild(circle2);
+// ice.addToRenderMap(circle2);
 
 // let group2 = new ICEGroup({
 //   left: 20,
@@ -272,18 +282,23 @@ let ice = new ICE().init('canvas-1');
 // });
 // group2.addChild(circle4);
 
-// let rect2 = new ICERect({
-//   left: 10,
-//   top: 10,
-//   width: 50,
-//   height: 50,
-//   style: {
-//     strokeStyle: '#8b0000',
-//     fillStyle: '#008000',
-//     lineWidth: 3,
-//   },
-// });
-// ice.addToRenderMap(rect2);
+let rect2 = new ICERect({
+  left: 200,
+  top: 200,
+  width: 100,
+  height: 100,
+  style: {
+    strokeStyle: '#e01414',
+    fillStyle: '#46ca46',
+    lineWidth: 3,
+  },
+  transform: {
+    // translate: [10, -10],
+    // scale: [1, 1],
+    rotate: 45,
+  },
+});
+ice.addToRenderMap(rect2);
 
 // let circle3 = new ICECircle({
 //   left: 0,
@@ -293,7 +308,7 @@ let ice = new ICE().init('canvas-1');
 // ice.addToRenderMap(circle3);
 
 let th = new TransformControl({
-  left: 100,
+  left: 400,
   top: 100,
   width: 100,
   height: 100,

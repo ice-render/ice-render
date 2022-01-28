@@ -44,6 +44,7 @@ class EventBridge {
       } else {
         this.ice.selectionList = [el];
       }
+      this.ice.evtBus.trigger('select', evt);
     });
     return this;
   }
