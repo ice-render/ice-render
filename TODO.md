@@ -23,11 +23,11 @@
 - TODO:实现拖拽式 transform【已解决】
 - TODO:解决事件回调函数的 scope 问题【已解决】
 - TODO:实现 N 层重叠形式的组件【已解决】
-- TODO:TransformControl 挂到组件上，实现组件的变换。【已解决】
-- TODO:重构拖拽的实现方式，拖拽过程也通过 TransformControl 实现，组件自身实际上不能拖动。<------------
-- TODO:重构 TransformControl 与组件之间的 zIndex 关系。
-- TODO:TransformControl 的外观可配置，可以选择不展示缩放手柄、旋转手柄。
-- TODO:TransformControl 可以隐藏起来，而不是一直放在画布上。
+- TODO:TransformPanel 挂到组件上，实现组件的变换。【已解决】
+- TODO:重构拖拽的实现方式，拖拽过程也通过 TransformPanel 实现，组件自身实际上不能拖动。<------------
+- TODO:重构 TransformPanel 与组件之间的 zIndex 关系。
+- TODO:TransformPanel 的外观可配置，可以选择不展示缩放手柄、旋转手柄。
+- TODO:TransformPanel 可以隐藏起来，而不是一直放在画布上。
 - FIXME:ICEIsogon 在绘制三角形时计算方式不正确。（先跳过，后面补）
 - TODO:围绕中心点变换、围绕左侧、右侧、上边、下边、指定任意坐标点变换。（先跳过，后面补）
 - TODO:变换手柄支持对象翻转（先跳过，后面补）
