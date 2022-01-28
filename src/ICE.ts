@@ -2,7 +2,7 @@ import isString from 'lodash/isString';
 import pkg from '../package.json';
 import AnimationManager from './animation/AnimationManager';
 import FrameManager from './animation/FrameManager';
-import DragAndDropManager from './drag-drop/DragAndDropManager';
+import DDManager from './drag-drop/DDManager';
 import EventBridge from './event/EventBridge';
 import EventBus from './event/EventBus';
 import MouseEventInterceptor from './event/MouseEventInterceptor.js';
@@ -36,7 +36,7 @@ class ICE {
 
   private animationManager: AnimationManager;
   private eventBridge: EventBridge;
-  private ddManager: DragAndDropManager;
+  private ddManager: DDManager;
   private transformManager: TransformManager;
   private renderer: IRenderer;
 
@@ -79,7 +79,7 @@ class ICE {
     MouseEventInterceptor.start();
     this.animationManager = new AnimationManager(this).start();
     this.eventBridge = new EventBridge(this).start();
-    this.ddManager = new DragAndDropManager(this).start();
+    this.ddManager = new DDManager(this).start();
     this.transformManager = new TransformManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
 

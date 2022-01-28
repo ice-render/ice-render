@@ -1,5 +1,5 @@
 export * from './animation/AnimationManager';
-export * from './drag-drop/DragAndDropManager';
+export * from './drag-drop/DDManager';
 export * from './event/EventBridge';
 export * from './event/EventBus';
 export * from './geometry/ICEBoundingBox';

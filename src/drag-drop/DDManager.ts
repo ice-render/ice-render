@@ -3,10 +3,10 @@ import ICE from '../ICE';
 
 /**
  * FIXME:可以同时拖动多个对象
- * @class DragAndDropManager
+ * @class DDManager
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-class DragAndDropManager {
+class DDManager {
   private ice: ICE;
 
   constructor(ice: ICE) {
@@ -56,4 +56,4 @@ class DragAndDropManager {
   stop() {}
 }
 
-export default DragAndDropManager;
+export default DDManager;
