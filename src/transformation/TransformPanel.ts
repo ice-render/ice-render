@@ -6,10 +6,9 @@ import ScaleControl from './ScaleControl';
 /**
  * @class TransformPanel 变换操作工具集成面板。
  *
- * - TransformPanel 不能单独存在，只能附属于某个组件之上。
  * - TransformPanel 只跟随目标对象的 width/height/rotate 这3个参数，其它所有参数都不跟随。
  * - TransformPanel 总是直接画在 canvas 上，不是任何组件的孩子。
- * - TransformPanel 是全局单例的，在任意时刻，不可能同时出现多个 TransformPanel 的实例。
+ * - TransformPanel 是全局单例的，在任意时刻，不可能同时出现多个 TransformPanel 的实例，因为在用户交互状态下，同时出现多个 TransformPanel 没有意义。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
