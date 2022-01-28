@@ -1,3 +1,4 @@
+import ICEEvent from '../event/ICEEvent';
 import ICECircle from '../graphic/shape/ICECircle';
 
 /**
@@ -31,10 +32,13 @@ export default class RotateControl extends ICECircle {
     let rotateAngle = (sign * Math.acos(cos) * 180) / Math.PI + 90; //加上90度的旋转手柄初始角度
 
     //host 旋转角与手柄设置为相同数值
-    this.props.host.setState({
+    const param = {
       transform: {
         rotate: rotateAngle,
       },
-    });
+    };
+    this.props.host.trigger('before-rotate', new ICEEvent(param));
+    this.props.host.setState(param);
+    this.props.host.trigger('after-rotate', new ICEEvent(param));
   }
 }
