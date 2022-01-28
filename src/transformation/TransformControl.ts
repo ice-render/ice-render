@@ -144,9 +144,17 @@ export default class TransformControl extends ICEGroup {
   }
 
   private scaleEvtHandler(evt: any) {
-    console.log('after-scale...');
     const { width, height } = this.state;
-    console.log(width, height);
+    //FIXME:这里的计算方法看起来有问题，skew 参数也可能导致 width/height 发生变化，这里看起来还是需要进行矩阵变换。
+    const targetWidth = this.targetComponent.props.width;
+    const targetHeight = this.targetComponent.props.height;
+    const scaleX = width / targetWidth;
+    const scaleY = height / targetHeight;
+    this.targetComponent.setState({
+      transform: {
+        scale: [scaleX, scaleY],
+      },
+    });
   }
 
   private rotateEvtHandler(evt: any) {
@@ -184,8 +192,8 @@ export default class TransformControl extends ICEGroup {
     this._targetComponent ? this._targetComponent.off('after-move', this.syncTransform, this) : '';
     if (component) {
       this._targetComponent = component;
-      this.syncTransform();
       this._targetComponent.on('after-move', this.syncTransform, this);
+      this.syncTransform(); //先手动调用一次
     }
   }
 
