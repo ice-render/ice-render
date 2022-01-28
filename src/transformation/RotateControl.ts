@@ -13,31 +13,28 @@ import ICECircle from '../graphic/shape/ICECircle';
 export default class RotateControl extends ICECircle {
   constructor(props) {
     super(props);
-    this.handleEvents();
+    this.on('after-move', this.rotateEvtHandler, this);
   }
 
-  private handleEvents() {
-    let that = this;
-    that.on('after-move', (evt) => {
-      let hostState = that.props.host.state;
-      let hostOrigin = hostState.origin;
-      let matrix = hostState.absoluteTranslateMatrix;
-      let hostCenterPoint = hostOrigin.matrixTransform(matrix);
+  private rotateEvtHandler(evt) {
+    let hostState = this.props.host.state;
+    let hostOrigin = hostState.origin;
+    let matrix = hostState.absoluteTranslateMatrix;
+    let hostCenterPoint = hostOrigin.matrixTransform(matrix);
 
-      //计算手柄旋转角
-      let offsetX = evt.clientX - hostCenterPoint.x;
-      let offsetY = evt.clientY - hostCenterPoint.y;
-      let cos = offsetX / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-      let sin = offsetY / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-      let sign = sin < 0 ? -1 : 1;
-      let rotateAngle = (sign * Math.acos(cos) * 180) / Math.PI + 90; //加上90度的旋转手柄初始角度
+    //计算手柄旋转角
+    let offsetX = evt.clientX - hostCenterPoint.x;
+    let offsetY = evt.clientY - hostCenterPoint.y;
+    let cos = offsetX / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+    let sin = offsetY / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+    let sign = sin < 0 ? -1 : 1;
+    let rotateAngle = (sign * Math.acos(cos) * 180) / Math.PI + 90; //加上90度的旋转手柄初始角度
 
-      //host 旋转角与手柄设置为相同数值
-      that.props.host.setState({
-        transform: {
-          rotate: rotateAngle,
-        },
-      });
+    //host 旋转角与手柄设置为相同数值
+    this.props.host.setState({
+      transform: {
+        rotate: rotateAngle,
+      },
     });
   }
 }

@@ -1,9 +1,5 @@
 // import ICEStar from '../src/graphic/shape/ICEStar';
 import ICERect from '../src/graphic/shape/ICERect';
-// import ICEGroup from '../src/graphic/container/ICEGroup';
-// import ICECircle from '../src/graphic/shape/ICECircle';
-// import ICEIsogon from '../src/graphic/shape/ICEIsogon';
-// import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
 
 let ice = new ICE().init('canvas-1');

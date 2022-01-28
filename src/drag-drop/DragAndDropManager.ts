@@ -19,20 +19,20 @@ class DragAndDropManager {
   }
 
   private mouseMoveHandler(evt: ICEEvent) {
-    this.ice.selectionList.forEach((el) => {
+    this.ice.selectionList.forEach((component) => {
       let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
       let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
 
       //FIXME:为什么直接放在 canvas 上的组件不需要乘以逆矩阵？能否让处理方式保持一致，方便理解？
-      if (el.parentNode) {
+      if (component.parentNode) {
         let point = new DOMPoint(tx, ty);
-        let matrix = el.state.absoluteLinearMatrix;
+        let matrix = component.state.absoluteLinearMatrix;
         matrix = matrix.inverse();
         point = point.matrixTransform(matrix);
         tx = point.x;
         ty = point.y;
       }
-      el.movePosition(tx, ty, evt);
+      component.movePosition(tx, ty, evt);
       return true;
     });
   }
