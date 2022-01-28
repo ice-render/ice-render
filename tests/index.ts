@@ -5,7 +5,6 @@ import ICERect from '../src/graphic/shape/ICERect';
 // import ICEIsogon from '../src/graphic/shape/ICEIsogon';
 // import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
-import TransformControl from '../src/transformation/TransformControl';
 
 let ice = new ICE().init('canvas-1');
 
@@ -307,15 +306,15 @@ ice.addToRenderMap(rect2);
 // });
 // ice.addToRenderMap(circle3);
 
-let th = new TransformControl({
-  left: 400,
-  top: 100,
-  width: 100,
-  height: 100,
-  style: {
-    strokeStyle: '#8b0000',
-    fillStyle: '#99FFFF',
-    lineWidth: 1,
-  },
-});
-ice.addToRenderMap(th);
+// let th = new TransformControl({
+//   left: 400,
+//   top: 100,
+//   width: 100,
+//   height: 100,
+//   style: {
+//     strokeStyle: '#8b0000',
+//     fillStyle: '#99FFFF',
+//     lineWidth: 1,
+//   },
+// });
+// ice.addToRenderMap(th);

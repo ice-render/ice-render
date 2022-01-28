@@ -1,5 +1,4 @@
 import ICEGroup from '../graphic/container/ICEGroup';
-import ICEComponent from '../graphic/ICEComponent';
 import RotateControl from './RotateControl';
 import ScaleControl from './ScaleControl';
 
@@ -14,10 +13,10 @@ import ScaleControl from './ScaleControl';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default class TransformControl extends ICEGroup {
-  private _targetComponent;
+  // private _targetComponent;
   private scaleHandleInstanceCache = [];
   private rotateHandleInstance;
-  private scaleHandleSize: number = 15;
+  private scaleHandleSize: number = 16;
   private rotateHandleSize: number = 8;
   private rotateHandleOffsetY: number = 60;
   private scaleHandleConfig: Array<any> = [
@@ -48,7 +47,7 @@ export default class TransformControl extends ICEGroup {
   ];
 
   constructor(props) {
-    super({ ...props, draggable: false }); //变换控制器自身不可拖拽、不可变换
+    super({ ...props, draggable: false }); //FIXME:变换控制器自身不可拖拽、不可变换???
     this.initTransformationHandles();
   }
 
@@ -126,7 +125,6 @@ export default class TransformControl extends ICEGroup {
   private calcRotateHandlePosition(): any {
     let left = this.state.width / 2 - this.rotateHandleSize;
     let top = -this.rotateHandleOffsetY;
-
     let point = new DOMPoint(left, top);
     return point;
   }
@@ -156,41 +154,40 @@ export default class TransformControl extends ICEGroup {
     super.renderChildren();
   }
 
-  /**
-   * 变换工具跟随目标组件移动。
-   * 只有在 setTargetComponent 的时候，变换工具才会同步目标组件的变换矩阵。
-   * 在后续的绘制过程中，会反向把变换工具的参数同步给目标组件，让变换工具来控制目标组件的形态。
-   */
-  private syncTransform(): void {
-    let translateMatrix = this.targetComponent.state.absoluteTranslateMatrix;
-    let box = this.targetComponent.getMinBoundingBox();
-    let angle = this.targetComponent.state.transform.rotate;
-    this.setState({
-      // left: translateMatrix.e,
-      // top: translateMatrix.f,
-      width: box.width,
-      height: box.height,
-      transform: {
-        translate: [translateMatrix.e, translateMatrix.f],
-        rotate: angle,
-      },
-    });
-  }
+  // /**
+  //  * 变换工具跟随目标组件移动。
+  //  * 只有在 setTargetComponent 的时候，变换工具才会同步目标组件的变换矩阵。
+  //  * 在后续的绘制过程中，会反向把变换工具的参数同步给目标组件，让变换工具来控制目标组件的形态。
+  //  */
+  // private syncTransform(): void {
+  //   let translateMatrix = this.targetComponent.state.absoluteTranslateMatrix;
+  //   let box = this.targetComponent.getMinBoundingBox();
+  //   let angle = this.targetComponent.state.transform.rotate;
+  //   this.setState({
+  //     left: translateMatrix.e,
+  //     top: translateMatrix.f,
+  //     width: box.width,
+  //     height: box.height,
+  //     transform: {
+  //       rotate: angle,
+  //     },
+  //   });
+  // }
 
-  private componentMoveHandler(evt): void {
-    // this.syncTransform();
-  }
+  // private componentMoveHandler(evt): void {
+  //   // this.syncTransform();
+  // }
 
-  public set targetComponent(component: ICEComponent) {
-    this._targetComponent ? this._targetComponent.off('after-move', this.componentMoveHandler, this) : '';
-    if (component) {
-      this._targetComponent = component;
-      this.syncTransform();
-      this._targetComponent.on('after-move', this.componentMoveHandler, this);
-    }
-  }
+  // public set targetComponent(component: ICEComponent) {
+  //   this._targetComponent ? this._targetComponent.off('after-move', this.componentMoveHandler, this) : '';
+  //   if (component) {
+  //     this._targetComponent = component;
+  //     this.syncTransform();
+  //     this._targetComponent.on('after-move', this.componentMoveHandler, this);
+  //   }
+  // }
 
-  public get targetComponent(): ICEComponent {
-    return this._targetComponent;
-  }
+  // public get targetComponent(): ICEComponent {
+  //   return this._targetComponent;
+  // }
 }
