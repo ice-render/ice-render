@@ -21,8 +21,8 @@ class CanvasRenderer implements IRenderer {
       //FIXME:fix this when using increamental rendering
       //FIXME:动画有闪烁
       this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
-      if (this.ice.renderMap && this.ice.renderMap.size) {
-        this.ice.renderMap.forEach((component: ICEComponent) => {
+      if (this.ice.displayMap && this.ice.displayMap.size) {
+        this.ice.displayMap.forEach((component: ICEComponent) => {
           !component.isRendering && component.render();
         });
       }

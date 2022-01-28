@@ -30,7 +30,7 @@ let ice = new ICE().init('canvas-1');
 // rect.on('click', (evt) => {
 //   console.log('rect');
 // });
-// ice.addToRenderMap(rect);
+// ice.addToDisplayMap(rect);
 
 // let line = new ICELine({
 //   left: 0,
@@ -43,7 +43,7 @@ let ice = new ICE().init('canvas-1');
 //     lineWidth: 5,
 //   },
 // });
-// ice.addToRenderMap(line);
+// ice.addToDisplayMap(line);
 
 // let img = new ICEImage({
 //   left: 10,
@@ -57,7 +57,7 @@ let ice = new ICE().init('canvas-1');
 //   //   scale: [1, 1],
 //   // },
 // });
-// ice.addToRenderMap(img);
+// ice.addToDisplayMap(img);
 
 //正三角形
 // let isogon3 = new ICEIsogon({
@@ -72,7 +72,7 @@ let ice = new ICE().init('canvas-1');
 //     rotate: 45,
 //   },
 // });
-// ice.addToRenderMap(isogon3);
+// ice.addToDisplayMap(isogon3);
 
 // //正五边形
 // let isogon5 = new ICEIsogon({
@@ -81,7 +81,7 @@ let ice = new ICE().init('canvas-1');
 //   radius: 50,
 //   edges: 5,
 // });
-// ice.addToRenderMap(isogon5);
+// ice.addToDisplayMap(isogon5);
 
 // // 正十五边形
 // let isogon15 = new ICEIsogon({
@@ -95,7 +95,7 @@ let ice = new ICE().init('canvas-1');
 //     lineWidth: 10,
 //   },
 // });
-// ice.addToRenderMap(isogon15);
+// ice.addToDisplayMap(isogon15);
 
 // //正N边形
 // let star1 = new ICEStar({
@@ -112,7 +112,7 @@ let ice = new ICE().init('canvas-1');
 // });
 // star1.on('click', (evt) => {
 // });
-// ice.addToRenderMap(star1);
+// ice.addToDisplayMap(star1);
 
 // let text = new ICEText({
 //   left: 0,
@@ -125,14 +125,14 @@ let ice = new ICE().init('canvas-1');
 //     fillStyle: '#00ff00',
 //   },
 // });
-// ice.addToRenderMap(text);
+// ice.addToDisplayMap(text);
 
 // let p1 = new DOMPoint(0, 100);
 // let p2 = new DOMPoint(150, 100);
 // let p3 = new DOMPoint(150, 200);
 // let p4 = new DOMPoint(0, 200);
 // let path = new ICEDotPath({ dots: [p1, p2, p3, p4] });
-// ice.addToRenderMap(path);
+// ice.addToDisplayMap(path);
 
 // let g = new ICEGroup({
 //   left: 100,
@@ -151,7 +151,7 @@ let ice = new ICE().init('canvas-1');
 //     rotate: 45,
 //   },
 // });
-// ice.addToRenderMap(g);
+// ice.addToDisplayMap(g);
 
 // let group1 = new ICEGroup({
 //   left: 10,
@@ -213,7 +213,7 @@ let ice = new ICE().init('canvas-1');
 //     rotate: 45,
 //   },
 // });
-// ice.addToRenderMap(group1);
+// ice.addToDisplayMap(group1);
 
 // let circle1 = new ICECircle({
 //   left: 0,
@@ -236,14 +236,14 @@ let ice = new ICE().init('canvas-1');
 //   width: 200,
 //   height: 200,
 // });
-// ice.addToRenderMap(rect6);
+// ice.addToDisplayMap(rect6);
 
 // let circle2 = new ICECircle({
 //   left: 200,
 //   top: 10,
 //   radius: 10,
 // });
-// ice.addToRenderMap(circle2);
+// ice.addToDisplayMap(circle2);
 
 // let group2 = new ICEGroup({
 //   left: 20,
@@ -261,7 +261,7 @@ let ice = new ICE().init('canvas-1');
 //   //   rotate: 10,
 //   // },
 // });
-// ice.addToRenderMap(group2);
+// ice.addToDisplayMap(group2);
 
 // let circle3 = new ICECircle({
 //   left: 0,
@@ -293,14 +293,14 @@ let rect2 = new ICERect({
     rotate: 45,
   },
 });
-ice.addToRenderMap(rect2);
+ice.addToDisplayMap(rect2);
 
 // let circle3 = new ICECircle({
 //   left: 0,
 //   top: 0,
 //   radius: 10,
 // });
-// ice.addToRenderMap(circle3);
+// ice.addToDisplayMap(circle3);
 
 // let th = new TransformControl({
 //   left: 400,
@@ -313,4 +313,4 @@ ice.addToRenderMap(rect2);
 //     lineWidth: 1,
 //   },
 // });
-// ice.addToRenderMap(th);
+// ice.addToDisplayMap(th);

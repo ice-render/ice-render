@@ -54,21 +54,6 @@ export default class TransformControl extends ICEGroup {
     this.on('after-rotate', this.rotateEvtHandler, this);
   }
 
-  private scaleEvtHandler(evt: any) {
-    console.log('after-scale...');
-    const { width, height } = this.state;
-    console.log(width, height);
-  }
-
-  private rotateEvtHandler(evt: any) {
-    const { rotate } = this.state.transform;
-    this.targetComponent.setState({
-      transform: {
-        rotate: rotate,
-      },
-    });
-  }
-
   /**
    * 添加缩放和旋转变换手柄，初始化时添加在内部的[0,0]位置，此方法只创建对象实例，不执行渲染操作。
    * TODO:添加斜切手柄？
@@ -156,6 +141,21 @@ export default class TransformControl extends ICEGroup {
   protected renderChildren(): void {
     this.calcControlPositions();
     super.renderChildren();
+  }
+
+  private scaleEvtHandler(evt: any) {
+    console.log('after-scale...');
+    const { width, height } = this.state;
+    console.log(width, height);
+  }
+
+  private rotateEvtHandler(evt: any) {
+    const { rotate } = this.state.transform;
+    this.targetComponent.setState({
+      transform: {
+        rotate: rotate,
+      },
+    });
   }
 
   /**
