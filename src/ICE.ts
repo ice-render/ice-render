@@ -22,7 +22,7 @@ FrameManager.start();
 class ICE {
   public version = pkg.version;
   //所有需要在 canvas 中渲染的对象都在此结构中 TODO:为了支持 zIndex 特性，需要改成数组，有堆叠顺序
-  public renderMap = new Map();
+  public displayMap = new Map();
   public evtBus: EventBus;
   //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
   public root;
@@ -89,18 +89,18 @@ class ICE {
   //FIXME:实现销毁 ICE 实例的过程
   destory() {}
 
-  addToRenderMap(component) {
+  addToDisplayMap(component) {
     component.ctx = this.ctx;
     component.root = this.root;
 
-    this.renderMap.set(component.props.id, component);
+    this.displayMap.set(component.props.id, component);
     if (Object.keys(component.props.animations).length) {
       this.animationManager.add(component);
     }
   }
 
-  removeFromRenderMap(component) {
-    this.renderMap.delete(component.props.id);
+  rmFromDisplayMap(component) {
+    this.displayMap.delete(component.props.id);
     component.ctx = null;
     component.root = null;
     //TODO:停止动画效果

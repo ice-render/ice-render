@@ -29,7 +29,7 @@ class TransformManager {
 
     //在同一时刻，不可能同时出现多个 TransformControl 实例，这里默认构造一个，放在距离可见区域很远的位置？？？
     //FIXME:需要测试是否会影响 toDataURL 的输出结果。
-    this.ice.addToRenderMap(this.transformControl);
+    this.ice.addToDisplayMap(this.transformControl);
   }
 
   start() {

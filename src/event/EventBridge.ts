@@ -59,7 +59,7 @@ class EventBridge {
   private findTargetComponent(clientX, clientY) {
     let x = clientX - this.ice.canvasBoundingClientRect.left;
     let y = clientY - this.ice.canvasBoundingClientRect.top;
-    let components = Array.from(this.ice.renderMap.values());
+    let components = Array.from(this.ice.displayMap.values());
     for (let i = 0; i < components.length; i++) {
       let component: any = components[i];
       this.traverse(x, y, component);
