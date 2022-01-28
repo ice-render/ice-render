@@ -33,6 +33,7 @@ export default class ScaleControl extends ICERect {
     let movementX = evt.movementX / window.devicePixelRatio;
     let movementY = evt.movementY / window.devicePixelRatio;
     let hostState = this.props.host.state;
+    console.log(hostState);
     let newLeft = hostState.left;
     let newTop = hostState.top;
     let newWidth = hostState.width;

@@ -1,6 +1,7 @@
 import get from 'lodash/get';
 import merge from 'lodash/merge';
 import EventTarget from '../event/EventTarget';
+import ICEEvent from '../event/ICEEvent';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import { ICE_CONSTS } from '../ICE_CONSTS';
 
@@ -67,6 +68,7 @@ abstract class ICEComponent extends EventTarget {
     origin: new DOMPoint(0, 0),
     zIndex: ICEComponent.instanceCounter++,
     draggable: true,
+    selectable: true,
     interactive: true,
   };
 
@@ -99,18 +101,22 @@ abstract class ICEComponent extends EventTarget {
    * 相对于父组件的坐标系和原点。
    * @param left
    * @param top
+   * @param evt
    */
-  public setPosition(left: number, top: number): void {
+  public setPosition(left: number, top: number, evt: any = new ICEEvent()): void {
+    this.trigger('before-move', { ...evt, left, top });
     this.setState({ left, top });
+    this.trigger('after-move', { ...evt, left, top });
   }
 
   /**
    * 相对于父组件的坐标系和原点。
    * @param tx
    * @param ty
+   * @param evt
    */
-  public movePosition(tx: number, ty: number): void {
-    this.setPosition(this.state.left + tx, this.state.top + ty);
+  public movePosition(tx: number, ty: number, evt: any = new ICEEvent()): void {
+    this.setPosition(this.state.left + tx, this.state.top + ty, { ...evt, tx, ty });
   }
 
   /**

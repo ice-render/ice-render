@@ -1,9 +1,34 @@
+import root from '../nodejs-support/root.js';
 import ICEEvent from './ICEEvent';
 
 /**
  * Canvas 内部的对象默认没有事件机制，模仿 W3C 定义的 EventTaregt 接口，为 Canvas 内部的组件添加事件机制。
  * 部分 API 名称模仿 jQuery ，方便使用者调用。
  * TODO:需要完整模拟 W3C 和 jQuery 提供的事件接口，在 API 名称和调用逻辑上保持完全一致。
+ *
+ * listeners 的结构：
+ * {
+ *    "click":[
+ *        {
+ *          callback:fn1,
+ *          scope:window
+ *        },
+ *        {
+ *          callback:fn2,
+ *          scope:component-1
+ *        }
+ *     ],
+ *    "mousemove":[
+ *        {
+ *          callback:fn1,
+ *          scope:window
+ *        },
+ *        {
+ *          callback:fn2,
+ *          scope:component-1
+ *        }
+ *     ]
+ * }
  *
  * @see https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
  * @author 大漠穷秋<damoqiongqiu@126.com>
@@ -14,20 +39,24 @@ abstract class EventTarget {
 
   constructor() {}
 
-  on(eventName: string, fn: Function) {
+  on(eventName: string, fn: Function, scope: any = root) {
     if (!this.listeners[eventName]) {
       this.listeners[eventName] = [];
     }
-    this.off(eventName, fn);
-    this.listeners[eventName].push(fn);
+    this.off(eventName, fn, scope);
+    this.listeners[eventName].push({ callback: fn, scope: scope });
   }
 
-  off(eventName: string, fn: Function) {
-    if (!this.listeners[eventName]) return false;
-    if (!fn) this.listeners[eventName] = []; //clear all callbacks.
-    if (!this.listeners[eventName].includes(fn)) return false;
-    this.listeners[eventName].splice(this.listeners[eventName].indexOf(fn), 1);
-    return true;
+  off(eventName: string, fn: Function, scope: any = root) {
+    let arr = this.listeners[eventName];
+    if (!arr) return;
+    for (let i = 0; i < arr.length; i++) {
+      let item = arr[i];
+      if (item.callback === fn && item.scope === scope) {
+        this.listeners[eventName].splice(i, 1);
+        return;
+      }
+    }
   }
 
   /**
@@ -35,11 +64,15 @@ abstract class EventTarget {
    * @param eventName
    * @param fn
    */
-  once(eventName: string, fn: Function) {
-    this.on(eventName, (evt: ICEEvent) => {
-      this.off(eventName, fn);
-      fn(evt);
-    });
+  once(eventName: string, fn: Function, scope: any = root) {
+    this.on(
+      eventName,
+      (evt: ICEEvent, scope) => {
+        this.off(eventName, fn, scope);
+        fn.call(scope, evt);
+      },
+      scope
+    );
   }
 
   trigger(eventName: string, originalEvent: any = null) {
@@ -58,8 +91,10 @@ abstract class EventTarget {
       });
     }
 
-    this.listeners[eventName].forEach((cb: Function) => {
-      cb(iceEvent);
+    this.listeners[eventName].forEach((item: any) => {
+      let fn = item.callback;
+      let scope = item.scope;
+      fn.call(scope, iceEvent);
     });
     return true;
   }
