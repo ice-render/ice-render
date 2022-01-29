@@ -40,10 +40,11 @@ class TransformManager {
     let component = evt.target;
     console.log(component);
     if (!component.state.interactive) {
+      //TODO:隐藏 TransformPanel
       return;
     }
 
-    //NOTE: 只有 TransformPanel 和它内部的子组件才具备跟随鼠标移动的功能，其它组件都需要借助于 TransformPanel 进行移动和变换。
+    //只有 TransformPanel 和它内部的变换手柄才具备跟随鼠标移动的功能，其它组件都需要由 TransformPanel 驱动进行移动和变换。
     const isTransformPanel =
       component && (component instanceof TransformPanel || component.parentNode instanceof TransformPanel);
 
@@ -54,11 +55,16 @@ class TransformManager {
         this.ice.selectionList = [component];
       }
       this.transformPanel.targetComponent = component; //FIXME:处理多选的情况
-    } else {
-      this.currentDraggingObj = component;
-      this.ice.evtBus.on('mousemove', this.mouseMoveHandler, this);
-      this.ice.evtBus.on('mouseup', this.mouseUpHandler, this);
     }
+
+    this.currentDraggingObj = this.transformPanel;
+    if (component.parentNode instanceof TransformPanel) {
+      //点击了 TransformPanel 内部的变换手柄
+      this.currentDraggingObj = component;
+    }
+
+    this.ice.evtBus.on('mousemove', this.mouseMoveHandler, this);
+    this.ice.evtBus.on('mouseup', this.mouseUpHandler, this);
   }
 
   private mouseMoveHandler(evt: ICEEvent): boolean {
