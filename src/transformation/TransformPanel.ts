@@ -47,7 +47,7 @@ export default class TransformPanel extends ICEGroup {
   ];
 
   constructor(props) {
-    super({ ...props, transformable: false });
+    super({ ...props, transformable: false, zIndex: Number.MAX_VALUE });
     this.initTransformationHandles();
     this.on('after-scale', this.scaleEvtHandler, this);
     this.on('after-rotate', this.rotateEvtHandler, this);
@@ -59,9 +59,11 @@ export default class TransformPanel extends ICEGroup {
    */
   private initTransformationHandles() {
     // 6 个缩放手柄
+    let counter = 1;
     this.scaleHandleInstanceCache = [];
     this.scaleHandleConfig.forEach((handleConfig) => {
       const handleInstance = new ScaleControl({
+        zIndex: Number.MAX_VALUE - counter++,
         transformable: false,
         host: this,
         left: 0,
@@ -83,6 +85,7 @@ export default class TransformPanel extends ICEGroup {
 
     // 1 个旋转手柄
     const rotateHandleInstance = new RotateControl({
+      zIndex: Number.MAX_VALUE - counter++,
       transformable: false,
       host: this,
       left: 0,

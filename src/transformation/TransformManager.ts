@@ -21,7 +21,7 @@ class TransformManager {
       height: 100,
       style: {
         strokeStyle: '#8b0000',
-        fillStyle: '#99FFFF',
+        fillStyle: 'rgba(255, 255, 49, 0.2)',
         lineWidth: 1,
       },
       transform: {
