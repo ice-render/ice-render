@@ -48,7 +48,7 @@ class DDManager {
   }
 
   start() {
-    this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
+    // this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
     return this;
   }
 

@@ -143,6 +143,9 @@ export default class TransformPanel extends ICEGroup {
   }
 
   private scaleEvtHandler(evt: any) {
+    if (!this.targetComponent) {
+      return;
+    }
     const { width, height } = this.state;
     //FIXME:这里的计算方法看起来有问题，skew 参数也可能导致 width/height 发生变化，这里看起来还是需要进行矩阵变换。
     const targetWidth = this.targetComponent.props.width;
@@ -157,6 +160,9 @@ export default class TransformPanel extends ICEGroup {
   }
 
   private rotateEvtHandler(evt: any) {
+    if (!this.targetComponent) {
+      return;
+    }
     const { rotate } = this.state.transform;
     this.targetComponent.setState({
       transform: {
@@ -165,34 +171,21 @@ export default class TransformPanel extends ICEGroup {
     });
   }
 
-  /**
-   *
-   * 跟随目标组件的变换矩阵。
-   * 只有在 setTargetComponent 的时候，变换工具才会同步目标组件的变换矩阵。
-   * 在后续的绘制过程中，会反向把变换工具的参数同步给目标组件，让变换工具来控制目标组件的形态。
-   * @param evt
-   */
-  private syncTransform(evt: any = null): void {
-    let translateMatrix = this.targetComponent.state.absoluteTranslateMatrix;
-    let box = this.targetComponent.getMinBoundingBox();
-    let angle = this.targetComponent.state.transform.rotate;
-    this.setState({
-      left: translateMatrix.e,
-      top: translateMatrix.f,
-      width: box.width,
-      height: box.height,
-      transform: {
-        rotate: angle,
-      },
-    });
-  }
-
   public set targetComponent(component: ICEComponent) {
-    this._targetComponent ? this._targetComponent.off('after-move', this.syncTransform, this) : '';
+    this._targetComponent = component;
     if (component) {
-      this._targetComponent = component;
-      this._targetComponent.on('after-move', this.syncTransform, this);
-      this.syncTransform(); //先手动调用一次
+      let translateMatrix = component.state.absoluteTranslateMatrix;
+      let box = component.getMinBoundingBox();
+      let angle = component.state.transform.rotate;
+      this.setState({
+        left: translateMatrix.e,
+        top: translateMatrix.f,
+        width: box.width,
+        height: box.height,
+        transform: {
+          rotate: angle,
+        },
+      });
     }
   }
 
