@@ -29,21 +29,6 @@ class DOMEventBridge {
         this.ice.evtBus.trigger(evtMapping[0], evt); //this.ice.evtBus 本身一定会触发一次事件。
       });
     });
-
-    this.ice.evtBus.on('mousedown', (evt: ICEEvent) => {
-      //FIXME:选中列表中的原有对象取消选中状态?
-      let component = evt.target;
-      console.log(component);
-      if (!component.state.interactive) {
-        return;
-      }
-      if (evt.ctrlKey) {
-        this.ice.selectionList.push(component);
-      } else {
-        this.ice.selectionList = [component];
-      }
-      this.ice.evtBus.trigger('select', evt);
-    });
     return this;
   }
 

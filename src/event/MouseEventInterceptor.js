@@ -9,16 +9,17 @@ import mouseEvents from './MOUSE_EVENT_MAPPING_CONSTS';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 const MouseEventInterceptor = {
+  //可以有多条事件总线，在同一个 window 中可能存在多个 ICE 实例，用多个事件总线实例隔开。
   evtBuses: [],
 
   start: function () {
-    if (root && root.document && root.document.addEventListener) {
+    if (root && root && root.addEventListener) {
       //所有原生 DOM 事件全部通过 EventBus 转发到 canvas 内部的对象上去
       //TODO:不同浏览器版本，以及 NodeJS 环境兼容性测试
       //FIXME:全部转发是否有性能问题？
       MouseEventInterceptor.evtBuses.forEach((evtBus) => {
         mouseEvents.forEach((item) => {
-          root.document.addEventListener(item[0], (evt) => {
+          root.addEventListener(item[0], (evt) => {
             evtBus.trigger(item[1], evt);
           });
         });
