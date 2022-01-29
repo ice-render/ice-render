@@ -171,6 +171,13 @@ export default class TransformPanel extends ICEGroup {
     });
   }
 
+  public movePosition(tx: number, ty: number, evt?: any): void {
+    super.movePosition(tx, ty, evt);
+    if (this.targetComponent) {
+      this.targetComponent.movePosition(tx, ty, evt);
+    }
+  }
+
   public set targetComponent(component: ICEComponent) {
     this._targetComponent = component;
     if (component) {
