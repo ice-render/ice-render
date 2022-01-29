@@ -25,7 +25,8 @@
 - TODO:实现 N 层重叠形式的组件【已解决】
 - TODO:TransformPanel 挂到组件上，实现组件的变换。【已解决】
 - TODO:重构拖拽的实现方式，拖拽过程也通过 TransformPanel 实现，组件自身实际上不能拖动。<------------
-- TODO:重构 TransformPanel 与组件之间的 zIndex 关系。
+- TODO:TransformPanel 关联到组件上之后，需要立即响应 mousemove 事件，不需要抬起鼠标再次按下才能拖动。
+- TODO:重构 TransformPanel 与组件之间的 zIndex 关系，TransformPanel 永远绘制在关联的组件上一层？Number.MAX_VALUE？
 - TODO:TransformPanel 的外观可配置，可以选择不展示缩放手柄、旋转手柄。
 - TODO:TransformPanel 可以隐藏起来，而不是一直放在画布上。
 - FIXME:ICEIsogon 在绘制三角形时计算方式不正确。（先跳过，后面补）
