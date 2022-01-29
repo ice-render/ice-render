@@ -56,30 +56,27 @@ class TransformManager {
       this.transformPanel.targetComponent = component; //FIXME:处理多选的情况
     } else {
       this.currentDraggingObj = component;
-      //FIXME:鼠标移动太快会脱离组件，这里的事件需要挂在到 root 上。
       this.ice.evtBus.on('mousemove', this.mouseMoveHandler, this);
       this.ice.evtBus.on('mouseup', this.mouseUpHandler, this);
     }
   }
 
   private mouseMoveHandler(evt: ICEEvent): boolean {
-    if (evt.target && evt.target === this.currentDraggingObj) {
-      let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-      let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+    let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+    let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
 
-      //FIXME:为什么直接放在 canvas 上的组件不需要乘以逆矩阵？能否让处理方式保持一致，方便理解？
-      //   if (this.currentDraggingObj.parentNode) {
-      //     let point = new DOMPoint(tx, ty);
-      //     let matrix = this.currentDraggingObj.state.absoluteLinearMatrix;
-      //     matrix = matrix.inverse();
-      //     point = point.matrixTransform(matrix);
-      //     tx = point.x;
-      //     ty = point.y;
-      //   }
-      this.currentDraggingObj.movePosition(tx, ty, evt);
-      return true;
-    }
-    return false;
+    //FIXME:为什么直接放在 canvas 上的组件不需要乘以逆矩阵？能否让处理方式保持一致，方便理解？
+    //   if (this.currentDraggingObj.parentNode) {
+    //     let point = new DOMPoint(tx, ty);
+    //     let matrix = this.currentDraggingObj.state.absoluteLinearMatrix;
+    //     matrix = matrix.inverse();
+    //     point = point.matrixTransform(matrix);
+    //     tx = point.x;
+    //     ty = point.y;
+    //   }
+
+    this.currentDraggingObj.movePosition(tx, ty, evt);
+    return true;
   }
 
   private mouseUpHandler(evt: ICEEvent) {
