@@ -1,4 +1,6 @@
 // import ICEStar from '../src/graphic/shape/ICEStar';
+import ICEImage from '../src/graphic/ICEImage';
+import ICELine from '../src/graphic/line/ICELine';
 import ICERect from '../src/graphic/shape/ICERect';
 import ICE from '../src/ICE';
 
@@ -32,32 +34,37 @@ let ice = new ICE().init('canvas-1');
 // });
 // ice.addToDisplayMap(rect);
 
-// let line = new ICELine({
-//   left: 0,
-//   top: 0,
-//   startPoint: [200, 200],
-//   endPoint: [300, 300],
-//   style: {
-//     strokeStyle: '#8a2be2',
-//     fillStyle: '#008000',
-//     lineWidth: 5,
-//   },
-// });
-// ice.addToDisplayMap(line);
+let line = new ICELine({
+  left: 0,
+  top: 0,
+  startPoint: [300, 300],
+  endPoint: [500, 400],
+  style: {
+    strokeStyle: '#8a2be2',
+    fillStyle: '#008000',
+    lineWidth: 5,
+  },
+  transform: {
+    // translate: [10, -10],
+    // scale: [1, 1],
+    rotate: 20,
+  },
+});
+ice.addToDisplayMap(line);
 
-// let img = new ICEImage({
-//   left: 10,
-//   top: 10,
-//   width: 100,
-//   height: 100,
-//   // transform: {
-//   //   translate: [10, 10],
-//   //   rotate: 10,
-//   //   skew: [20, 0],
-//   //   scale: [1, 1],
-//   // },
-// });
-// ice.addToDisplayMap(img);
+let img = new ICEImage({
+  left: 10,
+  top: 10,
+  width: 100,
+  height: 100,
+  // transform: {
+  //   translate: [10, 10],
+  //   rotate: 10,
+  //   skew: [20, 0],
+  //   scale: [1, 1],
+  // },
+});
+ice.addToDisplayMap(img);
 
 //正三角形
 // let isogon3 = new ICEIsogon({
@@ -280,7 +287,7 @@ let ice = new ICE().init('canvas-1');
 let rect2 = new ICERect({
   left: 200,
   top: 200,
-  width: 100,
+  width: 200,
   height: 100,
   style: {
     strokeStyle: '#e01414',

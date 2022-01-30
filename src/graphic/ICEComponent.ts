@@ -191,13 +191,9 @@ abstract class ICEComponent extends EventTarget {
    * @returns DOMMatrix
    */
   protected calcTranslationMatrix(): DOMMatrix {
-    let matrix = new DOMMatrix();
-
-    //共有2个参数会影响 translate 坐标的计算：translate, left/top 。
     let tx = get(this, 'state.transform.translate.0') + this.state.left;
     let ty = get(this, 'state.transform.translate.1') + this.state.top;
-    matrix.translateSelf(tx, ty);
-
+    let matrix = new DOMMatrix().translateSelf(tx, ty);
     this.state.translationMatrix = matrix;
     return matrix;
   }
