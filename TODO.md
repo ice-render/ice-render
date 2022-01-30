@@ -27,19 +27,21 @@
 - TODO:重构拖拽的实现方式，拖拽过程也通过 TransformPanel 实现，组件自身实际上不能拖动。【已解决】
 - TODO:TransformPanel 关联到组件上之后，需要立即响应 mousemove 事件，不需要抬起鼠标再次按下才能拖动。【已解决】
 - TODO:重构 TransformPanel 与组件之间的 zIndex 关系，TransformPanel 永远绘制在关联的组件上一层？Number.MAX_VALUE？【已解决】
+
 - TODO:TransformPanel 的外观可配置，可以选择不展示缩放手柄、旋转手柄。（先跳过，后面补）
 - TODO:TransformPanel 可以隐藏起来，而不是一直放在画布上。（先跳过，后面补）
 - TODO:TransformPanel 支持对象翻转（先跳过，后面补）
 - TODO:围绕中心点变换、围绕左侧、右侧、上边、下边、指定任意坐标点变换。（先跳过，后面补）
 - FIXME:ICEIsogon 在绘制三角形时计算方式不正确。（先跳过，后面补）
 - TODO:修改计算尺寸和位置的逻辑，把 lineWidth 参数计算进去。（先跳过，后面补）
+
 - TODO:测试 TransformPanel 对图片的变换是否正确。【已解决】
 - TODO:测试宽高不等的一般矩形在 TransformPanel 下的变换是否正确。（ FIXME: 宽高不等的一般矩形， TransformPanel 位置有偏移）【已解决】
 - TODO:测试 TransformPanel 对线条的变换是否正确。(边界盒子、变换有问题，看起来计算方法不太对)【已解决】
 - TODO:测试 TransformPanel 对 ICEText 的变换是否正确。【已解决】
 - TODO:测试 N 层重叠情况下，以及 ICEGroup 组件 TransformPanel 的处理流程。 <------------
 - TODO:所有连接线不能进行 transform ，只能拖动两端端点进行拉长缩短
-- TODO:实现连接线 &Visio 形态的连接线
+- TODO:实现连接线 & Visio 形态的连接线
 - TODO:实现 GuideLine ，增加磁吸效果
 - TODO:优化编译和测试环境参数配置
 - TODO:ICE 全局单例重构
