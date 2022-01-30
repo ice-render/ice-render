@@ -1,9 +1,8 @@
+import get from 'lodash/get';
 import merge from 'lodash/merge';
-import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICEDotPath from '../ICEDotPath';
 
 /**
- * TODO:线条不能进行 transform
  * @class ICELine 直线
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
@@ -22,17 +21,35 @@ class ICELine extends ICEDotPath {
   }
 
   /**
-   * 计算路径上的关键点:
-   * - 默认的坐标原点是 (0,0) 位置。
-   * - 这些点没有经过 transform 矩阵变换。
+   * ICELine 有自己特殊的计算方式，默认的计算原点总是放在 startPoint 的位置。
+   * @overwrite
    * @returns
    */
   protected calcOriginalDots(): Array<DOMPoint> {
     this.state.dots = [
-      new DOMPoint(this.state.startPoint[0], this.state.startPoint[1]),
-      new DOMPoint(this.state.endPoint[0], this.state.endPoint[1]),
+      new DOMPoint(0, 0),
+      new DOMPoint(
+        this.state.endPoint[0] - this.state.startPoint[0],
+        this.state.endPoint[1] - this.state.startPoint[1]
+      ),
     ];
     return this.state.dots;
+  }
+
+  /**
+   * ICELine 的平移矩阵有自己的特殊算法，默认需要把 startPoint 的坐标加到平移矩阵上。
+   * @method calcTranslationMatrix
+   * @overwrite
+   * @returns DOMMatrix
+   */
+  protected calcTranslationMatrix(): DOMMatrix {
+    let startX = this.state.startPoint[0];
+    let startY = this.state.startPoint[1];
+    let tx = get(this, 'state.transform.translate.0') + this.state.left + startX;
+    let ty = get(this, 'state.transform.translate.1') + this.state.top + startY;
+    let matrix = new DOMMatrix().translateSelf(tx, ty);
+    this.state.translationMatrix = matrix;
+    return matrix;
   }
 
   /**
@@ -56,38 +73,12 @@ class ICELine extends ICEDotPath {
     }
     this.state.origin = point;
 
+    //根据新的几何中点移动原始的关键点
     for (let i = 0; i < this.state.dots.length; i++) {
       let dot = this.state.dots[i];
-      dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -this.state.origin.x, -this.state.origin.y]));
+      dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -point.x, -point.y]));
       this.state.dots[i] = dot;
     }
-  }
-
-  /**
-   * 获取经过变换算之后的边界盒子：
-   * - 此盒子是组件的最小包围盒。
-   * - 盒子本身的 transform matrix 与组件完全一致。
-   * - IMPORTANT: 边界盒子的坐标相对于全局坐标系进行计算，而不是组件的本地坐标系。
-   * FIXME:需要考虑 parentNode 的情况？
-   * @returns
-   */
-  getMinBoundingBox(): ICEBoundingBox {
-    let startX = this.state.startPoint[0];
-    let startY = this.state.startPoint[1];
-    let boundingBox = new ICEBoundingBox([
-      startX,
-      startY,
-      startX + this.state.width,
-      startY,
-      startX,
-      startY + this.state.height,
-      startX + this.state.width,
-      startY + this.state.height,
-    ]);
-
-    boundingBox = boundingBox.transform(this.state.composedMatrix);
-    boundingBox = boundingBox.transform(new DOMMatrix().translateSelf(-this.state.origin.x, -this.state.origin.y));
-    return boundingBox;
   }
 }
 

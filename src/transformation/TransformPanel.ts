@@ -187,6 +187,18 @@ export default class TransformPanel extends ICEGroup {
       let translateMatrix = component.state.absoluteTranslateMatrix;
       let box = component.getMinBoundingBox();
       let angle = component.state.transform.rotate;
+      console.log(translateMatrix);
+      console.log(box);
+      console.log(angle);
+      console.log({
+        left: translateMatrix.e,
+        top: translateMatrix.f,
+        width: box.width,
+        height: box.height,
+        transform: {
+          rotate: angle,
+        },
+      });
       this.setState({
         left: translateMatrix.e,
         top: translateMatrix.f,
