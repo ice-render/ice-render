@@ -347,6 +347,8 @@ abstract class ICEComponent extends EventTarget {
       height - originY,
       width - originX,
       height - originY,
+      0,
+      0,
     ]);
 
     boundingBox = boundingBox.transform(this.state.composedMatrix);
@@ -362,7 +364,8 @@ abstract class ICEComponent extends EventTarget {
   public getMaxBoundingBox(): ICEBoundingBox {
     let boundingBox = this.getMinBoundingBox();
     let { minX, minY, maxX, maxY } = boundingBox.getMinAndMaxPoint();
-    boundingBox = new ICEBoundingBox([minX, minY, maxX, minY, minX, maxY, maxX, maxY]);
+    let center = boundingBox.centerPoint;
+    boundingBox = new ICEBoundingBox([minX, minY, maxX, minY, minX, maxY, maxX, maxY, center.x, center.y]);
     return boundingBox;
   }
 

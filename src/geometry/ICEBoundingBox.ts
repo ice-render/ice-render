@@ -3,7 +3,9 @@ import GeometryUtil from './GeometryUtil';
 /**
  * @class ICEBoundingBox 用4点法描述的边界盒子。
  *
- * 边界盒子总是绘制在全局坐标系中，并且通过自身的坐标点进行变换，而不是变换 canvas.ctx 。
+ * - 边界盒子一定是矩形。
+ * - 边界盒子总是绘制在全局坐标系中。
+ * - 边界盒子总是通过自身的坐标点进行变换，而不是变换 canvas.ctx 。
  *
  * TODO: Wrap up the original DOMPoint and DOMMatrix interfaces, add some util functions.
  * @see https://developer.mozilla.org/en-US/docs/Web/API/DOMPoint
@@ -19,12 +21,15 @@ class ICEBoundingBox {
   public bl = new DOMPoint();
   //bottom-right
   public br = new DOMPoint();
+  //center-point
+  public center = new DOMPoint();
 
-  constructor(props: Array<number> = [0, 0, 0, 0, 0, 0, 0, 0]) {
+  constructor(props: Array<number> = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) {
     this.tl = new DOMPoint(props[0], props[1]);
     this.tr = new DOMPoint(props[2], props[3]);
     this.bl = new DOMPoint(props[4], props[5]);
     this.br = new DOMPoint(props[6], props[7]);
+    this.center = new DOMPoint(props[8], props[9]);
   }
 
   /**
@@ -148,7 +153,8 @@ class ICEBoundingBox {
     const tr = DOMPoint.fromPoint(this.tr).matrixTransform(matrix);
     const bl = DOMPoint.fromPoint(this.bl).matrixTransform(matrix);
     const br = DOMPoint.fromPoint(this.br).matrixTransform(matrix);
-    return new ICEBoundingBox([tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y]);
+    const center = DOMPoint.fromPoint(this.center).matrixTransform(matrix);
+    return new ICEBoundingBox([tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y, center.x, center.y]);
   }
 
   /**
@@ -172,15 +178,15 @@ class ICEBoundingBox {
   }
 
   public get centerX(): number {
-    return this.left + this.width / 2;
+    return this.center.x;
   }
 
   public get centerY(): number {
-    return this.top + this.height / 2;
+    return this.center.y;
   }
 
   public get centerPoint(): DOMPoint {
-    return new DOMPoint(this.centerX, this.centerY);
+    return this.center;
   }
 
   //不允许设置 left 参数
