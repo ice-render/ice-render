@@ -2,6 +2,7 @@
 import ICEImage from '../src/graphic/ICEImage';
 import ICELine from '../src/graphic/line/ICELine';
 import ICERect from '../src/graphic/shape/ICERect';
+import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
 
 let ice = new ICE().init('canvas-1');
@@ -121,18 +122,18 @@ ice.addToDisplayMap(img);
 // });
 // ice.addToDisplayMap(star1);
 
-// let text = new ICEText({
-//   left: 0,
-//   top: 200,
-//   text: 'Test long long long text...',
-//   style: {
-//     lineWidth: 5,
-//     font: '48px serif',
-//     strokeStyle: '#ff3300',
-//     fillStyle: '#00ff00',
-//   },
-// });
-// ice.addToDisplayMap(text);
+let text = new ICEText({
+  left: 0,
+  top: 400,
+  text: 'Test long long long text...',
+  style: {
+    lineWidth: 5,
+    font: '48px serif',
+    strokeStyle: '#ff3300',
+    fillStyle: '#00ff00',
+  },
+});
+ice.addToDisplayMap(text);
 
 // let p1 = new DOMPoint(0, 100);
 // let p2 = new DOMPoint(150, 100);
@@ -296,8 +297,8 @@ let rect2 = new ICERect({
   },
   transform: {
     // translate: [10, -10],
-    scale: [2, 1],
-    rotate: 45,
+    scale: [1, 1],
+    rotate: 20,
   },
 });
 ice.addToDisplayMap(rect2);
