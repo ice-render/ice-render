@@ -1,8 +1,8 @@
 // import ICEStar from '../src/graphic/shape/ICEStar';
-import ICEImage from '../src/graphic/ICEImage';
-import ICELine from '../src/graphic/line/ICELine';
-import ICERect from '../src/graphic/shape/ICERect';
-import ICEText from '../src/graphic/text/ICEText';
+// import ICEImage from '../src/graphic/ICEImage';
+// import ICELine from '../src/graphic/line/ICELine';
+// import ICERect from '../src/graphic/shape/ICERect';
+// import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
 
 let ice = new ICE().init('canvas-1');
@@ -35,37 +35,37 @@ let ice = new ICE().init('canvas-1');
 // });
 // ice.addToDisplayMap(rect);
 
-let line = new ICELine({
-  left: 0,
-  top: 0,
-  startPoint: [100, 100],
-  endPoint: [400, 200],
-  style: {
-    strokeStyle: '#8a2be2',
-    fillStyle: '#008000',
-    lineWidth: 5,
-  },
-  transform: {
-    // translate: [10, -10],
-    // scale: [1, 1],
-    rotate: 20,
-  },
-});
-ice.addToDisplayMap(line);
+// let line = new ICELine({
+//   left: 0,
+//   top: 0,
+//   startPoint: [100, 100],
+//   endPoint: [400, 200],
+//   style: {
+//     strokeStyle: '#8a2be2',
+//     fillStyle: '#008000',
+//     lineWidth: 5,
+//   },
+//   transform: {
+//     // translate: [10, -10],
+//     // scale: [1, 1],
+//     rotate: 20,
+//   },
+// });
+// ice.addToDisplayMap(line);
 
-let img = new ICEImage({
-  left: 10,
-  top: 10,
-  width: 100,
-  height: 100,
-  transform: {
-    // translate: [10, 10],
-    rotate: 45,
-    // skew: [20, 0],
-    scale: [1, 2],
-  },
-});
-ice.addToDisplayMap(img);
+// let img = new ICEImage({
+//   left: 10,
+//   top: 10,
+//   width: 100,
+//   height: 100,
+//   transform: {
+//     // translate: [10, 10],
+//     rotate: 45,
+//     // skew: [20, 0],
+//     scale: [1, 2],
+//   },
+// });
+// ice.addToDisplayMap(img);
 
 //正三角形
 // let isogon3 = new ICEIsogon({
@@ -122,18 +122,18 @@ ice.addToDisplayMap(img);
 // });
 // ice.addToDisplayMap(star1);
 
-let text = new ICEText({
-  left: 0,
-  top: 400,
-  text: 'Test long long long text...',
-  style: {
-    lineWidth: 5,
-    font: '48px serif',
-    strokeStyle: '#ff3300',
-    fillStyle: '#00ff00',
-  },
-});
-ice.addToDisplayMap(text);
+// let text = new ICEText({
+//   left: 0,
+//   top: 400,
+//   text: 'Test long long long text...',
+//   style: {
+//     lineWidth: 5,
+//     font: '48px serif',
+//     strokeStyle: '#ff3300',
+//     fillStyle: '#00ff00',
+//   },
+// });
+// ice.addToDisplayMap(text);
 
 // let p1 = new DOMPoint(0, 100);
 // let p2 = new DOMPoint(150, 100);
@@ -285,23 +285,23 @@ ice.addToDisplayMap(text);
 // });
 // group2.addChild(circle4);
 
-let rect2 = new ICERect({
-  left: 200,
-  top: 200,
-  width: 200,
-  height: 100,
-  style: {
-    strokeStyle: '#e01414',
-    fillStyle: '#46ca46',
-    lineWidth: 3,
-  },
-  transform: {
-    // translate: [10, -10],
-    scale: [1, 1],
-    rotate: 20,
-  },
-});
-ice.addToDisplayMap(rect2);
+// let rect2 = new ICERect({
+//   left: 200,
+//   top: 200,
+//   width: 200,
+//   height: 100,
+//   style: {
+//     strokeStyle: '#e01414',
+//     fillStyle: '#46ca46',
+//     lineWidth: 3,
+//   },
+//   transform: {
+//     // translate: [10, -10],
+//     scale: [1, 1],
+//     rotate: 20,
+//   },
+// });
+// ice.addToDisplayMap(rect2);
 
 // let circle3 = new ICECircle({
 //   left: 0,
