@@ -189,6 +189,8 @@ export default class TransformPanel extends ICEGroup {
       let top = box.centerY - box.height / 2;
       let width = box.width;
       let height = box.height;
+      console.log(box);
+      console.log(left, top, width, height);
       let angle = component.state.transform.rotate;
       this.setState({
         left,

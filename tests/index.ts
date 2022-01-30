@@ -1,7 +1,7 @@
 // import ICEStar from '../src/graphic/shape/ICEStar';
-import ICEImage from '../src/graphic/ICEImage';
-// import ICELine from '../src/graphic/line/ICELine';
-import ICERect from '../src/graphic/shape/ICERect';
+// import ICEImage from '../src/graphic/ICEImage';
+import ICELine from '../src/graphic/line/ICELine';
+// import ICERect from '../src/graphic/shape/ICERect';
 import ICE from '../src/ICE';
 
 let ice = new ICE().init('canvas-1');
@@ -34,37 +34,37 @@ let ice = new ICE().init('canvas-1');
 // });
 // ice.addToDisplayMap(rect);
 
-// let line = new ICELine({
-//   left: 0,
-//   top: 0,
-//   startPoint: [300, 300],
-//   endPoint: [500, 400],
-//   style: {
-//     strokeStyle: '#8a2be2',
-//     fillStyle: '#008000',
-//     lineWidth: 5,
-//   },
-//   transform: {
-//     // translate: [10, -10],
-//     // scale: [1, 1],
-//     rotate: 20,
-//   },
-// });
-// ice.addToDisplayMap(line);
-
-let img = new ICEImage({
-  left: 10,
-  top: 10,
-  width: 100,
-  height: 100,
+let line = new ICELine({
+  left: 0,
+  top: 0,
+  startPoint: [100, 100],
+  endPoint: [400, 200],
+  style: {
+    strokeStyle: '#8a2be2',
+    fillStyle: '#008000',
+    lineWidth: 5,
+  },
   transform: {
-    // translate: [10, 10],
-    rotate: 45,
-    // skew: [20, 0],
-    scale: [1, 2],
+    // translate: [10, -10],
+    // scale: [1, 1],
+    rotate: 20,
   },
 });
-ice.addToDisplayMap(img);
+ice.addToDisplayMap(line);
+
+// let img = new ICEImage({
+//   left: 10,
+//   top: 10,
+//   width: 100,
+//   height: 100,
+//   transform: {
+//     // translate: [10, 10],
+//     rotate: 45,
+//     // skew: [20, 0],
+//     scale: [1, 2],
+//   },
+// });
+// ice.addToDisplayMap(img);
 
 //正三角形
 // let isogon3 = new ICEIsogon({
@@ -284,23 +284,23 @@ ice.addToDisplayMap(img);
 // });
 // group2.addChild(circle4);
 
-let rect2 = new ICERect({
-  left: 200,
-  top: 200,
-  width: 200,
-  height: 100,
-  style: {
-    strokeStyle: '#e01414',
-    fillStyle: '#46ca46',
-    lineWidth: 3,
-  },
-  transform: {
-    // translate: [10, -10],
-    scale: [2, 1],
-    rotate: 45,
-  },
-});
-ice.addToDisplayMap(rect2);
+// let rect2 = new ICERect({
+//   left: 200,
+//   top: 200,
+//   width: 200,
+//   height: 100,
+//   style: {
+//     strokeStyle: '#e01414',
+//     fillStyle: '#46ca46',
+//     lineWidth: 3,
+//   },
+//   transform: {
+//     // translate: [10, -10],
+//     scale: [2, 1],
+//     rotate: 45,
+//   },
+// });
+// ice.addToDisplayMap(rect2);
 
 // let circle3 = new ICECircle({
 //   left: 0,

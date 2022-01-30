@@ -341,12 +341,12 @@ abstract class ICEComponent extends EventTarget {
     let boundingBox = new ICEBoundingBox([
       0 - originX,
       0 - originY,
-      width - originX,
+      0 - originX + width,
       0 - originY,
       0 - originX,
-      height - originY,
-      width - originX,
-      height - originY,
+      0 - originY + height,
+      0 - originX + width,
+      0 - originY + height,
       0,
       0,
     ]);
