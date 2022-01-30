@@ -184,30 +184,23 @@ export default class TransformPanel extends ICEGroup {
   public set targetComponent(component: ICEComponent) {
     this._targetComponent = component;
     if (component) {
-      let translateMatrix = component.state.absoluteTranslateMatrix;
       let box = component.getMinBoundingBox();
+      let left = box.centerX - box.width / 2;
+      let top = box.centerY - box.height / 2;
+      let width = box.width;
+      let height = box.height;
       let angle = component.state.transform.rotate;
-      console.log(translateMatrix);
-      console.log(box);
-      console.log(angle);
-      console.log({
-        left: translateMatrix.e,
-        top: translateMatrix.f,
-        width: box.width,
-        height: box.height,
-        transform: {
-          rotate: angle,
-        },
-      });
       this.setState({
-        left: translateMatrix.e,
-        top: translateMatrix.f,
-        width: box.width,
-        height: box.height,
+        left,
+        top,
+        width,
+        height,
         transform: {
           rotate: angle,
         },
       });
+    } else {
+      //FIXME:component 为空时隐藏 TransformPanel
     }
   }
 
