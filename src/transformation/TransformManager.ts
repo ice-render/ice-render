@@ -54,7 +54,8 @@ class TransformManager {
       } else {
         this.ice.selectionList = [component];
       }
-      this.transformPanel.targetComponent = component; //FIXME:处理多选的情况
+      //FIXME:处理多选的情况，如果实现多选机制，会导致 N 层重叠的对象的处理出现麻烦。
+      this.transformPanel.targetComponent = component;
     }
 
     this.currentDraggingObj = this.transformPanel;
