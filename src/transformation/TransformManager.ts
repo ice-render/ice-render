@@ -15,7 +15,7 @@ class TransformManager {
     this.ice = ice;
 
     this.transformPanel = new TransformPanel({
-      left: 400,
+      left: 500,
       top: 100,
       width: 100,
       height: 100,
