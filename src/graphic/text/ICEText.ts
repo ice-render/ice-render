@@ -28,6 +28,7 @@ class ICEText extends ICEComponent {
    * 文本尺寸的计算需要使用特殊的方法。
    * 这里使用的方法来自 https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
    * FIXME:某些运行时环境可能不支持动态插入 HTML 标签，以上测量文本宽高的方法可能存在兼容性问题。
+   * FIXME:边界盒子的高度与字体高度之间存在误差。
    * @returns
    */
   protected calcOriginalDimension() {
