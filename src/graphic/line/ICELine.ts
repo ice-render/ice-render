@@ -81,32 +81,13 @@ class ICELine extends ICEDotPath {
     }
   }
 
-  /**
-   * 获取组件的最小包围盒，此盒子的变换过程与组件自身完全相同。
-   * @returns
-   */
-  // public getMinBoundingBox(): ICEBoundingBox {
-  //   let originX = this.state.origin.x;
-  //   let originY = this.state.origin.y;
-  //   let width = this.state.width;
-  //   let height = this.state.height;
+  public setStartPoint(point: []): void {
+    this.state.startPoint = [...point];
+  }
 
-  //   let boundingBox = new ICEBoundingBox([
-  //     0 - originX,
-  //     0 - originY,
-  //     0 - originX + width,
-  //     0 - originY,
-  //     0 - originX,
-  //     0 - originY + height,
-  //     0 - originX + width,
-  //     0 - originY + height,
-  //     0,
-  //     0,
-  //   ]);
-
-  //   boundingBox = boundingBox.transform(this.state.composedMatrix);
-  //   return boundingBox;
-  // }
+  public setEndPoint(point: []): void {
+    this.state.endPoint = [...point];
+  }
 }
 
 export default ICELine;
