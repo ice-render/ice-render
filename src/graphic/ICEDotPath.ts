@@ -60,12 +60,12 @@ export default class ICEDotPath extends ICEPath {
    * 移动坐标原点后，组件中所有的坐标点，当前边界盒子，都会受到影响。
    * @param point
    */
-  public setLocalOrigin(position = 'center'): void {
-    super.setLocalOrigin(position);
+  public calcLocalOrigin(position = 'center'): void {
+    super.calcLocalOrigin(position);
 
     for (let i = 0; i < this.state.dots.length; i++) {
       let dot = this.state.dots[i];
-      dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -this.state.origin.x, -this.state.origin.y]));
+      dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -this.state.originPoint.x, -this.state.originPoint.y]));
       this.state.dots[i] = dot;
     }
   }

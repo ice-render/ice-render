@@ -71,17 +71,6 @@ class TransformManager {
   private mouseMoveHandler(evt: ICEEvent): boolean {
     let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
     let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-
-    //FIXME:为什么直接放在 canvas 上的组件不需要乘以逆矩阵？能否让处理方式保持一致，方便理解？
-    //   if (this.currentDraggingObj.parentNode) {
-    //     let point = new DOMPoint(tx, ty);
-    //     let matrix = this.currentDraggingObj.state.absoluteLinearMatrix;
-    //     matrix = matrix.inverse();
-    //     point = point.matrixTransform(matrix);
-    //     tx = point.x;
-    //     ty = point.y;
-    //   }
-
     this.currentDraggingObj.movePosition(tx, ty, evt);
     return true;
   }

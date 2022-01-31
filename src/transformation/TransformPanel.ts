@@ -1,3 +1,4 @@
+import ICEMatrix from '../geometry/ICEMatrix';
 import ICEGroup from '../graphic/container/ICEGroup';
 import ICEComponent from '../graphic/ICEComponent';
 import RotateControl from './RotateControl';
@@ -166,7 +167,15 @@ export default class TransformPanel extends ICEGroup {
     if (!this.targetComponent) {
       return;
     }
-    const { rotate } = this.state.transform;
+
+    let { rotate } = this.state.transform;
+    if (this.targetComponent.parentNode) {
+      //在存在 N 层嵌套的情况下，减掉所有父层叠加起来的旋转角。
+      let matrix = this.targetComponent.parentNode.state.absoluteLinearMatrix;
+      let angle = ICEMatrix.calcRotateAngle(matrix);
+      rotate -= angle;
+    }
+
     this.targetComponent.setState({
       transform: {
         rotate: rotate,
@@ -177,6 +186,16 @@ export default class TransformPanel extends ICEGroup {
   public movePosition(tx: number, ty: number, evt?: any): void {
     super.movePosition(tx, ty, evt);
     if (this.targetComponent) {
+      if (this.targetComponent.parentNode) {
+        //如果组件存在嵌套，需要先用逆矩阵抵消 transform 导致的坐标偏移。
+        //FIXME:为什么直接放在 canvas 上的组件不需要乘以逆矩阵？能否让处理方式保持一致，方便理解？
+        let point = new DOMPoint(tx, ty);
+        let matrix = this.targetComponent.state.absoluteLinearMatrix;
+        matrix = matrix.inverse();
+        point = point.matrixTransform(matrix);
+        tx = point.x;
+        ty = point.y;
+      }
       this.targetComponent.movePosition(tx, ty, evt);
     }
   }
@@ -184,14 +203,28 @@ export default class TransformPanel extends ICEGroup {
   public set targetComponent(component: ICEComponent) {
     this._targetComponent = component;
     if (component) {
+      //根据变换矩阵反过来计算旋转角
+      let matrix = component.state.absoluteLinearMatrix;
+      let angle = ICEMatrix.calcRotateAngle(matrix);
+
       let box = component.getMinBoundingBox();
-      let left = box.centerX - box.width / 2;
-      let top = box.centerY - box.height / 2;
       let width = box.width;
       let height = box.height;
+      let left = box.centerX - box.width / 2;
+      let top = box.centerY - box.height / 2;
+      if (component.parentNode) {
+        //存在嵌套的情况下，组件的原点会被设置为父组件的几何中点 Component.calcLocalOrigin()
+        //这里需要计算组件自身的几何中点在相对于父层坐标系进行 transform 之后的全局坐标
+        let x = 0 - component.state.originPoint.x + component.state.width / 2;
+        let y = 0 - component.state.originPoint.y + component.state.height / 2;
+        let cm = component.state.composedMatrix;
+        let p = new DOMPoint(x, y);
+        p = p.matrixTransform(cm);
+        left = p.x - box.width / 2;
+        top = p.y - box.height / 2;
+      }
       console.log(box);
       console.log(left, top, width, height);
-      let angle = component.state.transform.rotate;
       this.setState({
         left,
         top,
