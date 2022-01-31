@@ -99,7 +99,7 @@ export default class ScaleControl extends ICERect {
 
   // private scaleToLeftTop(evt) {
   //   //FIXME:更新 width/height 的时候，host 原点坐标会发生变化
-  //   console.log(this.props.host.state.origin);
+  //   console.log(this.props.host.state.originPoint);
 
   //   let movementX = evt.movementX / window.devicePixelRatio;
   //   let movementY = evt.movementY / window.devicePixelRatio;
