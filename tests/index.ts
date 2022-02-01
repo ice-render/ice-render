@@ -2,7 +2,7 @@
 // import ICELine from '../src/graphic/line/ICELine';
 // import ICERect from '../src/graphic/shape/ICERect';
 import ICEGroup from '../src/graphic/container/ICEGroup';
-import ICEImage from '../src/graphic/ICEImage';
+// import ICEImage from '../src/graphic/ICEImage';
 import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
@@ -55,19 +55,19 @@ let ice = new ICE().init('canvas-1');
 // });
 // ice.addToDisplayMap(line);
 
-let img = new ICEImage({
-  left: 10,
-  top: 10,
-  width: 100,
-  height: 100,
-  transform: {
-    // translate: [10, 10],
-    rotate: 45,
-    // skew: [20, 0],
-    scale: [1, 2],
-  },
-});
-ice.addToDisplayMap(img);
+// let img = new ICEImage({
+//   left: 10,
+//   top: 10,
+//   width: 100,
+//   height: 100,
+//   transform: {
+//     // translate: [10, 10],
+//     rotate: 45,
+//     // skew: [20, 0],
+//     scale: [1, 2],
+//   },
+// });
+// ice.addToDisplayMap(img);
 
 //正三角形
 // let isogon3 = new ICEIsogon({
@@ -156,7 +156,7 @@ let g = new ICEGroup({
   },
   transform: {
     // translate: [10, -10],
-    scale: [2, 2],
+    scale: [1, 1],
     // skew: [50, 0],
     rotate: 45,
   },
@@ -176,7 +176,7 @@ let group1 = new ICEGroup({
   transform: {
     // translate: [10, -10],
     // scale: [1, 1],
-    // rotate: 5,
+    rotate: 0,
   },
 });
 g.addChild(group1);
@@ -194,7 +194,7 @@ let group2 = new ICEGroup({
   transform: {
     // translate: [10, -10],
     // scale: [1, 1],
-    rotate: 10,
+    rotate: 0,
   },
 });
 group1.addChild(group2);
@@ -204,6 +204,9 @@ group2.addChild(
     left: 10,
     top: 10,
     radius: 20,
+    transform: {
+      rotate: 180,
+    },
   })
 );
 

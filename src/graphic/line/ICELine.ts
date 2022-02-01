@@ -58,19 +58,16 @@ class ICELine extends ICEDotPath {
    * 移动坐标原点后，组件中所有的坐标点，当前边界盒子，都会受到影响。
    * @param point
    */
-  public calcLocalOrigin(position = 'center'): void {
+  public calcAbsoluteOrigin(): DOMPoint {
+    //ICELine 几何中心点的计算方法与普通组件不同，需要根据起点坐标和终点坐标进行计算。
+    let startX = this.state.startPoint[0];
+    let startY = this.state.startPoint[1];
+    let endX = this.state.endPoint[0];
+    let endY = this.state.endPoint[1];
+
     let point = new DOMPoint();
-    if (position === 'center') {
-      //ICELine 几何中心点的计算方法与普通组件不同，需要根据起点坐标和终点坐标进行计算。
-      let startX = this.state.startPoint[0];
-      let startY = this.state.startPoint[1];
-      let endX = this.state.endPoint[0];
-      let endY = this.state.endPoint[1];
-      point.x = (endX - startX) / 2;
-      point.y = (endY - startY) / 2;
-    } else {
-      //FIXME:
-    }
+    point.x = (endX - startX) / 2;
+    point.y = (endY - startY) / 2;
     this.state.originPoint = point;
 
     //根据新的几何中点移动原始的关键点
@@ -79,6 +76,8 @@ class ICELine extends ICEDotPath {
       dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -point.x, -point.y]));
       this.state.dots[i] = dot;
     }
+
+    return point;
   }
 
   public setStartPoint(point: []): void {

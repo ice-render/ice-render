@@ -22,6 +22,7 @@ abstract class ICEPath extends ICEComponent {
   protected doRender(): void {
     //创建 Path2D 对象，此时仅仅创建出对象实例，但还没有绘制到画布上，绘制过程由 FrameManager 进行调度。 @see https://developer.mozilla.org/en-US/docs/Web/API/Path2D/Path2D
     this.createPathObject();
+
     this.ctx.beginPath();
     this.ctx.stroke(this.path2D);
     this.ctx.fill(this.path2D);

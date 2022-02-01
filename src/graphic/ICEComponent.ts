@@ -132,7 +132,7 @@ abstract class ICEComponent extends EventTarget {
 
     this.applyStyle();
     this.calcOriginalDimension();
-    this.calcLocalOrigin();
+
     this.applyTransformToCtx();
     this.doRender();
     this.ctx.setTransform(new DOMMatrix());
@@ -154,36 +154,6 @@ abstract class ICEComponent extends EventTarget {
   }
 
   /**
-   * 根据原点位置描述计算原点坐标值。
-   * 移动坐标原点后，组件内部所有的坐标点数值、边界盒子的坐标，都会受到影响。
-   * @method calcLocalOrigin
-   */
-  public calcLocalOrigin(): void {
-    let position = this.state.origin;
-    let point = new DOMPoint();
-    let halfWidth = this.state.width / 2;
-    let halfHeight = this.state.height / 2;
-
-    if (!position || position === 'localCenter') {
-      point.x = halfWidth;
-      point.y = halfHeight;
-    } else if (position === 'parentCenter') {
-      //如果存在父层节点，把父层节点的原点设置为当前组件的原点。
-      //因为基于父层组件的中心点进行变换时，才能正确复合父层组件的变换形态。
-      //本质上说，所有组件的变换都是基于父层组件的坐标系进行的，只是最顶层的组件直接放在 canvas 对象中，而 canvas 默认的左上角位置就是 (0,0) 点。
-      //这里的本质是进行两个坐标系之间的映射，把组件自身的 local 坐标系原点映射到父层组件的坐标系中。
-      //这里需要把坐标点看成二维向量进行理解。
-      //FIXME:需要采用统一的处理机制，无论组件是否直接放在 canvas 上，都采用统一的机制。
-      let tx = get(this, 'state.transform.translate.0') + this.state.left;
-      let ty = get(this, 'state.transform.translate.1') + this.state.top;
-      point.x = this.parentNode.state.originPoint.x - tx;
-      point.y = this.parentNode.state.originPoint.y - ty;
-    }
-
-    this.state.originPoint = point;
-  }
-
-  /**
    * 计算平移矩阵，默认平移到组件的左上角位置。
    * @method calcTranslationMatrix
    * @returns DOMMatrix
@@ -194,6 +164,25 @@ abstract class ICEComponent extends EventTarget {
     let matrix = new DOMMatrix().translateSelf(tx, ty);
     this.state.translationMatrix = matrix;
     return matrix;
+  }
+
+  /**
+   * 计算本地原点坐标，相对于组件本地的局部坐标系。
+   * @returns
+   */
+  protected calcLocalOrigin(): DOMPoint {
+    let point = new DOMPoint(0, 0);
+    let halfWidth = this.state.width / 2;
+    let halfHeight = this.state.height / 2;
+
+    let position = this.state.origin;
+    if (!position || position === 'localCenter') {
+      point.x = halfWidth;
+      point.y = halfHeight;
+    }
+    //FIXME:计算原点位于其它位置的情况
+    this.state.localOrigin = point;
+    return point;
   }
 
   /**
@@ -242,6 +231,35 @@ abstract class ICEComponent extends EventTarget {
   }
 
   /**
+   * 根据原点位置描述计算原点坐标值。
+   * 移动坐标原点后，组件内部所有的坐标点数值、边界盒子的坐标，都会受到影响。
+   * @method calcAbsoluteOrigin
+   */
+  public calcAbsoluteOrigin(): DOMPoint {
+    let point = this.calcLocalOrigin();
+
+    if (this.parentNode) {
+      //如果存在父层节点，把父层节点的原点设置为当前组件的原点。
+      //因为基于父层组件的中心点进行变换时，才能正确复合父层组件的变换形态。
+      //本质上说，所有组件的变换都是基于父层组件的坐标系进行的，只是最顶层的组件直接放在 canvas 对象中，而 canvas 默认的左上角位置就是 (0,0) 点。
+      //这里的本质是进行两个坐标系之间的映射，把组件自身的 local 坐标系原点映射到父层组件的坐标系中。
+      //这里需要把坐标点看成二维向量进行理解。
+      //FIXME:需要采用统一的处理机制，无论组件是否直接放在 canvas 上，都采用统一的机制。
+      //FIXME:组件的原点设置为父层组件的中心点之后，如何让组件自身围绕自己的几何中心点进行变换？
+      let tx = get(this, 'state.transform.translate.0') + this.state.left;
+      let ty = get(this, 'state.transform.translate.1') + this.state.top;
+      let pox = this.parentNode.state.originPoint.x;
+      let poy = this.parentNode.state.originPoint.y;
+      //TODO:parentNode transform
+      point.x = pox - tx;
+      point.y = poy - ty;
+    }
+
+    this.state.originPoint = point;
+    return point;
+  }
+
+  /**
    * 复合所有祖先节点的线性变换矩阵，获得相对于全局 canvas 对象的变换矩阵。
    * @returns
    */
@@ -273,8 +291,9 @@ abstract class ICEComponent extends EventTarget {
     let translationMatrix = this.calcAbsoluteTranslationMatrix();
 
     //step-2: 移动原点，因为 state.translationMatrix 中没有包含移动原点的操作。
-    let moveOriginMatrix = new DOMMatrix([1, 0, 0, 1, this.state.originPoint.x, this.state.originPoint.y]);
-    translationMatrix.multiplySelf(moveOriginMatrix);
+    let origin = this.calcAbsoluteOrigin();
+    let originMatrix = new DOMMatrix([1, 0, 0, 1, origin.x, origin.y]);
+    translationMatrix.multiplySelf(originMatrix);
 
     //step-3: 计算线性变换矩阵，并复合所有祖先节点的线性变换矩阵。
     let linearMatrix = this.calcAbsoluteLinearMatrix();
