@@ -16,7 +16,6 @@ class ICEGroup extends ICERect {
 
   public addChild(child: ICEComponent) {
     child.parentNode = this;
-    child.state.origin = 'parentCenter';
     this.childNodes.push(child);
   }
 

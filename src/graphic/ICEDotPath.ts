@@ -54,20 +54,16 @@ export default class ICEDotPath extends ICEPath {
     return this.state.dots;
   }
 
-  /**
-   * 设置组件内部的原点坐标，坐标点的计算相对于组件的 local 坐标系，而不是全局默认坐标系。
-   * 在不修改坐标原点时，ctx 的坐标原点默认放在组件的左上角位置。
-   * 移动坐标原点后，组件中所有的坐标点，当前边界盒子，都会受到影响。
-   * @param point
-   */
-  public calcLocalOrigin(position = 'center'): void {
-    super.calcLocalOrigin(position);
+  public calcAbsoluteOrigin(): DOMPoint {
+    let origin = super.calcAbsoluteOrigin();
 
     for (let i = 0; i < this.state.dots.length; i++) {
       let dot = this.state.dots[i];
-      dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -this.state.originPoint.x, -this.state.originPoint.y]));
+      dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -origin.x, -origin.y]));
       this.state.dots[i] = dot;
     }
+
+    return origin;
   }
 
   /**
