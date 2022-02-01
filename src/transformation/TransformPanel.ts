@@ -216,8 +216,8 @@ export default class TransformPanel extends ICEGroup {
       if (component.parentNode) {
         //存在嵌套的情况下，组件的原点会被设置为父组件的几何中点 Component.calcAbsoluteOrigin()
         //这里需要计算组件自身的几何中点在相对于父层坐标系进行 transform 之后的全局坐标
-        let x = 0 - component.state.originPoint.x + component.state.width / 2;
-        let y = 0 - component.state.originPoint.y + component.state.height / 2;
+        let x = 0 - component.state.globalOrigin.x + component.state.width / 2;
+        let y = 0 - component.state.globalOrigin.y + component.state.height / 2;
         let cm = component.state.composedMatrix;
         let p = new DOMPoint(x, y);
         p = p.matrixTransform(cm);
