@@ -31,7 +31,7 @@ class TransformManager {
 
     //在同一时刻，不可能同时出现多个 TransformPanel 实例，这里默认构造一个，放在距离可见区域很远的位置？？？
     //FIXME:需要测试是否会影响 toDataURL 的输出结果。
-    this.ice.addToDisplayMap(this.transformPanel);
+    // this.ice.addToDisplayMap(this.transformPanel);
   }
 
   //FIXME:先取消选中列表中的原有对象的选中状态?

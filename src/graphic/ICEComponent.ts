@@ -41,9 +41,9 @@ abstract class ICEComponent extends EventTarget {
    *   },
    *   translationMatrix: new DOMMatrix(), //平移变换矩阵
    *   linearMatrix: new DOMMatrix(),      //线性变换矩阵，不含平移
-   *   composedMatrix: new DOMMatrix(),    //复合变换矩阵，包含所有祖先节点的平移和线性变换
-   *   originPoint: new DOMPoint(0, 0),    //组件原点坐标，根据 localCenter 计算获得
-   *   origin:"localCenter",               //组件原点位置描述
+   *   composedMatrix: new DOMMatrix(),    //复合变换矩阵，包含所有祖先节点的平移、原点移动、线性变换计算
+   *   localOrigin: new DOMPoint(0, 0),    //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
+   *   globalOrigin: new DOMPoint(0, 0),   //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
    *   zIndex: ICEComponent.instanceCounter++, //类似于 CSS 中的 zIndex
    *   interactive: true, //是否可以进行用户交互操作 TODO:动画运行过程中不允许选中，不能进行交互？？？
    *   transformable: true,
@@ -67,7 +67,8 @@ abstract class ICEComponent extends EventTarget {
     translationMatrix: new DOMMatrix(),
     linearMatrix: new DOMMatrix(),
     composedMatrix: new DOMMatrix(),
-    originPoint: new DOMPoint(0, 0),
+    localOrigin: new DOMPoint(0, 0),
+    globalOrigin: new DOMPoint(0, 0),
     zIndex: ICEComponent.instanceCounter++,
     draggable: true,
     transformable: true,
@@ -248,14 +249,14 @@ abstract class ICEComponent extends EventTarget {
       //FIXME:组件的原点设置为父层组件的中心点之后，如何让组件自身围绕自己的几何中心点进行变换？
       let tx = get(this, 'state.transform.translate.0') + this.state.left;
       let ty = get(this, 'state.transform.translate.1') + this.state.top;
-      let pox = this.parentNode.state.originPoint.x;
-      let poy = this.parentNode.state.originPoint.y;
+      let pox = this.parentNode.state.globalOrigin.x;
+      let poy = this.parentNode.state.globalOrigin.y;
       //TODO:parentNode transform
       point.x = pox - tx;
       point.y = poy - ty;
     }
 
-    this.state.originPoint = point;
+    this.state.globalOrigin = point;
     return point;
   }
 
@@ -292,8 +293,7 @@ abstract class ICEComponent extends EventTarget {
 
     //step-2: 移动原点，因为 state.translationMatrix 中没有包含移动原点的操作。
     let origin = this.calcAbsoluteOrigin();
-    let originMatrix = new DOMMatrix([1, 0, 0, 1, origin.x, origin.y]);
-    translationMatrix.multiplySelf(originMatrix);
+    translationMatrix.multiplySelf(new DOMMatrix([1, 0, 0, 1, origin.x, origin.y]));
 
     //step-3: 计算线性变换矩阵，并复合所有祖先节点的线性变换矩阵。
     let linearMatrix = this.calcAbsoluteLinearMatrix();
@@ -350,8 +350,8 @@ abstract class ICEComponent extends EventTarget {
    * @returns
    */
   public getMinBoundingBox(): ICEBoundingBox {
-    let originX = this.state.originPoint.x;
-    let originY = this.state.originPoint.y;
+    let originX = this.state.globalOrigin.x;
+    let originY = this.state.globalOrigin.y;
     let width = this.state.width;
     let height = this.state.height;
 
