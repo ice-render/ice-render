@@ -167,16 +167,13 @@ export default class TransformPanel extends ICEGroup {
     if (!this.targetComponent) {
       return;
     }
-
     let { rotate } = this.state.transform;
-    // if (this.targetComponent.parentNode) {
-    //   //在存在 N 层嵌套的情况下，减掉所有父层叠加起来的旋转角。
-    //   //FIXME:所有父层的旋转抵消掉还不够，因为原点和旋转导致的位移没有消除。
-    //   let matrix = this.targetComponent.parentNode.state.absoluteLinearMatrix;
-    //   let angle = ICEMatrix.calcRotateAngle(matrix);
-    //   rotate -= angle;
-    // }
-
+    if (this.targetComponent.parentNode) {
+      //组件存在嵌套的情况下，减掉所有祖先节点旋转角的总和。
+      let matrix = this.targetComponent.parentNode.state.absoluteLinearMatrix;
+      let angle = ICEMatrix.calcRotateAngle(matrix);
+      rotate -= angle;
+    }
     this.targetComponent.setState({
       transform: {
         rotate: rotate,
@@ -204,28 +201,17 @@ export default class TransformPanel extends ICEGroup {
   public set targetComponent(component: ICEComponent) {
     this._targetComponent = component;
     if (component) {
-      //根据变换矩阵反过来计算旋转角
+      //step-1: 根据变换矩阵反过来计算当前旋转角度
       let matrix = component.state.absoluteLinearMatrix;
       let angle = ICEMatrix.calcRotateAngle(matrix);
 
+      //step-2: 计算变换之后左上角 left/top 的坐标
       let box = component.getMinBoundingBox();
       let width = box.width;
       let height = box.height;
       let left = box.centerX - box.width / 2;
       let top = box.centerY - box.height / 2;
-      if (component.parentNode) {
-        //存在嵌套的情况下，组件的原点会被设置为父组件的几何中点 Component.calcAbsoluteOrigin()
-        //这里需要计算组件自身的几何中点在相对于父层坐标系进行 transform 之后的全局坐标
-        let x = 0 - component.state.absoluteOrigin.x + component.state.width / 2;
-        let y = 0 - component.state.absoluteOrigin.y + component.state.height / 2;
-        let cm = component.state.composedMatrix;
-        let p = new DOMPoint(x, y);
-        p = p.matrixTransform(cm);
-        left = p.x - box.width / 2;
-        top = p.y - box.height / 2;
-      }
-      console.log(box);
-      console.log(left, top, width, height);
+
       this.setState({
         left,
         top,
