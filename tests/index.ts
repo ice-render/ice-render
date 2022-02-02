@@ -155,7 +155,7 @@ let g = new ICEGroup({
   },
   transform: {
     // translate: [10, -10],
-    scale: [1, 1],
+    scale: [1.5, 1.5],
     // skew: [50, 0],
     rotate: 45,
   },
@@ -193,7 +193,7 @@ let group2 = new ICEGroup({
   transform: {
     // translate: [10, -10],
     // scale: [1, 1],
-    rotate: 0,
+    rotate: 10,
   },
 });
 group1.addChild(group2);
@@ -204,7 +204,7 @@ group2.addChild(
     top: 10,
     radius: 10,
     transform: {
-      rotate: 90,
+      rotate: 45,
     },
   })
 );

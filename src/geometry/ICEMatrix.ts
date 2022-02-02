@@ -18,4 +18,15 @@ export default class ICEMatrix {
     }
     return radians * (180 / Math.PI);
   }
+
+  /**
+   * 从变换矩阵计算缩放参数。
+   * @param matrix
+   * @returns 缩放数组
+   */
+  public static calcScale(matrix: DOMMatrix): Array<number> {
+    const scaleX = Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b) / matrix.a;
+    const scaleY = Math.sqrt(matrix.c * matrix.c + matrix.d * matrix.d) / matrix.d;
+    return [scaleX, scaleY];
+  }
 }
