@@ -379,8 +379,8 @@ abstract class ICEComponent extends EventTarget {
    * @returns
    */
   public getMinBoundingBox(): ICEBoundingBox {
-    let originX = this.state.absoluteOrigin.x;
-    let originY = this.state.absoluteOrigin.y;
+    let originX = this.state.localOrigin.x;
+    let originY = this.state.localOrigin.y;
     let width = this.state.width;
     let height = this.state.height;
 
