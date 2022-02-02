@@ -10,7 +10,7 @@ let ice = new ICE().init('canvas-1');
 let rect = new ICERect({
   left: 100,
   top: 100,
-  width: 200,
+  width: 300,
   height: 200,
   style: {
     strokeStyle: '#0c09d4',
@@ -23,12 +23,12 @@ let rect = new ICERect({
   //   width: { from: 100, to: 200, duration: 5000 },
   //   height: { from: 100, to: 200, duration: 5000 },
   // },
-  // transform: {
-  //   translate: [10, 10],
-  //   rotate: 10,
-  //   skew: [20, 0],
-  //   scale: [1, 1],
-  // },
+  transform: {
+    // translate: [10, 10],
+    rotate: 45,
+    // skew: [20, 0],
+    // scale: [1, 1],
+  },
 });
 rect.on('click', (evt) => {
   console.log('rect');
