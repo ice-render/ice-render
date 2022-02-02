@@ -150,12 +150,23 @@ export default class TransformPanel extends ICEGroup {
     if (!this.targetComponent) {
       return;
     }
+
     const { width, height } = this.state;
-    //FIXME:这里的计算方法看起来有问题，skew 参数也可能导致 width/height 发生变化，这里看起来还是需要进行矩阵变换。
     const targetWidth = this.targetComponent.props.width;
     const targetHeight = this.targetComponent.props.height;
-    const scaleX = width / targetWidth;
-    const scaleY = height / targetHeight;
+    let scaleX = width / targetWidth;
+    let scaleY = height / targetHeight;
+
+    if (this.targetComponent.parentNode) {
+      //组件存在嵌套的情况下，抵消掉所有祖先节点的缩放参数。
+      let matrix = this.targetComponent.parentNode.state.absoluteLinearMatrix;
+      let scale = ICEMatrix.calcScale(matrix);
+      const sx = scale[0];
+      const sy = scale[1];
+      scaleX = scaleX / sx;
+      scaleY = scaleY / sy;
+    }
+
     this.targetComponent.setState({
       transform: {
         scale: [scaleX, scaleY],
