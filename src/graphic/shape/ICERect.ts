@@ -15,7 +15,7 @@ class ICERect extends ICEDotPath {
    * - 这些点没有经过 transform 矩阵变换。
    * @returns
    */
-  protected calcOriginalDots(): Array<DOMPoint> {
+  protected calcDots(): Array<DOMPoint> {
     let point1 = new DOMPoint(0, 0); //top-left point
     let point2 = new DOMPoint(this.state.width, 0); //top-right point
     let point3 = new DOMPoint(this.state.width, this.state.height); //bottom-right point

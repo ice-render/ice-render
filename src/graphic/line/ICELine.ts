@@ -25,7 +25,7 @@ class ICELine extends ICEDotPath {
    * @overwrite
    * @returns
    */
-  protected calcOriginalDots(): Array<DOMPoint> {
+  protected calcDots(): Array<DOMPoint> {
     this.state.dots = [
       new DOMPoint(0, 0),
       new DOMPoint(
@@ -68,7 +68,7 @@ class ICELine extends ICEDotPath {
     let point = new DOMPoint();
     point.x = (endX - startX) / 2;
     point.y = (endY - startY) / 2;
-    this.state.globalOrigin = point;
+    this.state.absoluteOrigin = point;
 
     //根据新的几何中点移动原始的关键点
     for (let i = 0; i < this.state.dots.length; i++) {

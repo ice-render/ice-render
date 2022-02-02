@@ -13,17 +13,35 @@ export default class ICEDotPath extends ICEPath {
   /**
    * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
    * 由于点状路径可能是不规则的形状，所以宽高需要手动计算，特殊形状的子类需要覆盖此方法提供自己的实现。
+   * @overwrite
    * @returns
    */
   protected calcOriginalDimension() {
     //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
-    this.calcOriginalDots();
+    this.calcDots();
     let points = this.calc4PointsFromDots();
     let width = points[1].x - points[0].x; //maxX-minX
     let height = points[2].y - points[0].y; //maxY-minY
     this.state.width = width;
     this.state.height = height;
     return { width: this.state.width, height: this.state.height };
+  }
+
+  /**
+   * 点状路径在重新计算本地原点坐标之后，需要移动内部所有点的位置。
+   * @overwrite
+   * @returns
+   */
+  public calcLocalOrigin(): DOMPoint {
+    let origin = super.calcLocalOrigin();
+
+    for (let i = 0; i < this.state.dots.length; i++) {
+      let dot = this.state.dots[i];
+      dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -origin.x, -origin.y]));
+      this.state.dots[i] = dot;
+    }
+
+    return origin;
   }
 
   /**
@@ -49,25 +67,13 @@ export default class ICEDotPath extends ICEPath {
    * - 这些点没有经过 transform 矩阵变换。
    * @returns
    */
-  protected calcOriginalDots(): Array<DOMPoint> {
+  protected calcDots(): Array<DOMPoint> {
     this.state.dots = [];
     return this.state.dots;
   }
 
-  public calcAbsoluteOrigin(): DOMPoint {
-    let origin = super.calcAbsoluteOrigin();
-
-    for (let i = 0; i < this.state.dots.length; i++) {
-      let dot = this.state.dots[i];
-      dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -origin.x, -origin.y]));
-      this.state.dots[i] = dot;
-    }
-
-    return origin;
-  }
-
   /**
-   * 组件本地坐标系原点位于左上角时的数值
+   * 组件本地坐标系原点位于左上角时的数值，用于计算组件的原始 width/height
    * @returns
    */
   calc4PointsFromDots(): Array<DOMPoint> {
