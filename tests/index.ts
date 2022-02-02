@@ -157,7 +157,7 @@ let g = new ICEGroup({
     // translate: [10, -10],
     scale: [1, 1],
     // skew: [50, 0],
-    rotate: 135,
+    rotate: 45,
   },
 });
 ice.addToDisplayMap(g);
@@ -175,7 +175,7 @@ let group1 = new ICEGroup({
   transform: {
     // translate: [10, -10],
     // scale: [1, 1],
-    rotate: 45,
+    rotate: 0,
   },
 });
 g.addChild(group1);
@@ -200,7 +200,7 @@ group1.addChild(group2);
 
 group2.addChild(
   new ICECircle({
-    left: 10,
+    left: 20,
     top: 10,
     radius: 10,
     transform: {
