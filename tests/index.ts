@@ -2,6 +2,7 @@
 // import ICELine from '../src/graphic/line/ICELine';
 // import ICERect from '../src/graphic/shape/ICERect';
 import ICEGroup from '../src/graphic/container/ICEGroup';
+import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
 
@@ -197,16 +198,16 @@ let group2 = new ICEGroup({
 });
 group1.addChild(group2);
 
-// group2.addChild(
-//   new ICECircle({
-//     left: 10,
-//     top: 10,
-//     radius: 20,
-//     transform: {
-//       rotate: 180,
-//     },
-//   })
-// );
+group2.addChild(
+  new ICECircle({
+    left: 10,
+    top: 10,
+    radius: 10,
+    transform: {
+      rotate: 180,
+    },
+  })
+);
 
 // let group1 = new ICEGroup({
 //   left: 100,

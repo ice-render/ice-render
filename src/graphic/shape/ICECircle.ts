@@ -16,8 +16,8 @@ class ICECircle extends ICEPath {
   protected createPathObject(): Path2D {
     this.path2D = new Path2D();
     this.path2D.arc(
-      this.state.radius - this.state.absoluteOrigin.x,
-      this.state.radius - this.state.absoluteOrigin.y,
+      this.state.radius - this.state.localOrigin.x,
+      this.state.radius - this.state.localOrigin.y,
       this.state.radius,
       0,
       Math.PI * 2
