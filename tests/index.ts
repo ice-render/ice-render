@@ -204,7 +204,7 @@ group2.addChild(
     top: 10,
     radius: 10,
     transform: {
-      rotate: 0,
+      rotate: 90,
     },
   })
 );

@@ -3,7 +3,12 @@ import ICE from '../ICE';
 import TransformPanel from './TransformPanel';
 
 /**
- * @class TransformManager
+ * @class TransformManager 变换管理器
+ *
+ * - 所有组件的位移、旋转、缩放，都通过此管理器进行。
+ * - 全局单例，一个 ICE 实例上只能有一个 TransformManager 实例。
+ * - 借助于 TransformPanel 进行图形化交互
+ *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class TransformManager {
