@@ -7,6 +7,10 @@ import ICEPath from '../ICEPath';
 class ICECircle extends ICEPath {
   constructor(props: any = {}) {
     super({ radius: 10, ...props });
+    this.props.width = this.props.radius * 2;
+    this.props.height = this.props.radius * 2;
+    this.state.width = this.props.radius * 2;
+    this.state.height = this.props.radius * 2;
   }
 
   /**
@@ -24,16 +28,6 @@ class ICECircle extends ICEPath {
     );
     this.path2D.closePath();
     return this.path2D;
-  }
-
-  /**
-   * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
-   * @returns
-   */
-  protected calcOriginalDimension() {
-    this.state.width = this.props.radius * 2;
-    this.state.height = this.props.radius * 2;
-    return { width: this.state.width, height: this.state.height };
   }
 }
 export default ICECircle;

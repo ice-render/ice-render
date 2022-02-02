@@ -250,12 +250,12 @@ group2.addChild(
 // });
 // ice.addToDisplayMap(rect6);
 
-// let circle2 = new ICECircle({
-//   left: 200,
-//   top: 10,
-//   radius: 10,
-// });
-// ice.addToDisplayMap(circle2);
+let circle2 = new ICECircle({
+  left: 700,
+  top: 10,
+  radius: 50,
+});
+ice.addToDisplayMap(circle2);
 
 // let group2 = new ICEGroup({
 //   left: 20,
