@@ -19,7 +19,7 @@ export default class RotateControl extends ICECircle {
 
   private rotateEvtHandler(evt) {
     let hostState = this.props.host.state;
-    let hostOrigin = hostState.globalOrigin;
+    let hostOrigin = hostState.absoluteOrigin;
     let matrix = hostState.absoluteTranslateMatrix;
     let hostCenterPoint = hostOrigin.matrixTransform(matrix);
 
