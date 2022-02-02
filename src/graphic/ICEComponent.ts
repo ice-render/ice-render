@@ -243,44 +243,24 @@ abstract class ICEComponent extends EventTarget {
    */
   public calcAbsoluteOrigin(): DOMPoint {
     let point = DOMPoint.fromPoint(this.calcLocalOrigin());
+    let tx = get(this, 'state.transform.translate.0') + this.state.left;
+    let ty = get(this, 'state.transform.translate.1') + this.state.top;
+    point.x += tx;
+    point.y += ty;
+
     if (this.parentNode) {
-      //如果存在父层节点，把父层节点的原点设置为当前组件的原点。
-      //因为基于父层组件的中心点进行变换时，才能正确复合父层组件的变换形态。
-      //本质上说，所有组件的变换都是基于父层组件的坐标系进行的，只是最顶层的组件直接放在 canvas 对象中，而 canvas 默认的左上角位置就是 (0,0) 点。
-      //这里的本质是进行两个坐标系之间的映射，把组件自身的 local 坐标系原点映射到父层组件的坐标系中。
-      //这里需要把坐标点看成二维向量进行理解。
-      //FIXME:需要采用统一的处理机制，无论组件是否直接放在 canvas 上，都采用统一的机制。
-      //FIXME:组件的原点设置为父层组件的中心点之后，如何让组件自身围绕自己的几何中心点进行变换？
-
-      // let tx = get(this, 'state.transform.translate.0') + this.state.left;
-      // let ty = get(this, 'state.transform.translate.1') + this.state.top;
-      // let pox = this.parentNode.state.absoluteOrigin.x;
-      // let poy = this.parentNode.state.absoluteOrigin.y;
-      // //TODO:parentNode transform
-      // point.x = pox - tx;
-      // point.y = poy - ty;
-
-      //step-1: 获取父层变换矩阵 composedMatrix ， 父层本地原点坐标
-      let pcm = this.parentNode.state.composedMatrix;
       let plox = this.parentNode.state.localOrigin.x;
       let ploy = this.parentNode.state.localOrigin.y;
-
-      //step-2: 当前组件本地原点相对于父组件坐标系的坐标，用父层变换矩阵进行变换
       point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, -plox, -ploy]));
+
+      let pcm = this.parentNode.state.composedMatrix;
       point = point.matrixTransform(pcm);
 
       //step-3: 加上父层原点的全局坐标 parentNode.state.absoluteOrigin
-      let pgox = this.parentNode.state.absoluteOrigin.x;
-      let pgoy = this.parentNode.state.absoluteOrigin.y;
-      point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, pgox, pgoy]));
-    } else {
-      let tx = get(this, 'state.transform.translate.0') + this.state.left;
-      let ty = get(this, 'state.transform.translate.1') + this.state.top;
-      point.x += tx;
-      point.y += ty;
+      // let pgox = this.parentNode.state.absoluteOrigin.x;
+      // let pgoy = this.parentNode.state.absoluteOrigin.y;
+      // point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, pgox, pgoy]));
     }
-
-    // console.log(point);
 
     this.state.absoluteOrigin = point;
     return point;
