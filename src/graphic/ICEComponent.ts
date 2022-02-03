@@ -3,6 +3,7 @@ import merge from 'lodash/merge';
 import EventTarget from '../event/EventTarget';
 import ICEEvent from '../event/ICEEvent';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
+import ICEMatrix from '../geometry/ICEMatrix';
 import { ICE_CONSTS } from '../ICE_CONSTS';
 
 /**
@@ -116,13 +117,41 @@ abstract class ICEComponent extends EventTarget {
   }
 
   /**
-   * 相对于父组件的坐标系和原点。
+   * 在全局空间（canvas）中移动指定的位移。
+   * 注意：此方法用于直接设置组件在全局空间中的位移，而不是相对于其它坐标系。
    * @param tx
    * @param ty
    * @param evt
    */
-  public movePosition(tx: number, ty: number, evt: any = new ICEEvent()): void {
+  public moveGlobalPosition(tx: number, ty: number, evt: any = new ICEEvent()): void {
+    //如果组件存在嵌套，需要先用逆矩阵抵消所有祖先节点 transform 导致的坐标偏移。
+    if (this.parentNode) {
+      let point = new DOMPoint(tx, ty);
+      let matrix = this.parentNode.state.absoluteLinearMatrix.inverse();
+      point = point.matrixTransform(matrix);
+      tx = point.x;
+      ty = point.y;
+    }
     this.setPosition(this.state.left + tx, this.state.top + ty, { ...evt, tx, ty });
+  }
+
+  /**
+   * 在全局空间（canvas）中旋转指定的角度。
+   * 注意：此方法用于直接设置组件在全局空间中的旋转角，而不是相对于其它坐标系。
+   * @param rotateAngle
+   */
+  public setGlobalRotate(rotateAngle): void {
+    if (this.parentNode) {
+      //组件存在嵌套的情况下，减掉所有祖先节点旋转角的总和。
+      let matrix = this.parentNode.state.absoluteLinearMatrix;
+      let angle = ICEMatrix.calcRotateAngle(matrix);
+      rotateAngle -= angle;
+    }
+    this.setState({
+      transform: {
+        rotate: rotateAngle,
+      },
+    });
   }
 
   /**
