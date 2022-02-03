@@ -1,8 +1,8 @@
 import ICEMatrix from '../geometry/ICEMatrix';
 import ICEGroup from '../graphic/container/ICEGroup';
 import ICEComponent from '../graphic/ICEComponent';
+import ResizeControl from './ResizeControl';
 import RotateControl from './RotateControl';
-import ScaleControl from './ScaleControl';
 
 /**
  * @class TransformPanel 变换操作工具集成面板。
@@ -15,12 +15,12 @@ import ScaleControl from './ScaleControl';
  */
 export default class TransformPanel extends ICEGroup {
   private _targetComponent;
-  private scaleHandleInstanceCache = [];
   private rotateHandleInstance;
-  private scaleHandleSize: number = 16; //TODO:改成可配置参数
   private rotateHandleSize: number = 8; //TODO:改成可配置参数
   private rotateHandleOffsetY: number = 60; //TODO:改成可配置参数
-  private scaleHandleConfig: Array<any> = [
+  private resizeHandleInstanceCache = [];
+  private resizeHandleSize: number = 16; //TODO:改成可配置参数
+  private resizeHandleConfig: Array<any> = [
     {
       position: 'tl',
     },
@@ -50,27 +50,27 @@ export default class TransformPanel extends ICEGroup {
   constructor(props) {
     super({ ...props, transformable: false, zIndex: Number.MAX_VALUE });
     this.initTransformationHandles();
-    this.on('after-scale', this.scaleEvtHandler, this);
+    this.on('after-resize', this.resizeEvtHandler, this);
     this.on('after-rotate', this.rotateEvtHandler, this);
   }
 
   /**
-   * 添加缩放和旋转变换手柄，初始化时添加在内部的[0,0]位置，此方法只创建对象实例，不执行渲染操作。
+   * 添加尺寸和旋转变换手柄，初始化时添加在内部的[0,0]位置，此方法只创建对象实例，不执行渲染操作。
    * TODO:添加斜切手柄？
    */
   private initTransformationHandles() {
-    // 6 个缩放手柄
+    // 6 个调整尺寸的手柄
     let counter = 1;
-    this.scaleHandleInstanceCache = [];
-    this.scaleHandleConfig.forEach((handleConfig) => {
-      const handleInstance = new ScaleControl({
+    this.resizeHandleInstanceCache = [];
+    this.resizeHandleConfig.forEach((handleConfig) => {
+      const handleInstance = new ResizeControl({
         zIndex: Number.MAX_VALUE - counter++,
         transformable: false,
         host: this,
         left: 0,
         top: 0,
-        width: this.scaleHandleSize,
-        height: this.scaleHandleSize,
+        width: this.resizeHandleSize,
+        height: this.resizeHandleSize,
         //TODO: style 放到 props 中去变成可配置的参数
         style: {
           strokeStyle: '#8b0000',
@@ -81,7 +81,7 @@ export default class TransformPanel extends ICEGroup {
       });
 
       this.addChild(handleInstance);
-      this.scaleHandleInstanceCache.push(handleInstance);
+      this.resizeHandleInstanceCache.push(handleInstance);
     });
 
     // 1 个旋转手柄
@@ -107,12 +107,12 @@ export default class TransformPanel extends ICEGroup {
    * 设置所有手柄在父组件中的位置，相对于父组件的本地坐标系。
    */
   public calcControlPositions() {
-    //计算8个缩放手柄坐标位置
+    //计算8个尺寸手柄坐标位置
     let width = this.state.width;
     let height = this.state.height;
     let halfWidth = width / 2;
     let halfHeight = height / 2;
-    let halfHandleSize = this.scaleHandleSize / 2;
+    let halfHandleSize = this.resizeHandleSize / 2;
     let position = {
       tl: new DOMPoint(-halfHandleSize, -halfHandleSize),
       t: new DOMPoint(halfWidth - halfHandleSize, -halfHandleSize),
@@ -123,7 +123,7 @@ export default class TransformPanel extends ICEGroup {
       lb: new DOMPoint(-halfHandleSize, height - halfHandleSize),
       l: new DOMPoint(-halfHandleSize, halfHeight - halfHandleSize),
     };
-    this.scaleHandleInstanceCache.forEach((handle) => {
+    this.resizeHandleInstanceCache.forEach((handle) => {
       let point = position[handle.props.position];
       handle.setState({
         left: point.x,
@@ -146,31 +146,29 @@ export default class TransformPanel extends ICEGroup {
     super.renderChildren();
   }
 
-  private scaleEvtHandler(evt: any) {
+  private resizeEvtHandler(evt: any) {
     if (!this.targetComponent) {
       return;
     }
 
-    const { width, height } = this.state;
-    const targetWidth = this.targetComponent.props.width;
-    const targetHeight = this.targetComponent.props.height;
-    let scaleX = width / targetWidth;
-    let scaleY = height / targetHeight;
+    let movementX = evt.movementX / window.devicePixelRatio;
+    let movementY = evt.movementY / window.devicePixelRatio;
 
     if (this.targetComponent.parentNode) {
-      //组件存在嵌套的情况下，抵消掉所有祖先节点的缩放参数。
-      let matrix = this.targetComponent.parentNode.state.absoluteLinearMatrix;
-      let scale = ICEMatrix.calcScale(matrix);
-      const sx = scale[0];
-      const sy = scale[1];
-      scaleX = scaleX / sx;
-      scaleY = scaleY / sy;
+      let matrix = this.targetComponent.parentNode.state.absoluteLinearMatrix.inverse();
+      let point = new DOMPoint(movementX, movementY);
+      point = point.matrixTransform(matrix);
+      movementX = point.x;
+      movementY = point.y;
     }
 
+    let { width, height } = this.targetComponent.state;
+    width += 2 * movementX;
+    height += 2 * movementY;
+
     this.targetComponent.setState({
-      transform: {
-        scale: [scaleX, scaleY],
-      },
+      width: Math.abs(width),
+      height: Math.abs(height),
     });
   }
 

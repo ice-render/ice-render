@@ -1,10 +1,9 @@
-import ICEEvent from '../event/ICEEvent';
 import ICERect from '../graphic/shape/ICERect';
 
 /**
- * @class ScaleControl 缩放操作手柄
+ * @class ResizeControl 调整尺寸的操作手柄
  *
- * 缩放操作手柄不能独立存在，只能依附在某个宿主对象上。
+ * 调整尺寸的操作手柄不能独立存在，只能依附在某个宿主对象上。
  *
  * TODO: 补全 props 配置项
  * {
@@ -13,17 +12,17 @@ import ICERect from '../graphic/shape/ICERect';
  *   position: 手柄在变换矩形4个边上的位置，共有8个：lt/t/rt/r/rb/b/lb/l
  * }
  */
-export default class ScaleControl extends ICERect {
+export default class ResizeControl extends ICERect {
   constructor(props) {
     super({ position: 'l', ...props });
-    this.on('after-move', this.scaleToCenter, this);
+    this.on('after-move', this.resizeToCenter, this);
   }
 
   /**
-   * 围绕几何中心点缩放。
+   * 围绕几何中心点调整宽高。
    * @param evt
    */
-  private scaleToCenter(evt) {
+  private resizeToCenter(evt) {
     let movementX = evt.movementX / window.devicePixelRatio;
     let movementY = evt.movementY / window.devicePixelRatio;
     let hostState = this.props.host.state;
@@ -92,8 +91,8 @@ export default class ScaleControl extends ICERect {
       width: Math.abs(newWidth),
       height: Math.abs(newHeight),
     };
-    this.props.host.trigger('before-scale', new ICEEvent(param));
+    this.props.host.trigger('before-resize', evt);
     this.props.host.setState(param);
-    this.props.host.trigger('after-scale', new ICEEvent(param));
+    this.props.host.trigger('after-resize', evt);
   }
 }
