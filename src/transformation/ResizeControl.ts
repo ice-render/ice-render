@@ -7,7 +7,6 @@ import ICERect from '../graphic/shape/ICERect';
  *
  * TODO: 补全 props 配置项
  * {
- *   host: 宿主对象引用
  *   direction: 改变的方向，共有3个可选的值： x/y/both
  *   position: 手柄在变换矩形4个边上的位置，共有8个：lt/t/rt/r/rb/b/lb/l
  * }
@@ -23,18 +22,22 @@ export default class ResizeControl extends ICERect {
    * @param evt
    */
   private resizeToCenter(evt) {
+    if (!this.parentNode) {
+      return;
+    }
+
     let movementX = evt.movementX / window.devicePixelRatio;
     let movementY = evt.movementY / window.devicePixelRatio;
-    let hostState = this.props.host.state;
-    let newLeft = hostState.left;
-    let newTop = hostState.top;
-    let newWidth = hostState.width;
-    let newHeight = hostState.height;
+    let parentState = this.parentNode.state;
+    let newLeft = parentState.left;
+    let newTop = parentState.top;
+    let newWidth = parentState.width;
+    let newHeight = parentState.height;
     let position = this.props.position;
 
-    //用逆矩阵补偿 host 的 transform 导致的坐标变换。
+    //用逆矩阵补偿 parentNode 的 transform 导致的坐标变换。
     let point = new DOMPoint(movementX, movementY);
-    let matrix = hostState.absoluteLinearMatrix;
+    let matrix = parentState.absoluteLinearMatrix;
     matrix = matrix.inverse();
     point = point.matrixTransform(matrix);
     movementX = point.x;
@@ -91,8 +94,8 @@ export default class ResizeControl extends ICERect {
       width: Math.abs(newWidth),
       height: Math.abs(newHeight),
     };
-    this.props.host.trigger('before-resize', evt);
-    this.props.host.setState(param);
-    this.props.host.trigger('after-resize', evt);
+    this.parentNode.trigger('before-resize', evt);
+    this.parentNode.setState(param);
+    this.parentNode.trigger('after-resize', evt);
   }
 }

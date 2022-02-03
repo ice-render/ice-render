@@ -8,7 +8,6 @@ import ICECircle from '../graphic/shape/ICECircle';
  *
  * TODO: 补全 props 配置项
  * {
- *   host: 宿主对象引用
  * }
  */
 export default class RotateControl extends ICECircle {
@@ -18,10 +17,14 @@ export default class RotateControl extends ICECircle {
   }
 
   private rotateEvtHandler(evt) {
-    let hostState = this.props.host.state;
-    let hostOrigin = hostState.absoluteOrigin;
-    let matrix = hostState.absoluteTranslateMatrix;
-    let hostCenterPoint = hostOrigin.matrixTransform(matrix);
+    if (!this.parentNode) {
+      return;
+    }
+
+    let parentState = this.parentNode.state;
+    let parentOrigin = parentState.absoluteOrigin;
+    let matrix = parentState.absoluteTranslateMatrix;
+    let hostCenterPoint = parentOrigin.matrixTransform(matrix);
 
     //计算手柄旋转角
     let offsetX = evt.clientX - hostCenterPoint.x;
@@ -31,14 +34,14 @@ export default class RotateControl extends ICECircle {
     let sign = sin < 0 ? -1 : 1;
     let rotateAngle = (sign * Math.acos(cos) * 180) / Math.PI + 90; //加上90度的旋转手柄初始角度
 
-    //host 旋转角与手柄设置为相同数值
+    //parentNode 旋转角与手柄设置为相同数值
     const param = {
       transform: {
         rotate: rotateAngle,
       },
     };
-    this.props.host.trigger('before-rotate', new ICEEvent(param));
-    this.props.host.setState(param);
-    this.props.host.trigger('after-rotate', new ICEEvent(param));
+    this.parentNode.trigger('before-rotate', new ICEEvent(param));
+    this.parentNode.setState(param);
+    this.parentNode.trigger('after-rotate', new ICEEvent(param));
   }
 }
