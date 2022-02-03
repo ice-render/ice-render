@@ -66,7 +66,6 @@ export default class TransformPanel extends ICEGroup {
       const handleInstance = new ResizeControl({
         zIndex: Number.MAX_VALUE - counter++,
         transformable: false,
-        host: this,
         left: 0,
         top: 0,
         width: this.resizeHandleSize,
@@ -88,7 +87,6 @@ export default class TransformPanel extends ICEGroup {
     const rotateHandleInstance = new RotateControl({
       zIndex: Number.MAX_VALUE - counter++,
       transformable: false,
-      host: this,
       left: 0,
       top: 0,
       radius: this.rotateHandleSize,
