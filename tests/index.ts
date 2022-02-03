@@ -161,6 +161,11 @@ let g = new ICEGroup({
   },
 });
 ice.addToDisplayMap(g);
+g.setState({
+  transform: {
+    scale: [1.2, 1.2],
+  },
+});
 
 let group1 = new ICEGroup({
   left: 10,
