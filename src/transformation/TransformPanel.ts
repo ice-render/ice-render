@@ -179,33 +179,13 @@ export default class TransformPanel extends ICEGroup {
       return;
     }
     let { rotate } = this.state.transform;
-    if (this.targetComponent.parentNode) {
-      //组件存在嵌套的情况下，减掉所有祖先节点旋转角的总和。
-      let matrix = this.targetComponent.parentNode.state.absoluteLinearMatrix;
-      let angle = ICEMatrix.calcRotateAngle(matrix);
-      rotate -= angle;
-    }
-    this.targetComponent.setState({
-      transform: {
-        rotate: rotate,
-      },
-    });
+    this.targetComponent.setGlobalRotate(rotate);
   }
 
-  public movePosition(tx: number, ty: number, evt?: any): void {
-    super.movePosition(tx, ty, evt);
+  public moveGlobalPosition(tx: number, ty: number, evt?: any): void {
+    super.moveGlobalPosition(tx, ty, evt);
     if (this.targetComponent) {
-      if (this.targetComponent.parentNode) {
-        //如果组件存在嵌套，需要先用逆矩阵抵消 transform 导致的坐标偏移。
-        //FIXME:为什么直接放在 canvas 上的组件不需要乘以逆矩阵？能否让处理方式保持一致，方便理解？
-        let point = new DOMPoint(tx, ty);
-        let matrix = this.targetComponent.state.absoluteLinearMatrix;
-        matrix = matrix.inverse();
-        point = point.matrixTransform(matrix);
-        tx = point.x;
-        ty = point.y;
-      }
-      this.targetComponent.movePosition(tx, ty, evt);
+      this.targetComponent.moveGlobalPosition(tx, ty, evt);
     }
   }
 

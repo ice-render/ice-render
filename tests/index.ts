@@ -1,8 +1,8 @@
 // import ICEStar from '../src/graphic/shape/ICEStar';
 // import ICELine from '../src/graphic/line/ICELine';
-// import ICERect from '../src/graphic/shape/ICERect';
 import ICEGroup from '../src/graphic/container/ICEGroup';
 import ICECircle from '../src/graphic/shape/ICECircle';
+import ICERect from '../src/graphic/shape/ICERect';
 // import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
 
@@ -209,6 +209,18 @@ group2.addChild(
   })
 );
 
+group2.addChild(
+  new ICERect({
+    left: 60,
+    top: 10,
+    width: 30,
+    height: 20,
+    transform: {
+      rotate: 0,
+    },
+  })
+);
+
 // let group1 = new ICEGroup({
 //   left: 100,
 //   top: 100,
@@ -242,13 +254,13 @@ group2.addChild(
 // });
 // group1.addChild(rect5);
 
-// let rect6 = new ICERect({
-//   left: 300,
-//   top: 100,
-//   width: 200,
-//   height: 200,
-// });
-// ice.addToDisplayMap(rect6);
+let rect6 = new ICERect({
+  left: 600,
+  top: 200,
+  width: 400,
+  height: 200,
+});
+ice.addToDisplayMap(rect6);
 
 let circle2 = new ICECircle({
   left: 700,

@@ -76,7 +76,7 @@ class TransformManager {
   private mouseMoveHandler(evt: ICEEvent): boolean {
     let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
     let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-    this.currentDraggingObj.movePosition(tx, ty, evt);
+    this.currentDraggingObj.moveGlobalPosition(tx, ty, evt);
     return true;
   }
 
