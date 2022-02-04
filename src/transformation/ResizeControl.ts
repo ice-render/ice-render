@@ -95,8 +95,8 @@ export default class ResizeControl extends ICERect {
       height: Math.abs(newHeight),
     };
 
-    this.parentNode.trigger('before-resize', new ICEEvent(evt, { position, movementX, movementY }));
+    this.parentNode.trigger('before-resize', new ICEEvent(evt));
     this.parentNode.setState(param);
-    this.parentNode.trigger('after-resize', new ICEEvent(evt, { position, movementX, movementY }));
+    this.parentNode.trigger('after-resize', new ICEEvent(evt));
   }
 }
