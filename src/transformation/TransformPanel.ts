@@ -164,32 +164,34 @@ export default class TransformPanel extends ICEGroup {
       return;
     }
 
+    //step-1:
     //TransformPanel 的 MinBoundingBox 与 targetComponent 的 MinBoundingBox 完全重合。
     //所以 TransformPanel 的 MinBoundingBox 就是变换的最终目标。
     let box = this.getMinBoundingBox();
     let { left, top, width, height } = box;
 
+    //step-2:
     //计算未经变换时的左上角坐标，得到的结果是基于父层组件的本地坐标系。
     //如果不存在父层组件，表示直接放在 canvas 上。
+    //如果存在父层组件，需要做进一步处理。
     let leftTopPoint = new DOMPoint(left, top);
     let matrix = this.state.composedMatrix.inverse();
     leftTopPoint = leftTopPoint.matrixTransform(matrix);
     left = leftTopPoint.x;
     top = leftTopPoint.y;
-    console.log(left, top);
 
-    //如果存在父层组件，需要做进一步处理。
     if (this.targetComponent.parentNode) {
       let matrix = this.targetComponent.parentNode.composedMatrix;
       console.log(matrix);
     }
 
+    //step-3:
     //加上全局原点向量坐标，线性变换原点不变，因此在父层坐标系下数值相同。
-    //FIXME: 存在父层组件时应该如何处理？
     let { x, y } = DOMPoint.fromPoint(this.state.absoluteOrigin);
     left += x;
     top += y;
 
+    //step-4:
     this.targetComponent.setState({
       left,
       top,
