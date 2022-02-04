@@ -33,6 +33,33 @@ class ICEBoundingBox {
   }
 
   /**
+   * 从指定的 top/left/width/height 构建 ICEBoundingBox。
+   * @param left
+   * @param top
+   * @param width
+   * @param height
+   * @returns
+   */
+  public static fromDimension(left, top, width, height): ICEBoundingBox {
+    let tl = [left, top];
+    let tr = [left + width, top];
+    let bl = [left, top + height];
+    let br = [left + width, top + height];
+    let center = [left + width / 2, top + height / 2];
+    let paramArr = [...tl, ...tr, ...bl, ...br, ...center];
+    return new ICEBoundingBox(paramArr);
+  }
+
+  public clone(): ICEBoundingBox {
+    const tl = DOMPoint.fromPoint(this.tl);
+    const tr = DOMPoint.fromPoint(this.tr);
+    const bl = DOMPoint.fromPoint(this.bl);
+    const br = DOMPoint.fromPoint(this.br);
+    const center = DOMPoint.fromPoint(this.center);
+    return new ICEBoundingBox([tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y, center.x, center.y]);
+  }
+
+  /**
    * 判断指定的坐标点是否位于边界矩形内部，向右水平射线法。
    * 这里参考了 fabricjs 的实现方式。
    * @see http://fabricjs.com/
@@ -177,6 +204,20 @@ class ICEBoundingBox {
     return this.tl.x;
   }
 
+  //不允许设置 left 参数
+  private set left(num: number) {
+    throw new Error('Can not set left to ICEBoundingBox directly.');
+  }
+
+  public get top(): number {
+    return this.tl.y;
+  }
+
+  //不允许设置 top 参数
+  private set top(num: number) {
+    throw new Error('Can not set top to ICEBoundingBox directly.');
+  }
+
   public get centerX(): number {
     return this.center.x;
   }
@@ -188,14 +229,5 @@ class ICEBoundingBox {
   public get centerPoint(): DOMPoint {
     return this.center;
   }
-
-  //不允许设置 left 参数
-  private set left(num: number) {}
-
-  public get top(): number {
-    return this.tl.y;
-  }
-  //不允许设置 top 参数
-  private set top(num: number) {}
 }
 export default ICEBoundingBox;

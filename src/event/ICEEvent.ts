@@ -10,10 +10,14 @@ class ICEEvent {
   public originalEvent: any;
   public target: any;
 
-  constructor(evt: any = {}) {
+  constructor(evt: any = {}, data: any = {}) {
     //FIXME:事件对象的属性拷贝需要更加细致的控制
     for (let p in evt) {
       this[p] = evt[p];
+    }
+
+    for (let p in data) {
+      this[p] = data[p];
     }
   }
 }
