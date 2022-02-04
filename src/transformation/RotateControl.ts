@@ -18,6 +18,7 @@ export default class RotateControl extends ICECircle {
 
   private rotateEvtHandler(evt) {
     if (!this.parentNode) {
+      //parentNode 是 TransformPanel
       return;
     }
 

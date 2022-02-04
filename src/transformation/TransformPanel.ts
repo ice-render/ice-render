@@ -144,30 +144,11 @@ export default class TransformPanel extends ICEGroup {
     super.renderChildren();
   }
 
-  private resizeEvtHandler(evt: any) {
-    if (!this.targetComponent) {
-      return;
+  public moveGlobalPosition(tx: number, ty: number, evt?: any): void {
+    super.moveGlobalPosition(tx, ty, evt);
+    if (this.targetComponent) {
+      this.targetComponent.moveGlobalPosition(tx, ty, evt);
     }
-
-    let movementX = evt.movementX / window.devicePixelRatio;
-    let movementY = evt.movementY / window.devicePixelRatio;
-
-    if (this.targetComponent.parentNode) {
-      let matrix = this.targetComponent.parentNode.state.absoluteLinearMatrix.inverse();
-      let point = new DOMPoint(movementX, movementY);
-      point = point.matrixTransform(matrix);
-      movementX = point.x;
-      movementY = point.y;
-    }
-
-    let { width, height } = this.targetComponent.state;
-    width += 2 * movementX;
-    height += 2 * movementY;
-
-    this.targetComponent.setState({
-      width: Math.abs(width),
-      height: Math.abs(height),
-    });
   }
 
   private rotateEvtHandler(evt: any) {
@@ -178,11 +159,41 @@ export default class TransformPanel extends ICEGroup {
     this.targetComponent.setGlobalRotate(rotate);
   }
 
-  public moveGlobalPosition(tx: number, ty: number, evt?: any): void {
-    super.moveGlobalPosition(tx, ty, evt);
-    if (this.targetComponent) {
-      this.targetComponent.moveGlobalPosition(tx, ty, evt);
+  private resizeEvtHandler(evt: any) {
+    if (!this.targetComponent) {
+      return;
     }
+
+    //TransformPanel 的 MinBoundingBox 与 targetComponent 的 MinBoundingBox 完全重合。
+    //所以 TransformPanel 的 MinBoundingBox 就是变换的最终目标。
+    let box = this.getMinBoundingBox();
+    let { left, top, width, height } = box;
+
+    //计算未经变换时的左上角坐标，基于父层组件的本地坐标系，如果不存在父层组件，表示直接放在 canvas 上。
+    let leftTopPoint = new DOMPoint(left, top);
+    let matrix = this.state.composedMatrix.inverse();
+    leftTopPoint = leftTopPoint.matrixTransform(matrix);
+    left = leftTopPoint.x;
+    top = leftTopPoint.y;
+    console.log(left, top);
+
+    //如果存在父层组件，需要做进一步处理。
+    if (this.targetComponent.parentNode) {
+      let matrix = this.targetComponent.parentNode.composedMatrix;
+      console.log(matrix);
+    }
+
+    //加上全局原点向量坐标。 FIXME: 存在父层组件时应该如何处理？
+    let { x, y } = DOMPoint.fromPoint(this.state.absoluteOrigin);
+    left += x;
+    top += y;
+
+    this.targetComponent.setState({
+      left,
+      top,
+      width,
+      height,
+    });
   }
 
   public set targetComponent(component: ICEComponent) {

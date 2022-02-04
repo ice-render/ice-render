@@ -97,64 +97,6 @@ abstract class ICEComponent extends EventTarget {
   }
 
   /**
-   * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
-   * @param newState
-   */
-  public setState(newState: any) {
-    merge(this.state, newState);
-  }
-
-  /**
-   * 相对于父组件的坐标系和原点。
-   * @param left
-   * @param top
-   * @param evt
-   */
-  public setPosition(left: number, top: number, evt: any = new ICEEvent()): void {
-    this.trigger('before-move', { ...evt, left, top });
-    this.setState({ left, top });
-    this.trigger('after-move', { ...evt, left, top });
-  }
-
-  /**
-   * 在全局空间（canvas）中移动指定的位移。
-   * 注意：此方法用于直接设置组件在全局空间中的位移，而不是相对于其它坐标系。
-   * @param tx
-   * @param ty
-   * @param evt
-   */
-  public moveGlobalPosition(tx: number, ty: number, evt: any = new ICEEvent()): void {
-    //如果组件存在嵌套，需要先用逆矩阵抵消所有祖先节点 transform 导致的坐标偏移。
-    if (this.parentNode) {
-      let point = new DOMPoint(tx, ty);
-      let matrix = this.parentNode.state.absoluteLinearMatrix.inverse();
-      point = point.matrixTransform(matrix);
-      tx = point.x;
-      ty = point.y;
-    }
-    this.setPosition(this.state.left + tx, this.state.top + ty, { ...evt, tx, ty });
-  }
-
-  /**
-   * 在全局空间（canvas）中旋转指定的角度。
-   * 注意：此方法用于直接设置组件在全局空间中的旋转角，而不是相对于其它坐标系。
-   * @param rotateAngle
-   */
-  public setGlobalRotate(rotateAngle): void {
-    if (this.parentNode) {
-      //组件存在嵌套的情况下，减掉所有祖先节点旋转角的总和。
-      let matrix = this.parentNode.state.absoluteLinearMatrix;
-      let angle = ICEMatrix.calcRotateAngle(matrix);
-      rotateAngle -= angle;
-    }
-    this.setState({
-      transform: {
-        rotate: rotateAngle,
-      },
-    });
-  }
-
-  /**
    * !Important: 核心方法，FrameManager 会调度此方法进行实际的渲染操作。
    * !Important: 这些方法调用有顺序
    */
@@ -271,9 +213,10 @@ abstract class ICEComponent extends EventTarget {
    * @method calcAbsoluteOrigin
    */
   public calcAbsoluteOrigin(): DOMPoint {
-    let point = DOMPoint.fromPoint(this.calcLocalOrigin());
     let tx = get(this, 'state.transform.translate.0') + this.state.left;
     let ty = get(this, 'state.transform.translate.1') + this.state.top;
+
+    let point = DOMPoint.fromPoint(this.calcLocalOrigin());
     point.x += tx;
     point.y += ty;
 
@@ -284,11 +227,6 @@ abstract class ICEComponent extends EventTarget {
 
       let pcm = this.parentNode.state.composedMatrix;
       point = point.matrixTransform(pcm);
-
-      //step-3: 加上父层原点的全局坐标 parentNode.state.absoluteOrigin
-      // let pgox = this.parentNode.state.absoluteOrigin.x;
-      // let pgoy = this.parentNode.state.absoluteOrigin.y;
-      // point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, pgox, pgoy]));
     }
 
     this.state.absoluteOrigin = point;
@@ -323,21 +261,14 @@ abstract class ICEComponent extends EventTarget {
    * @returns DOMMatrix
    */
   protected composeMatrix(): DOMMatrix {
-    //step-1: 计算平移变换矩阵，递归复合所有祖先节点的位移矩阵。
-    // let translationMatrix = this.calcAbsoluteTranslationMatrix();
-
-    //step-2: 移动原点，因为 state.translationMatrix 中没有包含移动原点的操作。
+    //step-1: 移动到指定原点（全局坐标系）。
     let origin = this.calcAbsoluteOrigin();
-    // translationMatrix.multiplySelf(new DOMMatrix([1, 0, 0, 1, origin.x, origin.y]));
     let translationMatrix = new DOMMatrix([1, 0, 0, 1, origin.x, origin.y]);
 
-    //step-3: 计算线性变换矩阵，并复合所有祖先节点的线性变换矩阵。
+    //step-2: 计算线性变换矩阵，复合所有祖先节点的线性变换矩阵。
     let linearMatrix = this.calcAbsoluteLinearMatrix();
-    // console.log('linearMatrix', linearMatrix);
-
     let composedMatrix = translationMatrix.multiplySelf(linearMatrix);
     this.state.composedMatrix = DOMMatrix.fromMatrix(composedMatrix);
-    // console.log('composedMatrix', composedMatrix);
     return composedMatrix;
   }
 
@@ -422,6 +353,68 @@ abstract class ICEComponent extends EventTarget {
     let center = boundingBox.centerPoint;
     boundingBox = new ICEBoundingBox([minX, minY, maxX, minY, minX, maxY, maxX, maxY, center.x, center.y]);
     return boundingBox;
+  }
+
+  /**
+   * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
+   * @param newState
+   */
+  public setState(newState: any) {
+    merge(this.state, newState);
+  }
+
+  /**
+   * 相对于父组件的坐标系和原点。
+   * @param left
+   * @param top
+   * @param evt
+   */
+  public setPosition(left: number, top: number, evt: any = new ICEEvent()): void {
+    this.trigger('before-move', { ...evt, left, top });
+    this.setState({ left, top });
+    this.trigger('after-move', { ...evt, left, top });
+  }
+
+  /**
+   * 在全局空间(canvas)中移动指定的位移。
+   * 注意：此方法用于直接设置组件在全局空间中的位移，而不是相对于其它坐标系。
+   * @param tx
+   * @param ty
+   * @param evt
+   */
+  public moveGlobalPosition(tx: number, ty: number, evt: any = new ICEEvent()): void {
+    //如果组件存在嵌套，需要先用逆矩阵抵消所有祖先节点 transform 导致的坐标偏移。
+    if (this.parentNode) {
+      let point = new DOMPoint(tx, ty);
+      let matrix = this.parentNode.state.absoluteLinearMatrix.inverse();
+      point = point.matrixTransform(matrix);
+      tx = point.x;
+      ty = point.y;
+    }
+    this.setPosition(this.state.left + tx, this.state.top + ty, { ...evt, tx, ty });
+  }
+
+  /**
+   * 在全局空间(canvas)中旋转指定的角度。
+   * 注意：此方法用于直接设置组件在全局空间中的旋转角，而不是相对于其它坐标系。
+   * @param rotateAngle
+   */
+  public setGlobalRotate(rotateAngle): void {
+    if (this.parentNode) {
+      //组件存在嵌套的情况下，减掉所有祖先节点旋转角的总和。
+      let matrix = this.parentNode.state.absoluteLinearMatrix;
+      let angle = ICEMatrix.calcRotateAngle(matrix);
+      rotateAngle -= angle;
+    }
+    this.setState({
+      transform: {
+        rotate: rotateAngle,
+      },
+    });
+  }
+
+  public setGlobalSize(width: number, height: number): void {
+    // console.log(width, height);
   }
 
   /**

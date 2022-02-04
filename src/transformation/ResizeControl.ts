@@ -1,3 +1,4 @@
+import ICEEvent from '../event/ICEEvent';
 import ICERect from '../graphic/shape/ICERect';
 
 /**
@@ -23,6 +24,7 @@ export default class ResizeControl extends ICERect {
    */
   private resizeToCenter(evt) {
     if (!this.parentNode) {
+      //parentNode 是 TransformPanel
       return;
     }
 
@@ -94,8 +96,8 @@ export default class ResizeControl extends ICERect {
       width: Math.abs(newWidth),
       height: Math.abs(newHeight),
     };
-    this.parentNode.trigger('before-resize', evt);
+    this.parentNode.trigger('before-resize', new ICEEvent(evt, { position, movementX, movementY }));
     this.parentNode.setState(param);
-    this.parentNode.trigger('after-resize', evt);
+    this.parentNode.trigger('after-resize', new ICEEvent(evt, { position, movementX, movementY }));
   }
 }
