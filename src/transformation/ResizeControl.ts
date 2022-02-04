@@ -38,10 +38,8 @@ export default class ResizeControl extends ICERect {
     let position = this.props.position;
 
     //用逆矩阵补偿 parentNode 的 transform 导致的坐标变换。
-    let point = new DOMPoint(movementX, movementY);
-    let matrix = parentState.absoluteLinearMatrix;
-    matrix = matrix.inverse();
-    point = point.matrixTransform(matrix);
+    let matrix = parentState.absoluteLinearMatrix.inverse();
+    let point = new DOMPoint(movementX, movementY).matrixTransform(matrix);
     movementX = point.x;
     movementY = point.y;
 
@@ -96,6 +94,7 @@ export default class ResizeControl extends ICERect {
       width: Math.abs(newWidth),
       height: Math.abs(newHeight),
     };
+
     this.parentNode.trigger('before-resize', new ICEEvent(evt, { position, movementX, movementY }));
     this.parentNode.setState(param);
     this.parentNode.trigger('after-resize', new ICEEvent(evt, { position, movementX, movementY }));
