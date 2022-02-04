@@ -169,7 +169,8 @@ export default class TransformPanel extends ICEGroup {
     let box = this.getMinBoundingBox();
     let { left, top, width, height } = box;
 
-    //计算未经变换时的左上角坐标，基于父层组件的本地坐标系，如果不存在父层组件，表示直接放在 canvas 上。
+    //计算未经变换时的左上角坐标，得到的结果是基于父层组件的本地坐标系。
+    //如果不存在父层组件，表示直接放在 canvas 上。
     let leftTopPoint = new DOMPoint(left, top);
     let matrix = this.state.composedMatrix.inverse();
     leftTopPoint = leftTopPoint.matrixTransform(matrix);
@@ -183,7 +184,8 @@ export default class TransformPanel extends ICEGroup {
       console.log(matrix);
     }
 
-    //加上全局原点向量坐标。 FIXME: 存在父层组件时应该如何处理？
+    //加上全局原点向量坐标，线性变换原点不变，因此在父层坐标系下数值相同。
+    //FIXME: 存在父层组件时应该如何处理？
     let { x, y } = DOMPoint.fromPoint(this.state.absoluteOrigin);
     left += x;
     top += y;
