@@ -1,10 +1,10 @@
 // import ICEStar from '../src/graphic/shape/ICEStar';
 // import ICELine from '../src/graphic/line/ICELine';
 // import ICEGroup from '../src/graphic/container/ICEGroup';
-// import ICEText from '../src/graphic/text/ICEText';
 import ICEImage from '../src/graphic/ICEImage';
 // import ICECircle from '../src/graphic/shape/ICECircle';
 import ICERect from '../src/graphic/shape/ICERect';
+import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
 
 let ice = new ICE().init('canvas-1');
@@ -124,18 +124,18 @@ ice.addToDisplayMap(img);
 // });
 // ice.addToDisplayMap(star1);
 
-// let text = new ICEText({
-//   left: 0,
-//   top: 400,
-//   text: 'Test long long long text...',
-//   style: {
-//     lineWidth: 5,
-//     font: '48px serif',
-//     strokeStyle: '#ff3300',
-//     fillStyle: '#00ff00',
-//   },
-// });
-// ice.addToDisplayMap(text);
+let text = new ICEText({
+  left: 0,
+  top: 400,
+  text: 'Test long long long text...',
+  style: {
+    lineWidth: 5,
+    font: '48px serif',
+    strokeStyle: '#ff3300',
+    fillStyle: '#00ff00',
+  },
+});
+ice.addToDisplayMap(text);
 
 // let p1 = new DOMPoint(0, 100);
 // let p2 = new DOMPoint(150, 100);
@@ -269,7 +269,7 @@ let rect6 = new ICERect({
 ice.addToDisplayMap(rect6);
 
 // let circle2 = new ICECircle({
-//   left: 700,
+//   left: 400,
 //   top: 10,
 //   radius: 50,
 // });
