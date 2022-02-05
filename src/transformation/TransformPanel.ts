@@ -176,6 +176,7 @@ export default class TransformPanel extends ICEGroup {
     let newHeight = targetState.height;
 
     //用逆矩阵补偿组件 transform 导致的坐标变换。
+    //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
     let matrix = targetState.absoluteLinearMatrix.inverse();
     let point = new DOMPoint(movementX, movementY).matrixTransform(matrix);
     movementX = point.x;
