@@ -129,19 +129,6 @@ abstract class ICEComponent extends EventTarget {
   }
 
   /**
-   * 计算平移矩阵，默认平移到组件的左上角位置。
-   * @method calcTranslationMatrix
-   * @returns DOMMatrix
-   */
-  protected calcTranslationMatrix(): DOMMatrix {
-    let tx = get(this, 'state.transform.translate.0') + this.state.left;
-    let ty = get(this, 'state.transform.translate.1') + this.state.top;
-    let matrix = new DOMMatrix().translateSelf(tx, ty);
-    this.state.translationMatrix = matrix;
-    return matrix;
-  }
-
-  /**
    * 计算本地原点坐标，相对于组件本地的局部坐标系。
    * 此方法依赖于 width/height ，需要先计算组件的尺寸，然后才能调用此方法。
    * @returns
@@ -159,6 +146,32 @@ abstract class ICEComponent extends EventTarget {
     //FIXME:计算原点位于其它位置的情况
 
     this.state.localOrigin = point;
+    return point;
+  }
+
+  /**
+   * 根据原点位置描述计算原点坐标值。
+   * 移动坐标原点后，组件内部所有的坐标点数值、边界盒子的坐标，都会受到影响。
+   * @method calcAbsoluteOrigin
+   */
+  public calcAbsoluteOrigin(): DOMPoint {
+    let tx = get(this, 'state.transform.translate.0') + this.state.left;
+    let ty = get(this, 'state.transform.translate.1') + this.state.top;
+
+    let point = DOMPoint.fromPoint(this.calcLocalOrigin());
+    point.x += tx;
+    point.y += ty;
+
+    if (this.parentNode) {
+      let plox = this.parentNode.state.localOrigin.x;
+      let ploy = this.parentNode.state.localOrigin.y;
+      point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, -plox, -ploy]));
+
+      let pcm = this.parentNode.state.composedMatrix;
+      point = point.matrixTransform(pcm);
+    }
+
+    this.state.absoluteOrigin = point;
     return point;
   }
 
@@ -190,47 +203,6 @@ abstract class ICEComponent extends EventTarget {
 
     this.state.linearMatrix = matrix;
     return matrix;
-  }
-
-  /**
-   * 复合所有祖先节点的位移矩阵，获得相对全局 canvas 对象的位移矩阵。
-   * @returns
-   */
-  protected calcAbsoluteTranslationMatrix() {
-    let component = this;
-    let matrix = DOMMatrix.fromMatrix(component.calcTranslationMatrix());
-    while (component.parentNode) {
-      matrix.multiplySelf(component.parentNode.state.translationMatrix);
-      component = component.parentNode;
-    }
-    this.state.absoluteTranslateMatrix = DOMMatrix.fromMatrix(matrix);
-    return matrix;
-  }
-
-  /**
-   * 根据原点位置描述计算原点坐标值。
-   * 移动坐标原点后，组件内部所有的坐标点数值、边界盒子的坐标，都会受到影响。
-   * @method calcAbsoluteOrigin
-   */
-  public calcAbsoluteOrigin(): DOMPoint {
-    let tx = get(this, 'state.transform.translate.0') + this.state.left;
-    let ty = get(this, 'state.transform.translate.1') + this.state.top;
-
-    let point = DOMPoint.fromPoint(this.calcLocalOrigin());
-    point.x += tx;
-    point.y += ty;
-
-    if (this.parentNode) {
-      let plox = this.parentNode.state.localOrigin.x;
-      let ploy = this.parentNode.state.localOrigin.y;
-      point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, -plox, -ploy]));
-
-      let pcm = this.parentNode.state.composedMatrix;
-      point = point.matrixTransform(pcm);
-    }
-
-    this.state.absoluteOrigin = point;
-    return point;
   }
 
   /**
@@ -411,10 +383,6 @@ abstract class ICEComponent extends EventTarget {
         rotate: rotateAngle,
       },
     });
-  }
-
-  public setGlobalSize(width: number, height: number): void {
-    // console.log(width, height);
   }
 
   /**
