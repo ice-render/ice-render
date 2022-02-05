@@ -39,8 +39,8 @@
 - TODO:测试宽高不等的一般矩形在 TransformPanel 下的变换是否正确。（ FIXME: 宽高不等的一般矩形， TransformPanel 位置有偏移）【已解决】
 - TODO:测试 TransformPanel 对线条的变换是否正确。(边界盒子、变换有问题，看起来计算方法不太对)【已解决】
 - TODO:测试 TransformPanel 对 ICEText 的变换是否正确。【已解决】
-- TODO:测试 N 层重叠情况下，以及 ICEGroup 组件 TransformPanel 的处理流程。 <------------
-- TODO:所有连接线不能进行 transform ，只能拖动两端端点进行拉长缩短
+- TODO:测试 N 层重叠情况下，以及 ICEGroup 组件 TransformPanel 的处理流程。【已解决】
+- TODO:所有连接线不能进行 transform ，只能拖动两端端点进行拉长缩短  <------------
 - TODO:实现连接线 & Visio 形态的连接线
 - TODO:实现 GuideLine ，增加磁吸效果
 - TODO:优化编译和测试环境参数配置
