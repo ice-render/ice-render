@@ -165,8 +165,6 @@ export default class TransformPanel extends ICEGroup {
     }
 
     let position = evt.position;
-    console.log(position);
-
     let movementX = evt.movementX / window.devicePixelRatio;
     let movementY = evt.movementY / window.devicePixelRatio;
     let targetState = this.targetComponent.state;
