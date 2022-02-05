@@ -164,39 +164,73 @@ export default class TransformPanel extends ICEGroup {
       return;
     }
 
-    //step-1:
-    //TransformPanel 的 MinBoundingBox 与 targetComponent 的 MinBoundingBox 完全重合。
-    //所以 TransformPanel 的 MinBoundingBox 就是变换的最终目标。
-    let box = this.getMinBoundingBox();
-    let { left, top, width, height } = box;
+    let position = evt.position;
+    console.log(position);
 
-    //step-2:
-    //计算未经变换时的左上角坐标，得到的结果是基于父层组件的本地坐标系。
-    //如果不存在父层组件，表示直接放在 canvas 上。
-    //如果存在父层组件，需要做进一步处理。
-    let leftTopPoint = new DOMPoint(left, top);
-    let matrix = this.state.composedMatrix.inverse();
-    leftTopPoint = leftTopPoint.matrixTransform(matrix);
-    left = leftTopPoint.x;
-    top = leftTopPoint.y;
+    let movementX = evt.movementX / window.devicePixelRatio;
+    let movementY = evt.movementY / window.devicePixelRatio;
+    let targetState = this.targetComponent.state;
+    let newLeft = targetState.left;
+    let newTop = targetState.top;
+    let newWidth = targetState.width;
+    let newHeight = targetState.height;
 
-    if (this.targetComponent.parentNode) {
-      let matrix = this.targetComponent.parentNode.composedMatrix;
-      console.log(matrix);
+    //用逆矩阵补偿组件 transform 导致的坐标变换。
+    let matrix = targetState.absoluteLinearMatrix.inverse();
+    let point = new DOMPoint(movementX, movementY).matrixTransform(matrix);
+    movementX = point.x;
+    movementY = point.y;
+
+    switch (position) {
+      case 'tl':
+        newLeft += movementX;
+        newTop += movementY;
+        newWidth -= 2 * movementX;
+        newHeight -= 2 * movementY;
+        break;
+      case 'l':
+        newLeft += movementX;
+        newWidth -= 2 * movementX;
+        break;
+      case 'lb':
+        newLeft += movementX;
+        newTop -= movementY;
+        newWidth -= 2 * movementX;
+        newHeight += 2 * movementY;
+        break;
+      case 'tr':
+        newLeft -= movementX;
+        newTop += movementY;
+        newWidth += 2 * movementX;
+        newHeight -= 2 * movementY;
+        break;
+      case 'r':
+        newLeft -= movementX;
+        newWidth += 2 * movementX;
+        break;
+      case 'rb':
+        newLeft -= movementX;
+        newTop -= movementY;
+        newWidth += 2 * movementX;
+        newHeight += 2 * movementY;
+        break;
+      case 't':
+        newTop += movementY;
+        newHeight -= 2 * movementY;
+        break;
+      case 'b':
+        newTop -= movementY;
+        newHeight += 2 * movementY;
+        break;
+      default:
+        break;
     }
 
-    //step-3:
-    //加上全局原点向量坐标，线性变换原点不变，因此在父层坐标系下数值相同。
-    let { x, y } = DOMPoint.fromPoint(this.state.absoluteOrigin);
-    left += x;
-    top += y;
-
-    //step-4:
     this.targetComponent.setState({
-      left,
-      top,
-      width,
-      height,
+      left: newLeft,
+      top: newTop,
+      width: Math.abs(newWidth),
+      height: Math.abs(newHeight),
     });
   }
 
