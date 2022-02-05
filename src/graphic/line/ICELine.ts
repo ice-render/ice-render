@@ -1,4 +1,3 @@
-import get from 'lodash/get';
 import merge from 'lodash/merge';
 import ICEDotPath from '../ICEDotPath';
 
@@ -34,22 +33,6 @@ class ICELine extends ICEDotPath {
       ),
     ];
     return this.state.dots;
-  }
-
-  /**
-   * ICELine 的平移矩阵有自己的特殊算法，默认需要把 startPoint 的坐标加到平移矩阵上。
-   * @method calcTranslationMatrix
-   * @overwrite
-   * @returns DOMMatrix
-   */
-  protected calcTranslationMatrix(): DOMMatrix {
-    let startX = this.state.startPoint[0];
-    let startY = this.state.startPoint[1];
-    let tx = get(this, 'state.transform.translate.0') + this.state.left + startX;
-    let ty = get(this, 'state.transform.translate.1') + this.state.top + startY;
-    let matrix = new DOMMatrix().translateSelf(tx, ty);
-    this.state.translationMatrix = matrix;
-    return matrix;
   }
 
   /**

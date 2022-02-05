@@ -1,7 +1,7 @@
 // import ICEStar from '../src/graphic/shape/ICEStar';
-// import ICELine from '../src/graphic/line/ICELine';
 // import ICEGroup from '../src/graphic/container/ICEGroup';
 import ICEImage from '../src/graphic/ICEImage';
+import ICELine from '../src/graphic/line/ICELine';
 // import ICECircle from '../src/graphic/shape/ICECircle';
 import ICERect from '../src/graphic/shape/ICERect';
 import ICEText from '../src/graphic/text/ICEText';
@@ -37,23 +37,23 @@ let ice = new ICE().init('canvas-1');
 // });
 // ice.addToDisplayMap(rect);
 
-// let line = new ICELine({
-//   left: 0,
-//   top: 0,
-//   startPoint: [100, 100],
-//   endPoint: [400, 200],
-//   style: {
-//     strokeStyle: '#8a2be2',
-//     fillStyle: '#008000',
-//     lineWidth: 5,
-//   },
-//   transform: {
-//     // translate: [10, -10],
-//     // scale: [1, 1],
-//     rotate: 20,
-//   },
-// });
-// ice.addToDisplayMap(line);
+let line = new ICELine({
+  left: 0,
+  top: 0,
+  startPoint: [100, 100],
+  endPoint: [400, 200],
+  style: {
+    strokeStyle: '#8a2be2',
+    fillStyle: '#008000',
+    lineWidth: 5,
+  },
+  transform: {
+    // translate: [10, -10],
+    // scale: [1, 1],
+    rotate: 20,
+  },
+});
+ice.addToDisplayMap(line);
 
 let img = new ICEImage({
   left: 10,
