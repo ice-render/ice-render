@@ -35,34 +35,6 @@ class ICELine extends ICEDotPath {
     return this.state.dots;
   }
 
-  /**
-   * 设置组件内部的原点坐标，坐标点的计算相对于组件的 local 坐标系，而不是全局默认坐标系。
-   * 在不修改坐标原点时，ctx 的坐标原点默认放在组件的左上角位置。
-   * 移动坐标原点后，组件中所有的坐标点，当前边界盒子，都会受到影响。
-   * @param point
-   */
-  public calcAbsoluteOrigin(): DOMPoint {
-    //ICELine 几何中心点的计算方法与普通组件不同，需要根据起点坐标和终点坐标进行计算。
-    let startX = this.state.startPoint[0];
-    let startY = this.state.startPoint[1];
-    let endX = this.state.endPoint[0];
-    let endY = this.state.endPoint[1];
-
-    let point = new DOMPoint();
-    point.x = (endX - startX) / 2;
-    point.y = (endY - startY) / 2;
-    this.state.absoluteOrigin = point;
-
-    //根据新的几何中点移动原始的关键点
-    for (let i = 0; i < this.state.dots.length; i++) {
-      let dot = this.state.dots[i];
-      dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -point.x, -point.y]));
-      this.state.dots[i] = dot;
-    }
-
-    return point;
-  }
-
   public setStartPoint(point: []): void {
     this.state.startPoint = [...point];
   }
