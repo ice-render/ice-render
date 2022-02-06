@@ -256,7 +256,8 @@ abstract class ICEComponent extends EventTarget {
    * @method doRender
    */
   protected doRender(): void {
-    //For test, don't delete.
+    //打开以下注释掉的代码，可以实时看到每一个对象的最小和最大边界盒子。
+    //供测试用的代码，请勿删除。
     let minBox = this.getMinBoundingBox();
     this.ctx.setTransform(new DOMMatrix());
     this.ctx.lineWidth = 1;
