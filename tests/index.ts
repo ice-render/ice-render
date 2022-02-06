@@ -2,7 +2,7 @@
 // import ICEGroup from '../src/graphic/container/ICEGroup';
 import ICEImage from '../src/graphic/ICEImage';
 import ICELine from '../src/graphic/line/ICELine';
-// import ICECircle from '../src/graphic/shape/ICECircle';
+import ICECircle from '../src/graphic/shape/ICECircle';
 import ICEEllipse from '../src/graphic/shape/ICEEllipse';
 import ICERect from '../src/graphic/shape/ICERect';
 import ICEText from '../src/graphic/text/ICEText';
@@ -277,12 +277,12 @@ let ellipse = new ICEEllipse({
 });
 ice.addToDisplayMap(ellipse);
 
-// let circle2 = new ICECircle({
-//   left: 400,
-//   top: 10,
-//   radius: 50,
-// });
-// ice.addToDisplayMap(circle2);
+let circle2 = new ICECircle({
+  left: 400,
+  top: 10,
+  radius: 50,
+});
+ice.addToDisplayMap(circle2);
 
 // let group2 = new ICEGroup({
 //   left: 20,
