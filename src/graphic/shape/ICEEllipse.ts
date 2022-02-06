@@ -8,7 +8,7 @@ import ICEPath from '../ICEPath';
 class ICEEllipse extends ICEPath {
   //@see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/ellipse
   constructor(props: any = {}) {
-    super({
+    let param = {
       radiusX: 20,
       radiusY: 10,
       rotation: 0,
@@ -16,11 +16,10 @@ class ICEEllipse extends ICEPath {
       endAngle: 2 * Math.PI,
       counterclockwise: true,
       ...props,
-    });
-    this.props.width = this.props.radiusX * 2;
-    this.props.height = this.props.radiusY * 2;
-    this.state.width = this.props.radiusX * 2;
-    this.state.height = this.props.radiusY * 2;
+    };
+    param.width = param.radiusX * 2;
+    param.height = param.radiusY * 2;
+    super(param);
   }
 
   /**
