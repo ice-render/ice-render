@@ -3,6 +3,7 @@
 import ICEImage from '../src/graphic/ICEImage';
 import ICELine from '../src/graphic/line/ICELine';
 // import ICECircle from '../src/graphic/shape/ICECircle';
+import ICEEllipse from '../src/graphic/shape/ICEEllipse';
 import ICERect from '../src/graphic/shape/ICERect';
 import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
@@ -267,6 +268,14 @@ let rect6 = new ICERect({
   height: 200,
 });
 ice.addToDisplayMap(rect6);
+
+let ellipse = new ICEEllipse({
+  left: 100,
+  top: 600,
+  radiusX: 50,
+  radiusY: 30,
+});
+ice.addToDisplayMap(ellipse);
 
 // let circle2 = new ICECircle({
 //   left: 400,

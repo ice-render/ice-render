@@ -10,6 +10,7 @@ export * from './graphic/ICEPath';
 export * from './graphic/line/ICEBezier';
 export * from './graphic/line/ICELine';
 export * from './graphic/shape/ICECircle';
+export * from './graphic/shape/ICEEllipse';
 export * from './graphic/shape/ICEIsogon';
 export * from './graphic/shape/ICERect';
 export * from './graphic/shape/ICEStar';
