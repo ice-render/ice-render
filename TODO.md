@@ -43,6 +43,7 @@
 - TODO:所有连接线不能进行 transform ，只能拖动两端端点进行拉长缩短  <------------
 - TODO:实现连接线 & Visio 形态的连接线
 - TODO:序列化和反序列化
+- TODO:ICEText 需要进一步精确的计算。
 - TODO:实现 GuideLine ，增加磁吸效果
 - TODO:优化编译和测试环境参数配置
 - TODO:ICE 全局单例重构
