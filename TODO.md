@@ -51,6 +51,9 @@
 - TODO:BPMN Designer 与流程引擎对接。
 - TODO:Entity Designer。
 
+- TODO:增量渲染机制
+- TODO:碰撞检测和局部渲染机制
+
 ## Shape
 矩形 x/y/width/height
 圆形 x/y/r
