@@ -1,5 +1,6 @@
 import isString from 'lodash/isString';
 import pkg from '../package.json';
+import ControlManager from './action-controls/ICEControlManager';
 import AnimationManager from './animation/AnimationManager';
 import FrameManager from './animation/FrameManager';
 import DOMEventBridge from './event/DOMEventBridge';
@@ -8,7 +9,6 @@ import MouseEventInterceptor from './event/MouseEventInterceptor.js';
 import root from './nodejs-support/root.js';
 import CanvasRenderer from './renderer/CanvasRenderer';
 import IRenderer from './renderer/IRenderer';
-import TransformManager from './transformation/TransformManager';
 
 FrameManager.start();
 
@@ -35,7 +35,7 @@ class ICE {
 
   private animationManager: AnimationManager;
   private eventBridge: DOMEventBridge;
-  private transformManager: TransformManager;
+  private controlManager: ControlManager;
   private renderer: IRenderer;
 
   constructor() {}
@@ -77,7 +77,7 @@ class ICE {
     MouseEventInterceptor.start();
     this.animationManager = new AnimationManager(this).start();
     this.eventBridge = new DOMEventBridge(this).start();
-    this.transformManager = new TransformManager(this).start();
+    this.controlManager = new ControlManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
 
     return this;

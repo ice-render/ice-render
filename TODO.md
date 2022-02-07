@@ -41,6 +41,7 @@
 - TODO:测试 TransformPanel 对 ICEText 的变换是否正确。【已解决】
 - TODO:测试 N 层重叠情况下，以及 ICEGroup 组件 TransformPanel 的处理流程。【已解决】
 - TODO:所有连接线不能进行 transform ，只能拖动两端端点进行拉长缩短  <------------
+- TODO:所有连接线的 Transform Control 都同时具有2种功能：拖动修改长度、吸附到组件上产生连接效果。
 - TODO:实现连接线 & Visio 形态的连接线
 - TODO:序列化和反序列化
 - TODO:ICEText 需要进一步精确的计算。

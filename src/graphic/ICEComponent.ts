@@ -48,7 +48,6 @@ abstract class ICEComponent extends EventTarget {
    *   absoluteOrigin: new DOMPoint(0, 0),   //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
    *   zIndex: ICEComponent.instanceCounter++, //类似于 CSS 中的 zIndex
    *   interactive: true, //是否可以进行用户交互操作 TODO:动画运行过程中不允许选中，不能进行交互？？？
-   *   transformable: true,
    * }
    * @param props
    */
@@ -74,7 +73,6 @@ abstract class ICEComponent extends EventTarget {
     absoluteOrigin: new DOMPoint(0, 0),
     zIndex: ICEComponent.instanceCounter++,
     draggable: true,
-    transformable: true,
     selectable: true,
     interactive: true,
   };

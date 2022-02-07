@@ -1,5 +1,5 @@
-import ICEEvent from '../event/ICEEvent';
-import ICECircle from '../graphic/shape/ICECircle';
+import ICEEvent from '../../event/ICEEvent';
+import ICECircle from '../../graphic/shape/ICECircle';
 
 /**
  * @class RotateControl 旋转操作手柄

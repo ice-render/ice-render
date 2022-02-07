@@ -24,8 +24,8 @@ abstract class ICEPath extends ICEComponent {
     this.createPathObject();
 
     this.ctx.beginPath();
-    this.ctx.stroke(this.path2D);
     this.ctx.fill(this.path2D);
+    this.ctx.stroke(this.path2D);
 
     super.doRender();
   }
