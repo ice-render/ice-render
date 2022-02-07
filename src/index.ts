@@ -1,3 +1,6 @@
+export * from './action-controls/ICEControlManager';
+export * from './action-controls/ICEControlPanel';
+export * from './action-controls/transform-controls/TransformControlPanel';
 export * from './animation/AnimationManager';
 export * from './event/DOMEventBridge';
 export * from './event/EventBus';
@@ -18,5 +21,3 @@ export * from './graphic/text/ICEText';
 export * from './ICE';
 export * from './renderer/CanvasRenderer';
 export * from './renderer/IRenderer';
-export * from './transformation/TransformManager';
-export * from './transformation/TransformPanel';

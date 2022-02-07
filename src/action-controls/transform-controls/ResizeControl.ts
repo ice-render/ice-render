@@ -1,5 +1,5 @@
-import ICEEvent from '../event/ICEEvent';
-import ICERect from '../graphic/shape/ICERect';
+import ICEEvent from '../../event/ICEEvent';
+import ICERect from '../../graphic/shape/ICERect';
 
 /**
  * @class ResizeControl 调整尺寸的操作手柄

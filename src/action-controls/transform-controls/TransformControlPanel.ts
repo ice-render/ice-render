@@ -1,20 +1,18 @@
-import ICEMatrix from '../geometry/ICEMatrix';
-import ICEGroup from '../graphic/container/ICEGroup';
-import ICEComponent from '../graphic/ICEComponent';
+import ICEMatrix from '../../geometry/ICEMatrix';
+import ICEComponent from '../../graphic/ICEComponent';
+import ICEControlPanel from '../ICEControlPanel';
 import ResizeControl from './ResizeControl';
 import RotateControl from './RotateControl';
 
 /**
- * @class TransformPanel 变换操作工具集成面板。
+ * @class TransformControlPanel 变换操作工具集成面板。
  *
- * - TransformPanel 只跟随目标对象的 width/height/rotate 这3个参数，其它所有参数都不跟随。
- * - TransformPanel 总是直接画在 canvas 上，不是任何组件的孩子。
- * - TransformPanel 是全局单例的，在任意时刻，不可能同时出现多个 TransformPanel 的实例，因为在用户交互状态下，同时出现多个 TransformPanel 没有意义。
+ * - TransformControlPanel 本身总是直接画在 canvas 上，不是任何组件的孩子。
+ * - TransformControlPanel 是全局单例，在任意时刻，不可能同时出现多个 TransformControlPanel 的实例，因为在图形化的用户交互模式下，用户无法同时操控多个控制面板。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-export default class TransformPanel extends ICEGroup {
-  private _targetComponent;
+export default class TransformControlPanel extends ICEControlPanel {
   private rotateHandleInstance;
   private rotateHandleSize: number = 8; //TODO:改成可配置参数
   private rotateHandleOffsetY: number = 60; //TODO:改成可配置参数
@@ -48,24 +46,22 @@ export default class TransformPanel extends ICEGroup {
   ];
 
   constructor(props) {
-    super({ ...props, transformable: false, zIndex: Number.MAX_VALUE });
-    this.initTransformationHandles();
-    this.on('after-resize', this.resizeEvtHandler, this);
-    this.on('after-rotate', this.rotateEvtHandler, this);
+    super({ ...props, zIndex: Number.MAX_VALUE });
+    this.initControls();
+    this.initEvents();
   }
 
   /**
    * 添加尺寸和旋转变换手柄，初始化时添加在内部的[0,0]位置，此方法只创建对象实例，不执行渲染操作。
    * TODO:添加斜切手柄？
    */
-  private initTransformationHandles() {
+  protected initControls(): void {
     // 6 个调整尺寸的手柄
     let counter = 1;
     this.resizeHandleInstanceCache = [];
     this.resizeHandleConfig.forEach((handleConfig) => {
       const handleInstance = new ResizeControl({
         zIndex: Number.MAX_VALUE - counter++,
-        transformable: false,
         left: 0,
         top: 0,
         width: this.resizeHandleSize,
@@ -86,7 +82,6 @@ export default class TransformPanel extends ICEGroup {
     // 1 个旋转手柄
     const rotateHandleInstance = new RotateControl({
       zIndex: Number.MAX_VALUE - counter++,
-      transformable: false,
       left: 0,
       top: 0,
       radius: this.rotateHandleSize,
@@ -101,10 +96,15 @@ export default class TransformPanel extends ICEGroup {
     this.rotateHandleInstance = rotateHandleInstance;
   }
 
+  protected initEvents(): void {
+    this.on('after-resize', this.resizeEvtHandler, this);
+    this.on('after-rotate', this.rotateEvtHandler, this);
+  }
+
   /**
    * 设置所有手柄在父组件中的位置，相对于父组件的本地坐标系。
    */
-  public calcControlPositions() {
+  protected setControlPositions() {
     //计算8个尺寸手柄坐标位置
     let width = this.state.width;
     let height = this.state.height;
@@ -137,18 +137,6 @@ export default class TransformPanel extends ICEGroup {
       left: point.x,
       top: point.y,
     });
-  }
-
-  protected renderChildren(): void {
-    this.calcControlPositions();
-    super.renderChildren();
-  }
-
-  public moveGlobalPosition(tx: number, ty: number, evt?: any): void {
-    super.moveGlobalPosition(tx, ty, evt);
-    if (this.targetComponent) {
-      this.targetComponent.moveGlobalPosition(tx, ty, evt);
-    }
   }
 
   private rotateEvtHandler(evt: any) {
@@ -235,6 +223,7 @@ export default class TransformPanel extends ICEGroup {
 
   public set targetComponent(component: ICEComponent) {
     this._targetComponent = component;
+
     if (component) {
       //step-1: 根据变换矩阵反过来计算当前旋转角度
       let matrix = component.state.absoluteLinearMatrix;
@@ -256,8 +245,6 @@ export default class TransformPanel extends ICEGroup {
           rotate: angle,
         },
       });
-    } else {
-      //FIXME:component 为空时隐藏 TransformPanel
     }
   }
 

@@ -2,10 +2,10 @@
 // import ICEGroup from '../src/graphic/container/ICEGroup';
 import ICEImage from '../src/graphic/ICEImage';
 import ICELine from '../src/graphic/line/ICELine';
-import ICECircle from '../src/graphic/shape/ICECircle';
-import ICEEllipse from '../src/graphic/shape/ICEEllipse';
-import ICERect from '../src/graphic/shape/ICERect';
-import ICEText from '../src/graphic/text/ICEText';
+// import ICECircle from '../src/graphic/shape/ICECircle';
+// import ICEEllipse from '../src/graphic/shape/ICEEllipse';
+// import ICERect from '../src/graphic/shape/ICERect';
+// import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
 
 let ice = new ICE().init('canvas-1');
@@ -42,23 +42,23 @@ let line = new ICELine({
   left: 0,
   top: 0,
   startPoint: [100, 100],
-  endPoint: [400, 200],
+  endPoint: [300, 300],
   style: {
-    strokeStyle: '#8a2be2',
+    strokeStyle: '#7700e6',
     fillStyle: '#008000',
     lineWidth: 5,
   },
   transform: {
     // translate: [10, -10],
     // scale: [1, 1],
-    rotate: 20,
+    // rotate: 20,
   },
 });
 ice.addToDisplayMap(line);
 
 let img = new ICEImage({
-  left: 10,
-  top: 100,
+  left: 100,
+  top: 500,
   width: 100,
   height: 100,
   transform: {
@@ -125,18 +125,18 @@ ice.addToDisplayMap(img);
 // });
 // ice.addToDisplayMap(star1);
 
-let text = new ICEText({
-  left: 0,
-  top: 400,
-  text: 'Test long long long text...',
-  style: {
-    lineWidth: 5,
-    font: '48px serif',
-    strokeStyle: '#ff3300',
-    fillStyle: '#00ff00',
-  },
-});
-ice.addToDisplayMap(text);
+// let text = new ICEText({
+//   left: 0,
+//   top: 400,
+//   text: 'Test long long long text...',
+//   style: {
+//     lineWidth: 5,
+//     font: '48px serif',
+//     strokeStyle: '#ff3300',
+//     fillStyle: '#00ff00',
+//   },
+// });
+// ice.addToDisplayMap(text);
 
 // let p1 = new DOMPoint(0, 100);
 // let p2 = new DOMPoint(150, 100);
@@ -261,28 +261,28 @@ ice.addToDisplayMap(text);
 // });
 // group1.addChild(rect5);
 
-let rect6 = new ICERect({
-  left: 600,
-  top: 100,
-  width: 400,
-  height: 200,
-});
-ice.addToDisplayMap(rect6);
+// let rect6 = new ICERect({
+//   left: 600,
+//   top: 100,
+//   width: 400,
+//   height: 200,
+// });
+// ice.addToDisplayMap(rect6);
 
-let ellipse = new ICEEllipse({
-  left: 100,
-  top: 600,
-  radiusX: 50,
-  radiusY: 30,
-});
-ice.addToDisplayMap(ellipse);
+// let ellipse = new ICEEllipse({
+//   left: 100,
+//   top: 600,
+//   radiusX: 50,
+//   radiusY: 30,
+// });
+// ice.addToDisplayMap(ellipse);
 
-let circle2 = new ICECircle({
-  left: 400,
-  top: 10,
-  radius: 50,
-});
-ice.addToDisplayMap(circle2);
+// let circle2 = new ICECircle({
+//   left: 400,
+//   top: 10,
+//   radius: 50,
+// });
+// ice.addToDisplayMap(circle2);
 
 // let group2 = new ICEGroup({
 //   left: 20,
