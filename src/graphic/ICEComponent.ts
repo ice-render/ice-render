@@ -411,6 +411,24 @@ abstract class ICEComponent extends EventTarget {
   }
 
   /**
+   * 根据变换矩阵计算组件在全局空间(canvas)中的旋转角度。
+   * @returns
+   */
+  public getRotateAngle(): number {
+    let matrix = this.state.composedMatrix;
+    return ICEMatrix.calcRotateAngle(matrix);
+  }
+
+  public getLocalLeftTop() {
+    let box = this.getMinBoundingBox();
+    let width = box.width;
+    let height = box.height;
+    let left = box.centerX - box.width / 2;
+    let top = box.centerY - box.height / 2;
+    return { left, top, width, height };
+  }
+
+  /**
    * TODO:改成 abstract?
    * @returns
    */
