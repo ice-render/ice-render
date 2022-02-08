@@ -5,7 +5,8 @@ import ICECircle from '../../graphic/shape/ICECircle';
 /**
  * @class RotateControl 旋转操作手柄
  *
- * 旋转操作手柄不能独立存在，只能依附在某个宿主对象上。
+ * - 旋转手柄不能独立存在，只能依附在某个宿主对象上。
+ * - 此手柄仅用来修改组件的旋转角度。
  *
  * TODO: 补全 props 配置项
  * {
