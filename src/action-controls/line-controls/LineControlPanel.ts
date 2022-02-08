@@ -70,14 +70,32 @@ export default class LineControlPanel extends ICEControlPanel {
    */
   protected setControlPositions() {
     if (this.targetComponent) {
-      let box = this.targetComponent.getMinBoundingBox();
-      let matrix = this.state.absoluteLinearMatrix.inverse();
-      box = box.transform(matrix);
-      console.log(box);
+      let targetState = this.targetComponent.state;
+      let startPoint = new DOMPoint(targetState.startPoint[0], targetState.startPoint[1]);
+      let endPoint = new DOMPoint(targetState.endPoint[0], targetState.endPoint[1]);
+
+      let targetMatrix = this.targetComponent.state.composedMatrix;
+      startPoint = startPoint.matrixTransform(targetMatrix);
+      endPoint = endPoint.matrixTransform(targetMatrix);
+
+      let thisMatrix = this.state.composedMatrix.inverse();
+      startPoint = startPoint.matrixTransform(thisMatrix);
+      endPoint = endPoint.matrixTransform(thisMatrix);
+
+      this.startPointControl.setState({
+        left: startPoint.x,
+        top: startPoint.y,
+      });
+
+      this.endPointControl.setState({
+        left: endPoint.x,
+        top: endPoint.y,
+      });
     } else {
       let width = this.state.width;
       let height = this.state.height;
       let halfControlSize = this.controlSize / 2;
+
       this.startPointControl.setState({
         left: -halfControlSize,
         top: -halfControlSize,
@@ -91,7 +109,7 @@ export default class LineControlPanel extends ICEControlPanel {
   }
 
   private moveEvtHandler(evt: any) {
-    console.log('LineControlPanel move...');
+    // console.log('LineControlPanel move...');
     if (!this.targetComponent) {
       return;
     }
