@@ -4,7 +4,8 @@ import ICERect from '../../graphic/shape/ICERect';
 /**
  * @class ResizeControl 调整尺寸的操作手柄
  *
- * 调整尺寸的操作手柄不能独立存在，只能依附在某个宿主对象上。
+ * - 调整尺寸的操作手柄不能独立存在，只能依附在某个宿主对象上。
+ * - 此手柄只能调整尺寸，不能实现翻转
  *
  * TODO: 补全 props 配置项
  * {
