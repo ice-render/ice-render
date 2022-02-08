@@ -385,6 +385,32 @@ abstract class ICEComponent extends EventTarget {
   }
 
   /**
+   * 组件局部坐标系中的点转换成全局空间(canvas)中的点，包含移动原点的操作。
+   * @param localX
+   * @param localY
+   * @returns
+   */
+  public localCoordToGlobal(localX: number, localY: number): DOMPoint {
+    let point = new DOMPoint(localX, localY);
+    let matrix = this.state.composedMatrix;
+    point = point.matrixTransform(matrix);
+    return point;
+  }
+
+  /**
+   * 全局空间(canvas)中的点转换成组件局部坐标系中的点，包含移动原点的操作。
+   * @param globalX
+   * @param globalY
+   * @returns
+   */
+  public globalCoordToLocal(globalX: number, globalY: number): DOMPoint {
+    let point = new DOMPoint(globalX, globalY);
+    let matrix = this.state.composedMatrix.inverse();
+    point = point.matrixTransform(matrix);
+    return point;
+  }
+
+  /**
    * TODO:改成 abstract?
    * @returns
    */
