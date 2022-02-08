@@ -1,4 +1,3 @@
-import ICEMatrix from '../../geometry/ICEMatrix';
 import ICEComponent from '../../graphic/ICEComponent';
 import ICEControlPanel from '../ICEControlPanel';
 import ResizeControl from './ResizeControl';
@@ -223,19 +222,9 @@ export default class TransformControlPanel extends ICEControlPanel {
 
   public set targetComponent(component: ICEComponent) {
     this._targetComponent = component;
-
     if (component) {
-      //step-1: 根据变换矩阵反过来计算当前旋转角度
-      let matrix = component.state.absoluteLinearMatrix;
-      let angle = ICEMatrix.calcRotateAngle(matrix);
-
-      //step-2: 计算变换之后左上角 left/top 的坐标
-      let box = component.getMinBoundingBox();
-      let width = box.width;
-      let height = box.height;
-      let left = box.centerX - box.width / 2;
-      let top = box.centerY - box.height / 2;
-
+      let angle = component.getRotateAngle();
+      let { left, top, width, height } = component.getLocalLeftTop();
       this.setState({
         left,
         top,
