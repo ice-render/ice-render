@@ -1,4 +1,5 @@
 import ICEEvent from '../../event/ICEEvent';
+import GeometryUtil from '../../geometry/GeometryUtil';
 import ICECircle from '../../graphic/shape/ICECircle';
 
 /**
@@ -28,12 +29,7 @@ export default class RotateControl extends ICECircle {
     let hostCenterPoint = parentOrigin.matrixTransform(matrix);
 
     //计算手柄旋转角
-    let offsetX = evt.clientX - hostCenterPoint.x;
-    let offsetY = evt.clientY - hostCenterPoint.y;
-    let cos = offsetX / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-    let sin = offsetY / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-    let sign = sin < 0 ? -1 : 1;
-    let rotateAngle = (sign * Math.acos(cos) * 180) / Math.PI + 90; //加上90度的旋转手柄初始角度
+    let rotateAngle = GeometryUtil.calcAngle(evt.clientX, evt.clientY, hostCenterPoint.x, hostCenterPoint.y) + 90; //加上90度的旋转手柄初始角度
 
     //parentNode 旋转角与手柄设置为相同数值
     const param = {
@@ -41,6 +37,7 @@ export default class RotateControl extends ICECircle {
         rotate: rotateAngle,
       },
     };
+
     this.parentNode.trigger('before-rotate', new ICEEvent(param));
     this.parentNode.setState(param);
     this.parentNode.trigger('after-rotate', new ICEEvent(param));

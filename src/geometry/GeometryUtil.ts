@@ -35,4 +35,21 @@ export default class GeometryUtil {
   public static getLength(x1, y1, x2, y2): number {
     return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
   }
+
+  /**
+   * 已知原点和目标点坐标，求相对于 X 轴正向的旋转角度。
+   * @param x
+   * @param y
+   * @param originX
+   * @param originY
+   */
+  public static calcAngle(x, y, originX, originY): number {
+    let offsetX = x - originX;
+    let offsetY = y - originY;
+    let cos = offsetX / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+    let sin = offsetY / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+    let sign = sin < 0 ? -1 : 1;
+    let rotateAngle = (sign * Math.acos(cos) * 180) / Math.PI;
+    return rotateAngle;
+  }
 }
