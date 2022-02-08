@@ -161,7 +161,7 @@ export default class TransformControlPanel extends ICEControlPanel {
     let newWidth = targetState.width;
     let newHeight = targetState.height;
 
-    //用逆矩阵补偿组件 transform 导致的坐标变换。
+    //用 parentNode 的逆矩阵把全局坐标系中的移动量转换为组件本地的移动量。
     //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
     let matrix = targetState.absoluteLinearMatrix.inverse();
     let point = new DOMPoint(movementX, movementY).matrixTransform(matrix);
