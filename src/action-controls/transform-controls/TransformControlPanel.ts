@@ -17,32 +17,6 @@ export default class TransformControlPanel extends ICEControlPanel {
   private rotateHandleOffsetY: number = 60; //TODO:改成可配置参数
   private resizeHandleInstanceCache = [];
   private resizeHandleSize: number = 16; //TODO:改成可配置参数
-  private resizeHandleConfig: Array<any> = [
-    {
-      position: 'tl',
-    },
-    {
-      position: 't',
-    },
-    {
-      position: 'tr',
-    },
-    {
-      position: 'r',
-    },
-    {
-      position: 'rb',
-    },
-    {
-      position: 'b',
-    },
-    {
-      position: 'lb',
-    },
-    {
-      position: 'l',
-    },
-  ];
 
   constructor(props) {
     super({ ...props, zIndex: Number.MAX_VALUE });
@@ -58,7 +32,33 @@ export default class TransformControlPanel extends ICEControlPanel {
     // 6 个调整尺寸的手柄
     let counter = 1;
     this.resizeHandleInstanceCache = [];
-    this.resizeHandleConfig.forEach((handleConfig) => {
+    let resizeHandleConfig: Array<any> = [
+      {
+        position: 'tl',
+      },
+      {
+        position: 't',
+      },
+      {
+        position: 'tr',
+      },
+      {
+        position: 'r',
+      },
+      {
+        position: 'rb',
+      },
+      {
+        position: 'b',
+      },
+      {
+        position: 'lb',
+      },
+      {
+        position: 'l',
+      },
+    ];
+    resizeHandleConfig.forEach((handleConfig) => {
       const handleInstance = new ResizeControl({
         zIndex: Number.MAX_VALUE - counter++,
         left: 0,
