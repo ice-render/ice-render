@@ -15,14 +15,14 @@ import ICERect from '../../graphic/shape/ICERect';
 export default class ResizeControl extends ICERect {
   constructor(props) {
     super({ position: 'l', ...props });
-    this.on('after-move', this.resizeToCenter, this);
+    this.on('after-move', this.resizeEvtHandler, this);
   }
 
   /**
    * 围绕几何中心点调整宽高。
    * @param evt
    */
-  private resizeToCenter(evt) {
+  private resizeEvtHandler(evt) {
     if (!this.parentNode) {
       //parentNode 是 TransformPanel
       return;
@@ -44,49 +44,32 @@ export default class ResizeControl extends ICERect {
     movementX = point.x;
     movementY = point.y;
 
-    switch (position) {
-      case 'tl':
-        newLeft += movementX;
-        newTop += movementY;
-        newWidth -= 2 * movementX;
-        newHeight -= 2 * movementY;
-        break;
-      case 'rb':
-        newLeft -= movementX;
-        newTop -= movementY;
-        newWidth += 2 * movementX;
-        newHeight += 2 * movementY;
-        break;
-      case 'tr':
-        newLeft -= movementX;
-        newTop += movementY;
-        newWidth += 2 * movementX;
-        newHeight -= 2 * movementY;
-        break;
-      case 'lb':
-        newLeft += movementX;
-        newTop -= movementY;
-        newWidth -= 2 * movementX;
-        newHeight += 2 * movementY;
-        break;
-      case 'l':
-        newLeft += movementX;
-        newWidth -= 2 * movementX;
-        break;
-      case 'r':
-        newLeft -= movementX;
-        newWidth += 2 * movementX;
-        break;
-      case 't':
-        newTop += movementY;
-        newHeight -= 2 * movementY;
-        break;
-      case 'b':
-        newTop -= movementY;
-        newHeight += 2 * movementY;
-        break;
-      default:
-        break;
+    let x = evt.clientX;
+    let y = evt.clientY;
+    let localPoint = this.parentNode.globalCoordToLocal(x, y);
+
+    //位于本地Y轴左侧
+    if (position.indexOf('l') != -1) {
+      newLeft += movementX;
+      newWidth -= 2 * movementX;
+    }
+
+    //位于本地Y轴右侧
+    if (position.indexOf('r') != -1) {
+      newLeft -= movementX;
+      newWidth += 2 * movementX;
+    }
+
+    //位于本地X轴上方
+    if (position.indexOf('t') != -1) {
+      newTop += movementY;
+      newHeight -= 2 * movementY;
+    }
+
+    //位于本地X轴下方
+    if (position.indexOf('b') != -1) {
+      newTop -= movementY;
+      newHeight += 2 * movementY;
     }
 
     const param = {
