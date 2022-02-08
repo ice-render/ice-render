@@ -37,7 +37,8 @@ export default class ResizeControl extends ICERect {
     let newHeight = parentState.height;
     let position = this.props.position;
 
-    //用逆矩阵补偿 parentNode 的 transform 导致的坐标变换。
+    //用 parentNode 的逆矩阵把全局坐标系中的移动量转换为组件本地的移动量。
+    //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
     let matrix = parentState.absoluteLinearMatrix.inverse();
     let point = new DOMPoint(movementX, movementY).matrixTransform(matrix);
     movementX = point.x;
