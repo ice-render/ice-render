@@ -43,7 +43,7 @@ export default class GeometryUtil {
    * @param originX
    * @param originY
    */
-  public static calcAngle(x, y, originX, originY): number {
+  public static calcRotateAngle(x, y, originX, originY): number {
     let offsetX = x - originX;
     let offsetY = y - originY;
     let cos = offsetX / Math.sqrt(offsetX * offsetX + offsetY * offsetY);

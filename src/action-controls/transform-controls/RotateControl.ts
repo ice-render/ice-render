@@ -29,7 +29,7 @@ export default class RotateControl extends ICECircle {
     let hostCenterPoint = parentOrigin.matrixTransform(matrix);
 
     //计算手柄旋转角
-    let rotateAngle = GeometryUtil.calcAngle(evt.clientX, evt.clientY, hostCenterPoint.x, hostCenterPoint.y) + 90; //加上90度的旋转手柄初始角度
+    let rotateAngle = GeometryUtil.calcRotateAngle(evt.clientX, evt.clientY, hostCenterPoint.x, hostCenterPoint.y) + 90; //加上90度的旋转手柄初始角度
 
     //parentNode 旋转角与手柄设置为相同数值
     const param = {
