@@ -51,14 +51,10 @@ export default class ResizeControl extends ICERect {
         newWidth -= 2 * movementX;
         newHeight -= 2 * movementY;
         break;
-      case 'l':
-        newLeft += movementX;
-        newWidth -= 2 * movementX;
-        break;
-      case 'lb':
-        newLeft += movementX;
+      case 'rb':
+        newLeft -= movementX;
         newTop -= movementY;
-        newWidth -= 2 * movementX;
+        newWidth += 2 * movementX;
         newHeight += 2 * movementY;
         break;
       case 'tr':
@@ -67,15 +63,19 @@ export default class ResizeControl extends ICERect {
         newWidth += 2 * movementX;
         newHeight -= 2 * movementY;
         break;
+      case 'lb':
+        newLeft += movementX;
+        newTop -= movementY;
+        newWidth -= 2 * movementX;
+        newHeight += 2 * movementY;
+        break;
+      case 'l':
+        newLeft += movementX;
+        newWidth -= 2 * movementX;
+        break;
       case 'r':
         newLeft -= movementX;
         newWidth += 2 * movementX;
-        break;
-      case 'rb':
-        newLeft -= movementX;
-        newTop -= movementY;
-        newWidth += 2 * movementX;
-        newHeight += 2 * movementY;
         break;
       case 't':
         newTop += movementY;
