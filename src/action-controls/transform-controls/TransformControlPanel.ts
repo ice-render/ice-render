@@ -167,49 +167,28 @@ export default class TransformControlPanel extends ICEControlPanel {
     movementX = point.x;
     movementY = point.y;
 
-    switch (position) {
-      case 'tl':
-        newLeft += movementX;
-        newTop += movementY;
-        newWidth -= 2 * movementX;
-        newHeight -= 2 * movementY;
-        break;
-      case 'rb':
-        newLeft -= movementX;
-        newTop -= movementY;
-        newWidth += 2 * movementX;
-        newHeight += 2 * movementY;
-        break;
-      case 'tr':
-        newLeft -= movementX;
-        newTop += movementY;
-        newWidth += 2 * movementX;
-        newHeight -= 2 * movementY;
-        break;
-      case 'lb':
-        newLeft += movementX;
-        newTop -= movementY;
-        newWidth -= 2 * movementX;
-        newHeight += 2 * movementY;
-        break;
-      case 'l':
-        newLeft += movementX;
-        newWidth -= 2 * movementX;
-        break;
-      case 'r':
-        newLeft -= movementX;
-        newWidth += 2 * movementX;
-        break;
-      case 't':
-        newTop += movementY;
-        newHeight -= 2 * movementY;
-        break;
-      case 'b':
-        newTop -= movementY;
-        newHeight += 2 * movementY;
-        break;
-      default:
-        break;
+    //位于本地Y轴左侧
+    if (position.indexOf('l') != -1) {
+      newLeft += movementX;
+      newWidth -= 2 * movementX;
+    }
+
+    //位于本地Y轴右侧
+    if (position.indexOf('r') != -1) {
+      newLeft -= movementX;
+      newWidth += 2 * movementX;
+    }
+
+    //位于本地X轴上方
+    if (position.indexOf('t') != -1) {
+      newTop += movementY;
+      newHeight -= 2 * movementY;
+    }
+
+    //位于本地X轴下方
+    if (position.indexOf('b') != -1) {
+      newTop -= movementY;
+      newHeight += 2 * movementY;
     }
 
     this.targetComponent.setState({
