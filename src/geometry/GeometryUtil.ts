@@ -48,8 +48,42 @@ export default class GeometryUtil {
     let offsetY = y - originY;
     let cos = offsetX / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
     let sin = offsetY / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+
     let sign = sin < 0 ? -1 : 1;
     let rotateAngle = (sign * Math.acos(cos) * 180) / Math.PI;
     return rotateAngle;
+
+    //FIXME:
+    //rotateAngle 的数值限定在 0-90 度之间，然后根据 sin 值确定象限，最终数值范围限定在 0-360 度之间。
+    // let rotateAngle = (Math.acos(Math.abs(cos)) * 180) / Math.PI;
+
+    // //位于X轴上
+    // if (cos === 1) {
+    //   return 0;
+    // } else if (cos === -1) {
+    //   return 180;
+    // }
+
+    // if (cos === 0) {
+    //   if (sin > 0) {
+    //     return 90;
+    //   } else {
+    //     return 270;
+    //   }
+    // }
+
+    // if (cos > 0) {
+    //   if (sin > 0) {
+    //     return rotateAngle;
+    //   } else {
+    //     return 270 + rotateAngle;
+    //   }
+    // } else {
+    //   if (sin > 0) {
+    //     return 90 + rotateAngle;
+    //   } else {
+    //     return 180 + rotateAngle;
+    //   }
+    // }
   }
 }

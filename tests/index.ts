@@ -1,7 +1,7 @@
 // import ICEStar from '../src/graphic/shape/ICEStar';
-// import ICEGroup from '../src/graphic/container/ICEGroup';
+import ICEGroup from '../src/graphic/container/ICEGroup';
 import ICEImage from '../src/graphic/ICEImage';
-import ICELine from '../src/graphic/line/ICELine';
+// import ICELine from '../src/graphic/line/ICELine';
 // import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEEllipse from '../src/graphic/shape/ICEEllipse';
 // import ICERect from '../src/graphic/shape/ICERect';
@@ -38,23 +38,23 @@ let ice = new ICE().init('canvas-1');
 // });
 // ice.addToDisplayMap(rect);
 
-let line = new ICELine({
-  left: 0,
-  top: 0,
-  startPoint: [100, 100],
-  endPoint: [300, 300],
-  style: {
-    strokeStyle: '#7700e6',
-    fillStyle: '#008000',
-    lineWidth: 5,
-  },
-  transform: {
-    // translate: [10, -10],
-    // scale: [1, 1],
-    // rotate: 20,
-  },
-});
-ice.addToDisplayMap(line);
+// let line = new ICELine({
+//   left: 0,
+//   top: 0,
+//   startPoint: [100, 100],
+//   endPoint: [300, 300],
+//   style: {
+//     strokeStyle: '#7700e6',
+//     fillStyle: '#008000',
+//     lineWidth: 5,
+//   },
+//   transform: {
+//     // translate: [10, -10],
+//     // scale: [1, 1],
+//     // rotate: 20,
+//   },
+// });
+// ice.addToDisplayMap(line);
 
 let img = new ICEImage({
   left: 100,
@@ -145,29 +145,29 @@ ice.addToDisplayMap(img);
 // let path = new ICEDotPath({ dots: [p1, p2, p3, p4] });
 // ice.addToDisplayMap(path);
 
-// let g = new ICEGroup({
-//   left: 100,
-//   top: 100,
-//   width: 300,
-//   height: 200,
-//   style: {
-//     strokeStyle: '#fa0404',
-//     fillStyle: '#beffff',
-//     lineWidth: 1,
-//   },
-//   transform: {
-//     // translate: [10, -10],
-//     scale: [1.5, 1.5],
-//     // skew: [50, 0],
-//     rotate: 45,
-//   },
-// });
-// ice.addToDisplayMap(g);
-// g.setState({
-//   transform: {
-//     scale: [1.2, 1.2],
-//   },
-// });
+let g = new ICEGroup({
+  left: 100,
+  top: 100,
+  width: 300,
+  height: 200,
+  style: {
+    strokeStyle: '#fa0404',
+    fillStyle: '#beffff',
+    lineWidth: 1,
+  },
+  transform: {
+    // translate: [10, -10],
+    scale: [1.5, 1.5],
+    // skew: [50, 0],
+    rotate: 45,
+  },
+});
+ice.addToDisplayMap(g);
+g.setState({
+  transform: {
+    scale: [1.2, 1.2],
+  },
+});
 
 // let group1 = new ICEGroup({
 //   left: 10,
