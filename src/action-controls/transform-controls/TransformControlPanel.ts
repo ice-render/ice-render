@@ -12,11 +12,11 @@ import RotateControl from './RotateControl';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default class TransformControlPanel extends ICEControlPanel {
-  private rotateHandleInstance;
-  private rotateHandleSize: number = 8; //TODO:改成可配置参数
-  private rotateHandleOffsetY: number = 60; //TODO:改成可配置参数
-  private resizeHandleInstanceCache = [];
-  private resizeHandleSize: number = 16; //TODO:改成可配置参数
+  private rotateControlInstance;
+  private rotateControlSize: number = 8; //TODO:改成可配置参数
+  private rotateControlffsetY: number = 60; //TODO:改成可配置参数
+  private resizeControlInstanceCache = [];
+  private resizeControlSize: number = 16; //TODO:改成可配置参数
 
   constructor(props) {
     super({ ...props, zIndex: Number.MAX_VALUE });
@@ -29,61 +29,97 @@ export default class TransformControlPanel extends ICEControlPanel {
    * TODO:添加斜切手柄？
    */
   protected initControls(): void {
-    // 6 个调整尺寸的手柄
-    let counter = 1;
-    this.resizeHandleInstanceCache = [];
-    let resizeHandleConfig: Array<any> = [
+    // 创建 8 个 ResizeControl
+    // 计算手柄位于父组件的哪一个象限中，有以下取值：
+    // - 1: 第一象限；//第1和第3象限可以交换位置
+    // - 2: 第二象限；//第2和第4象限可以交换位置
+    // - 3: 第三象限；
+    // - 4: 第四象限；
+    // - 5: 位于X轴上方，y值为负，不属于任何象限；
+    // - 6: 位于X轴下方，y值为正，不属于任何象限；
+    // - 7: 位于Y轴左侧，x值为负，不属于任何象限；
+    // - 8: 位于Y轴右侧，x值为正，不属于任何象限；
+    //
+    // 默认创建顺序，从左上角开始顺时针：tl:2/t:5/tr:1/r:8/rb:4/b:6/lb:3/l:7
+    let width = this.state.width;
+    let height = this.state.height;
+    let halfWidth = width / 2;
+    let halfHeight = height / 2;
+    let halfControlSize = this.resizeControlSize / 2;
+    let resizeControlConfig: Array<any> = [
       {
-        position: 'tl',
+        direction: 'xy', //可以移动的坐标轴
+        quadrant: 2, //在组件本地坐标轴中的象限 @see ResizeControl
+        position: new DOMPoint(-halfControlSize, -halfControlSize),
       },
       {
-        position: 't',
+        direction: 'y',
+        quadrant: 5,
+        position: new DOMPoint(halfWidth - halfControlSize, -halfControlSize),
       },
       {
-        position: 'tr',
+        direction: 'xy',
+        quadrant: 1,
+        position: new DOMPoint(width - halfControlSize, -halfControlSize),
       },
       {
-        position: 'r',
+        direction: 'x',
+        quadrant: 8,
+        position: new DOMPoint(width - halfControlSize, halfHeight - halfControlSize),
       },
       {
-        position: 'rb',
+        direction: 'xy',
+        quadrant: 4,
+        position: new DOMPoint(width - halfControlSize, height - halfControlSize),
       },
       {
-        position: 'b',
+        direction: 'y',
+        quadrant: 6,
+        position: new DOMPoint(halfWidth - halfControlSize, height - halfControlSize),
       },
       {
-        position: 'lb',
+        direction: 'xy',
+        quadrant: 3,
+        position: new DOMPoint(-halfControlSize, height - halfControlSize),
       },
       {
-        position: 'l',
+        direction: 'x',
+        quadrant: 7,
+        position: new DOMPoint(-halfControlSize, halfHeight - halfControlSize),
       },
     ];
-    resizeHandleConfig.forEach((handleConfig) => {
+
+    let counter = 1;
+    this.resizeControlInstanceCache = [];
+    resizeControlConfig.forEach((controlConfig) => {
       const handleInstance = new ResizeControl({
         zIndex: Number.MAX_VALUE - counter++,
-        left: 0,
-        top: 0,
-        width: this.resizeHandleSize,
-        height: this.resizeHandleSize,
+        left: controlConfig.position.x,
+        top: controlConfig.position.y,
+        width: this.resizeControlSize,
+        height: this.resizeControlSize,
         //TODO: style 放到 props 中去变成可配置的参数
         style: {
           strokeStyle: '#8b0000',
           fillStyle: '#CC3300',
           lineWidth: 1,
         },
-        position: handleConfig.position,
+        direction: controlConfig.direction,
+        quadrant: controlConfig.quadrant,
       });
 
       this.addChild(handleInstance);
-      this.resizeHandleInstanceCache.push(handleInstance);
+      this.resizeControlInstanceCache.push(handleInstance);
     });
 
-    // 1 个旋转手柄
-    const rotateHandleInstance = new RotateControl({
+    // 创建 1 个 RotateControl
+    let left = this.state.width / 2 - this.rotateControlSize;
+    let top = -this.rotateControlffsetY;
+    this.rotateControlInstance = new RotateControl({
       zIndex: Number.MAX_VALUE - counter++,
-      left: 0,
-      top: 0,
-      radius: this.rotateHandleSize,
+      left: left,
+      top: top,
+      radius: this.rotateControlSize,
       //TODO: style 放到 props 中去变成可配置的参数
       style: {
         strokeStyle: '#8b0000',
@@ -91,8 +127,7 @@ export default class TransformControlPanel extends ICEControlPanel {
         lineWidth: 1,
       },
     });
-    this.addChild(rotateHandleInstance);
-    this.rotateHandleInstance = rotateHandleInstance;
+    this.addChild(this.rotateControlInstance);
   }
 
   protected initEvents(): void {
@@ -100,42 +135,54 @@ export default class TransformControlPanel extends ICEControlPanel {
     this.on('after-rotate', this.rotateEvtHandler, this);
   }
 
-  /**
-   * 设置所有手柄在父组件中的位置，相对于父组件的本地坐标系。
-   */
   protected setControlPositions() {
-    //计算8个尺寸手柄坐标位置
+    //重新计算所有 ResizeControl 的位置，共8个
     let width = this.state.width;
     let height = this.state.height;
     let halfWidth = width / 2;
     let halfHeight = height / 2;
-    let halfHandleSize = this.resizeHandleSize / 2;
-    let position = {
-      tl: new DOMPoint(-halfHandleSize, -halfHandleSize),
-      t: new DOMPoint(halfWidth - halfHandleSize, -halfHandleSize),
-      tr: new DOMPoint(width - halfHandleSize, -halfHandleSize),
-      r: new DOMPoint(width - halfHandleSize, halfHeight - halfHandleSize),
-      rb: new DOMPoint(width - halfHandleSize, height - halfHandleSize),
-      b: new DOMPoint(halfWidth - halfHandleSize, height - halfHandleSize),
-      lb: new DOMPoint(-halfHandleSize, height - halfHandleSize),
-      l: new DOMPoint(-halfHandleSize, halfHeight - halfHandleSize),
-    };
-    this.resizeHandleInstanceCache.forEach((handle) => {
-      let point = position[handle.props.position];
-      handle.setState({
+    let halfControlSize = this.resizeControlSize / 2;
+    this.resizeControlInstanceCache.forEach((resizeControl) => {
+      let quadrant = resizeControl.state.quadrant;
+      let point = new DOMPoint();
+      switch (quadrant) {
+        case 1:
+          point = new DOMPoint(width - halfControlSize, -halfControlSize);
+          break;
+        case 2:
+          point = new DOMPoint(-halfControlSize, -halfControlSize);
+          break;
+        case 3:
+          point = new DOMPoint(-halfControlSize, height - halfControlSize);
+          break;
+        case 4:
+          point = new DOMPoint(width - halfControlSize, height - halfControlSize);
+          break;
+        case 5:
+          point = new DOMPoint(halfWidth - halfControlSize, -halfControlSize);
+          break;
+        case 6:
+          point = new DOMPoint(halfWidth - halfControlSize, height - halfControlSize);
+          break;
+        case 7:
+          point = new DOMPoint(-halfControlSize, halfHeight - halfControlSize);
+          break;
+        case 8:
+          point = new DOMPoint(width - halfControlSize, halfHeight - halfControlSize);
+          break;
+        default:
+          break;
+      }
+      resizeControl.setState({
         left: point.x,
         top: point.y,
       });
     });
 
-    //计算旋转手柄坐标位置。
-    let left = this.state.width / 2 - this.rotateHandleSize;
-    let top = -this.rotateHandleOffsetY;
-    let point = new DOMPoint(left, top);
-    this.rotateHandleInstance.setState({
-      left: point.x,
-      top: point.y,
-    });
+    //重新计算 RotateControl 的位置
+    let left = this.state.width / 2 - this.rotateControlSize;
+    let top = -this.rotateControlffsetY;
+    this.rotateControlInstance.setState({ left, top });
   }
 
   private rotateEvtHandler(evt: any) {
@@ -151,7 +198,7 @@ export default class TransformControlPanel extends ICEControlPanel {
       return;
     }
 
-    let position = evt.position;
+    let { quadrant } = evt;
     let movementX = evt.movementX / window.devicePixelRatio;
     let movementY = evt.movementY / window.devicePixelRatio;
     let targetState = this.targetComponent.state;
@@ -160,35 +207,54 @@ export default class TransformControlPanel extends ICEControlPanel {
     let newWidth = targetState.width;
     let newHeight = targetState.height;
 
-    //用 parentNode 的逆矩阵把全局坐标系中的移动量转换为组件本地的移动量。
-    //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
     let matrix = targetState.absoluteLinearMatrix.inverse();
     let point = new DOMPoint(movementX, movementY).matrixTransform(matrix);
     movementX = point.x;
     movementY = point.y;
 
-    //位于本地Y轴左侧
-    if (position.indexOf('l') != -1) {
-      newLeft += movementX;
-      newWidth -= 2 * movementX;
-    }
-
-    //位于本地Y轴右侧
-    if (position.indexOf('r') != -1) {
-      newLeft -= movementX;
-      newWidth += 2 * movementX;
-    }
-
-    //位于本地X轴上方
-    if (position.indexOf('t') != -1) {
-      newTop += movementY;
-      newHeight -= 2 * movementY;
-    }
-
-    //位于本地X轴下方
-    if (position.indexOf('b') != -1) {
-      newTop -= movementY;
-      newHeight += 2 * movementY;
+    switch (quadrant) {
+      case 1:
+        newLeft -= movementX;
+        newTop += movementY;
+        newWidth += 2 * movementX;
+        newHeight -= 2 * movementY;
+        break;
+      case 2:
+        newLeft += movementX;
+        newTop += movementY;
+        newWidth -= 2 * movementX;
+        newHeight -= 2 * movementY;
+        break;
+      case 3:
+        newLeft += movementX;
+        newTop -= movementY;
+        newWidth -= 2 * movementX;
+        newHeight += 2 * movementY;
+        break;
+      case 4:
+        newLeft -= movementX;
+        newTop -= movementY;
+        newWidth += 2 * movementX;
+        newHeight += 2 * movementY;
+        break;
+      case 5:
+        newTop += movementY;
+        newHeight -= 2 * movementY;
+        break;
+      case 6:
+        newTop -= movementY;
+        newHeight += 2 * movementY;
+        break;
+      case 7:
+        newLeft += movementX;
+        newWidth -= 2 * movementX;
+        break;
+      case 8:
+        newLeft -= movementX;
+        newWidth += 2 * movementX;
+        break;
+      default:
+        break;
     }
 
     this.targetComponent.setState({
@@ -218,5 +284,52 @@ export default class TransformControlPanel extends ICEControlPanel {
 
   public get targetComponent(): ICEComponent {
     return this._targetComponent;
+  }
+
+  /**
+   * 交换两个 Control 的象限
+   * @param control
+   * @param quadrant
+   */
+  public toggleControlQuadrant(control, quadrant: number): void {
+    //1-3可以交换，2-4可以交换，5-6可以交换，7-8可以交换
+    this.resizeControlInstanceCache.forEach((item) => {
+      if (item.state.quadrant === quadrant) {
+        let tempQuadrant = 0;
+        switch (quadrant) {
+          case 1:
+            tempQuadrant = 3;
+            break;
+          case 2:
+            tempQuadrant = 4;
+            break;
+          case 3:
+            tempQuadrant = 1;
+            break;
+          case 4:
+            tempQuadrant = 2;
+            break;
+          case 5:
+            tempQuadrant = 6;
+            break;
+          case 6:
+            tempQuadrant = 5;
+            break;
+          case 7:
+            tempQuadrant = 8;
+            break;
+          case 8:
+            tempQuadrant = 7;
+            break;
+          default:
+            break;
+        }
+        item.setState({
+          quadrant: tempQuadrant,
+        });
+      }
+    });
+
+    control.setState({ quadrant: quadrant });
   }
 }

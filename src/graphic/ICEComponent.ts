@@ -235,8 +235,10 @@ abstract class ICEComponent extends EventTarget {
     let origin = this.calcAbsoluteOrigin();
     let translationMatrix = new DOMMatrix([1, 0, 0, 1, origin.x, origin.y]);
 
-    //step-2: 计算线性变换矩阵，复合所有祖先节点的线性变换矩阵。
+    //step-2: 计算线性变换矩阵，包含了所有祖先节点的线性变换。
     let linearMatrix = this.calcAbsoluteLinearMatrix();
+
+    //step-3: 计算综合变换矩阵，相当于先在 canvas 默认原点（左上角位置）进行变换，然后在平移到计算出的原点位置。
     let composedMatrix = translationMatrix.multiplySelf(linearMatrix);
     this.state.composedMatrix = DOMMatrix.fromMatrix(composedMatrix);
     return composedMatrix;
