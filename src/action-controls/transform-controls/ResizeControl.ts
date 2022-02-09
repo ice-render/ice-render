@@ -164,7 +164,6 @@ export default class ResizeControl extends ICERect {
       if (round(x1) === 0) {
         x1 = signX * 0.5;
       }
-      x1 = x1 === 0 ? 0.5 : x1;
       let y1 = -parentHeight / 2;
       let k1 = y1 / x1;
 
