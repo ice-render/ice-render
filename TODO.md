@@ -49,8 +49,8 @@
 - TODO:优化编译和测试环境参数配置
 - TODO:ICE 全局单例重构
 - TODO:补用例，跑测试。
-- TODO:BPMN Designer 与流程引擎对接。
 - TODO:Entity Designer。
+- TODO:BPMN Designer 与流程引擎对接。
 
 - TODO:增量渲染机制
 - TODO:碰撞检测和局部渲染机制
