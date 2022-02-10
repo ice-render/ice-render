@@ -6,6 +6,7 @@ import GeometryUtil from './GeometryUtil';
  * - 边界盒子一定是矩形。
  * - 边界盒子总是绘制在全局坐标系中。
  * - 边界盒子总是通过自身的坐标点进行变换，而不是变换 canvas.ctx 。
+ * - 边界盒子总是通过组件的参数计算出来的，直接修改边界盒子不影响组件本身的参数。
  *
  * TODO: Wrap up the original DOMPoint and DOMMatrix interfaces, add some util functions.
  * @see https://developer.mozilla.org/en-US/docs/Web/API/DOMPoint
@@ -24,6 +25,7 @@ class ICEBoundingBox {
   //center-point
   public center = new DOMPoint();
 
+  //FIXME:不使用 tl/tr/bl/br 固定4个顶点，顶点不定位
   constructor(props: Array<number> = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) {
     this.tl = new DOMPoint(props[0], props[1]);
     this.tr = new DOMPoint(props[2], props[3]);

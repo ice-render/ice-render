@@ -15,12 +15,10 @@ import TransformControlPanel from './transform-controls/TransformControlPanel';
  */
 class ICEControlManager {
   private ice: ICE;
-
   //FIXME:这里需要重构，不同类型的组件需要展现不同的操作工具，操作工具可能会有 N 种，需要进一步抽象操作工具相关的逻辑。
   private transformControlPanel: TransformControlPanel;
   private lineControlPanel: LineControlPanel;
-
-  private currentDraggingObj: any; //当前正在操作的组件
+  private currentDraggingObj: any; //当前正在拖动的组件
 
   constructor(ice: ICE) {
     this.ice = ice;
@@ -62,8 +60,10 @@ class ICEControlManager {
   private mouseDownHandler(evt: ICEEvent) {
     let component = evt.target;
     console.log(component);
+
     if (!component.state.interactive) {
       //TODO:隐藏 ICEControlPanel
+      //FIXME:需要清理事件
       this.ice.rmFromDisplayMap(this.transformControlPanel);
       this.ice.rmFromDisplayMap(this.lineControlPanel);
       return;
@@ -72,9 +72,6 @@ class ICEControlManager {
     //只有 ICEControlPanel 和它内部的变换手柄才具备跟随鼠标移动的功能，其它组件都需要由 ICEControlPanel 驱动进行移动和变换。
     const isControlPanel =
       component && (component instanceof ICEControlPanel || component.parentNode instanceof ICEControlPanel);
-
-    console.log(component instanceof ICELine);
-
     if (!isControlPanel) {
       //被点击的对象不是 ICEControlPanel 的实例，也不是 ICEControlPanel 内部的组件，说明点击了普通的组件。
       if (evt.ctrlKey) {

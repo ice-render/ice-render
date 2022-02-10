@@ -37,7 +37,8 @@ export default class GeometryUtil {
   }
 
   /**
-   * 已知原点和目标点坐标，求相对于 X 轴正向的旋转角度。
+   * 已知原点和目标点坐标，求相对于 X 轴正向的旋转角度。两个点需要处于同一个坐标系中。
+   *
    * @param x
    * @param y
    * @param originX

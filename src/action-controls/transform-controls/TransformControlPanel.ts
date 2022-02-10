@@ -4,7 +4,9 @@ import ResizeControl from './ResizeControl';
 import RotateControl from './RotateControl';
 
 /**
- * @class TransformControlPanel 变换操作工具集成面板。
+ * @class TransformControlPanel
+ *
+ * 变换操作控制面板
  *
  * - TransformControlPanel 本身总是直接画在 canvas 上，不是任何组件的孩子。
  * - TransformControlPanel 是全局单例，在任意时刻，不可能同时出现多个 TransformControlPanel 的实例，因为在图形化的用户交互模式下，用户无法同时操控多个控制面板。

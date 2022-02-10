@@ -127,14 +127,13 @@ abstract class ICEComponent extends EventTarget {
   }
 
   /**
-   * 计算本地原点坐标，相对于组件本地的局部坐标系。
+   * 计算本地原点坐标，相对于组件本地坐标系。
    * 此方法依赖于 width/height ，需要先计算组件的尺寸，然后才能调用此方法。
    * @returns
    */
   protected calcLocalOrigin(): DOMPoint {
     let point = new DOMPoint(0, 0);
     let position = this.state.origin;
-
     if (!position || position === 'localCenter') {
       let halfWidth = this.state.width / 2;
       let halfHeight = this.state.height / 2;
@@ -142,7 +141,6 @@ abstract class ICEComponent extends EventTarget {
       point.y = halfHeight;
     }
     //FIXME:计算原点位于其它位置的情况
-
     this.state.localOrigin = point;
     return point;
   }
@@ -288,15 +286,16 @@ abstract class ICEComponent extends EventTarget {
   }
 
   /**
-   * 获取组件的最小包围盒，此盒子的变换过程与组件自身完全相同。
+   * 获取组件的最小包围盒，此盒子的变换矩阵与组件自身完全相同。
+   * 此方法需要在 render() 之后调用，组件没有渲染时无法计算最小包围盒。
    * @returns
    */
   public getMinBoundingBox(): ICEBoundingBox {
+    //先基于组件本地坐标系进行计算
     let originX = this.state.localOrigin.x;
     let originY = this.state.localOrigin.y;
     let width = this.state.width;
     let height = this.state.height;
-
     let boundingBox = new ICEBoundingBox([
       0 - originX,
       0 - originY,
@@ -310,6 +309,7 @@ abstract class ICEComponent extends EventTarget {
       0,
     ]);
 
+    //再用 composedMatrix 进行变换
     boundingBox = boundingBox.transform(this.state.composedMatrix);
     return boundingBox;
   }

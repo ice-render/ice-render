@@ -1,7 +1,7 @@
 // import ICEStar from '../src/graphic/shape/ICEStar';
-import ICEGroup from '../src/graphic/container/ICEGroup';
-import ICEImage from '../src/graphic/ICEImage';
-// import ICELine from '../src/graphic/line/ICELine';
+// import ICEGroup from '../src/graphic/container/ICEGroup';
+// import ICEImage from '../src/graphic/ICEImage';
+import ICELine from '../src/graphic/line/ICELine';
 // import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEEllipse from '../src/graphic/shape/ICEEllipse';
 // import ICERect from '../src/graphic/shape/ICERect';
@@ -38,37 +38,37 @@ let ice = new ICE().init('canvas-1');
 // });
 // ice.addToDisplayMap(rect);
 
-// let line = new ICELine({
-//   left: 0,
-//   top: 0,
-//   startPoint: [100, 100],
-//   endPoint: [300, 300],
-//   style: {
-//     strokeStyle: '#7700e6',
-//     fillStyle: '#008000',
-//     lineWidth: 5,
-//   },
-//   transform: {
-//     // translate: [10, -10],
-//     // scale: [1, 1],
-//     // rotate: 20,
-//   },
-// });
-// ice.addToDisplayMap(line);
-
-let img = new ICEImage({
-  left: 100,
-  top: 500,
-  width: 100,
-  height: 100,
+let line = new ICELine({
+  left: 0,
+  top: 0,
+  startPoint: [300, 300],
+  endPoint: [100, 100],
+  style: {
+    strokeStyle: '#7803e6',
+    fillStyle: '#008000',
+    lineWidth: 10,
+  },
   transform: {
-    // translate: [10, 10],
-    rotate: 45,
-    // skew: [20, 0],
-    scale: [1, 2],
+    // translate: [10, -10],
+    // scale: [1, 1],
+    // rotate: 20,
   },
 });
-ice.addToDisplayMap(img);
+ice.addToDisplayMap(line);
+
+// let img = new ICEImage({
+//   left: 100,
+//   top: 500,
+//   width: 100,
+//   height: 100,
+//   transform: {
+//     // translate: [10, 10],
+//     rotate: 45,
+//     // skew: [20, 0],
+//     scale: [1, 2],
+//   },
+// });
+// ice.addToDisplayMap(img);
 
 //正三角形
 // let isogon3 = new ICEIsogon({
@@ -145,29 +145,29 @@ ice.addToDisplayMap(img);
 // let path = new ICEDotPath({ dots: [p1, p2, p3, p4] });
 // ice.addToDisplayMap(path);
 
-let g = new ICEGroup({
-  left: 100,
-  top: 100,
-  width: 300,
-  height: 200,
-  style: {
-    strokeStyle: '#fa0404',
-    fillStyle: '#beffff',
-    lineWidth: 1,
-  },
-  transform: {
-    // translate: [10, -10],
-    scale: [1.5, 1.5],
-    // skew: [50, 0],
-    rotate: 45,
-  },
-});
-ice.addToDisplayMap(g);
-g.setState({
-  transform: {
-    scale: [1.2, 1.2],
-  },
-});
+// let g = new ICEGroup({
+//   left: 100,
+//   top: 100,
+//   width: 300,
+//   height: 200,
+//   style: {
+//     strokeStyle: '#fa0404',
+//     fillStyle: '#beffff',
+//     lineWidth: 1,
+//   },
+//   transform: {
+//     // translate: [10, -10],
+//     scale: [1.5, 1.5],
+//     // skew: [50, 0],
+//     rotate: 45,
+//   },
+// });
+// ice.addToDisplayMap(g);
+// g.setState({
+//   transform: {
+//     scale: [1.2, 1.2],
+//   },
+// });
 
 // let group1 = new ICEGroup({
 //   left: 10,
