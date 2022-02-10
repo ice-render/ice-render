@@ -19,9 +19,9 @@ export default class ICEDotPath extends ICEPath {
   protected calcOriginalDimension() {
     //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
     this.calcDots();
-    let points = this.calc4PointsFromDots();
-    let width = points[1].x - points[0].x; //maxX-minX
-    let height = points[2].y - points[0].y; //maxY-minY
+    let points = this.calc4VertexPoints();
+    let width = Math.abs(points[1].x - points[0].x); //maxX-minX
+    let height = Math.abs(points[2].y - points[0].y); //maxY-minY
     this.state.width = width;
     this.state.height = height;
     return { width: this.state.width, height: this.state.height };
@@ -32,7 +32,7 @@ export default class ICEDotPath extends ICEPath {
    * @overwrite
    * @returns
    */
-  public calcLocalOrigin(): DOMPoint {
+  protected calcLocalOrigin(): DOMPoint {
     let origin = super.calcLocalOrigin();
 
     for (let i = 0; i < this.state.dots.length; i++) {
@@ -74,10 +74,14 @@ export default class ICEDotPath extends ICEPath {
   }
 
   /**
-   * 组件本地坐标系原点位于左上角时的数值，用于计算组件的原始 width/height
-   * @returns
+   *
+   * 计算4个顶点：
+   * - 相对于组件本地的坐标系，原点位于左上角，没有经过矩阵变换。
+   * - 返回值用于计算组件的原始 width/height 。
+   *
+   * @returns Array<DOMPoint>
    */
-  calc4PointsFromDots(): Array<DOMPoint> {
+  protected calc4VertexPoints(): Array<DOMPoint> {
     let minX = 0;
     let minY = 0;
     let maxX = 0;

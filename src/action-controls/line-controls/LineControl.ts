@@ -8,16 +8,16 @@ import ICECircle from '../../graphic/shape/ICECircle';
  */
 export default class LineControl extends ICECircle {
   constructor(props) {
-    super({ position: 'start', ...props });
-    this.on('after-move', this.moveHandler, this);
+    super(props);
+    this.on('after-move', this.resizeEvtHandler, this);
   }
 
-  private moveHandler(evt) {
+  private resizeEvtHandler(evt) {
     if (!this.parentNode) {
       return;
     }
     let position = this.props.position;
-    this.parentNode.trigger('before-move', new ICEEvent(evt, { position }));
-    this.parentNode.trigger('after-move', new ICEEvent(evt, { position }));
+    this.parentNode.trigger('before-resize', new ICEEvent(evt, { position }));
+    this.parentNode.trigger('after-resize', new ICEEvent(evt, { position }));
   }
 }

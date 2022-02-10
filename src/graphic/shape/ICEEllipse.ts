@@ -3,6 +3,9 @@ import ICEPath from '../ICEPath';
 
 /**
  * @class ICEEllipse
+ *
+ * 椭圆形。
+ *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICEEllipse extends ICEPath {
