@@ -1,12 +1,10 @@
 // import ICEStar from '../src/graphic/shape/ICEStar';
 // import ICEGroup from '../src/graphic/container/ICEGroup';
 // import ICEImage from '../src/graphic/ICEImage';
-import ICELine from '../src/graphic/line/ICELine';
-// import ICECircle from '../src/graphic/shape/ICECircle';
-// import ICEEllipse from '../src/graphic/shape/ICEEllipse';
-// import ICERect from '../src/graphic/shape/ICERect';
-// import ICEText from '../src/graphic/text/ICEText';
+import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
 import ICE from '../src/ICE';
+// import ICECircle from '../src/graphic/shape/ICECircle';
+// import ICEEllipse from /src/graphic/text/ICEText';
 
 let ice = new ICE().init('canvas-1');
 
@@ -38,11 +36,13 @@ let ice = new ICE().init('canvas-1');
 // });
 // ice.addToDisplayMap(rect);
 
-let line = new ICELine({
+let polyLine = new ICEPolyLine({
   left: 0,
   top: 0,
-  startPoint: [300, 300],
-  endPoint: [100, 100],
+  points: [
+    [300, 300],
+    [100, 100],
+  ],
   style: {
     strokeStyle: '#7803e6',
     fillStyle: '#008000',
@@ -54,7 +54,28 @@ let line = new ICELine({
     // rotate: 20,
   },
 });
-ice.addToDisplayMap(line);
+ice.addToDisplayMap(polyLine);
+
+let polyLine2 = new ICEPolyLine({
+  left: 0,
+  top: 0,
+  points: [
+    [500, 600],
+    [750, 400],
+    [250, 100],
+  ],
+  style: {
+    strokeStyle: '#7803e6',
+    fillStyle: '#008000',
+    lineWidth: 10,
+  },
+  transform: {
+    // translate: [10, -10],
+    // scale: [1, 1],
+    // rotate: 20,
+  },
+});
+ice.addToDisplayMap(polyLine2);
 
 // let img = new ICEImage({
 //   left: 100,

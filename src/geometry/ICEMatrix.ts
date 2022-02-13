@@ -1,4 +1,5 @@
 //FIXME:包装 DOMMatrix，进行兼容处理。
+//https://developer.mozilla.org/en-US/docs/Web/API/DOMMatrix
 export default class ICEMatrix {
   constructor() {}
 
@@ -7,7 +8,7 @@ export default class ICEMatrix {
    * @param matrix
    * @returns 角度
    */
-  public static calcRotateAngle(matrix: DOMMatrix): number {
+  public static calcRotateAngleFromMatrix(matrix: DOMMatrix): number {
     let radians = 0;
     let { a, b } = matrix;
     let sin = b / Math.sqrt(a * a + b * b);
@@ -24,7 +25,7 @@ export default class ICEMatrix {
    * @param matrix
    * @returns 缩放数组
    */
-  public static calcScale(matrix: DOMMatrix): Array<number> {
+  public static calcScaleFromMatrix(matrix: DOMMatrix): Array<number> {
     const scaleX = Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b) / matrix.a;
     const scaleY = Math.sqrt(matrix.c * matrix.c + matrix.d * matrix.d) / matrix.d;
     return [scaleX, scaleY];
