@@ -26,12 +26,12 @@ export default class RotateControl extends ICECircle {
 
     //计算手柄旋转角
     let parentOrigin = this.parentNode.state.absoluteOrigin;
-    let rotateAngle = GeometryUtil.calcRotateAngle(evt.offsetX, evt.offsetY, parentOrigin.x, parentOrigin.y) + 90; //旋转手柄默认处于逆时针90度位置，这里补偿90度。
+    let rotateAngle = GeometryUtil.calcRotateAngle(evt.offsetX, evt.offsetY, parentOrigin.x, parentOrigin.y);
 
-    //parentNode 旋转角与手柄设置为相同数值
+    //parentNode 旋转角与手柄旋转角同步
     const param = {
       transform: {
-        rotate: rotateAngle,
+        rotate: rotateAngle + 90, //旋转手柄默认处于逆时针 90 度位置，这里加 90 度进行补偿。
       },
     };
 

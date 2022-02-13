@@ -1,5 +1,5 @@
 import ICEEvent from '../event/ICEEvent';
-import ICELine from '../graphic/line/ICELine';
+import ICEPolyLine from '../graphic/line/ICEPolyLine';
 import ICE from '../ICE';
 import ICEControlPanel from './ICEControlPanel';
 import LineControlPanel from './line-controls/LineControlPanel';
@@ -80,7 +80,7 @@ class ICEControlManager {
         this.ice.selectionList = [component];
       }
 
-      if (component instanceof ICELine) {
+      if (component instanceof ICEPolyLine) {
         this.lineControlPanel.targetComponent = component;
       } else {
         //FIXME:处理多选的情况，如果实现多选机制，会导致 N 层重叠的对象的处理出现麻烦。
@@ -88,7 +88,7 @@ class ICEControlManager {
       }
     }
 
-    if (component instanceof ICELine) {
+    if (component instanceof ICEPolyLine) {
       this.currentDraggingObj = this.lineControlPanel;
     } else {
       this.currentDraggingObj = this.transformControlPanel;

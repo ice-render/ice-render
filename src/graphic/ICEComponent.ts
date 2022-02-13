@@ -376,7 +376,7 @@ abstract class ICEComponent extends EventTarget {
     if (this.parentNode) {
       //组件存在嵌套的情况下，减掉所有祖先节点旋转角的总和。
       let matrix = this.parentNode.state.absoluteLinearMatrix;
-      let angle = ICEMatrix.calcRotateAngle(matrix);
+      let angle = ICEMatrix.calcRotateAngleFromMatrix(matrix);
       rotateAngle -= angle;
     }
     this.setState({
@@ -418,7 +418,7 @@ abstract class ICEComponent extends EventTarget {
    */
   public getRotateAngle(): number {
     let matrix = this.state.composedMatrix;
-    return ICEMatrix.calcRotateAngle(matrix);
+    return ICEMatrix.calcRotateAngleFromMatrix(matrix);
   }
 
   public getLocalLeftTop() {

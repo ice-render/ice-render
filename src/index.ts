@@ -11,7 +11,7 @@ export * from './graphic/ICEDotPath';
 export * from './graphic/ICEImage';
 export * from './graphic/ICEPath';
 export * from './graphic/line/ICEBezier';
-export * from './graphic/line/ICELine';
+export * from './graphic/line/ICEPolyLine';
 export * from './graphic/shape/ICECircle';
 export * from './graphic/shape/ICEEllipse';
 export * from './graphic/shape/ICEIsogon';

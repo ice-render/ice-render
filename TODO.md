@@ -52,6 +52,7 @@
 - TODO:Entity Designer 与 TypeORM 整合案例。
 - TODO:BPMN Designer 与流程引擎对接。
 - TODO:PageFlow 案例。
+- TODO:工程名、包名都改成 ice-render
 
 - TODO:增量渲染机制
 - TODO:碰撞检测和局部渲染机制

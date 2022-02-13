@@ -3,11 +3,24 @@ import ICEPath from './ICEPath';
 /**
  * @class ICEDotPath
  * 基于一系列点进行绘制的路径。
+ *
+ *
+ *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default class ICEDotPath extends ICEPath {
+  /**
+   * FIXME:编写完整的配置项描述
+   * @cfg
+   * {
+   *
+   * }
+   *
+   * @param props
+   */
   constructor(props) {
-    super({ dots: [], ...props });
+    //dots 是内部计算使用的属性
+    super({ dots: [], closePath: true, ...props });
   }
 
   /**
@@ -57,7 +70,10 @@ export default class ICEDotPath extends ICEPath {
         this.path2D.lineTo(dot.x, dot.y);
       }
     }
-    this.path2D.closePath();
+
+    if (this.state.closePath) {
+      this.path2D.closePath();
+    }
     return this.path2D;
   }
 

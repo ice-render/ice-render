@@ -4,7 +4,7 @@ import { default as LineControl } from './LineControl';
 
 /**
  *
- * FIXME: LineControlPanel 不需要跟随组件移动位置。
+ * FIXME: 当组件移动位置是， LineControlPanel 不需要跟随移动，始终保持在左上角即可。
  *
  * @class LineControlPanel
  *
@@ -89,10 +89,11 @@ export default class LineControlPanel extends ICEControlPanel {
     let movementX = evt.movementX / window.devicePixelRatio;
     let movementY = evt.movementY / window.devicePixelRatio;
     let targetState = this.targetComponent.state;
-    let newStartX = targetState.startPoint[0];
-    let newStartY = targetState.startPoint[1];
-    let newEndX = targetState.endPoint[0];
-    let newEndY = targetState.endPoint[1];
+    let len = targetState.points.length;
+    let newStartX = targetState.points[0][0];
+    let newStartY = targetState.points[0][1];
+    let newEndX = targetState.points[len - 1][0];
+    let newEndY = targetState.points[len - 1][1];
 
     //用逆矩阵补偿组件 transform 导致的坐标变换。
     //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
@@ -124,7 +125,7 @@ export default class LineControlPanel extends ICEControlPanel {
     this._targetComponent = component;
 
     if (component) {
-      //ICELine 的处理方式与其它组件不同，这里 LineControPanel 本身的外观不重要，只要变换手柄能自由移动就可以
+      //ICEPolyLine 的处理方式与其它组件不同，这里 LineControPanel 本身的外观不重要，只要变换手柄能自由移动就可以
       //设置 LineControlPanel 自身的位置
       this.setState({
         left: 0,
@@ -141,8 +142,9 @@ export default class LineControlPanel extends ICEControlPanel {
 
       //设置 LineControlPanel 内部手柄的位置
       let halfControlSize = this.controlSize / 2;
-      let start = component.state.startPoint;
-      let end = component.state.endPoint;
+      let len = component.state.points.length;
+      let start = component.state.points[0];
+      let end = component.state.points[len - 1];
       let startPoint = new DOMPoint(start[0], start[1]);
       let endPoint = new DOMPoint(end[0], end[1]);
       this.startControl.setState({
