@@ -13,7 +13,7 @@ import ICEDotPath from '../ICEDotPath';
  *
  * 基本特征：
  *
- * - ICEPolyLine 折线由多个点构成，如果折线上的所有点共线，则折线在外观上退化成直线。
+ * - ICEPolyLine 由多个点构成，如果折线上的所有点共线，则折线在外观上退化成直线。
  * - ICEPolyLine 上至少存在 2 个点，否则无法画线。如果点数恰好为 2 ，折线退化成一条直线。
  * - ICEPolyLine 以及所有子类不能进行 transform 操作。
  * - ICEPolyLine 以及所有子类的 left/top 总是定位在起点上。
@@ -27,7 +27,10 @@ class ICEPolyLine extends ICEDotPath {
    * @cfg
    * {
    *  lineType: 'solid', //solid, dashed
-   *  arrow: 'none' //none, start, end ,both
+   *  lineWidth:2,
+   *  arrow: 'none',     //none, start, end ,both
+   *  closePath:false,
+   *  points:[],         //点的坐标
    * }
    *
    * @param props
