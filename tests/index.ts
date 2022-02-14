@@ -1,7 +1,8 @@
 // import ICEStar from '../src/graphic/shape/ICEStar';
 // import ICEGroup from '../src/graphic/container/ICEGroup';
 // import ICEImage from '../src/graphic/ICEImage';
-import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
+// import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
+import ICEVisioLink from '../src/graphic/link/ICEVisioLink';
 import ICE from '../src/ICE';
 // import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEEllipse from /src/graphic/text/ICEText';
@@ -36,46 +37,54 @@ let ice = new ICE().init('canvas-1');
 // });
 // ice.addToDisplayMap(rect);
 
-let polyLine = new ICEPolyLine({
-  left: 0,
-  top: 0,
-  points: [
-    [300, 300],
-    [100, 100],
-  ],
-  style: {
-    strokeStyle: '#7803e6',
-    fillStyle: '#008000',
-    lineWidth: 10,
-  },
-  transform: {
-    // translate: [10, -10],
-    // scale: [1, 1],
-    // rotate: 20,
-  },
-});
-ice.addToDisplayMap(polyLine);
+// let polyLine = new ICEPolyLine({
+//   left: 0,
+//   top: 0,
+//   points: [
+//     [300, 300],
+//     [100, 100],
+//   ],
+//   style: {
+//     strokeStyle: '#7803e6',
+//     fillStyle: '#008000',
+//     lineWidth: 10,
+//   },
+//   transform: {
+//     // translate: [10, -10],
+//     // scale: [1, 1],
+//     // rotate: 20,
+//   },
+// });
+// ice.addToDisplayMap(polyLine);
 
-let polyLine2 = new ICEPolyLine({
+// let polyLine2 = new ICEPolyLine({
+//   left: 0,
+//   top: 0,
+//   points: [
+//     [500, 600],
+//     [750, 400],
+//     [250, 100],
+//   ],
+//   style: {
+//     strokeStyle: '#7803e6',
+//     fillStyle: '#008000',
+//     lineWidth: 10,
+//   },
+// });
+// ice.addToDisplayMap(polyLine2);
+
+let visioLink = new ICEVisioLink({
   left: 0,
   top: 0,
-  points: [
-    [500, 600],
-    [750, 400],
-    [250, 100],
-  ],
+  startPoint: [100, 100],
+  endPoint: [500, 500],
   style: {
     strokeStyle: '#7803e6',
     fillStyle: '#008000',
-    lineWidth: 10,
-  },
-  transform: {
-    // translate: [10, -10],
-    // scale: [1, 1],
-    // rotate: 20,
+    lineWidth: 5,
   },
 });
-ice.addToDisplayMap(polyLine2);
+ice.addToDisplayMap(visioLink);
 
 // let img = new ICEImage({
 //   left: 100,
