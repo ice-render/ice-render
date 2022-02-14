@@ -87,7 +87,7 @@ class ICEBoundingBox {
         continue;
       }
 
-      //特例2：点位于线段上方，水平涉嫌不可能与线段交叉
+      //特例2：点位于线段上方，水平射线不可能与线段交叉
       if (point.y < line.o.y && point.y < line.d.y) {
         continue;
       }
