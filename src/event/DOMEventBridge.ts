@@ -4,7 +4,8 @@ import mouseEvents from './MOUSE_EVENT_MAPPING_CONSTS';
 
 /**
  * @class DOMEventBridge
- * 事件桥接器，把 DOM 事件转发给 canvas 内部的对象。
+ *
+ * 事件桥接器，把原生 DOM 事件转发给 canvas 内部的组件。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */

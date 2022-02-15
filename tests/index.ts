@@ -35,7 +35,7 @@ let ice = new ICE().init('canvas-1');
 // rect.on('click', (evt) => {
 //   console.log('rect');
 // });
-// ice.addToDisplayMap(rect);
+// ice.addChild(rect);
 
 // let polyLine = new ICEPolyLine({
 //   left: 0,
@@ -55,7 +55,7 @@ let ice = new ICE().init('canvas-1');
 //     // rotate: 20,
 //   },
 // });
-// ice.addToDisplayMap(polyLine);
+// ice.addChild(polyLine);
 
 // let polyLine2 = new ICEPolyLine({
 //   left: 0,
@@ -71,7 +71,7 @@ let ice = new ICE().init('canvas-1');
 //     lineWidth: 10,
 //   },
 // });
-// ice.addToDisplayMap(polyLine2);
+// ice.addChild(polyLine2);
 
 let visioLink = new ICEVisioLink({
   left: 0,
@@ -84,7 +84,7 @@ let visioLink = new ICEVisioLink({
     lineWidth: 5,
   },
 });
-ice.addToDisplayMap(visioLink);
+ice.addChild(visioLink);
 
 // let img = new ICEImage({
 //   left: 100,
@@ -98,7 +98,7 @@ ice.addToDisplayMap(visioLink);
 //     scale: [1, 2],
 //   },
 // });
-// ice.addToDisplayMap(img);
+// ice.addChild(img);
 
 //正三角形
 // let isogon3 = new ICEIsogon({
@@ -113,7 +113,7 @@ ice.addToDisplayMap(visioLink);
 //     rotate: 45,
 //   },
 // });
-// ice.addToDisplayMap(isogon3);
+// ice.addChild(isogon3);
 
 // //正五边形
 // let isogon5 = new ICEIsogon({
@@ -122,7 +122,7 @@ ice.addToDisplayMap(visioLink);
 //   radius: 50,
 //   edges: 5,
 // });
-// ice.addToDisplayMap(isogon5);
+// ice.addChild(isogon5);
 
 // // 正十五边形
 // let isogon15 = new ICEIsogon({
@@ -136,7 +136,7 @@ ice.addToDisplayMap(visioLink);
 //     lineWidth: 10,
 //   },
 // });
-// ice.addToDisplayMap(isogon15);
+// ice.addChild(isogon15);
 
 // //正N边形
 // let star1 = new ICEStar({
@@ -153,7 +153,7 @@ ice.addToDisplayMap(visioLink);
 // });
 // star1.on('click', (evt) => {
 // });
-// ice.addToDisplayMap(star1);
+// ice.addChild(star1);
 
 // let text = new ICEText({
 //   left: 0,
@@ -166,14 +166,14 @@ ice.addToDisplayMap(visioLink);
 //     fillStyle: '#00ff00',
 //   },
 // });
-// ice.addToDisplayMap(text);
+// ice.addChild(text);
 
 // let p1 = new DOMPoint(0, 100);
 // let p2 = new DOMPoint(150, 100);
 // let p3 = new DOMPoint(150, 200);
 // let p4 = new DOMPoint(0, 200);
 // let path = new ICEDotPath({ dots: [p1, p2, p3, p4] });
-// ice.addToDisplayMap(path);
+// ice.addChild(path);
 
 // let g = new ICEGroup({
 //   left: 100,
@@ -192,7 +192,7 @@ ice.addToDisplayMap(visioLink);
 //     rotate: 45,
 //   },
 // });
-// ice.addToDisplayMap(g);
+// ice.addChild(g);
 // g.setState({
 //   transform: {
 //     scale: [1.2, 1.2],
@@ -274,7 +274,7 @@ ice.addToDisplayMap(visioLink);
 //     rotate: 45,
 //   },
 // });
-// ice.addToDisplayMap(group1);
+// ice.addChild(group1);
 
 // let circle1 = new ICECircle({
 //   left: 0,
@@ -297,7 +297,7 @@ ice.addToDisplayMap(visioLink);
 //   width: 400,
 //   height: 200,
 // });
-// ice.addToDisplayMap(rect6);
+// ice.addChild(rect6);
 
 // let ellipse = new ICEEllipse({
 //   left: 100,
@@ -305,14 +305,14 @@ ice.addToDisplayMap(visioLink);
 //   radiusX: 50,
 //   radiusY: 30,
 // });
-// ice.addToDisplayMap(ellipse);
+// ice.addChild(ellipse);
 
 // let circle2 = new ICECircle({
 //   left: 400,
 //   top: 10,
 //   radius: 50,
 // });
-// ice.addToDisplayMap(circle2);
+// ice.addChild(circle2);
 
 // let group2 = new ICEGroup({
 //   left: 20,
@@ -330,7 +330,7 @@ ice.addToDisplayMap(visioLink);
 //   //   rotate: 10,
 //   // },
 // });
-// ice.addToDisplayMap(group2);
+// ice.addChild(group2);
 
 // let circle3 = new ICECircle({
 //   left: 0,
@@ -362,14 +362,14 @@ ice.addToDisplayMap(visioLink);
 //     rotate: 20,
 //   },
 // });
-// ice.addToDisplayMap(rect2);
+// ice.addChild(rect2);
 
 // let circle3 = new ICECircle({
 //   left: 0,
 //   top: 0,
 //   radius: 10,
 // });
-// ice.addToDisplayMap(circle3);
+// ice.addChild(circle3);
 
 // let th = new TransformPanel({
 //   left: 400,
@@ -382,4 +382,4 @@ ice.addToDisplayMap(visioLink);
 //     lineWidth: 1,
 //   },
 // });
-// ice.addToDisplayMap(th);
+// ice.addChild(th);

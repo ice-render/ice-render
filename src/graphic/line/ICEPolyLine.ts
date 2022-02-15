@@ -38,7 +38,10 @@ class ICEPolyLine extends ICEDotPath {
   constructor(props: any = {}) {
     //dots 是内部计算使用的属性，外部传参用 points 属性
     //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
-    let param = merge({ lineType: 'solid', lineWidth: 2, arrow: 'none', closePath: false, points: [] }, props);
+    let param = merge(
+      { linkable: false, lineType: 'solid', lineWidth: 2, arrow: 'none', closePath: false, points: [] },
+      props
+    );
 
     //至少有2个点，如果点数少于2个，自动填充。
     let len = param.points.length;
@@ -127,6 +130,7 @@ class ICEPolyLine extends ICEDotPath {
   /**
    * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
    * 由于点状路径可能是不规则的形状，所以宽高需要手动计算，特殊形状的子类需要覆盖此方法提供自己的实现。
+   * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    * @overwrite
    * @returns
    */

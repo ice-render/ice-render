@@ -6,14 +6,16 @@ import LineControlPanel from './line-controls/LineControlPanel';
 import TransformControlPanel from './transform-controls/TransformControlPanel';
 
 /**
- * @class ICEControlManager 用户操作管理器
+ * @class ICEControlPanelManager
  *
- * - 负责管理所有类型的 ControlPanel 。
- * - 全局单例，一个 ICE 实例上只能有一个 ICEControlManager 实例。
+ * 控制面板管理器
+ *
+ * - ICEControlPanelManager 负责管理所有类型的控制面板（ControlPanel）。
+ * - ICEControlPanelManager 是全局单例的，一个 ICE 实例上只能有一个实例。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-class ICEControlManager {
+class ICEControlPanelManager {
   private ice: ICE;
   //FIXME:这里需要重构，不同类型的组件需要展现不同的操作工具，操作工具可能会有 N 种，需要进一步抽象操作工具相关的逻辑。
   private transformControlPanel: TransformControlPanel;
@@ -39,7 +41,7 @@ class ICEControlManager {
     });
     //在同一时刻，不可能同时出现多个 TransformControlPanel 实例，这里默认构造一个，放在距离可见区域很远的位置？？？
     //FIXME:需要测试是否会影响 toDataURL 的输出结果。
-    this.ice.addToDisplayMap(this.transformControlPanel);
+    this.ice.addChild(this.transformControlPanel);
 
     this.lineControlPanel = new LineControlPanel({
       left: 700,
@@ -52,7 +54,7 @@ class ICEControlManager {
         lineWidth: 1,
       },
     });
-    this.ice.addToDisplayMap(this.lineControlPanel);
+    this.ice.addChild(this.lineControlPanel);
   }
 
   //FIXME:先取消选中列表中的原有对象的选中状态?
@@ -64,8 +66,8 @@ class ICEControlManager {
     if (!component.state.interactive) {
       //TODO:隐藏 ICEControlPanel
       //FIXME:需要清理事件
-      this.ice.rmFromDisplayMap(this.transformControlPanel);
-      this.ice.rmFromDisplayMap(this.lineControlPanel);
+      this.ice.removeChild(this.transformControlPanel);
+      this.ice.removeChild(this.lineControlPanel);
       return;
     }
 
@@ -124,4 +126,4 @@ class ICEControlManager {
   stop() {}
 }
 
-export default ICEControlManager;
+export default ICEControlPanelManager;
