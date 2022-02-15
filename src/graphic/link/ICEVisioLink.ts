@@ -4,7 +4,6 @@ import GeoPoint from '../../geometry/GeoPoint';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICEComponent from '../ICEComponent';
 import ICEPolyLine from '../line/ICEPolyLine';
-import ICECableLike from './ICECableLike';
 
 /**
  * @class ICEVisioLink
@@ -19,7 +18,7 @@ import ICECableLike from './ICECableLike';
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-export default class ICEVisioLink extends ICEPolyLine implements ICECableLike {
+export default class ICEVisioLink extends ICEPolyLine {
   //FIXME:序列化时存组件 ID
   private startComponent: ICEComponent;
   private endComponent: ICEComponent;
@@ -33,6 +32,7 @@ export default class ICEVisioLink extends ICEPolyLine implements ICECableLike {
       props.endPoint = [10, 10];
     }
     props.points = [props.startPoint, props.endPoint];
+    props.linkable = false; //连线自身不能再连接，在 ICE 引擎中，用线条把线条自身连接起来是没有意义的。
 
     super(props);
   }

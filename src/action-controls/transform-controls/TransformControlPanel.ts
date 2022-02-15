@@ -6,7 +6,7 @@ import RotateControl from './RotateControl';
 /**
  * @class TransformControlPanel
  *
- * 变换操作控制面板
+ * 变换控制面板
  *
  * - TransformControlPanel 本身总是直接画在 canvas 上，不是任何组件的孩子。
  * - TransformControlPanel 是全局单例，在任意时刻，不可能同时出现多个 TransformControlPanel 的实例，因为在图形化的用户交互模式下，用户无法同时操控多个控制面板。
@@ -33,16 +33,20 @@ export default class TransformControlPanel extends ICEControlPanel {
   protected initControls(): void {
     // 创建 8 个 ResizeControl
     // 计算手柄位于父组件的哪一个象限中，有以下取值：
-    // - 1: 第一象限；//第1和第3象限可以交换位置
-    // - 2: 第二象限；//第2和第4象限可以交换位置
-    // - 3: 第三象限；
-    // - 4: 第四象限；
+    // - 1: 第1象限；
+    // - 2: 第2象限；
+    // - 3: 第3象限；
+    // - 4: 第4象限；
     // - 5: 位于X轴上方，y值为负，不属于任何象限；
     // - 6: 位于X轴下方，y值为正，不属于任何象限；
     // - 7: 位于Y轴左侧，x值为负，不属于任何象限；
     // - 8: 位于Y轴右侧，x值为正，不属于任何象限；
     //
     // 默认创建顺序，从左上角开始顺时针：tl:2/t:5/tr:1/r:8/rb:4/b:6/lb:3/l:7
+    // 第1和第3象限可以交换位置
+    // 第2和第4象限可以交换位置
+    // X 轴正负可以交换位置
+    // Y 轴正负可以交换位置
     let width = this.state.width;
     let height = this.state.height;
     let halfWidth = width / 2;

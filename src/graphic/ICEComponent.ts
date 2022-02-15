@@ -44,10 +44,13 @@ abstract class ICEComponent extends EventTarget {
    *   linearMatrix: new DOMMatrix(),      //线性变换矩阵，不含平移
    *   composedMatrix: new DOMMatrix(),    //复合变换矩阵，包含所有祖先节点的平移、原点移动、线性变换计算
    *   origin:'localCenter',
-   *   localOrigin: new DOMPoint(0, 0),    //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
-   *   absoluteOrigin: new DOMPoint(0, 0),   //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
+   *   localOrigin: new DOMPoint(0, 0),        //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
+   *   absoluteOrigin: new DOMPoint(0, 0),     //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
    *   zIndex: ICEComponent.instanceCounter++, //类似于 CSS 中的 zIndex
    *   interactive: true, //是否可以进行用户交互操作 TODO:动画运行过程中不允许选中，不能进行交互？？？
+   *   linkable:true,                   //是否可以用连接线进行连接，带有宽高的组件都可以用连接线进行连接，但是连线自身默认不能互相连接。linkable 为 true 时，会在组件的最小包围盒四边创建用于连线的插槽。
+   *   showMinBoundingBox:true,     //是否显示最小包围盒，开发时打开，主要用于 debug
+   *   showMaxBoundingBox:true,     //是否显示最大包围盒，开发时打开，主要用于 debug
    * }
    * @param props
    */
@@ -75,6 +78,9 @@ abstract class ICEComponent extends EventTarget {
     draggable: true,
     selectable: true,
     interactive: true,
+    linkable: true,
+    showMinBoundingBox: true,
+    showMaxBoundingBox: true,
   };
 
   /**
@@ -102,9 +108,9 @@ abstract class ICEComponent extends EventTarget {
     this.isRendering = true;
     this.trigger(ICE_CONSTS.BEFORE_RENDER);
 
-    this.applyStyle();
     this.calcOriginalDimension();
 
+    this.applyStyle();
     this.applyTransformToCtx();
     this.doRender();
     this.ctx.setTransform(new DOMMatrix());
@@ -120,6 +126,7 @@ abstract class ICEComponent extends EventTarget {
   /**
    * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
    * 此方法不能依赖原点位置和 transform 矩阵。
+   * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    * @returns
    */
   protected calcOriginalDimension() {
@@ -254,35 +261,37 @@ abstract class ICEComponent extends EventTarget {
    * @method doRender
    */
   protected doRender(): void {
-    //打开以下注释掉的代码，可以实时看到每一个对象的最小和最大边界盒子。
-    //供测试用的代码，请勿删除。
-    let minBox = this.getMinBoundingBox();
-    this.ctx.setTransform(new DOMMatrix());
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeStyle = '#ff0000';
-    this.ctx.fillStyle = 'rgba(0,0,0,0)';
-    this.ctx.beginPath();
-    this.ctx.moveTo(minBox.tl.x, minBox.tl.y);
-    this.ctx.lineTo(minBox.tr.x, minBox.tr.y);
-    this.ctx.lineTo(minBox.br.x, minBox.br.y);
-    this.ctx.lineTo(minBox.bl.x, minBox.bl.y);
-    this.ctx.closePath();
-    this.ctx.stroke();
-    this.ctx.fill();
+    if (this.state.showMinBoundingBox) {
+      let minBox = this.getMinBoundingBox();
+      this.ctx.setTransform(new DOMMatrix());
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeStyle = '#ff0000';
+      this.ctx.fillStyle = 'rgba(0,0,0,0)';
+      this.ctx.beginPath();
+      this.ctx.moveTo(minBox.tl.x, minBox.tl.y);
+      this.ctx.lineTo(minBox.tr.x, minBox.tr.y);
+      this.ctx.lineTo(minBox.br.x, minBox.br.y);
+      this.ctx.lineTo(minBox.bl.x, minBox.bl.y);
+      this.ctx.closePath();
+      this.ctx.stroke();
+      this.ctx.fill();
+    }
 
-    let maxBox = this.getMaxBoundingBox();
-    this.ctx.setTransform(new DOMMatrix());
-    this.ctx.lineWidth = 1;
-    this.ctx.strokeStyle = '#0000ff';
-    this.ctx.fillStyle = 'rgba(0,0,0,0)';
-    this.ctx.beginPath();
-    this.ctx.moveTo(maxBox.tl.x, maxBox.tl.y);
-    this.ctx.lineTo(maxBox.tr.x, maxBox.tr.y);
-    this.ctx.lineTo(maxBox.br.x, maxBox.br.y);
-    this.ctx.lineTo(maxBox.bl.x, maxBox.bl.y);
-    this.ctx.closePath();
-    this.ctx.stroke();
-    this.ctx.fill();
+    if (this.state.showMaxBoundingBox) {
+      let maxBox = this.getMaxBoundingBox();
+      this.ctx.setTransform(new DOMMatrix());
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeStyle = '#0000ff';
+      this.ctx.fillStyle = 'rgba(0,0,0,0)';
+      this.ctx.beginPath();
+      this.ctx.moveTo(maxBox.tl.x, maxBox.tl.y);
+      this.ctx.lineTo(maxBox.tr.x, maxBox.tr.y);
+      this.ctx.lineTo(maxBox.br.x, maxBox.br.y);
+      this.ctx.lineTo(maxBox.bl.x, maxBox.bl.y);
+      this.ctx.closePath();
+      this.ctx.stroke();
+      this.ctx.fill();
+    }
   }
 
   /**

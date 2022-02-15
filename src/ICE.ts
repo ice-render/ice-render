@@ -1,11 +1,12 @@
 import isString from 'lodash/isString';
 import pkg from '../package.json';
-import ControlManager from './action-controls/ICEControlManager';
+import ICEControlPanelManager from './action-controls/ICEControlPanelManager';
 import AnimationManager from './animation/AnimationManager';
 import FrameManager from './animation/FrameManager';
 import DOMEventBridge from './event/DOMEventBridge';
 import EventBus from './event/EventBus';
 import MouseEventInterceptor from './event/MouseEventInterceptor.js';
+import ICELinkManager from './graphic/link/ICELinkManager';
 import root from './nodejs-support/root.js';
 import CanvasRenderer from './renderer/CanvasRenderer';
 import IRenderer from './renderer/IRenderer';
@@ -35,7 +36,8 @@ class ICE {
 
   private animationManager: AnimationManager;
   private eventBridge: DOMEventBridge;
-  private controlManager: ControlManager;
+  private controlPanelManager: ICEControlPanelManager;
+  private linkManager: ICELinkManager;
   private renderer: IRenderer;
 
   constructor() {}
@@ -77,7 +79,8 @@ class ICE {
     MouseEventInterceptor.start();
     this.animationManager = new AnimationManager(this).start();
     this.eventBridge = new DOMEventBridge(this).start();
-    this.controlManager = new ControlManager(this).start();
+    this.controlPanelManager = new ICEControlPanelManager(this).start();
+    this.linkManager = new ICELinkManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
 
     return this;
@@ -86,17 +89,16 @@ class ICE {
   //FIXME:实现销毁 ICE 实例的过程
   destory() {}
 
-  addToDisplayMap(component) {
+  addChild(component) {
     component.ctx = this.ctx;
     component.root = this.root;
-
     this.displayMap.set(component.props.id, component);
     if (Object.keys(component.props.animations).length) {
       this.animationManager.add(component);
     }
   }
 
-  rmFromDisplayMap(component) {
+  removeChild(component) {
     this.displayMap.delete(component.props.id);
     component.ctx = null;
     component.root = null;

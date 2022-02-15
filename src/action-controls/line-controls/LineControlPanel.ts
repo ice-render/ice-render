@@ -1,6 +1,6 @@
 import ICEComponent from '../../graphic/ICEComponent';
+import ICELinkHook from '../../graphic/link/ICELinkHook';
 import ICEControlPanel from '../ICEControlPanel';
-import { default as LineControl } from './LineControl';
 
 /**
  *
@@ -22,8 +22,8 @@ import { default as LineControl } from './LineControl';
  */
 export default class LineControlPanel extends ICEControlPanel {
   private controlSize: number = 16; //TODO:改成可配置参数
-  private startControl: LineControl;
-  private endControl: LineControl;
+  private startControl: ICELinkHook;
+  private endControl: ICELinkHook;
 
   constructor(props) {
     super({ ...props, zIndex: Number.MAX_VALUE });
@@ -37,7 +37,7 @@ export default class LineControlPanel extends ICEControlPanel {
     let height = this.state.height;
     let halfControlSize = this.controlSize / 2;
 
-    this.startControl = new LineControl({
+    this.startControl = new ICELinkHook({
       zIndex: Number.MAX_VALUE - counter++,
       left: -halfControlSize,
       top: -halfControlSize,
@@ -53,7 +53,7 @@ export default class LineControlPanel extends ICEControlPanel {
     });
     this.addChild(this.startControl);
 
-    this.endControl = new LineControl({
+    this.endControl = new ICELinkHook({
       zIndex: Number.MAX_VALUE - counter++,
       left: width - halfControlSize,
       top: height - halfControlSize,

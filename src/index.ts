@@ -1,5 +1,5 @@
-export * from './action-controls/ICEControlManager';
 export * from './action-controls/ICEControlPanel';
+export * from './action-controls/ICEControlPanelManager';
 export * from './action-controls/transform-controls/TransformControlPanel';
 export * from './animation/AnimationManager';
 export * from './event/DOMEventBridge';
@@ -14,6 +14,9 @@ export * from './graphic/ICEImage';
 export * from './graphic/ICEPath';
 export * from './graphic/line/ICEBezier';
 export * from './graphic/line/ICEPolyLine';
+export * from './graphic/link/ICELinkHook';
+export * from './graphic/link/ICELinkManager';
+export * from './graphic/link/ICELinkSlot';
 export * from './graphic/link/ICEVisioLink';
 export * from './graphic/shape/ICECircle';
 export * from './graphic/shape/ICEEllipse';
