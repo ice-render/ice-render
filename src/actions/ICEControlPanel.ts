@@ -1,5 +1,5 @@
 import ICEGroup from '../graphic/container/ICEGroup';
-import ICEComponent from '../graphic/ICEComponent';
+import ICEBaseComponent from '../graphic/ICEBaseComponent';
 
 /**
  * @class ICEControlPanel
@@ -11,7 +11,7 @@ import ICEComponent from '../graphic/ICEComponent';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default abstract class ICEControlPanel extends ICEGroup {
-  protected _targetComponent: ICEComponent;
+  protected _targetComponent: ICEBaseComponent;
 
   constructor(props: any) {
     super(props);

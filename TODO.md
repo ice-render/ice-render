@@ -23,29 +23,34 @@
 - TODO:实现拖拽式 transform【已解决】
 - TODO:解决事件回调函数的 scope 问题【已解决】
 - TODO:实现 N 层重叠形式的组件【已解决】
-- TODO:TransformPanel 挂到组件上，实现组件的变换。【已解决】
-- TODO:重构拖拽的实现方式，拖拽过程也通过 TransformPanel 实现，组件自身实际上不能拖动。【已解决】
-- TODO:TransformPanel 关联到组件上之后，需要立即响应 mousemove 事件，不需要抬起鼠标再次按下才能拖动。【已解决】
-- TODO:重构 TransformPanel 与组件之间的 zIndex 关系，TransformPanel 永远绘制在关联的组件上一层？Number.MAX_VALUE？【已解决】
+- TODO: TransformPanel 挂到组件上，实现组件的变换。【已解决】
+- TODO:重构拖拽的实现方式，拖拽过程也通过  TransformPanel 实现，组件自身实际上不能拖动。【已解决】
+- TODO: TransformPanel 关联到组件上之后，需要立即响应 mousemove 事件，不需要抬起鼠标再次按下才能拖动。【已解决】
+- TODO:重构  TransformPanel 与组件之间的 zIndex 关系，TransformPanel 永远绘制在关联的组件上一层？Number.MAX_VALUE？【已解决】
 
-- TODO:TransformPanel 的外观可配置，可以选择不展示缩放手柄、旋转手柄。（先跳过，后面补）
-- TODO:TransformPanel 可以隐藏起来，而不是一直放在画布上。（先跳过，后面补）
-- TODO:TransformPanel 支持对象翻转（先跳过，后面补）
+- TODO: TransformPanel 的外观可配置，可以选择不展示缩放手柄、旋转手柄。（先跳过，后面补）
+- TODO: TransformPanel 可以隐藏起来，而不是一直放在画布上。（先跳过，后面补）
+- TODO: TransformPanel 支持对象翻转（先跳过，后面补）
 - TODO:围绕中心点变换、围绕左侧、右侧、上边、下边、指定任意坐标点变换。（先跳过，后面补）
 - FIXME:ICEIsogon 在绘制三角形时计算方式不正确。（先跳过，后面补）
 - TODO:修改计算尺寸和位置的逻辑，把 lineWidth 参数计算进去。（先跳过，后面补）
-
-- TODO:测试 TransformPanel 对图片的变换是否正确。【已解决】
-- TODO:测试宽高不等的一般矩形在 TransformPanel 下的变换是否正确。（ FIXME: 宽高不等的一般矩形， TransformPanel 位置有偏移）【已解决】
-- TODO:测试 TransformPanel 对线条的变换是否正确。(边界盒子、变换有问题，看起来计算方法不太对)【已解决】
-- TODO:测试 TransformPanel 对 ICEText 的变换是否正确。【已解决】
-- TODO:测试 N 层重叠情况下，以及 ICEGroup 组件 TransformPanel 的处理流程。【已解决】
-- TODO:所有连接线不能进行 transform ，只能拖动两端端点进行拉长缩短  <------------
-- TODO:所有连接线的 Transform Control 都同时具有2种功能：拖动修改长度、吸附到组件上产生连接效果。
+ 
+- TODO:测试  TransformPanel 对图片的变换是否正确。【已解决】
+- TODO:测试宽高不等的一般矩形在  TransformPanel 下的变换是否正确。（ FIXME: 宽高不等的一般矩形，  TransformPanel 位置有偏移）【已解决】
+- TODO:测试  TransformPanel 对线条的变换是否正确。(边界盒子、变换有问题，看起来计算方法不太对)【已解决】
+- TODO:测试  TransformPanel 对 ICEText 的变换是否正确。【已解决】
+- TODO:测试 N 层重叠情况下，以及 ICEGroup 组件  TransformPanel 的处理流程。【已解决】
+- TODO:所有连接线不能进行 transform ，只能拖动两端端点进行拉长缩短【已解决】
+- TODO:解决 mixin 机制问题 <------------
+- TODO:重构 DDManager 和 TransformPanelManager  
+- TODO:重构容器型组件
+- TODO:用容器型组件机制重构 transform 和 linkable 机制
+- TODO:所有连接线的 TransformControl 都同时具有2种功能：拖动修改长度、吸附到组件上产生连接效果。
 - TODO:实现连接线 & Visio 形态的连接线
-- TODO:序列化和反序列化
 - TODO:ICEText 需要进一步精确的计算。
-- TODO:实现 GuideLine ，增加磁吸效果
+- TODO:重构整体的数据结构
+- TODO:序列化和反序列化
+- TODO:实现 GuideLine ， 增加磁吸效果
 - TODO:优化编译和测试环境参数配置
 - TODO:ICE 全局单例重构
 - TODO:补用例，跑测试。

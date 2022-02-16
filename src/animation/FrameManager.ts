@@ -4,6 +4,8 @@ import root from '../nodejs-support/root';
 /**
  * 帧频控制器，全局单例，请勿创建多个实例。
  * 在浏览器中，当动画帧频过高时，会导致 CPU 使用率飙升，页面会卡顿。
+ *
+ * @see ICE
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 //TODO:Move these to global config.

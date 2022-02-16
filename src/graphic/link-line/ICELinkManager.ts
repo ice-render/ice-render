@@ -3,10 +3,14 @@ import ICE from '../../ICE';
 import ICELinkHook from './ICELinkHook';
 import ICELinkSlot from './ICELinkSlot';
 
+/**
+ * @see ICE
+ */
 export default class ICELinkManager {
   private ice: ICE;
   private hooks = new Map();
   private slots = new Map();
+  private currentObj: any;
 
   constructor(ice: ICE) {
     this.ice = ice;
@@ -17,7 +21,20 @@ export default class ICELinkManager {
     if (!(component instanceof ICELinkHook)) {
       return;
     }
+
+    this.currentObj = component;
     console.log('link manager-->', component);
+    this.ice.evtBus.on('mousemove', this.mouseMoveHandler, this);
+    this.ice.evtBus.on('mouseup', this.mouseUpHandler, this);
+  }
+
+  private mouseMoveHandler(evt: ICEEvent): boolean {
+    console.log('link manager-->', this.currentObj);
+    return true;
+  }
+
+  private mouseUpHandler(evt: ICEEvent) {
+    console.log('link manager-->', this.currentObj);
   }
 
   start() {

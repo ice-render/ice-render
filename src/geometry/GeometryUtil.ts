@@ -1,5 +1,5 @@
 import round from 'lodash/round';
-import ICEComponent from '../graphic/ICEComponent';
+import ICEBaseComponent from '../graphic/ICEBaseComponent';
 
 export default class GeometryUtil {
   constructor() {
@@ -12,7 +12,7 @@ export default class GeometryUtil {
    * @param point
    * @returns
    */
-  public static containsPoint(component: ICEComponent, point: any): boolean {
+  public static containsPoint(component: ICEBaseComponent, point: any): boolean {
     return false;
   }
 
@@ -22,7 +22,7 @@ export default class GeometryUtil {
    * @param b 第二个图元
    * @returns
    */
-  public static isIntersect(a: ICEComponent, b: ICEComponent): boolean {
+  public static isIntersect(a: ICEBaseComponent, b: ICEBaseComponent): boolean {
     return false;
   }
 

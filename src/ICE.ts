@@ -1,17 +1,16 @@
 import isString from 'lodash/isString';
 import pkg from '../package.json';
-import ICEControlPanelManager from './action-controls/ICEControlPanelManager';
+import DDManager from './actions/DDManager';
+import ICEControlPanelManager from './actions/ICEControlPanelManager';
 import AnimationManager from './animation/AnimationManager';
 import FrameManager from './animation/FrameManager';
 import DOMEventBridge from './event/DOMEventBridge';
 import EventBus from './event/EventBus';
 import MouseEventInterceptor from './event/MouseEventInterceptor.js';
-import ICELinkManager from './graphic/link/ICELinkManager';
+import ICELinkManager from './graphic/link-line/ICELinkManager';
 import root from './nodejs-support/root.js';
 import CanvasRenderer from './renderer/CanvasRenderer';
 import IRenderer from './renderer/IRenderer';
-
-FrameManager.start();
 
 /**
  * ICE: interactive canvas engine.
@@ -36,6 +35,7 @@ class ICE {
 
   private animationManager: AnimationManager;
   private eventBridge: DOMEventBridge;
+  private ddManager: DDManager;
   private controlPanelManager: ICEControlPanelManager;
   private linkManager: ICELinkManager;
   private renderer: IRenderer;
@@ -75,10 +75,13 @@ class ICE {
     //启动当前 ICE 实例上的所有 Manager
     this.evtBus = new EventBus();
     FrameManager.regitserEvtBus(this.evtBus);
+    FrameManager.start();
+
     MouseEventInterceptor.regitserEvtBus(this.evtBus);
     MouseEventInterceptor.start();
     this.animationManager = new AnimationManager(this).start();
     this.eventBridge = new DOMEventBridge(this).start();
+    this.ddManager = new DDManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
     this.linkManager = new ICELinkManager(this).start();
     this.renderer = new CanvasRenderer(this).start();

@@ -1,11 +1,11 @@
-import ICEComponent from '../ICEComponent';
+import ICEBaseComponent from '../ICEBaseComponent';
 
 /**
  * TODO:draw text along Path2D
  * @see https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-class ICEText extends ICEComponent {
+class ICEText extends ICEBaseComponent {
   /**
    * @cfg
    * {
@@ -22,6 +22,11 @@ class ICEText extends ICEComponent {
   constructor(props: any = {}) {
     super({ text: '', left: 0, top: 0, fontSize: 48, fontFamily: 'Arial', fontWeight: 24, ...props });
   }
+
+  /**
+   * 空实现。
+   */
+  protected initEvents() {}
 
   /**
    * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。

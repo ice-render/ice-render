@@ -1,15 +1,20 @@
 import isString from 'lodash/isString';
 import isUndefined from 'lodash/isUndefined';
 import ICEEvent from '../event/ICEEvent';
-import ICEComponent from '../graphic/ICEComponent';
+import ICEBaseComponent from '../graphic/ICEBaseComponent';
 import ICE from '../ICE';
 import { ICE_CONSTS } from '../ICE_CONSTS';
 import Easing from './Easing';
 
 /**
  * @class AnimationManager
- * 动画管理器，全局单例。
+ *
+ * 动画管理器
+ *
+ * - 全局单例，一个 ICE 实例上只能有一个 AnimationManager 的实例。
+ *
  * @singleton
+ * @see ICE
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class AnimationManager {
@@ -22,7 +27,7 @@ class AnimationManager {
 
   start() {
     this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, (evt: ICEEvent) => {
-      this.animationMap.forEach((el: ICEComponent) => {
+      this.animationMap.forEach((el: ICEBaseComponent) => {
         //在动画过程中，对象不响应鼠标或者触摸交互，防止影响属性值的计算。
         el.state.interactive = false;
         this.tween(el);
@@ -34,7 +39,7 @@ class AnimationManager {
 
   //TODO:处理无限循环播放的情况，处理播放次数的情况
   //TODO:每一个属性变化的持续时间不同，需要做同步处理，所有动画都执行完毕之后，需要把对象从动画列表中删除
-  tween(el: ICEComponent) {
+  tween(el: ICEBaseComponent) {
     let newState: any = {};
     let animations = el.props.animations;
     let finishCounter = 1;
@@ -71,7 +76,7 @@ class AnimationManager {
     return el;
   }
 
-  add(component: ICEComponent) {
+  add(component: ICEBaseComponent) {
     this.animationMap.set(component.props.id, component);
   }
 

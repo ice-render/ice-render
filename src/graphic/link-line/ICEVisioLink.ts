@@ -2,7 +2,7 @@ import isNil from 'lodash/isNil';
 import GeoLine from '../../geometry/GeoLine';
 import GeoPoint from '../../geometry/GeoPoint';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
-import ICEComponent from '../ICEComponent';
+import ICEBaseComponent from '../ICEBaseComponent';
 import ICEPolyLine from '../line/ICEPolyLine';
 
 /**
@@ -20,8 +20,8 @@ import ICEPolyLine from '../line/ICEPolyLine';
  */
 export default class ICEVisioLink extends ICEPolyLine {
   //FIXME:序列化时存组件 ID
-  private startComponent: ICEComponent;
-  private endComponent: ICEComponent;
+  private startComponent: ICEBaseComponent;
+  private endComponent: ICEBaseComponent;
   private escapeDistance: number = 30;
 
   constructor(props: any = {}) {

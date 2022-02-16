@@ -1,4 +1,4 @@
-import ICEComponent from './ICEComponent';
+import ICEBaseComponent from './ICEBaseComponent';
 
 /**
  * @class ICEImage
@@ -6,10 +6,15 @@ import ICEComponent from './ICEComponent';
  * TODO:ICEImage 来源的几种方式
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-class ICEImage extends ICEComponent {
+class ICEImage extends ICEBaseComponent {
   constructor(props: any = {}) {
     super({ width: 100, height: 100, ...props });
   }
+
+  /**
+   * 空实现。
+   */
+  protected initEvents() {}
 
   protected doRender(): void {
     let img = new Image();
