@@ -1,4 +1,5 @@
-import ICEComponent from '../../graphic/ICEComponent';
+import ICEEvent from '../../event/ICEEvent';
+import ICEBaseComponent from '../../graphic/ICEBaseComponent';
 import ICEControlPanel from '../ICEControlPanel';
 import ResizeControl from './ResizeControl';
 import RotateControl from './RotateControl';
@@ -23,7 +24,6 @@ export default class TransformControlPanel extends ICEControlPanel {
   constructor(props) {
     super({ ...props, zIndex: Number.MAX_VALUE });
     this.initControls();
-    this.initEvents();
   }
 
   /**
@@ -271,11 +271,10 @@ export default class TransformControlPanel extends ICEControlPanel {
     });
   }
 
-  public set targetComponent(component: ICEComponent) {
-    this._targetComponent = component;
-    if (component) {
-      let angle = component.getRotateAngle();
-      let { left, top, width, height } = component.getLocalLeftTop();
+  protected updatePosition() {
+    if (this.targetComponent) {
+      let angle = this.targetComponent.getRotateAngle();
+      let { left, top, width, height } = this.targetComponent.getLocalLeftTop();
       this.setState({
         left,
         top,
@@ -288,7 +287,21 @@ export default class TransformControlPanel extends ICEControlPanel {
     }
   }
 
-  public get targetComponent(): ICEComponent {
+  protected followTargetComponent(evt: ICEEvent): void {
+    this.updatePosition();
+  }
+
+  public set targetComponent(component: ICEBaseComponent) {
+    this._targetComponent = component;
+    if (component) {
+      this.updatePosition();
+      component.on('after-move', this.followTargetComponent, this);
+    } else {
+      component.off('after-move', this.followTargetComponent, this);
+    }
+  }
+
+  public get targetComponent(): ICEBaseComponent {
     return this._targetComponent;
   }
 

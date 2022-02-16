@@ -1,11 +1,14 @@
-import ICEComponent from './ICEComponent';
+import ICEBaseComponent from './ICEBaseComponent';
 
 /**
  * @class ICEPath
- * 路径，抽象类。
+ *
+ * 路径
+ *
+ * @abstract
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-abstract class ICEPath extends ICEComponent {
+abstract class ICEPath extends ICEBaseComponent {
   public path2D: Path2D = new Path2D();
 
   /**
@@ -19,8 +22,22 @@ abstract class ICEPath extends ICEComponent {
     super({ closePath: true, ...props });
   }
 
+  /**
+   * 空实现。
+   *
+   * @see ICEBaseComponent.initEvents
+   * @overwrite
+   */
+  protected initEvents() {}
+
+  /**
+   * @method doRender
+   * @overwrite
+   */
   protected doRender(): void {
-    //创建 Path2D 对象，此时仅仅创建出对象实例，但还没有绘制到画布上，绘制过程由 FrameManager 进行调度。 @see https://developer.mozilla.org/en-US/docs/Web/API/Path2D/Path2D
+    //创建 Path2D 对象，doRender() 方法仅创建对象实例，不会立即绘制到画布上，绘制过程由 FrameManager 进行调度。
+    //@see FrameManager.ts
+    //@see https://developer.mozilla.org/en-US/docs/Web/API/Path2D/Path2D
     this.createPathObject();
 
     this.ctx.beginPath();

@@ -1,4 +1,4 @@
-import ICEComponent from '../ICEComponent';
+import ICEBaseComponent from '../ICEBaseComponent';
 import ICERect from '../shape/ICERect';
 
 /**
@@ -14,17 +14,29 @@ class ICEGroup extends ICERect {
     super(props);
   }
 
-  public addChild(child: ICEComponent) {
+  public addChild(child: ICEBaseComponent): void {
     child.parentNode = this;
     this.childNodes.push(child);
   }
 
-  public removeChild(child: ICEComponent) {
+  public addChildren(arr: Array<ICEBaseComponent>): void {
+    arr.forEach((child) => {
+      this.addChild(child);
+    });
+  }
+
+  public removeChild(child: ICEBaseComponent) {
     child.parentNode = null;
     child.ctx = null;
     child.root = null;
     this.childNodes.splice(this.childNodes.indexOf(child), 1);
-    //FIXME:destory child
+    //FIXME:destory child???
+  }
+
+  public removeChildren(arr: Array<ICEBaseComponent>): void {
+    arr.forEach((child) => {
+      this.removeChild(child);
+    });
   }
 
   protected renderChildren(): void {

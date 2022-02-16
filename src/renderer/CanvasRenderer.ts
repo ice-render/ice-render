@@ -1,5 +1,5 @@
 import ICEEvent from '../event/ICEEvent';
-import ICEComponent from '../graphic/ICEComponent';
+import ICEBaseComponent from '../graphic/ICEBaseComponent';
 import ICE from '../ICE';
 import { ICE_CONSTS } from '../ICE_CONSTS';
 import IRenderer from './IRenderer';
@@ -27,7 +27,7 @@ class CanvasRenderer implements IRenderer {
         arr.sort((firstEl, secondEl) => {
           return firstEl.state.zIndex - secondEl.state.zIndex;
         });
-        arr.forEach((component: ICEComponent) => {
+        arr.forEach((component: ICEBaseComponent) => {
           !component.isRendering && component.render();
         });
       }

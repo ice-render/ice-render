@@ -1,5 +1,6 @@
-import ICEComponent from '../../graphic/ICEComponent';
-import ICELinkHook from '../../graphic/link/ICELinkHook';
+import ICEEvent from '../../event/ICEEvent';
+import ICEBaseComponent from '../../graphic/ICEBaseComponent';
+import ICELinkHook from '../../graphic/link-line/ICELinkHook';
 import ICEControlPanel from '../ICEControlPanel';
 
 /**
@@ -28,7 +29,6 @@ export default class LineControlPanel extends ICEControlPanel {
   constructor(props) {
     super({ ...props, zIndex: Number.MAX_VALUE });
     this.initControls();
-    this.initEvents();
   }
 
   protected initControls(): void {
@@ -121,10 +121,8 @@ export default class LineControlPanel extends ICEControlPanel {
     });
   }
 
-  public set targetComponent(component: ICEComponent) {
-    this._targetComponent = component;
-
-    if (component) {
+  protected updatePosition() {
+    if (this.targetComponent) {
       //ICEPolyLine 的处理方式与其它组件不同，这里 LineControPanel 本身的外观不重要，只要变换手柄能自由移动就可以
       //设置 LineControlPanel 自身的位置
       this.setState({
@@ -142,9 +140,9 @@ export default class LineControlPanel extends ICEControlPanel {
 
       //设置 LineControlPanel 内部手柄的位置
       let halfControlSize = this.controlSize / 2;
-      let len = component.state.points.length;
-      let start = component.state.points[0];
-      let end = component.state.points[len - 1];
+      let len = this.targetComponent.state.points.length;
+      let start = this.targetComponent.state.points[0];
+      let end = this.targetComponent.state.points[len - 1];
       let startPoint = new DOMPoint(start[0], start[1]);
       let endPoint = new DOMPoint(end[0], end[1]);
       this.startControl.setState({
@@ -158,7 +156,21 @@ export default class LineControlPanel extends ICEControlPanel {
     }
   }
 
-  public get targetComponent(): ICEComponent {
+  protected followTargetComponent(evt: ICEEvent): void {
+    this.updatePosition();
+  }
+
+  public set targetComponent(component: ICEBaseComponent) {
+    this._targetComponent = component;
+    if (component) {
+      this.updatePosition();
+      component.on('after-move', this.followTargetComponent, this);
+    } else {
+      component.off('after-move', this.followTargetComponent, this);
+    }
+  }
+
+  public get targetComponent(): ICEBaseComponent {
     return this._targetComponent;
   }
 }

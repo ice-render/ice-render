@@ -1,7 +1,6 @@
 import ICEEvent from '../../event/ICEEvent';
 import { applyMixins } from '../../util/mixin-util';
-import ICEAddons from '../ICEAddons';
-import ICEComponent from '../ICEComponent';
+import ICEAddonComponent from '../ICEAddonComponent';
 import ICECircle from '../shape/ICECircle';
 
 /**
@@ -14,14 +13,17 @@ import ICECircle from '../shape/ICECircle';
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-export default class ICELinkSlot extends ICECircle implements ICEAddons {
+class ICELinkSlot extends ICECircle implements ICEAddonComponent {
   constructor(props: any = {}) {
     //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边上。
     super({ linkable: false, position: 'T', ...props });
-    this.initEvents();
+
+    //FIXME:向 ICELinkManager 注册自己，并监听事件总线上的事件
+    //当 LinkHook 派发 mouseup 事件时， LinkSlot 决定是否要产生连接关系
   }
 
   protected initEvents() {
+    super.initEvents();
     this.on('mouseover', this.mouseOverHandler, this);
     this.on('mouseup', this.mosueUpHandler, this);
   }
@@ -34,9 +36,11 @@ export default class ICELinkSlot extends ICECircle implements ICEAddons {
     console.log('mouse up...');
   }
 
-  hostComponent: ICEComponent = null;
-  hostMoveHandler: (evt: ICEEvent) => void;
-  setHostComponent: (component: ICEComponent) => void;
+  //for Mixins...
+  hostComponent: any;
 }
 
-applyMixins(ICELinkSlot, [ICEAddons]);
+//@see https://www.typescriptlang.org/docs/handbook/mixins.html#alternative-pattern
+applyMixins(ICELinkSlot, [ICEAddonComponent]);
+
+export default ICELinkSlot;

@@ -12,7 +12,9 @@ import TransformControlPanel from './transform-controls/TransformControlPanel';
  *
  * - ICEControlPanelManager 负责管理所有类型的控制面板（ControlPanel）。
  * - ICEControlPanelManager 是全局单例的，一个 ICE 实例上只能有一个实例。
+ * - ICEControlPanelManager 只需要设置 targetComponent 即可，拖拽移位操作由  DDManager 完成。
  *
+ * @see ICE
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICEControlPanelManager {
@@ -20,7 +22,6 @@ class ICEControlPanelManager {
   //FIXME:这里需要重构，不同类型的组件需要展现不同的操作工具，操作工具可能会有 N 种，需要进一步抽象操作工具相关的逻辑。
   private transformControlPanel: TransformControlPanel;
   private lineControlPanel: LineControlPanel;
-  private currentDraggingObj: any; //当前正在拖动的组件
 
   constructor(ice: ICE) {
     this.ice = ice;
@@ -60,17 +61,15 @@ class ICEControlPanelManager {
   //FIXME:先取消选中列表中的原有对象的选中状态?
   //FIXME:ICEControlPanel 需要根据情况决定自己的外观和状态。
   private mouseDownHandler(evt: ICEEvent) {
+    console.log('ICEControlPanelManager mousedown...');
     let component = evt.target;
-    console.log(component);
-
-    if (!component.state.interactive) {
+    if (!component.state.interactive || !component.state.transformable) {
       //TODO:隐藏 ICEControlPanel
       //FIXME:需要清理事件
       this.ice.removeChild(this.transformControlPanel);
       this.ice.removeChild(this.lineControlPanel);
       return;
     }
-
     //只有 ICEControlPanel 和它内部的变换手柄才具备跟随鼠标移动的功能，其它组件都需要由 ICEControlPanel 驱动进行移动和变换。
     const isControlPanel =
       component && (component instanceof ICEControlPanel || component.parentNode instanceof ICEControlPanel);
@@ -81,7 +80,6 @@ class ICEControlPanelManager {
       } else {
         this.ice.selectionList = [component];
       }
-
       if (component instanceof ICEPolyLine) {
         this.lineControlPanel.targetComponent = component;
       } else {
@@ -89,32 +87,6 @@ class ICEControlPanelManager {
         this.transformControlPanel.targetComponent = component;
       }
     }
-
-    if (component instanceof ICEPolyLine) {
-      this.currentDraggingObj = this.lineControlPanel;
-    } else {
-      this.currentDraggingObj = this.transformControlPanel;
-    }
-
-    if (component.parentNode instanceof ICEControlPanel) {
-      //点击了 ICEControlPanel 内部的变换手柄
-      this.currentDraggingObj = component;
-    }
-
-    this.ice.evtBus.on('mousemove', this.mouseMoveHandler, this);
-    this.ice.evtBus.on('mouseup', this.mouseUpHandler, this);
-  }
-
-  private mouseMoveHandler(evt: ICEEvent): boolean {
-    let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-    let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-    this.currentDraggingObj.moveGlobalPosition(tx, ty, evt);
-    return true;
-  }
-
-  private mouseUpHandler(evt: ICEEvent) {
-    this.ice.evtBus.off('mousemove', this.mouseMoveHandler, this);
-    this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
   }
 
   start() {

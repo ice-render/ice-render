@@ -2,7 +2,9 @@
 // import ICEGroup from '../src/graphic/container/ICEGroup';
 // import ICEImage from '../src/graphic/ICEImage';
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
-import ICEVisioLink from '../src/graphic/link/ICEVisioLink';
+import ICEVisioLink from '../src/graphic/link-line/ICEVisioLink';
+import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
+import ICELinkableRect from '../src/graphic/linkable/ICELinkableRect';
 import ICE from '../src/ICE';
 // import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEEllipse from /src/graphic/text/ICEText';
@@ -76,8 +78,8 @@ let ice = new ICE().init('canvas-1');
 let visioLink = new ICEVisioLink({
   left: 0,
   top: 0,
-  startPoint: [100, 100],
-  endPoint: [500, 500],
+  startPoint: [500, 500],
+  endPoint: [700, 700],
   style: {
     strokeStyle: '#7803e6',
     fillStyle: '#008000',
@@ -85,6 +87,38 @@ let visioLink = new ICEVisioLink({
   },
 });
 ice.addChild(visioLink);
+
+let linkableRect = new ICELinkableRect({
+  left: 100,
+  top: 100,
+  width: 300,
+  height: 200,
+  style: {
+    strokeStyle: '#0c09d4',
+    fillStyle: '#f5d106',
+    lineWidth: 5,
+  },
+  // animations: {
+  //   left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+  //   top: { from: 0, to: 200, duration: 3000 },
+  //   width: { from: 100, to: 200, duration: 5000 },
+  //   height: { from: 100, to: 200, duration: 5000 },
+  // },
+  transform: {
+    // translate: [10, 10],
+    rotate: 45,
+    // skew: [20, 0],
+    // scale: [1, 1],
+  },
+});
+ice.addChild(linkableRect);
+
+let linkableCircle = new ICELinkableCircle({
+  left: 200,
+  top: 500,
+  radius: 100,
+});
+ice.addChild(linkableCircle);
 
 // let img = new ICEImage({
 //   left: 100,

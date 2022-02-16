@@ -7,12 +7,12 @@ import ICEMatrix from '../geometry/ICEMatrix';
 import { ICE_CONSTS } from '../ICE_CONSTS';
 
 /**
- * @class ICEComponent
+ * @class ICEBaseComponent
  * 最顶级的抽象类，Canvas 内部所有组件都是它的子类。
  * @abstract
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-abstract class ICEComponent extends EventTarget {
+abstract class ICEBaseComponent extends EventTarget {
   //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
   public root: any = null;
   //当对象被添加到 canvas 中时，ICE 会自动设置 ctx 的值，没有被添加到 canvas 中的对象 ctx 为 null 。
@@ -46,9 +46,11 @@ abstract class ICEComponent extends EventTarget {
    *   origin:'localCenter',
    *   localOrigin: new DOMPoint(0, 0),        //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
    *   absoluteOrigin: new DOMPoint(0, 0),     //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
-   *   zIndex: ICEComponent.instanceCounter++, //类似于 CSS 中的 zIndex
-   *   interactive: true, //是否可以进行用户交互操作 TODO:动画运行过程中不允许选中，不能进行交互？？？
-   *   linkable:true,                   //是否可以用连接线进行连接，带有宽高的组件都可以用连接线进行连接，但是连线自身默认不能互相连接。linkable 为 true 时，会在组件的最小包围盒四边创建用于连线的插槽。
+   *   zIndex: ICEBaseComponent.instanceCounter++, //类似于 CSS 中的 zIndex
+   *   draggable:true,              //是否可以拖动
+   *   transformable:true,          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
+   *   linkable:true,               //是否可以用连接线进行连接，带有宽高的组件都可以用连接线进行连接，但是连线自身默认不能互相连接。linkable 为 true 时，会在组件的最小包围盒四边创建用于连线的插槽。
+   *   interactive: true,           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable, linkable 都无效 TODO:动画运行过程中不允许选中，不能进行交互？？？
    *   showMinBoundingBox:true,     //是否显示最小包围盒，开发时打开，主要用于 debug
    *   showMaxBoundingBox:true,     //是否显示最大包围盒，开发时打开，主要用于 debug
    * }
@@ -74,11 +76,11 @@ abstract class ICEComponent extends EventTarget {
     origin: 'localCenter',
     localOrigin: new DOMPoint(0, 0),
     absoluteOrigin: new DOMPoint(0, 0),
-    zIndex: ICEComponent.instanceCounter++,
+    zIndex: ICEBaseComponent.instanceCounter++,
     draggable: true,
-    selectable: true,
-    interactive: true,
+    transformable: true,
     linkable: true,
+    interactive: true,
     showMinBoundingBox: true,
     showMaxBoundingBox: true,
   };
@@ -98,7 +100,10 @@ abstract class ICEComponent extends EventTarget {
     //FIXME:生成随机ID有问题???
     // this.props.id = 'ICE_' + sha256(Math.random() * 100000000).toString();
     //sha256(Math.random() * 100000000).toString();
+    this.initEvents();
   }
+
+  protected abstract initEvents();
 
   /**
    * !Important: 核心方法，FrameManager 会调度此方法进行实际的渲染操作。
@@ -456,4 +461,4 @@ abstract class ICEComponent extends EventTarget {
   }
 }
 
-export default ICEComponent;
+export default ICEBaseComponent;

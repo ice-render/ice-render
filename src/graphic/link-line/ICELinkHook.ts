@@ -14,10 +14,12 @@ import ICECircle from '../shape/ICECircle';
 export default class ICELinkHook extends ICECircle {
   constructor(props: any = {}) {
     super({ linkable: false, ...props });
-    this.initEvents();
+
+    //FIXME:向 ICELinkManager 注册自己，并监听事件总线上的事件
   }
 
   protected initEvents() {
+    super.initEvents();
     this.on('mouseover', this.mouseOverHandler, this);
     this.on('mousedown', this.mosueDownHandler, this);
     this.on('mouseup', this.mosueUpHandler, this);
