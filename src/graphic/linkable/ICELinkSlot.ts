@@ -61,6 +61,7 @@ class ICELinkSlot extends ICECircle implements ICEAddonComponent {
     let hookBounding: ICEBoundingBox = evt.target.getMaxBoundingBox();
     if (slotBounding.isIntersect(hookBounding)) {
       //FIXME:如果 hook 与 slot 重叠，建立连接关系
+      //FIXME:直接设置 hook 的位置，让中心点重叠，产生“磁吸”效果
       console.log('存在交叉部分，建立连接关系...');
     }
 

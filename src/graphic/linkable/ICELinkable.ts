@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICELinkSlot from '../link-line/ICELinkSlot';
+import ICELinkSlot from './ICELinkSlot';
 
 /**
  * @see https://www.typescriptlang.org/docs/handbook/mixins.html#alternative-pattern
