@@ -11,9 +11,9 @@
  */
 export default class ICECableLike {
   linkSlots = [];
-  slotRadius = 10;
+  hookRadius = 10;
 
-  createLinkHook() {}
+  createLinkHooks() {}
 
   setHookPositions() {}
 }

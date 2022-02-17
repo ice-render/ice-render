@@ -2,7 +2,7 @@
 // import ICEGroup from '../src/graphic/container/ICEGroup';
 // import ICEImage from '../src/graphic/ICEImage';
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
-import ICEVisioLink from '../src/graphic/link-line/ICEVisioLink';
+import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
 import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
 import ICELinkableRect from '../src/graphic/linkable/ICELinkableRect';
 import ICE from '../src/ICE';
