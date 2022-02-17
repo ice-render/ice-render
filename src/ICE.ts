@@ -1,20 +1,32 @@
+/**
+ * Copyright (c) 2022 大漠穷秋.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
 import isString from 'lodash/isString';
 import pkg from '../package.json';
 import DDManager from './actions/DDManager';
 import ICEControlPanelManager from './actions/ICEControlPanelManager';
 import AnimationManager from './animation/AnimationManager';
 import FrameManager from './animation/FrameManager';
+import root from './cross-platform/root.js';
 import DOMEventBridge from './event/DOMEventBridge';
 import EventBus from './event/EventBus';
 import MouseEventInterceptor from './event/MouseEventInterceptor.js';
-import ICELinkManager from './graphic/link-line/ICELinkManager';
-import root from './nodejs-support/root.js';
+import ICEBaseComponent from './graphic/ICEBaseComponent';
+import { ICE_CONSTS } from './ICE_CONSTS';
 import CanvasRenderer from './renderer/CanvasRenderer';
 import IRenderer from './renderer/IRenderer';
 
 /**
- * ICE: interactive canvas engine.
- * 全局单例
+ * @class ICE
+ *
+ * ICE: Interactive Canvas Engine ， 交互式 canvas 渲染引擎。
+ *
+ * 同一个 &lt;canvas&gt; 标签上只能初始化一个 ICE 实例。
+ *
  * FIXME:使用 TS 的 namespance 机制进行改造
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
@@ -22,11 +34,14 @@ class ICE {
   public version = pkg.version;
   //所有需要在 canvas 中渲染的对象都在此结构中 TODO:为了支持 zIndex 特性，需要改成数组，有堆叠顺序
   public displayMap = new Map();
+  //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
   public evtBus: EventBus;
   //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
   public root;
-  public ctx;
+  //&lt;canvas&gt; tag
   public canvasEl;
+  //CanvasRenderingContext2D, @see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D
+  public ctx;
   public canvasWidth: number = 0;
   public canvasHeight: number = 0;
   public canvasBoundingClientRect;
@@ -37,7 +52,6 @@ class ICE {
   private eventBridge: DOMEventBridge;
   private ddManager: DDManager;
   private controlPanelManager: ICEControlPanelManager;
-  private linkManager: ICELinkManager;
   private renderer: IRenderer;
 
   constructor() {}
@@ -45,9 +59,9 @@ class ICE {
   /**
    * @param ctx DOM id or CanvasContext
    */
-  init(ctx: any) {
+  public init(ctx: any) {
     if (!ctx) {
-      throw new Error('init() failed...');
+      throw new Error('ICE.init() failed...');
     }
     if (this.ctx === ctx) {
       //FIXME:
@@ -83,46 +97,68 @@ class ICE {
     this.eventBridge = new DOMEventBridge(this).start();
     this.ddManager = new DDManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
-    this.linkManager = new ICELinkManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
 
     return this;
   }
 
-  //FIXME:实现销毁 ICE 实例的过程
-  destory() {}
+  public addChild(component) {
+    component.trigger(ICE_CONSTS.BEFORE_ADD);
 
-  addChild(component) {
-    component.ctx = this.ctx;
     component.root = this.root;
+    component.ctx = this.ctx;
+    component.evtBus = this.evtBus;
     this.displayMap.set(component.props.id, component);
+
     if (Object.keys(component.props.animations).length) {
       this.animationManager.add(component);
     }
+
+    component.trigger(ICE_CONSTS.AFTER_ADD);
   }
 
-  removeChild(component) {
+  public addChildren(arr: Array<ICEBaseComponent>): void {
+    arr.forEach((child) => {
+      this.addChild(child);
+    });
+  }
+
+  public removeChild(component) {
+    component.trigger(ICE_CONSTS.BEFORE_REMOVE);
+
     this.displayMap.delete(component.props.id);
     component.ctx = null;
     component.root = null;
-    //TODO:停止动画效果
-    //TODO:停止变换
-    //TODO:清理所有事件监听，然后再从结构中删除
+    component.evtBus = null;
+
+    //FIXME:如果被移除的是容器型组件，先移除并清理其子节点，然后再移除容器自身
+    //FIXME:立即停止组件上的所有动画效果
+    //FIXME:清理所有事件监听，然后再从结构中删除
+
+    component.trigger(ICE_CONSTS.AFTER_REMOVE);
   }
 
-  clearRenderMap() {
-    //TODO:停止所有对象的动画效果
-    //TODO:停止变换
-    //TODO:清理所有事件监听，然后再从结构中删除
+  public removeChildren(arr: Array<ICEBaseComponent>): void {
+    arr.forEach((child) => {
+      this.removeChild(child);
+    });
   }
 
-  toJSON(): string {
+  public clearRenderMap() {
+    //FIXME:停止所有对象的动画效果
+    //FIXME:清理所有事件监听，然后再从结构中删除
+  }
+
+  public toJSON(): string {
     return '{}';
   }
 
-  fromJSON(jsonStr: string): object {
+  public fromJSON(jsonStr: string): object {
     return {};
   }
+
+  //FIXME:实现销毁 ICE 实例的过程
+  public destory(): void {}
 }
 
 export default ICE;

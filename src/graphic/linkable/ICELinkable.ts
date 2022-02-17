@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2022 大漠穷秋.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
 import ICELinkSlot from '../link-line/ICELinkSlot';
 
 /**
@@ -9,24 +16,48 @@ export default class ICELinkable {
 
   createLinkSlots() {
     let slot_1 = new ICELinkSlot({
+      display: false,
       transformable: false,
       radius: this.slotRadius,
       position: 'T',
+      style: {
+        strokeStyle: '#0c09d4',
+        fillStyle: '#3ce92c',
+        lineWidth: 1,
+      },
     });
     let slot_2 = new ICELinkSlot({
+      display: false,
       transformable: false,
       radius: this.slotRadius,
       position: 'R',
+      style: {
+        strokeStyle: '#0c09d4',
+        fillStyle: '#3ce92c',
+        lineWidth: 1,
+      },
     });
     let slot_3 = new ICELinkSlot({
+      display: false,
       transformable: false,
       radius: this.slotRadius,
       position: 'B',
+      style: {
+        strokeStyle: '#0c09d4',
+        fillStyle: '#3ce92c',
+        lineWidth: 1,
+      },
     });
     let slot_4 = new ICELinkSlot({
+      display: false,
       transformable: false,
       radius: this.slotRadius,
       position: 'L',
+      style: {
+        strokeStyle: '#0c09d4',
+        fillStyle: '#3ce92c',
+        lineWidth: 1,
+      },
     });
     this.linkSlots = [slot_1, slot_2, slot_3, slot_4];
     this.addChildren([slot_1, slot_2, slot_3, slot_4]); //FIXME:点击了连接线之后再显示 LinkSlot ，默认不显示
@@ -53,8 +84,4 @@ export default class ICELinkable {
       slot.setState({ left, top });
     });
   }
-
-  showLinkSlots() {}
-
-  hideLinkSlots() {}
 }

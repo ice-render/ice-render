@@ -1,4 +1,11 @@
-import root from '../nodejs-support/root.js';
+/**
+ * Copyright (c) 2022 大漠穷秋.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
+import root from '../cross-platform/root.js';
 import ICEEvent from './ICEEvent';
 
 /**
@@ -60,19 +67,18 @@ abstract class EventTarget {
   }
 
   /**
+   * FIXME:有 bug ，需要重新实现
    * 一次性回调，调用一次就自动删除。
    * @param eventName
    * @param fn
    */
   once(eventName: string, fn: Function, scope: any = root) {
-    this.on(
-      eventName,
-      (evt: ICEEvent, scope) => {
-        this.off(eventName, fn, scope);
-        fn.call(scope, evt);
-      },
-      scope
-    );
+    function callback(evt: ICEEvent) {
+      this.off(eventName, callback, scope);
+      fn.call(scope, evt);
+    }
+
+    this.on(eventName, callback, scope);
   }
 
   trigger(eventName: string, originalEvent: any = null) {

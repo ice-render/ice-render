@@ -1,26 +1,38 @@
+/**
+ * Copyright (c) 2022 大漠穷秋.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
 import get from 'lodash/get';
 import merge from 'lodash/merge';
+import EventBus from '../event/EventBus';
 import EventTarget from '../event/EventTarget';
 import ICEEvent from '../event/ICEEvent';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICEMatrix from '../geometry/ICEMatrix';
-import { ICE_CONSTS } from '../ICE_CONSTS';
 
 /**
  * @class ICEBaseComponent
- * 最顶级的抽象类，Canvas 内部所有组件都是它的子类。
+ *
+ * 最顶级的抽象类，Canvas 内部所有可见的组件都是它的子类。
+ *
  * @abstract
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 abstract class ICEBaseComponent extends EventTarget {
   //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
-  public root: any = null;
+  //FIXME:@Inject()
+  public root: any;
   //当对象被添加到 canvas 中时，ICE 会自动设置 ctx 的值，没有被添加到 canvas 中的对象 ctx 为 null 。
-  public ctx: any = null;
+  //FIXME:@Inject()
+  public ctx: any;
+  //事件总线， evtBus 在 render() 方法被调用时才会被设置
+  //FIXME:@Inject()
+  public evtBus: EventBus;
   //所有组件都有父组件，但不一定都有子组件，只有容器型的组件才有子组件。如果父组件为 null ，说明直接添加在 canvas 中。
-  public parentNode: any = null;
-  //标志位，渲染器在渲染过程中会检查此标志位
-  protected isRendering: boolean = false;
+  public parentNode: any;
   //静态属性，实例计数器
   protected static instanceCounter: number = 0;
 
@@ -47,6 +59,8 @@ abstract class ICEBaseComponent extends EventTarget {
    *   localOrigin: new DOMPoint(0, 0),        //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
    *   absoluteOrigin: new DOMPoint(0, 0),     //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
    *   zIndex: ICEBaseComponent.instanceCounter++, //类似于 CSS 中的 zIndex
+   *   isRendering:false,           //标志位， Renderer 在渲染过程中会检查此标志位
+   *   display:true,                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。
    *   draggable:true,              //是否可以拖动
    *   transformable:true,          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
    *   linkable:true,               //是否可以用连接线进行连接，带有宽高的组件都可以用连接线进行连接，但是连线自身默认不能互相连接。linkable 为 true 时，会在组件的最小包围盒四边创建用于连线的插槽。
@@ -77,6 +91,8 @@ abstract class ICEBaseComponent extends EventTarget {
     localOrigin: new DOMPoint(0, 0),
     absoluteOrigin: new DOMPoint(0, 0),
     zIndex: ICEBaseComponent.instanceCounter++,
+    isRendering: false,
+    display: true,
     draggable: true,
     transformable: true,
     linkable: true,
@@ -110,8 +126,7 @@ abstract class ICEBaseComponent extends EventTarget {
    * !Important: 这些方法调用有顺序
    */
   public render(): void {
-    this.isRendering = true;
-    this.trigger(ICE_CONSTS.BEFORE_RENDER);
+    this.state.isRendering = true;
 
     this.calcOriginalDimension();
 
@@ -120,8 +135,7 @@ abstract class ICEBaseComponent extends EventTarget {
     this.doRender();
     this.ctx.setTransform(new DOMMatrix());
 
-    this.trigger(ICE_CONSTS.AFTER_RENDER);
-    this.isRendering = false;
+    this.state.isRendering = false;
   }
 
   protected applyStyle(): void {
@@ -459,6 +473,9 @@ abstract class ICEBaseComponent extends EventTarget {
   public fromJSON(jsonStr: string): object {
     return {};
   }
+
+  //FIXME:
+  public destory(): void {}
 }
 
 export default ICEBaseComponent;

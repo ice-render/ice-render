@@ -42,6 +42,7 @@
 - TODO:测试 N 层重叠情况下，以及 ICEGroup 组件  TransformPanel 的处理流程。【已解决】
 - TODO:所有连接线不能进行 transform ，只能拖动两端端点进行拉长缩短【已解决】
 - TODO:解决 mixin 机制问题 <------------
+- TODO:ICEGroup 需要重构，所有组件的 render 方法都交给 Renderer 统一进行调度。
 - TODO:重构 DDManager 和 TransformPanelManager  
 - TODO:重构容器型组件
 - TODO:用容器型组件机制重构 transform 和 linkable 机制

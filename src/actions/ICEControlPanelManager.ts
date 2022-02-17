@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2022 大漠穷秋.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
 import ICEEvent from '../event/ICEEvent';
 import ICEPolyLine from '../graphic/line/ICEPolyLine';
 import ICE from '../ICE';
@@ -61,7 +68,6 @@ class ICEControlPanelManager {
   //FIXME:先取消选中列表中的原有对象的选中状态?
   //FIXME:ICEControlPanel 需要根据情况决定自己的外观和状态。
   private mouseDownHandler(evt: ICEEvent) {
-    console.log('ICEControlPanelManager mousedown...');
     let component = evt.target;
     if (!component.state.interactive || !component.state.transformable) {
       //TODO:隐藏 ICEControlPanel

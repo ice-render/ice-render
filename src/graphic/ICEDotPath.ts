@@ -1,10 +1,16 @@
+/**
+ * Copyright (c) 2022 大漠穷秋.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
 import ICEPath from './ICEPath';
 
 /**
  * @class ICEDotPath
+ *
  * 基于一系列点进行绘制的路径。
- *
- *
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */

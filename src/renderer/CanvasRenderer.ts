@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2022 大漠穷秋.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
 import ICEEvent from '../event/ICEEvent';
 import ICEBaseComponent from '../graphic/ICEBaseComponent';
 import ICE from '../ICE';
@@ -28,7 +35,17 @@ class CanvasRenderer implements IRenderer {
           return firstEl.state.zIndex - secondEl.state.zIndex;
         });
         arr.forEach((component: ICEBaseComponent) => {
-          !component.isRendering && component.render();
+          component.trigger(ICE_CONSTS.BEFORE_RENDER);
+
+          if (component.state.isRendering) {
+            return;
+          }
+          if (!component.state.display) {
+            return;
+          }
+          component.render();
+
+          component.trigger(ICE_CONSTS.AFTER_RENDER);
         });
       }
     });

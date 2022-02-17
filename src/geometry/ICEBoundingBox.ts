@@ -1,4 +1,11 @@
-import GeometryUtil from './GeometryUtil';
+/**
+ * Copyright (c) 2022 大漠穷秋.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
+import GeometryUtil from './GeoUtil';
 
 /**
  * @class ICEBoundingBox 用4点法描述的边界盒子。
@@ -156,6 +163,7 @@ class ICEBoundingBox {
   }
 
   /**
+   * FIXME:需要实现
    * 另一个边界盒子是否完全位于当前盒子内部。
    * @param box
    * @returns
@@ -165,12 +173,23 @@ class ICEBoundingBox {
   }
 
   /**
-   * 是否与另一个盒子相交。
+   * 是否与另一个盒子存在相交的部分。
    * @param box
    * @returns
    */
   public isIntersect(box: ICEBoundingBox): boolean {
-    return false;
+    let left1 = this.tl.x;
+    let right1 = this.br.x;
+    let top1 = this.tl.y;
+    let bottom1 = this.br.y;
+
+    let left2 = box.tl.x;
+    let right2 = box.br.x;
+    let top2 = box.tl.y;
+    let bottom2 = box.br.y;
+
+    let isIntersect = !(left1 > right2 || top1 > bottom2 || right1 < left2 || bottom1 < top2);
+    return isIntersect;
   }
 
   /**
