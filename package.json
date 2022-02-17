@@ -1,8 +1,8 @@
 {
   "author": "大漠穷秋",
-  "name": "interactive-canvas-engine",
+  "name": "ice-render",
   "version": "0.0.1",
-  "description": "A canvas engine for interactive graphics, aka ICE.",
+  "description": "A canvas engine for interactive graphics, aka ice-render.",
   "files": [
     "dist"
   ],
