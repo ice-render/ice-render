@@ -22,4 +22,6 @@ export default class ICECompositeComponent extends ICEGroup {
   constructor(props: any = {}) {
     super(props);
   }
+
+  //FIXME: add layout system???
 }

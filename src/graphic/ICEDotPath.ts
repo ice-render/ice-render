@@ -36,7 +36,7 @@ export default class ICEDotPath extends ICEPath {
    * @overwrite
    * @returns
    */
-  protected calcOriginalDimension() {
+  public calcOriginalDimension() {
     //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
     this.calcDots();
     let points = this.calc4VertexPoints();

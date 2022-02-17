@@ -46,7 +46,7 @@ class ICEText extends ICEBaseComponent {
    * FIXME:边界盒子的高度与字体高度之间存在误差。
    * @returns
    */
-  protected calcOriginalDimension() {
+  public calcOriginalDimension() {
     const div = this.root.document.createElement('div');
     div.contenteditable = false;
     div.innerHTML = this.state.text;

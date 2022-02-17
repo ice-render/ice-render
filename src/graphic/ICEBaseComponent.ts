@@ -148,7 +148,7 @@ abstract class ICEBaseComponent extends EventTarget {
    * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    * @returns
    */
-  protected calcOriginalDimension() {
+  public calcOriginalDimension() {
     return { width: this.state.width, height: this.state.height };
   }
 

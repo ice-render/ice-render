@@ -26,10 +26,6 @@ class ICELinkableCircle extends ICECompositeComponent implements ICELinkable {
     this.createLinkSlots();
   }
 
-  protected initEvents(): void {
-    super.initEvents();
-  }
-
   protected renderChildren(): void {
     this.setSlotPositions();
     super.renderChildren();
