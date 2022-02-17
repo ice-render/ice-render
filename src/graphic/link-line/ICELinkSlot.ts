@@ -1,4 +1,13 @@
+/**
+ * Copyright (c) 2022 大漠穷秋.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
 import ICEEvent from '../../event/ICEEvent';
+import ICEBoundingBox from '../../geometry/ICEBoundingBox';
+import { ICE_CONSTS } from '../../ICE_CONSTS';
 import { applyMixins } from '../../util/mixin-util';
 import ICEAddonComponent from '../ICEAddonComponent';
 import ICECircle from '../shape/ICECircle';
@@ -17,15 +26,47 @@ class ICELinkSlot extends ICECircle implements ICEAddonComponent {
   constructor(props: any = {}) {
     //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边上。
     super({ linkable: false, position: 'T', ...props });
-
-    //FIXME:向 ICELinkManager 注册自己，并监听事件总线上的事件
-    //当 LinkHook 派发 mouseup 事件时， LinkSlot 决定是否要产生连接关系
   }
 
   protected initEvents() {
     super.initEvents();
+
     this.on('mouseover', this.mouseOverHandler, this);
     this.on('mouseup', this.mosueUpHandler, this);
+
+    //由于 ICELinkSlot 默认不可见，实例的 display 为 false ，所以不会触发 AFTER_RENDER 事件，这里只能监听 BEFORE_RENDER
+    //这里不能直接在 this.evtBus 上添加监听器，因为对象在进入到渲染阶段时才会被设置 evtBus 实例，在 initEvents() 被调用时 this.evtBus 为空。 @see ICE.evtBus
+    this.once(ICE_CONSTS.BEFORE_RENDER, this.afterAddHandler, this);
+    this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
+  }
+
+  protected afterAddHandler(evt: ICEEvent) {
+    this.evtBus.on('hook-mousedown', this.hookMouseDownHandler, this);
+    this.evtBus.on('hook-mouseup', this.hookMouseUpHandler, this);
+  }
+
+  protected beforeRemoveHandler(evt: ICEEvent) {
+    this.evtBus.off('hook-mousedown', this.hookMouseDownHandler, this);
+    this.evtBus.off('hook-mouseup', this.hookMouseUpHandler, this);
+  }
+
+  protected hookMouseDownHandler(evt: ICEEvent) {
+    this.setState({
+      display: true,
+    });
+  }
+
+  protected hookMouseUpHandler(evt: ICEEvent) {
+    let slotBounding: ICEBoundingBox = this.getMaxBoundingBox();
+    let hookBounding: ICEBoundingBox = evt.target.getMaxBoundingBox();
+    if (slotBounding.isIntersect(hookBounding)) {
+      //FIXME:如果 hook 与 slot 重叠，建立连接关系
+      console.log('存在交叉部分，建立连接关系...');
+    }
+
+    this.setState({
+      display: false,
+    });
   }
 
   protected mouseOverHandler(evt: ICEEvent) {

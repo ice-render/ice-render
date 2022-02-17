@@ -1,3 +1,10 @@
+/**
+ * Copyright (c) 2022 大漠穷秋.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
 export * from './actions/ICEControlPanel';
 export * from './actions/ICEControlPanelManager';
 export * from './actions/transform-controls/TransformControlPanel';
@@ -15,7 +22,6 @@ export * from './graphic/ICEPath';
 export * from './graphic/line/ICEBezier';
 export * from './graphic/line/ICEPolyLine';
 export * from './graphic/link-line/ICELinkHook';
-export * from './graphic/link-line/ICELinkManager';
 export * from './graphic/link-line/ICELinkSlot';
 export * from './graphic/link-line/ICEVisioLink';
 export * from './graphic/linkable/ICELinkableRect';

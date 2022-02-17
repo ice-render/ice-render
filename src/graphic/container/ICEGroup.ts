@@ -1,3 +1,11 @@
+/**
+ * Copyright (c) 2022 大漠穷秋.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
+import { ICE_CONSTS } from '../../ICE_CONSTS';
 import ICEBaseComponent from '../ICEBaseComponent';
 import ICERect from '../shape/ICERect';
 
@@ -14,9 +22,18 @@ class ICEGroup extends ICERect {
     super(props);
   }
 
+  /**
+   * 注意，在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。
+   * 所以此时 child.root, child.ctx, child.evtBus 都可能为空。
+   * @param child
+   */
   public addChild(child: ICEBaseComponent): void {
+    child.trigger(ICE_CONSTS.BEFORE_ADD);
+
     child.parentNode = this;
     this.childNodes.push(child);
+
+    child.trigger(ICE_CONSTS.AFTER_ADD);
   }
 
   public addChildren(arr: Array<ICEBaseComponent>): void {
@@ -26,11 +43,16 @@ class ICEGroup extends ICERect {
   }
 
   public removeChild(child: ICEBaseComponent) {
+    child.trigger(ICE_CONSTS.BEFORE_REMOVE);
+
     child.parentNode = null;
-    child.ctx = null;
     child.root = null;
+    child.ctx = null;
+    child.evtBus = null;
     this.childNodes.splice(this.childNodes.indexOf(child), 1);
     //FIXME:destory child???
+
+    child.trigger(ICE_CONSTS.AFTER_REMOVE);
   }
 
   public removeChildren(arr: Array<ICEBaseComponent>): void {
@@ -39,11 +61,22 @@ class ICEGroup extends ICERect {
     });
   }
 
+  //FIXME:这里需要重构，所有组件的 render 方法都交给 Renderer 统一进行调度。
   protected renderChildren(): void {
     this.childNodes.forEach((child) => {
-      child.ctx = this.ctx;
       child.root = this.root;
+      child.ctx = this.ctx;
+      child.evtBus = this.evtBus;
+
+      child.trigger(ICE_CONSTS.BEFORE_RENDER);
+      if (child.state.isRendering) {
+        return;
+      }
+      if (!child.state.display) {
+        return;
+      }
       child.render();
+      child.trigger(ICE_CONSTS.AFTER_RENDER);
     });
   }
 

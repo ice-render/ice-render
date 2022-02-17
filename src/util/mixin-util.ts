@@ -1,20 +1,16 @@
 /**
+ * Copyright (c) 2022 大漠穷秋.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ *
+ */
+/**
+ * FIXME:这里需要重构，TS 官方提供的这个版本只拷贝方法，不拷贝属性
  * @see https://www.typescriptlang.org/docs/handbook/mixins.html#alternative-pattern
  * @param derivedCtor
  * @param constructors
  */
-// export function applyMixins(derivedCtor: any, constructors: any[]) {
-//   constructors.forEach((baseCtor) => {
-//     Object.getOwnPropertyNames(baseCtor.prototype).forEach((name) => {
-//       Object.defineProperty(
-//         derivedCtor.prototype,
-//         name,
-//         Object.getOwnPropertyDescriptor(baseCtor.prototype, name) || Object.create(null)
-//       );
-//     });
-//   });
-// }
-
 export function applyMixins(derivedCtor: any, constructors: any[]) {
   constructors.forEach((baseCtor) => {
     Object.getOwnPropertyNames(baseCtor.prototype).forEach((name) => {
@@ -28,30 +24,3 @@ export function applyMixins(derivedCtor: any, constructors: any[]) {
     });
   });
 }
-
-// /**
-//  * 这里的 mixin 只拷贝 prototype 上的属性。
-//  * @param {Object|Function} target
-//  * @param {Object|Function} sorce
-//  * @param {Boolean} overlay
-//  */
-// export function applyMixins(target, source, overlay) {
-//   target = 'prototype' in target ? target.prototype : target;
-//   source = 'prototype' in source ? source.prototype : source;
-
-//   defaults(target, source, overlay);
-// }
-
-// /**
-//  * @param {*} target
-//  * @param {*} source
-//  * @param {Boolean} [overlay=false]
-//  */
-// export function defaults(target, source, overlay) {
-//   for (var key in source) {
-//     if (source.hasOwnProperty(key) && (overlay ? source[key] != null : target[key] == null)) {
-//       target[key] = source[key];
-//     }
-//   }
-//   return target;
-// }
