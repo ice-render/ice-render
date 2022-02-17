@@ -11,6 +11,7 @@ import ICECompositeComponent from '../container/ICECompositeComponent';
 import ICECableLike from './ICECableLike';
 import ICEVisioLink from './ICEVisioLink';
 
+//FIXME:对于连接线来说，容器本身不重要，debug 完成之后设置成透明的。
 class ICECablelikeVisioLink extends ICECompositeComponent implements ICECableLike {
   constructor(props: any = {}) {
     let param = merge({}, props);
@@ -18,7 +19,7 @@ class ICECablelikeVisioLink extends ICECompositeComponent implements ICECableLik
     param.style = { strokeStyle: '#8b0000', fillStyle: 'rgba(255, 255, 49, 0.2)', lineWidth: 1 };
     super(param);
 
-    this.addChild(new ICEVisioLink({ ...props, interactive: false }));
+    this.addChild(new ICEVisioLink({ ...props }));
     this.createLinkHooks();
   }
 
@@ -32,7 +33,8 @@ class ICECablelikeVisioLink extends ICECompositeComponent implements ICECableLik
   }
 
   //for mixins...
-  linkSlots = [];
+  startHook;
+  endHook;
   hookRadius = 10;
 }
 

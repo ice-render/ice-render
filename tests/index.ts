@@ -2,7 +2,8 @@
 // import ICEGroup from '../src/graphic/container/ICEGroup';
 // import ICEImage from '../src/graphic/ICEImage';
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
-import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
+import ICECablelikeVisioLink from '../src/graphic/cable-like/ICECablelikeVisioLink';
+// import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
 import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
 import ICELinkableRect from '../src/graphic/linkable/ICELinkableRect';
 import ICE from '../src/ICE';
@@ -75,9 +76,24 @@ let ice = new ICE().init('canvas-1');
 // });
 // ice.addChild(polyLine2);
 
-let visioLink = new ICEVisioLink({
+// let visioLink = new ICEVisioLink({
+//   left: 0,
+//   top: 0,
+//   startPoint: [200, 200],
+//   endPoint: [300, 300],
+//   style: {
+//     strokeStyle: '#7803e6',
+//     fillStyle: '#008000',
+//     lineWidth: 5,
+//   },
+// });
+// ice.addChild(visioLink);
+
+let visioLink2 = new ICECablelikeVisioLink({
   left: 0,
   top: 0,
+  width: 100,
+  height: 100,
   startPoint: [500, 500],
   endPoint: [700, 700],
   style: {
@@ -86,7 +102,7 @@ let visioLink = new ICEVisioLink({
     lineWidth: 5,
   },
 });
-ice.addChild(visioLink);
+ice.addChild(visioLink2);
 
 let linkableRect = new ICELinkableRect({
   left: 100,

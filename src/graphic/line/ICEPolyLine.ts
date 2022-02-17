@@ -43,6 +43,19 @@ class ICEPolyLine extends ICEDotPath {
    * @param props
    */
   constructor(props: any = {}) {
+    let param = ICEPolyLine.arrangeParam(props);
+    super(param);
+  }
+
+  /**
+   *
+   * 整理并校验构造参数。
+   *
+   * @static
+   * @param props
+   * @returns
+   */
+  public static arrangeParam(props): any {
     //dots 是内部计算使用的属性，外部传参用 points 属性
     //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
     let param = merge(
@@ -78,7 +91,7 @@ class ICEPolyLine extends ICEDotPath {
       param.style.lineWidth = 2;
     }
 
-    super(param);
+    return param;
   }
 
   /**
@@ -141,7 +154,7 @@ class ICEPolyLine extends ICEDotPath {
    * @overwrite
    * @returns
    */
-  protected calcOriginalDimension() {
+  public calcOriginalDimension() {
     this.calcDots();
 
     let points = this.calc4VertexPoints(); //最小包围盒的4个顶点
