@@ -662,7 +662,12 @@ export default class ICEVisioLink extends ICEPolyLine {
   //FIXME:监听目标组件上的 after-move 事件，同步位置
   //FIXME:如果 slot 为 null ，清理事件和相关资源
   //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
-  public setstartSlot(slot) {
+  public setStartSlot(slot) {
+    //如果当前已经存在连接关系，首先解除
+    if (this.startSlot) {
+      this.startSlot.parentNode.off('after-move', this.followStartSlot, this);
+    }
+
     this.startSlot = slot;
     if (this.startSlot) {
       this.setState({
@@ -682,7 +687,12 @@ export default class ICEVisioLink extends ICEPolyLine {
   //FIXME:监听目标组件上的 after-move 事件，同步位置
   //FIXME:如果 slot 为 null ，清理事件和相关资源
   //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
-  public setendSlot(slot) {
+  public setEndSlot(slot) {
+    //如果当前已经存在连接关系，首先解除
+    if (this.endSlot) {
+      this.endSlot.parentNode.off('after-move', this.followEndSlot, this);
+    }
+
     this.endSlot = slot;
     if (this.endSlot) {
       this.setState({

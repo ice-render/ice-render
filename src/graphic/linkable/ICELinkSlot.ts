@@ -58,6 +58,7 @@ class ICELinkSlot extends ICECircle {
     let linkHook = evt.target;
     let slotBounding: ICEBoundingBox = this.getMaxBoundingBox();
     let hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
+
     if (slotBounding.isIntersect(hookBounding)) {
       // 如果 hook 与 slot 重叠，建立连接关系
       // 把连线上的起点或者终点设置为 ICELinkSlot 对应的实例
@@ -65,9 +66,9 @@ class ICELinkSlot extends ICECircle {
       let linkLine = linkHook.parentNode.targetComponent;
       let position = linkHook.state.position;
       if (position === 'start') {
-        linkLine.setstartSlot(this);
+        linkLine.setStartSlot(this);
       } else if (position === 'end') {
-        linkLine.setendSlot(this);
+        linkLine.setEndSlot(this);
       }
     }
 
