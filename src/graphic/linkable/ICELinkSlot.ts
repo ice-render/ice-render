@@ -33,7 +33,7 @@ class ICELinkSlot extends ICECircle {
     this.on('mouseup', this.mosueUpHandler, this);
 
     //由于 ICELinkSlot 默认不可见，实例的 display 为 false ，所以不会触发 AFTER_RENDER 事件，这里只能监听 BEFORE_RENDER
-    //这里不能直接在 this.evtBus 上添加监听器，因为对象在进入到渲染阶段时才会被设置 evtBus 实例，在 initEvents() 被调用时 this.evtBus 为空。 @see ICE.evtBus
+    //这里不能直接访问 this.evtBus ，因为对象在进入到渲染阶段时才会被设置 evtBus 实例，在 initEvents() 被调用时 this.evtBus 为空。 @see ICE.evtBus
     this.once(ICE_CONSTS.BEFORE_RENDER, this.afterAddHandler, this);
     this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
   }
