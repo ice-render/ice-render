@@ -82,33 +82,18 @@ let visioLink = new ICEVisioLink({
   startPoint: [500, 500],
   endPoint: [700, 700],
   style: {
-    strokeStyle: '#7803e6',
+    strokeStyle: '#08ee00',
     fillStyle: '#008000',
     lineWidth: 5,
   },
 });
 ice.addChild(visioLink);
 
-// let visioLink2 = new ICECablelikeVisioLink({
-//   left: 0,
-//   top: 0,
-//   width: 100,
-//   height: 100,
-//   startPoint: [500, 500],
-//   endPoint: [700, 700],
-//   style: {
-//     strokeStyle: '#7803e6',
-//     fillStyle: '#008000',
-//     lineWidth: 5,
-//   },
-// });
-// ice.addChild(visioLink2);
-
 let linkableRect = new ICELinkableRect({
   left: 100,
   top: 100,
-  width: 300,
-  height: 200,
+  width: 100,
+  height: 50,
   style: {
     strokeStyle: '#0c09d4',
     fillStyle: '#f5d106',
@@ -132,7 +117,7 @@ ice.addChild(linkableRect);
 let linkableCircle = new ICELinkableCircle({
   left: 200,
   top: 500,
-  radius: 100,
+  radius: 30,
 });
 ice.addChild(linkableCircle);
 
