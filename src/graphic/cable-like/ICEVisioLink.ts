@@ -6,6 +6,7 @@
  *
  */
 import isNil from 'lodash/isNil';
+import ICEEvent from '../../event/ICEEvent';
 import GeoLine from '../../geometry/GeoLine';
 import GeoPoint from '../../geometry/GeoPoint';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
@@ -27,8 +28,8 @@ import ICEPolyLine from '../line/ICEPolyLine';
  */
 export default class ICEVisioLink extends ICEPolyLine {
   //FIXME:序列化时存组件 ID
-  private startComponent: ICEBaseComponent;
-  private endComponent: ICEBaseComponent;
+  private startSlot: ICEBaseComponent;
+  private endSlot: ICEBaseComponent;
   private escapeDistance: number = 30;
 
   constructor(props: any = {}) {
@@ -87,8 +88,8 @@ export default class ICEVisioLink extends ICEPolyLine {
     let endBounding = new ICEBoundingBox();
 
     //find start exit point
-    if (this.startComponent) {
-      startBounding = this.startComponent.getMinBoundingBox();
+    if (this.startSlot) {
+      startBounding = this.startSlot.getMinBoundingBox();
       potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl.y - this.escapeDistance); //north
       potentialExits[1] = new GeoPoint(startBounding.tr.x + this.escapeDistance, startPoint.y); //east
       potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br.y + this.escapeDistance); //south
@@ -103,8 +104,8 @@ export default class ICEVisioLink extends ICEPolyLine {
     }
 
     //find end exit point
-    if (this.endComponent) {
-      endBounding = this.endComponent.getMinBoundingBox();
+    if (this.endSlot) {
+      endBounding = this.endSlot.getMinBoundingBox();
       potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl.y - this.escapeDistance); //north
       potentialExits[1] = new GeoPoint(endBounding.tr.x + this.escapeDistance, endPoint.y); //east
       potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br.y + this.escapeDistance); //south
@@ -624,5 +625,71 @@ export default class ICEVisioLink extends ICEPolyLine {
    */
   public rmDot(index: number): boolean {
     throw new Error('Can NOT remove dot from ICEVisioLink mannually.');
+  }
+
+  private syncPosition(slot, position) {
+    let slotBounding = slot.getMinBoundingBox(); //FIXME:为什么数值不发生变化？
+    let { x, y } = slotBounding.center;
+    let point = this.globalToLocal(x, y);
+    let { left, top } = this.state;
+    point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, left, top]));
+
+    if (position === 'start') {
+      this.setState({
+        startPoint: [point.x, point.y],
+      });
+    } else if (position === 'end') {
+      this.setState({
+        endPoint: [point.x, point.y],
+      });
+    }
+  }
+
+  protected followStartSlot(evt: ICEEvent): void {
+    this.syncPosition(this.startSlot, 'start');
+  }
+
+  protected followEndSlot(evt: ICEEvent): void {
+    this.syncPosition(this.endSlot, 'end');
+  }
+
+  public setstartSlot(slot) {
+    this.startSlot = slot;
+    //FIXME:以下特性需要测试
+    //FIXME:监听目标组件上的 after-move 事件，同步位置
+    //FIXME:如果 slot 为 null ，清理事件和相关资源
+    //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
+    if (this.startSlot) {
+      this.setState({
+        draggable: false,
+      });
+      this.syncPosition(this.startSlot, 'start');
+      this.startSlot.parentNode.on('after-move', this.followStartSlot, this);
+    } else {
+      this.startSlot.parentNode.off('after-move', this.followStartSlot, this);
+      this.setState({
+        draggable: true,
+      });
+    }
+  }
+
+  public setendSlot(slot) {
+    this.endSlot = slot;
+    //FIXME:以下特性需要测试
+    //FIXME:监听目标组件上的 after-move 事件，同步位置
+    //FIXME:如果 slot 为 null ，清理事件和相关资源
+    //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
+    if (this.endSlot) {
+      this.setState({
+        draggable: false,
+      });
+      this.syncPosition(this.endSlot, 'end');
+      this.endSlot.parentNode.on('after-move', this.followEndSlot, this);
+    } else {
+      this.endSlot.parentNode.off('after-move', this.followEndSlot, this);
+      this.setState({
+        draggable: true,
+      });
+    }
   }
 }

@@ -23,8 +23,8 @@ import ICEDotPath from '../ICEDotPath';
  * - ICEPolyLine 由多个点构成，如果折线上的所有点共线，则折线在外观上退化成直线。
  * - ICEPolyLine 上至少存在 2 个点，否则无法画线。如果点数恰好为 2 ，折线退化成一条直线。
  * - ICEPolyLine 以及所有子类不能进行 transform 操作。
- * - ICEPolyLine 以及所有子类的 left/top 总是定位在起点上。
- * - ICEPolyLine 以及所有子类的原点都在起点上，而不在几何中心点。
+ * - ICEPolyLine 以及所有子类的 left/top 总是被设置为 startPoint 。
+ * - ICEPolyLine 以及所有子类的原点都在 startPoint 上，而不在几何中心点。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */

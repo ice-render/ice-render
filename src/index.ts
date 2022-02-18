@@ -14,7 +14,6 @@ export * from './event/EventBus';
 export * from './geometry/GeoLine';
 export * from './geometry/GeoPoint';
 export * from './geometry/ICEBoundingBox';
-export * from './graphic/cable-like/ICECablelikeVisioLink';
 export * from './graphic/cable-like/ICELinkHook';
 export * from './graphic/cable-like/ICEVisioLink';
 export * from './graphic/container/ICEGroup';

@@ -180,4 +180,14 @@ export default class LineControlPanel extends ICEControlPanel {
   public get targetComponent(): ICEBaseComponent {
     return this._targetComponent;
   }
+
+  public showHooks() {
+    this.startControl.setState({ display: true });
+    this.endControl.setState({ display: true });
+  }
+
+  public hideHooks() {
+    this.startControl.setState({ display: false });
+    this.endControl.setState({ display: false });
+  }
 }

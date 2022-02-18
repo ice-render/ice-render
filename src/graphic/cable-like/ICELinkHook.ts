@@ -11,9 +11,9 @@ import ICECircle from '../shape/ICECircle';
 /**
  * @class ICELinkHook
  *
- * 连接插槽
+ * 连接钩子
  *
- * - ICELinkHook 永远直接放在 canvas 中，不是其它组件的孩子。
+ * - ICELinkHook 与 ICELinkSlot 是一对组件，用来把两个组件连接起来
  * - ICELinkHook 自身不进行任何 transform 。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
