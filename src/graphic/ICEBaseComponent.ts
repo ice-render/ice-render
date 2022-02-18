@@ -39,34 +39,34 @@ abstract class ICEBaseComponent extends EventTarget {
   /**
    * @cfg
    * {
-   *   id: 'ICE_' + Math.floor(Math.random() * 10000000000), //全局唯一，跨机器，跨时间
-   *   left: 0,    //x 坐标相对于父组件的偏移量
-   *   top: 0,     //y 坐标相对于父组件的偏移量
-   *   width: 0,   //原始宽度，没有经过变换
-   *   height: 0,  //原始高度，没有经过变换
+   *   id: 'ICE_' + Math.floor(Math.random() * 10000000000),   //全局唯一，跨机器，跨时间
+   *   left: 0,                                                //x 坐标相对于父组件的偏移量
+   *   top: 0,                                                 //y 坐标相对于父组件的偏移量
+   *   width: 0,                                               //原始宽度，没有经过变换
+   *   height: 0,                                              //原始高度，没有经过变换
    *   style: { fillStyle: 'red', strokeStyle: 'blue', lineWidth: 1 },
    *   animations: {},
-   *   transform: {     //组件自身的变换参数，不包含父组件
+   *   transform: {                                            //组件自身的变换参数，不包含父组件
    *     translate: [0, 0],
    *     scale: [1, 1],
    *     skew: [0, 0],
    *     rotate: 0,     //角度
    *   },
-   *   translationMatrix: new DOMMatrix(), //平移变换矩阵
-   *   linearMatrix: new DOMMatrix(),      //线性变换矩阵，不含平移
-   *   composedMatrix: new DOMMatrix(),    //复合变换矩阵，包含所有祖先节点的平移、原点移动、线性变换计算
+   *   translationMatrix: new DOMMatrix(),          //平移变换矩阵
+   *   linearMatrix: new DOMMatrix(),               //线性变换矩阵，不含平移
+   *   composedMatrix: new DOMMatrix(),             //复合变换矩阵，包含所有祖先节点的平移、原点移动、线性变换计算，composedMatrix 不会实时更新，如果需要获取当前最新的变换矩阵，需要调用 composeMatrix() 方法。
    *   origin:'localCenter',
-   *   localOrigin: new DOMPoint(0, 0),        //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
-   *   absoluteOrigin: new DOMPoint(0, 0),     //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
-   *   zIndex: ICEBaseComponent.instanceCounter++, //类似于 CSS 中的 zIndex
-   *   isRendering:false,           //标志位， Renderer 在渲染过程中会检查此标志位
-   *   display:true,                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。
-   *   draggable:true,              //是否可以拖动
-   *   transformable:true,          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
-   *   linkable:true,               //是否可以用连接线进行连接，带有宽高的组件都可以用连接线进行连接，但是连线自身默认不能互相连接。linkable 为 true 时，会在组件的最小包围盒四边创建用于连线的插槽。
-   *   interactive: true,           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable, linkable 都无效 TODO:动画运行过程中不允许选中，不能进行交互？？？
-   *   showMinBoundingBox:true,     //是否显示最小包围盒，开发时打开，主要用于 debug
-   *   showMaxBoundingBox:true,     //是否显示最大包围盒，开发时打开，主要用于 debug
+   *   localOrigin: new DOMPoint(0, 0),             //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
+   *   absoluteOrigin: new DOMPoint(0, 0),          //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
+   *   zIndex: ICEBaseComponent.instanceCounter++,  //类似于 CSS 中的 zIndex
+   *   isRendering:false,                           //标志位， Renderer 在渲染过程中会检查此标志位
+   *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。
+   *   draggable:true,                              //是否可以拖动
+   *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
+   *   linkable:true,                               //是否可以用连接线进行连接，带有宽高的组件都可以用连接线进行连接，但是连线自身默认不能互相连接。linkable 为 true 时，会在组件的最小包围盒四边创建用于连线的插槽。
+   *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable, linkable 都无效 TODO:动画运行过程中不允许选中，不能进行交互？？？
+   *   showMinBoundingBox:true,                     //是否显示最小包围盒，开发时打开，主要用于 debug
+   *   showMaxBoundingBox:true,                     //是否显示最大包围盒，开发时打开，主要用于 debug
    * }
    * @param props
    */
@@ -174,6 +174,7 @@ abstract class ICEBaseComponent extends EventTarget {
   /**
    * 根据原点位置描述计算原点坐标值。
    * 移动坐标原点后，组件内部所有的坐标点数值、边界盒子的坐标，都会受到影响。
+   * 计算出的原点数值已经包含了所有父层的移位和变换。
    * @method calcAbsoluteOrigin
    */
   public calcAbsoluteOrigin(): DOMPoint {
@@ -338,7 +339,7 @@ abstract class ICEBaseComponent extends EventTarget {
     ]);
 
     //再用 composedMatrix 进行变换
-    boundingBox = boundingBox.transform(this.state.composedMatrix);
+    boundingBox = boundingBox.transform(this.composeMatrix());
     return boundingBox;
   }
 
@@ -396,6 +397,25 @@ abstract class ICEBaseComponent extends EventTarget {
   }
 
   /**
+   * 直接设置在全局空间 (canvas) 中的位置。
+   * 注意：此方法用于直接设置组件在全局空间中的位置，而不是相对于其它坐标系。
+   * @param left
+   * @param top
+   * @param evt
+   */
+  public setGlobalPosition(left: number, top: number, evt: any = new ICEEvent()): void {
+    //如果组件存在嵌套，需要先用逆矩阵抵消所有祖先节点 transform 导致的坐标偏移。
+    if (this.parentNode) {
+      let point = new DOMPoint(left, top);
+      let matrix = this.parentNode.state.absoluteLinearMatrix.inverse();
+      point = point.matrixTransform(matrix);
+      left = point.x;
+      top = point.y;
+    }
+    this.setPosition(left, top, { ...evt, left, top });
+  }
+
+  /**
    * 在全局空间(canvas)中旋转指定的角度。
    * 注意：此方法用于直接设置组件在全局空间中的旋转角，而不是相对于其它坐标系。
    * @param rotateAngle
@@ -420,7 +440,7 @@ abstract class ICEBaseComponent extends EventTarget {
    * @param localY
    * @returns
    */
-  public localCoordToGlobal(localX: number, localY: number): DOMPoint {
+  public localToGlobal(localX: number, localY: number): DOMPoint {
     let point = new DOMPoint(localX, localY);
     let matrix = this.state.composedMatrix;
     point = point.matrixTransform(matrix);
@@ -433,7 +453,7 @@ abstract class ICEBaseComponent extends EventTarget {
    * @param globalY
    * @returns
    */
-  public globalCoordToLocal(globalX: number, globalY: number): DOMPoint {
+  public globalToLocal(globalX: number, globalY: number): DOMPoint {
     let point = new DOMPoint(globalX, globalY);
     let matrix = this.state.composedMatrix.inverse();
     point = point.matrixTransform(matrix);

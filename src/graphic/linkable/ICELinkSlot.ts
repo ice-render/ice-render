@@ -8,8 +8,6 @@
 import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import { ICE_CONSTS } from '../../ICE_CONSTS';
-import { applyMixins } from '../../util/mixin-util';
-import ICEAddonComponent from '../ICEAddonComponent';
 import ICECircle from '../shape/ICECircle';
 
 /**
@@ -17,12 +15,12 @@ import ICECircle from '../shape/ICECircle';
  *
  * 连接插槽
  *
- * - ICELinkSlot 永远直接放在 canvas 中，不是其它组件的孩子。
+ * - ICELinkSlot 与 ICELinkHook 是一对组件，用来把两个组件连接起来。
  * - ICELinkSlot 自身不进行任何 transform 。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-class ICELinkSlot extends ICECircle implements ICEAddonComponent {
+class ICELinkSlot extends ICECircle {
   constructor(props: any = {}) {
     //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边上。
     super({ linkable: false, position: 'T', ...props });
@@ -57,12 +55,20 @@ class ICELinkSlot extends ICECircle implements ICEAddonComponent {
   }
 
   protected hookMouseUpHandler(evt: ICEEvent) {
+    let linkHook = evt.target;
     let slotBounding: ICEBoundingBox = this.getMaxBoundingBox();
-    let hookBounding: ICEBoundingBox = evt.target.getMaxBoundingBox();
+    let hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
     if (slotBounding.isIntersect(hookBounding)) {
-      //FIXME:如果 hook 与 slot 重叠，建立连接关系
-      //FIXME:直接设置 hook 的位置，让中心点重叠，产生“磁吸”效果
-      console.log('存在交叉部分，建立连接关系...');
+      // 如果 hook 与 slot 重叠，建立连接关系
+      // 把连线上的起点或者终点设置为 ICELinkSlot 对应的实例
+      // ICELinkHook 实例在 LinkControlPanel 中，全局只有2个实例，所有连接线都共享同一个 LinkControlPanel 实例。
+      let linkLine = linkHook.parentNode.targetComponent;
+      let position = linkHook.state.position;
+      if (position === 'start') {
+        linkLine.setstartSlot(this);
+      } else if (position === 'end') {
+        linkLine.setendSlot(this);
+      }
     }
 
     this.setState({
@@ -77,12 +83,6 @@ class ICELinkSlot extends ICECircle implements ICEAddonComponent {
   protected mosueUpHandler(evt: ICEEvent) {
     console.log('mouse up...');
   }
-
-  //for Mixins...
-  hostComponent: any;
 }
-
-//@see https://www.typescriptlang.org/docs/handbook/mixins.html#alternative-pattern
-applyMixins(ICELinkSlot, [ICEAddonComponent]);
 
 export default ICELinkSlot;

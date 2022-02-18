@@ -88,7 +88,9 @@ class ICEControlPanelManager {
       }
       if (component instanceof ICEPolyLine) {
         this.lineControlPanel.targetComponent = component;
+        this.lineControlPanel.showHooks();
       } else {
+        this.lineControlPanel.hideHooks();
         //FIXME:处理多选的情况，如果实现多选机制，会导致 N 层重叠的对象的处理出现麻烦。
         this.transformControlPanel.targetComponent = component;
       }
