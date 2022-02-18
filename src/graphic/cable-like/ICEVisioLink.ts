@@ -30,8 +30,10 @@ export default class ICEVisioLink extends ICEPolyLine {
   //FIXME:序列化时存组件 ID
   private startSlot: ICEBaseComponent;
   private endSlot: ICEBaseComponent;
-  private escapeDistance: number = 30;
 
+  /**
+   * FIXME:补全 props 配置项的描述
+   */
   constructor(props: any = {}) {
     if (isNil(props.startPoint)) {
       props.startPoint = [0, 0];
@@ -42,6 +44,9 @@ export default class ICEVisioLink extends ICEPolyLine {
     props.points = [props.startPoint, props.endPoint];
     props.linkable = false; //连线自身不能再连接，在 ICE 引擎中，用线条把线条自身连接起来是没有意义的。
 
+    //escapeDistance 疏散距离，是4个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
+    //escapeDistance 不是固定值，会根据 startSlot 和 endSlot 宿主组件的尺寸动态计算和调整，这样可以保证连接线不与相连接的组件产生重叠。
+    props = { escapeDistance: 30, ...props };
     super(props);
   }
 
@@ -52,9 +57,9 @@ export default class ICEVisioLink extends ICEPolyLine {
    * @returns
    */
   protected calcDots(): Array<DOMPoint> {
-    let left = this.state.left;
-    let top = this.state.top;
+    this.calcEscapeDistance();
     let solutions = this.interpolate();
+    let { left, top } = this.state;
     let arr = solutions[0][2];
     this.state.points = [];
     this.state.dots = [];
@@ -90,10 +95,10 @@ export default class ICEVisioLink extends ICEPolyLine {
     //find start exit point
     if (this.startSlot) {
       startBounding = this.startSlot.getMinBoundingBox();
-      potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl.y - this.escapeDistance); //north
-      potentialExits[1] = new GeoPoint(startBounding.tr.x + this.escapeDistance, startPoint.y); //east
-      potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br.y + this.escapeDistance); //south
-      potentialExits[3] = new GeoPoint(startBounding.tl.x - this.escapeDistance, startPoint.y); //west
+      potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl.y - this.state.escapeDistance); //north
+      potentialExits[1] = new GeoPoint(startBounding.tr.x + this.state.escapeDistance, startPoint.y); //east
+      potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br.y + this.state.escapeDistance); //south
+      potentialExits[3] = new GeoPoint(startBounding.tl.x - this.state.escapeDistance, startPoint.y); //west
       //pick closest exit point
       startExitPoint = potentialExits[0];
       for (let i = 1; i < potentialExits.length; i++) {
@@ -106,10 +111,10 @@ export default class ICEVisioLink extends ICEPolyLine {
     //find end exit point
     if (this.endSlot) {
       endBounding = this.endSlot.getMinBoundingBox();
-      potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl.y - this.escapeDistance); //north
-      potentialExits[1] = new GeoPoint(endBounding.tr.x + this.escapeDistance, endPoint.y); //east
-      potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br.y + this.escapeDistance); //south
-      potentialExits[3] = new GeoPoint(endBounding.tl.x - this.escapeDistance, endPoint.y); //west
+      potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl.y - this.state.escapeDistance); //north
+      potentialExits[1] = new GeoPoint(endBounding.tr.x + this.state.escapeDistance, endPoint.y); //east
+      potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br.y + this.state.escapeDistance); //south
+      potentialExits[3] = new GeoPoint(endBounding.tl.x - this.state.escapeDistance, endPoint.y); //west
       //pick closest exit point
       endExitPoint = potentialExits[0];
       for (let i = 1; i < potentialExits.length; i++) {
@@ -653,12 +658,12 @@ export default class ICEVisioLink extends ICEPolyLine {
     this.syncPosition(this.endSlot, 'end');
   }
 
+  //FIXME:以下特性需要测试
+  //FIXME:监听目标组件上的 after-move 事件，同步位置
+  //FIXME:如果 slot 为 null ，清理事件和相关资源
+  //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
   public setstartSlot(slot) {
     this.startSlot = slot;
-    //FIXME:以下特性需要测试
-    //FIXME:监听目标组件上的 after-move 事件，同步位置
-    //FIXME:如果 slot 为 null ，清理事件和相关资源
-    //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
     if (this.startSlot) {
       this.setState({
         draggable: false,
@@ -673,12 +678,12 @@ export default class ICEVisioLink extends ICEPolyLine {
     }
   }
 
+  //FIXME:以下特性需要测试
+  //FIXME:监听目标组件上的 after-move 事件，同步位置
+  //FIXME:如果 slot 为 null ，清理事件和相关资源
+  //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
   public setendSlot(slot) {
     this.endSlot = slot;
-    //FIXME:以下特性需要测试
-    //FIXME:监听目标组件上的 after-move 事件，同步位置
-    //FIXME:如果 slot 为 null ，清理事件和相关资源
-    //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
     if (this.endSlot) {
       this.setState({
         draggable: false,
@@ -691,5 +696,22 @@ export default class ICEVisioLink extends ICEPolyLine {
         draggable: true,
       });
     }
+  }
+
+  /**
+   * 根据连接线关联的组件动态计算安全疏散距离。
+   */
+  private calcEscapeDistance(): number {
+    let escapeDistance = 30; //默认30个像素
+    if (this.startSlot && this.startSlot.parentNode) {
+      let { width, height } = this.startSlot.parentNode.getMinBoundingBox();
+      escapeDistance = Math.max(width, height);
+    }
+    if (this.endSlot && this.endSlot.parentNode) {
+      let { width, height } = this.startSlot.parentNode.getMinBoundingBox();
+      escapeDistance = Math.max(width, height);
+    }
+    this.state.escapeDistance = escapeDistance;
+    return escapeDistance;
   }
 }
