@@ -1,5 +1,7 @@
-ICE: Interactive Canvas Engine
+<h1 align="center">ICERender</h1>
+
+<div align="left">交互式 Canvas 渲染引擎。</div>
 
 ## 简介
 
-处于开发过程中，暂时请勿引用。
+此项目处于开发过程中，暂时请勿引用，大约90天内发布第一个版本。
