@@ -27,6 +27,7 @@ export default class ICELinkHook extends ICECircle {
     super.initEvents();
 
     this.on('mousedown', this.mosueDownHandler, this);
+    this.on('mousemove', this.mosueMoveHandler, this);
     this.on('mouseup', this.mosueUpHandler, this);
     this.on('after-move', this.resizeEvtHandler, this);
   }
@@ -42,6 +43,16 @@ export default class ICELinkHook extends ICECircle {
     this.evtBus.trigger('hook-mousedown', new ICEEvent({ target: this }));
   }
 
+  /**
+   *
+   * 在 mousemove 事件处理器里面可以直接访问 this.evtBus ，因为能接收到 mousemove 事件说明组件已经渲染出来了。
+   * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 hook-mousemove 事件的组件都会收到消息。
+   *
+   * @param evt
+   */
+   protected mosueMoveHandler(evt: ICEEvent) {
+    this.evtBus.trigger('hook-mousemove', new ICEEvent({ target: this }));
+  }
   /**
    *
    * 在 mouseup 事件处理器里面可以直接访问 this.evtBus ，因为能接收到 mouseup 事件说明组件已经渲染出来了。
