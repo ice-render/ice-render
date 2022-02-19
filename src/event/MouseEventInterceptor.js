@@ -16,7 +16,7 @@ import mouseEvents from './MOUSE_EVENT_MAPPING_CONSTS';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 const MouseEventInterceptor = {
-  //可以有多条事件总线，在同一个 window 中可能存在多个 ICE 实例，用多个事件总线实例隔开。
+  //在同一个 window 中可能存在多个 ICE 实例，每一个 ICE 实例上都有一条事件总线，这里把多个事件总线实例隔开。
   evtBuses: [],
 
   start: function () {
