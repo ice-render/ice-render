@@ -42,7 +42,7 @@ export default class ICEVisioLink extends ICEPolyLine {
       props.endPoint = [10, 10];
     }
     props.points = [props.startPoint, props.endPoint];
-    props.linkable = false; //连线自身不能再连接，在 ICE 引擎中，用线条把线条自身连接起来是没有意义的。
+    props.linkable = false; //连线之间不能互相连接，在 ICE 引擎中，用线条把线条自身连接起来是没有意义的。
 
     //escapeDistance 疏散距离，是4个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
     //escapeDistance 不是固定值，会根据 startSlot 和 endSlot 宿主组件的尺寸动态计算和调整，这样可以保证连接线不与相连接的组件产生重叠。
@@ -57,7 +57,6 @@ export default class ICEVisioLink extends ICEPolyLine {
    * @returns
    */
   protected calcDots(): Array<DOMPoint> {
-    this.calcEscapeDistance();
     let solutions = this.interpolate();
     let { left, top } = this.state;
     let arr = solutions[0][2];
@@ -94,7 +93,7 @@ export default class ICEVisioLink extends ICEPolyLine {
 
     //find start exit point
     if (this.startSlot) {
-      startBounding = this.startSlot.getMinBoundingBox();
+      startBounding = this.startSlot.parentNode.getMinBoundingBox();
       potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl.y - this.state.escapeDistance); //north
       potentialExits[1] = new GeoPoint(startBounding.tr.x + this.state.escapeDistance, startPoint.y); //east
       potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br.y + this.state.escapeDistance); //south
@@ -110,7 +109,7 @@ export default class ICEVisioLink extends ICEPolyLine {
 
     //find end exit point
     if (this.endSlot) {
-      endBounding = this.endSlot.getMinBoundingBox();
+      endBounding = this.endSlot.parentNode.getMinBoundingBox();
       potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl.y - this.state.escapeDistance); //north
       potentialExits[1] = new GeoPoint(endBounding.tr.x + this.state.escapeDistance, endPoint.y); //east
       potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br.y + this.state.escapeDistance); //south
@@ -632,8 +631,15 @@ export default class ICEVisioLink extends ICEPolyLine {
     throw new Error('Can NOT remove dot from ICEVisioLink mannually.');
   }
 
+  /**
+   *
+   * 当连线两头的组件发生移动时，触发连线重新绘制自身。
+   *
+   * @param slot
+   * @param position
+   */
   private syncPosition(slot, position) {
-    let slotBounding = slot.getMinBoundingBox(); //FIXME:为什么数值不发生变化？
+    let slotBounding = slot.getMinBoundingBox();
     let { x, y } = slotBounding.center;
     let point = this.globalToLocal(x, y);
     let { left, top } = this.state;
@@ -706,22 +712,5 @@ export default class ICEVisioLink extends ICEPolyLine {
         draggable: true,
       });
     }
-  }
-
-  /**
-   * 根据连接线关联的组件动态计算安全疏散距离。
-   */
-  private calcEscapeDistance(): number {
-    let escapeDistance = 30; //默认30个像素
-    if (this.startSlot && this.startSlot.parentNode) {
-      let { width, height } = this.startSlot.parentNode.getMinBoundingBox();
-      escapeDistance = Math.max(width, height);
-    }
-    if (this.endSlot && this.endSlot.parentNode) {
-      let { width, height } = this.startSlot.parentNode.getMinBoundingBox();
-      escapeDistance = Math.max(width, height);
-    }
-    this.state.escapeDistance = escapeDistance;
-    return escapeDistance;
   }
 }

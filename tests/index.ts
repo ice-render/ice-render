@@ -92,7 +92,7 @@ ice.addChild(visioLink);
 let linkableRect = new ICELinkableRect({
   left: 100,
   top: 100,
-  width: 100,
+  width: 200,
   height: 50,
   style: {
     strokeStyle: '#0c09d4',
@@ -107,7 +107,7 @@ let linkableRect = new ICELinkableRect({
   // },
   transform: {
     // translate: [10, 10],
-    rotate: 45,
+    // rotate: 45,
     // skew: [20, 0],
     // scale: [1, 1],
   },
