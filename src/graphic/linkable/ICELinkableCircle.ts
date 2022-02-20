@@ -35,10 +35,6 @@ class ICELinkableCircle extends ICECircle {
     }
     this.setSlotPositions();
   }
-
-  //for Mixins...
-  // linkSlots = [];
-  // slotRadius = 10;
 }
 
 //@see https://www.typescriptlang.org/docs/handbook/mixins.html#alternative-pattern
