@@ -23,7 +23,6 @@ export * from './graphic/ICEImage';
 export * from './graphic/ICEPath';
 export * from './graphic/line/ICEBezier';
 export * from './graphic/line/ICEPolyLine';
-export * from './graphic/linkable/ICELinkableRect';
 export * from './graphic/linkable/ICELinkSlot';
 export * from './graphic/shape/ICECircle';
 export * from './graphic/shape/ICEEllipse';

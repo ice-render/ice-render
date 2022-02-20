@@ -8,7 +8,7 @@ import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
 // import ICELinkableRect from '../src/graphic/linkable/ICELinkableRect';
 // import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEIsogon from '../src/graphic/shape/ICEIsogon';
-import ICETestCircle from '../src/graphic/linkable/ICETestCircle';
+import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
 import ICE from '../src/ICE';
 // import ICEEllipse from /src/graphic/text/ICEText';
 
@@ -91,14 +91,14 @@ let visioLink = new ICEVisioLink({
 });
 ice.addChild(visioLink);
 
-let linkCircle1 = new ICETestCircle({
+let linkCircle1 = new ICELinkableCircle({
   left: 100,
   top: 100,
   radius: 50,
 });
 ice.addChild(linkCircle1);
 
-let linkCircle2 = new ICETestCircle({
+let linkCircle2 = new ICELinkableCircle({
   left: 500,
   top: 300,
   radius: 50,
