@@ -31,6 +31,7 @@ export default class ICELinkable {
       },
     });
     slot_1.hostComponent = this;
+    this.ice.addChild(slot_1);
 
     let slot_2 = new ICELinkSlot({
       display: false,
@@ -44,6 +45,7 @@ export default class ICELinkable {
       },
     });
     slot_2.hostComponent = this;
+    this.ice.addChild(slot_2);
 
     let slot_3 = new ICELinkSlot({
       display: false,
@@ -57,6 +59,7 @@ export default class ICELinkable {
       },
     });
     slot_3.hostComponent = this;
+    this.ice.addChild(slot_3);
 
     let slot_4 = new ICELinkSlot({
       display: false,
@@ -70,6 +73,7 @@ export default class ICELinkable {
       },
     });
     slot_4.hostComponent = this;
+    this.ice.addChild(slot_4);
 
     this.linkSlots = [slot_1, slot_2, slot_3, slot_4];
   }
