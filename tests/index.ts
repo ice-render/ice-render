@@ -9,10 +9,24 @@ import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
 // import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEIsogon from '../src/graphic/shape/ICEIsogon';
 import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
+import ICERose from '../src/graphic/shape/ICERose';
 import ICE from '../src/ICE';
 // import ICEEllipse from /src/graphic/text/ICEText';
 
 let ice = new ICE().init('canvas-1');
+
+let rose = new ICERose({
+  left: 10,
+  top: 10,
+  width: 100,
+  height: 100,
+  style: {
+    strokeStyle: '#0c09d4',
+    fillStyle: '#f5d106',
+    lineWidth: 5,
+  },
+});
+ice.addChild(rose);
 
 // let rect = new ICERect({
 //   left: 100,

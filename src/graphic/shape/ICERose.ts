@@ -1,3 +1,5 @@
+import ICEPath from '../ICEPath';
+
 /**
  * Copyright (c) 2022 大漠穷秋.
  *
@@ -5,3 +7,40 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+
+const sin = Math.sin;
+const cos = Math.cos;
+const radian = Math.PI / 180;
+
+class ICERose extends ICEPath {
+  constructor(props: any = {}) {
+    super({ r: [10], n: 1, k: 0, ...props });
+  }
+
+  protected createPathObject(): Path2D {
+    this.path2D = new Path2D();
+    const R = this.state.r;
+    const k = this.state.k;
+    const n = this.state.n;
+    const x0 = this.state.localOrigin.x;
+    const y0 = this.state.localOrigin.y;
+    let x;
+    let y;
+    let r;
+
+    this.path2D.moveTo(x0, y0);
+    for (let i = 0, len = R.length; i < len; i++) {
+      r = R[i];
+      for (let j = 0; j <= 360 * n; j++) {
+        x = r * sin((((k / n) * j) % 360) * radian) * cos(j * radian) + x0;
+        y = r * sin((((k / n) * j) % 360) * radian) * sin(j * radian) + y0;
+        this.path2D.lineTo(x, y);
+      }
+    }
+
+    this.path2D.closePath();
+    return this.path2D;
+  }
+}
+
+export default ICERose;
