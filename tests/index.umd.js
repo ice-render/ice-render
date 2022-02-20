@@ -6694,15 +6694,15 @@
     return ICELinkable;
   }();
 
-  var ICETestCircle = /*#__PURE__*/function (_ICECircle) {
-    _inherits(ICETestCircle, _ICECircle);
+  var ICELinkableCircle = /*#__PURE__*/function (_ICECircle) {
+    _inherits(ICELinkableCircle, _ICECircle);
 
-    var _super = _createSuper(ICETestCircle);
+    var _super = _createSuper(ICELinkableCircle);
 
-    function ICETestCircle(props) {
+    function ICELinkableCircle(props) {
       var _this;
 
-      _classCallCheck(this, ICETestCircle);
+      _classCallCheck(this, ICELinkableCircle);
 
       _this = _super.call(this, props);
 
@@ -6715,10 +6715,10 @@
       return _this;
     }
 
-    _createClass(ICETestCircle, [{
+    _createClass(ICELinkableCircle, [{
       key: "initEvents",
       value: function initEvents() {
-        _get(_getPrototypeOf(ICETestCircle.prototype), "initEvents", this).call(this);
+        _get(_getPrototypeOf(ICELinkableCircle.prototype), "initEvents", this).call(this);
 
         this.once(ICE_CONSTS.BEFORE_RENDER, this.beforeRenderHandler, this);
         this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
@@ -6758,18 +6758,18 @@
     }, {
       key: "doRender",
       value: function doRender() {
-        _get(_getPrototypeOf(ICETestCircle.prototype), "doRender", this).call(this);
+        _get(_getPrototypeOf(ICELinkableCircle.prototype), "doRender", this).call(this);
 
         this.setSlotPositions();
       } //for Mixins...
 
     }]);
 
-    return ICETestCircle;
+    return ICELinkableCircle;
   }(ICECircle); //@see https://www.typescriptlang.org/docs/handbook/mixins.html#alternative-pattern
 
 
-  applyMixins(ICETestCircle, [ICELinkable]);
+  applyMixins(ICELinkableCircle, [ICELinkable]);
 
   /** `Object#toString` result references. */
   var stringTag$1 = '[object String]';
@@ -9031,14 +9031,14 @@
   });
   ice.addChild(visioLink);
 
-  let linkCircle1 = new ICETestCircle({
+  let linkCircle1 = new ICELinkableCircle({
     left: 100,
     top: 100,
     radius: 50,
   });
   ice.addChild(linkCircle1);
 
-  let linkCircle2 = new ICETestCircle({
+  let linkCircle2 = new ICELinkableCircle({
     left: 500,
     top: 300,
     radius: 50,
