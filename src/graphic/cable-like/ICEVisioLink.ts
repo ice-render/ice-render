@@ -10,8 +10,8 @@ import ICEEvent from '../../event/ICEEvent';
 import GeoLine from '../../geometry/GeoLine';
 import GeoPoint from '../../geometry/GeoPoint';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
-import ICEBaseComponent from '../ICEBaseComponent';
 import ICEPolyLine from '../line/ICEPolyLine';
+import ICELinkSlot from '../linkable/ICELinkSlot';
 
 /**
  * @class ICEVisioLink
@@ -34,8 +34,8 @@ import ICEPolyLine from '../line/ICEPolyLine';
  */
 export default class ICEVisioLink extends ICEPolyLine {
   //FIXME:序列化时存组件 ID
-  private startSlot: ICEBaseComponent;
-  private endSlot: ICEBaseComponent;
+  private startSlot: ICELinkSlot;
+  private endSlot: ICELinkSlot;
 
   /**
    * FIXME:补全 props 配置项的描述
@@ -99,7 +99,7 @@ export default class ICEVisioLink extends ICEPolyLine {
 
     //find start exit point
     if (this.startSlot) {
-      startBounding = this.startSlot.parentNode.getMinBoundingBox();
+      startBounding = this.startSlot.hostComponent.getMinBoundingBox();
       potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl.y - this.state.escapeDistance); //north
       potentialExits[1] = new GeoPoint(startBounding.tr.x + this.state.escapeDistance, startPoint.y); //east
       potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br.y + this.state.escapeDistance); //south
@@ -115,7 +115,7 @@ export default class ICEVisioLink extends ICEPolyLine {
 
     //find end exit point
     if (this.endSlot) {
-      endBounding = this.endSlot.parentNode.getMinBoundingBox();
+      endBounding = this.endSlot.hostComponent.getMinBoundingBox();
       potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl.y - this.state.escapeDistance); //north
       potentialExits[1] = new GeoPoint(endBounding.tr.x + this.state.escapeDistance, endPoint.y); //east
       potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br.y + this.state.escapeDistance); //south
@@ -687,11 +687,11 @@ export default class ICEVisioLink extends ICEPolyLine {
     if (position === 'start') {
       this.startSlot = slot;
       this.syncPosition(this.startSlot, 'start');
-      this.startSlot.parentNode.on('after-move', this.followStartSlot, this);
+      this.startSlot.hostComponent.on('after-move', this.followStartSlot, this);
     } else if (position === 'end') {
       this.endSlot = slot;
       this.syncPosition(this.endSlot, 'end');
-      this.endSlot.parentNode.on('after-move', this.followEndSlot, this);
+      this.endSlot.hostComponent.on('after-move', this.followEndSlot, this);
     }
   }
 
@@ -701,10 +701,10 @@ export default class ICEVisioLink extends ICEPolyLine {
    */
   public deleteSlot(slot, position) {
     if (position === 'start' && this.startSlot === slot) {
-      this.startSlot.parentNode.off('after-move', this.followStartSlot, this);
+      this.startSlot.hostComponent.off('after-move', this.followStartSlot, this);
       this.startSlot = null;
     } else if (position === 'end' && this.endSlot === slot) {
-      this.endSlot.parentNode.off('after-move', this.followEndSlot, this);
+      this.endSlot.hostComponent.off('after-move', this.followEndSlot, this);
       this.endSlot = null;
     }
 
