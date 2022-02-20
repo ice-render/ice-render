@@ -6600,7 +6600,6 @@
       value:
       /**
        * 创建连接插槽，插槽默认分布在组件最小边界盒子的4条边几何中点位置。
-       * FIXME:插槽需要添加到显示列表中去。
        */
       function createLinkSlots() {
         var slot_1 = new ICELinkSlot({
