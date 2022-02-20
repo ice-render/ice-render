@@ -6745,10 +6745,7 @@
         }
 
         this.setSlotPositions();
-      } //for Mixins...
-      // linkSlots = [];
-      // slotRadius = 10;
-
+      }
     }]);
 
     return ICELinkableCircle;
