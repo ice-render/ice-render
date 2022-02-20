@@ -42,12 +42,14 @@
 - TODO:测试 N 层重叠情况下，以及 ICEGroup 组件  TransformPanel 的处理流程。【已解决】
 - TODO:所有连接线不能进行 transform ，只能拖动两端端点进行拉长缩短【已解决】
 - TODO:重构 DDManager 和 TransformPanelManager【已完成】
-- TODO:重构 LineControlPanel 的实现，把 ICELinkHook 相关的逻辑移动到组件中，不采用全局管理的模式 <------------
-- TODO:实现连接线 & Visio 形态的连接线
-- TODO:重构容器型组件
+- TODO:重构 LineControlPanel 的实现，把 ICELinkHook 相关的逻辑移动到组件中，不采用全局管理的模式【已解决】 
+- TODO:实现连接线 & Visio 形态的连接线【已解决】
+- TODO:所有连接线的 TransformControl 都同时具有2种功能：拖动修改长度、吸附到组件上产生连接效果。【已解决】
+- TODO:线条型的组件点击判断需要特殊处理，不能用边界盒子计算，需要用 isPointInPath() 进行判断。<------------
+- TODO:删掉 ICECompositeComponent ，ICESlot 和组件之间的采用逻辑关联，不采用可见组件的容纳关系。
+- TODO:重构容器型组件 ICEGroup 和 ICECompositeComponent 
 - TODO:用容器型组件机制重构 transform 和 linkable 机制
 - TODO:解决 mixin 机制问题【需要继续重构，不能直接使用TS官方提供的实现】 
-- TODO:所有连接线的 TransformControl 都同时具有2种功能：拖动修改长度、吸附到组件上产生连接效果。
 - TODO:ICEGroup 需要重构，所有组件的 render 方法都交给 Renderer 统一进行调度。
 - TODO:重构整体的数据结构
 - TODO:序列化和反序列化

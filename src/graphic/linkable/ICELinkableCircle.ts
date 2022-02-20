@@ -1,34 +1,39 @@
-/**
- * Copyright (c) 2022 大漠穷秋.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- *
- */
-import merge from 'lodash/merge';
+import ICEEvent from '../../event/ICEEvent';
+import { ICE_CONSTS } from '../../ICE_CONSTS';
 import { applyMixins } from '../../util/mixin-util';
-import ICECompositeComponent from '../container/ICECompositeComponent';
 import ICECircle from '../shape/ICECircle';
 import ICELinkable from './ICELinkable';
 
-class ICELinkableCircle extends ICECompositeComponent implements ICELinkable {
-  constructor(props: any = {}) {
-    let param = merge({}, props);
-    param.width = param.radius * 2;
-    param.height = param.radius * 2;
-    //FIXME:变成 ICECompositeComponent 的默认 style
-    param.style = { strokeStyle: '#8b0000', fillStyle: 'rgba(255, 255, 49, 0.2)', lineWidth: 1 };
-    super(param);
-
-    let { radius, style } = props;
-
-    this.addChild(new ICECircle({ radius, style, interactive: false }));
-    this.createLinkSlots();
+//FIXME:测试完功能之后重新命名，把其它可连接的组件删掉。
+class ICELinkableCircle extends ICECircle implements ICELinkable {
+  constructor(props) {
+    super(props);
   }
 
-  protected renderChildren(): void {
+  protected initEvents(): void {
+    super.initEvents();
+
+    this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
+  }
+
+  /**
+   * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
+   * 此事件监听器只会执行一次。
+   * @param evt
+   */
+  private beforeRemoveHandler(evt: ICEEvent) {
+    this.linkSlots.forEach((slot) => {
+      slot.purgeEvents();
+      this.ice.removeChild(slot);
+    });
+  }
+
+  protected doRender(): void {
+    super.doRender();
+    if (this.state.linkable && !this.linkSlots.length) {
+      this.createLinkSlots();
+    }
     this.setSlotPositions();
-    super.renderChildren();
   }
 
   //for Mixins...

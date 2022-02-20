@@ -17,7 +17,7 @@ class ICERose extends ICEPath {
     super({ r: [10], n: 1, k: 0, ...props });
   }
 
-  createPathObject(): Path2D {
+  protected createPathObject(): Path2D {
     this.path2D = new Path2D();
     const R = this.state.r;
     const k = this.state.k;
@@ -32,14 +32,8 @@ class ICERose extends ICEPath {
     for (let i = 0, len = R.length; i < len; i++) {
       r = R[i];
       for (let j = 0; j <= 360 * n; j++) {
-        x = r
-          * sin(k / n * j % 360 * radian)
-          * cos(j * radian)
-          + x0;
-        y = r
-          * sin(k / n * j % 360 * radian)
-          * sin(j * radian)
-          + y0;
+        x = r * sin((((k / n) * j) % 360) * radian) * cos(j * radian) + x0;
+        y = r * sin((((k / n) * j) % 360) * radian) * sin(j * radian) + y0;
         this.path2D.lineTo(x, y);
       }
     }

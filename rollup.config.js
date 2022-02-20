@@ -4,12 +4,25 @@ import nodeResolve from '@rollup/plugin-node-resolve';
 import babel from 'rollup-plugin-babel';
 import { terser } from 'rollup-plugin-terser';
 import pkg from './package.json';
-
+const env = process.env.NODE_ENV;
 const extensions = ['.js', '.jsx', '.ts', '.tsx'];
-
 //TODO:make lodash external library.
+const CommonPlugins = [
+  json(),
+  nodeResolve({ extensions }),
+  commonjs(),
+  babel({
+    extensions,
+    include: ['src/**/*'],
+  }),
+  env === 'production' && terser(),
+].filter(Boolean);
 
-export default [
+/**
+ * support config Intellisense
+ * @type {import('rollup').RollupOptions[]}
+ */
+const configs = [
   {
     input: 'src/index.ts',
     external: [...Object.keys(pkg.dependencies || {}), ...Object.keys(pkg.peerDependencies || {})],
@@ -23,16 +36,7 @@ export default [
         format: 'esm',
       },
     ],
-    plugins: [
-      json(),
-      nodeResolve({ extensions }),
-      commonjs(),
-      babel({
-        extensions,
-        include: ['src/**/*'],
-      }),
-      terser(),
-    ],
+    plugins: CommonPlugins,
   },
   {
     input: 'src/index.ts',
@@ -44,16 +48,7 @@ export default [
       },
     ],
 
-    plugins: [
-      json(),
-      nodeResolve({ extensions }),
-      commonjs(),
-      babel({
-        extensions,
-        include: ['src/**/*'],
-      }),
-      terser(),
-    ],
+    plugins: CommonPlugins,
   },
   {
     input: 'tests/index.ts',
@@ -64,15 +59,7 @@ export default [
         format: 'umd',
       },
     ],
-    plugins: [
-      json(),
-      nodeResolve({ extensions }),
-      commonjs(),
-      babel({
-        extensions,
-        include: ['src/**/*', 'test/**/*'],
-      }),
-      terser(),
-    ],
+    plugins: CommonPlugins,
   },
 ];
+export default configs;

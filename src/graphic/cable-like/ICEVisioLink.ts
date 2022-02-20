@@ -10,8 +10,8 @@ import ICEEvent from '../../event/ICEEvent';
 import GeoLine from '../../geometry/GeoLine';
 import GeoPoint from '../../geometry/GeoPoint';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
-import ICEBaseComponent from '../ICEBaseComponent';
 import ICEPolyLine from '../line/ICEPolyLine';
+import ICELinkSlot from '../linkable/ICELinkSlot';
 
 /**
  * @class ICEVisioLink
@@ -20,16 +20,22 @@ import ICEPolyLine from '../line/ICEPolyLine';
  *
  * 模拟 Microsoft Visio 中的折线算法，此实现从 diagramo 改进而来：http://diagramo.com/ 。
  *
- * 基本特征：
+ * 基本特性：
  *
- * - 除起始点和结束点之外，其它点会自动插值计算。
+ * - ICEVisioLink 只有 2 个端点，起点和终点。
+ * - 除起始点和终点坐标之外，其它点会自动插值计算。
+ * - ICEVisioLink 只能连接 2 个非线条类的组件。
+ * - 线条互相之间不能连接，在 ICE 引擎中，不能用线条连接线条。
+ * - 每一个可以被连接的组件上都有 4 个插槽（Slot），4 个插槽分布在组件最小边界盒子 4 条边的几何中点位置上。
+ * - ICEVisioLink 的端点在移动时会判断是否与某个插槽发生碰撞，如果与某个插槽发生碰撞， ICEVisioLink 会连接到插槽所在的组件上。
+ * - 同一个插槽（Slot）上可以连 N 根线，Slot 与 ICEVisioLink 之间的关系是 1->N 。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default class ICEVisioLink extends ICEPolyLine {
   //FIXME:序列化时存组件 ID
-  private startSlot: ICEBaseComponent;
-  private endSlot: ICEBaseComponent;
+  private startSlot: ICELinkSlot;
+  private endSlot: ICELinkSlot;
 
   /**
    * FIXME:补全 props 配置项的描述
@@ -42,7 +48,7 @@ export default class ICEVisioLink extends ICEPolyLine {
       props.endPoint = [10, 10];
     }
     props.points = [props.startPoint, props.endPoint];
-    props.linkable = false; //连线自身不能再连接，在 ICE 引擎中，用线条把线条自身连接起来是没有意义的。
+    props.linkable = false; //连线之间不能互相连接，在 ICE 引擎中，用线条把线条自身连接起来是没有意义的。
 
     //escapeDistance 疏散距离，是4个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
     //escapeDistance 不是固定值，会根据 startSlot 和 endSlot 宿主组件的尺寸动态计算和调整，这样可以保证连接线不与相连接的组件产生重叠。
@@ -57,7 +63,6 @@ export default class ICEVisioLink extends ICEPolyLine {
    * @returns
    */
   protected calcDots(): Array<DOMPoint> {
-    this.calcEscapeDistance();
     let solutions = this.interpolate();
     let { left, top } = this.state;
     let arr = solutions[0][2];
@@ -94,7 +99,7 @@ export default class ICEVisioLink extends ICEPolyLine {
 
     //find start exit point
     if (this.startSlot) {
-      startBounding = this.startSlot.getMinBoundingBox();
+      startBounding = this.startSlot.hostComponent.getMinBoundingBox();
       potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl.y - this.state.escapeDistance); //north
       potentialExits[1] = new GeoPoint(startBounding.tr.x + this.state.escapeDistance, startPoint.y); //east
       potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br.y + this.state.escapeDistance); //south
@@ -110,7 +115,7 @@ export default class ICEVisioLink extends ICEPolyLine {
 
     //find end exit point
     if (this.endSlot) {
-      endBounding = this.endSlot.getMinBoundingBox();
+      endBounding = this.endSlot.hostComponent.getMinBoundingBox();
       potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl.y - this.state.escapeDistance); //north
       potentialExits[1] = new GeoPoint(endBounding.tr.x + this.state.escapeDistance, endPoint.y); //east
       potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br.y + this.state.escapeDistance); //south
@@ -632,8 +637,15 @@ export default class ICEVisioLink extends ICEPolyLine {
     throw new Error('Can NOT remove dot from ICEVisioLink mannually.');
   }
 
+  /**
+   *
+   * 当连线两头的组件发生移动时，触发连线重新绘制自身。
+   *
+   * @param slot
+   * @param position
+   */
   private syncPosition(slot, position) {
-    let slotBounding = slot.getMinBoundingBox(); //FIXME:为什么数值不发生变化？
+    let slotBounding = slot.getMinBoundingBox();
     let { x, y } = slotBounding.center;
     let point = this.globalToLocal(x, y);
     let { left, top } = this.state;
@@ -659,69 +671,48 @@ export default class ICEVisioLink extends ICEPolyLine {
   }
 
   //FIXME:以下特性需要测试
-  //FIXME:监听目标组件上的 after-move 事件，同步位置
-  //FIXME:如果 slot 为 null ，清理事件和相关资源
-  //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
-  public setStartSlot(slot) {
-    //如果当前已经存在连接关系，首先解除
-    if (this.startSlot) {
-      this.startSlot.parentNode.off('after-move', this.followStartSlot, this);
-    }
+  // - 监听目标组件上的 after-move 事件，同步位置
+  // - 如果 slot 为 null ，清理事件和相关资源
+  // - 设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
+  public setSlot(slot, position) {
+    if (!slot || !position) return;
 
-    this.startSlot = slot;
-    if (this.startSlot) {
-      this.setState({
-        draggable: false,
-      });
+    //总是先尝试解除连接关系，然后再重新尝试连接
+    this.deleteSlot(slot, position);
+
+    this.setState({
+      draggable: false,
+    });
+
+    if (position === 'start') {
+      this.startSlot = slot;
       this.syncPosition(this.startSlot, 'start');
-      this.startSlot.parentNode.on('after-move', this.followStartSlot, this);
-    } else {
-      this.startSlot.parentNode.off('after-move', this.followStartSlot, this);
-      this.setState({
-        draggable: true,
-      });
-    }
-  }
-
-  //FIXME:以下特性需要测试
-  //FIXME:监听目标组件上的 after-move 事件，同步位置
-  //FIXME:如果 slot 为 null ，清理事件和相关资源
-  //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
-  public setEndSlot(slot) {
-    //如果当前已经存在连接关系，首先解除
-    if (this.endSlot) {
-      this.endSlot.parentNode.off('after-move', this.followEndSlot, this);
-    }
-
-    this.endSlot = slot;
-    if (this.endSlot) {
-      this.setState({
-        draggable: false,
-      });
+      this.startSlot.hostComponent.on('after-move', this.followStartSlot, this);
+    } else if (position === 'end') {
+      this.endSlot = slot;
       this.syncPosition(this.endSlot, 'end');
-      this.endSlot.parentNode.on('after-move', this.followEndSlot, this);
-    } else {
-      this.endSlot.parentNode.off('after-move', this.followEndSlot, this);
-      this.setState({
-        draggable: true,
-      });
+      this.endSlot.hostComponent.on('after-move', this.followEndSlot, this);
     }
   }
 
   /**
-   * 根据连接线关联的组件动态计算安全疏散距离。
+   * 解除连线与组件之间的连接关系。
+   * @param slot
    */
-  private calcEscapeDistance(): number {
-    let escapeDistance = 30; //默认30个像素
-    if (this.startSlot && this.startSlot.parentNode) {
-      let { width, height } = this.startSlot.parentNode.getMinBoundingBox();
-      escapeDistance = Math.max(width, height);
+  public deleteSlot(slot, position) {
+    if (position === 'start' && this.startSlot === slot) {
+      this.startSlot.hostComponent.off('after-move', this.followStartSlot, this);
+      this.startSlot = null;
+    } else if (position === 'end' && this.endSlot === slot) {
+      this.endSlot.hostComponent.off('after-move', this.followEndSlot, this);
+      this.endSlot = null;
     }
-    if (this.endSlot && this.endSlot.parentNode) {
-      let { width, height } = this.startSlot.parentNode.getMinBoundingBox();
-      escapeDistance = Math.max(width, height);
+
+    //如果两端都没有连接的组件，连接线自身变成可拖动
+    if (!this.startSlot && !this.endSlot) {
+      this.setState({
+        draggable: true,
+      });
     }
-    this.state.escapeDistance = escapeDistance;
-    return escapeDistance;
   }
 }

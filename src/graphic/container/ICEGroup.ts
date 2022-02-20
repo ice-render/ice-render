@@ -49,6 +49,8 @@ class ICEGroup extends ICERect {
     child.root = null;
     child.ctx = null;
     child.evtBus = null;
+    child.ice = null;
+
     this.childNodes.splice(this.childNodes.indexOf(child), 1);
     //FIXME:destory child???
 
@@ -67,6 +69,7 @@ class ICEGroup extends ICERect {
       child.root = this.root;
       child.ctx = this.ctx;
       child.evtBus = this.evtBus;
+      child.ice = this.ice;
 
       child.trigger(ICE_CONSTS.BEFORE_RENDER);
       if (child.state.isRendering) {

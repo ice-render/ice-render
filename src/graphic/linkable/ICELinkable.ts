@@ -14,6 +14,10 @@ export default class ICELinkable {
   linkSlots = [];
   slotRadius = 10;
 
+  /**
+   * 创建连接插槽，插槽默认分布在组件最小边界盒子的4条边几何中点位置。
+   * FIXME:插槽需要添加到显示列表中去。
+   */
   createLinkSlots() {
     let slot_1 = new ICELinkSlot({
       display: false,
@@ -26,6 +30,9 @@ export default class ICELinkable {
         lineWidth: 1,
       },
     });
+    slot_1.hostComponent = this;
+    this.ice.addChild(slot_1);
+
     let slot_2 = new ICELinkSlot({
       display: false,
       transformable: false,
@@ -37,6 +44,9 @@ export default class ICELinkable {
         lineWidth: 1,
       },
     });
+    slot_2.hostComponent = this;
+    this.ice.addChild(slot_2);
+
     let slot_3 = new ICELinkSlot({
       display: false,
       transformable: false,
@@ -48,6 +58,9 @@ export default class ICELinkable {
         lineWidth: 1,
       },
     });
+    slot_3.hostComponent = this;
+    this.ice.addChild(slot_3);
+
     let slot_4 = new ICELinkSlot({
       display: false,
       transformable: false,
@@ -59,28 +72,37 @@ export default class ICELinkable {
         lineWidth: 1,
       },
     });
+    slot_4.hostComponent = this;
+    this.ice.addChild(slot_4);
+
     this.linkSlots = [slot_1, slot_2, slot_3, slot_4];
-    this.addChildren([slot_1, slot_2, slot_3, slot_4]); //FIXME:点击了连接线之后再显示 LinkSlot ，默认不显示
   }
 
   setSlotPositions() {
-    let width = this.state.width;
-    let height = this.state.height;
-    let halfWidth = width / 2;
-    let halfHeight = height / 2;
-
-    let positions = {
-      T: {
-        left: halfWidth - this.slotRadius,
-        top: -this.slotRadius,
-      },
-      R: { left: width - this.slotRadius, top: halfHeight - this.slotRadius },
-      B: { left: halfWidth - this.slotRadius, top: height - this.slotRadius },
-      L: { left: -this.slotRadius, top: halfHeight - this.slotRadius },
-    };
-
+    let box = this.getMinBoundingBox();
     this.linkSlots.forEach((slot) => {
-      let { left, top } = positions[slot.state.position];
+      let left = 0;
+      let top = 0;
+      switch (slot.state.position) {
+        case 'T':
+          left = box.center.x - this.slotRadius;
+          top = box.tl.y - this.slotRadius;
+          break;
+        case 'R':
+          left = box.tr.x - this.slotRadius;
+          top = box.center.y - this.slotRadius;
+          break;
+        case 'B':
+          left = box.center.x - this.slotRadius;
+          top = box.br.y - this.slotRadius;
+          break;
+        case 'L':
+          left = box.bl.x - this.slotRadius;
+          top = box.center.y - this.slotRadius;
+          break;
+        default:
+          break;
+      }
       slot.setState({ left, top });
     });
   }

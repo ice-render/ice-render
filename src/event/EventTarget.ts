@@ -126,8 +126,9 @@ abstract class EventTarget {
     }
   }
 
-  purge() {
+  purgeEvents() {
     this.listeners = {};
+    this.suspendedEventNames = [];
   }
 }
 

@@ -4,13 +4,29 @@
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
 // import ICECablelikeVisioLink from '../src/graphic/cable-like/ICECablelikeVisioLink';
 import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
-import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
-import ICELinkableRect from '../src/graphic/linkable/ICELinkableRect';
-import ICE from '../src/ICE';
+// import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
+// import ICELinkableRect from '../src/graphic/linkable/ICELinkableRect';
 // import ICECircle from '../src/graphic/shape/ICECircle';
+// import ICEIsogon from '../src/graphic/shape/ICEIsogon';
+import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
+import ICERose from '../src/graphic/shape/ICERose';
+import ICE from '../src/ICE';
 // import ICEEllipse from /src/graphic/text/ICEText';
 
 let ice = new ICE().init('canvas-1');
+
+let rose = new ICERose({
+  left: 10,
+  top: 10,
+  width: 100,
+  height: 100,
+  style: {
+    strokeStyle: '#0c09d4',
+    fillStyle: '#f5d106',
+    lineWidth: 5,
+  },
+});
+ice.addChild(rose);
 
 // let rect = new ICERect({
 //   left: 100,
@@ -89,37 +105,51 @@ let visioLink = new ICEVisioLink({
 });
 ice.addChild(visioLink);
 
-let linkableRect = new ICELinkableRect({
+let linkCircle1 = new ICELinkableCircle({
   left: 100,
   top: 100,
-  width: 100,
-  height: 50,
-  style: {
-    strokeStyle: '#0c09d4',
-    fillStyle: '#f5d106',
-    lineWidth: 5,
-  },
-  // animations: {
-  //   left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
-  //   top: { from: 0, to: 200, duration: 3000 },
-  //   width: { from: 100, to: 200, duration: 5000 },
-  //   height: { from: 100, to: 200, duration: 5000 },
-  // },
-  transform: {
-    // translate: [10, 10],
-    rotate: 45,
-    // skew: [20, 0],
-    // scale: [1, 1],
-  },
+  radius: 50,
 });
-ice.addChild(linkableRect);
+ice.addChild(linkCircle1);
 
-let linkableCircle = new ICELinkableCircle({
-  left: 200,
-  top: 500,
-  radius: 30,
+let linkCircle2 = new ICELinkableCircle({
+  left: 500,
+  top: 300,
+  radius: 50,
 });
-ice.addChild(linkableCircle);
+ice.addChild(linkCircle2);
+
+// let linkableRect = new ICELinkableRect({
+//   left: 100,
+//   top: 100,
+//   width: 200,
+//   height: 50,
+//   style: {
+//     strokeStyle: '#0c09d4',
+//     fillStyle: '#f5d106',
+//     lineWidth: 5,
+//   },
+//   // animations: {
+//   //   left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+//   //   top: { from: 0, to: 200, duration: 3000 },
+//   //   width: { from: 100, to: 200, duration: 5000 },
+//   //   height: { from: 100, to: 200, duration: 5000 },
+//   // },
+//   transform: {
+//     // translate: [10, 10],
+//     // rotate: 45,
+//     // skew: [20, 0],
+//     // scale: [1, 1],
+//   },
+// });
+// ice.addChild(linkableRect);
+
+// let linkableCircle = new ICELinkableCircle({
+//   left: 200,
+//   top: 500,
+//   radius: 30,
+// });
+// ice.addChild(linkableCircle);
 
 // let img = new ICEImage({
 //   left: 100,
@@ -135,17 +165,17 @@ ice.addChild(linkableCircle);
 // });
 // ice.addChild(img);
 
-//正三角形
+// //正三角形
 // let isogon3 = new ICEIsogon({
 //   left: 600,
-//   top: 100,
+//   top: 300,
 //   radius: 50,
 //   edges: 3,
 //   transform: {
 //     // translate: [10, -10],
-//     scale: [1.5, 1.5],
+//     // scale: [1.5, 1.5],
 //     // skew: [50, 0],
-//     rotate: 45,
+//     // rotate: 45,
 //   },
 // });
 // ice.addChild(isogon3);
@@ -153,11 +183,20 @@ ice.addChild(linkableCircle);
 // //正五边形
 // let isogon5 = new ICEIsogon({
 //   left: 500,
-//   top: 0,
+//   top: 400,
 //   radius: 50,
 //   edges: 5,
 // });
 // ice.addChild(isogon5);
+
+// //正6边形
+// let isogon6 = new ICEIsogon({
+//   left: 650,
+//   top: 400,
+//   radius: 50,
+//   edges: 6,
+// });
+// ice.addChild(isogon6);
 
 // // 正十五边形
 // let isogon15 = new ICEIsogon({
@@ -343,8 +382,8 @@ ice.addChild(linkableCircle);
 // ice.addChild(ellipse);
 
 // let circle2 = new ICECircle({
-//   left: 400,
-//   top: 10,
+//   left: 100,
+//   top: 200,
 //   radius: 50,
 // });
 // ice.addChild(circle2);
