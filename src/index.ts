@@ -28,6 +28,7 @@ export * from './graphic/shape/ICECircle';
 export * from './graphic/shape/ICEEllipse';
 export * from './graphic/shape/ICEIsogon';
 export * from './graphic/shape/ICERect';
+export * from './graphic/shape/ICERose';
 export * from './graphic/shape/ICEStar';
 export * from './graphic/text/ICEText';
 export * from './ICE';

@@ -6279,6 +6279,28 @@
    * LICENSE file in the root directory of this source tree.
    *
    */
+  var ICE_CONSTS = {
+    ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
+    BEFORE_RENDER: 'BEFORE_RENDER',
+    AFTER_RENDER: 'AFTER_RENDER',
+    ICE_CLICK: 'ICE_CLICK',
+    BEFORE_ADD: 'BEFORE_ADD',
+    //在 addChild() 方法中的第一行执行
+    AFTER_ADD: 'AFTER_ADD',
+    //在 addChild() 方法返回之前执行
+    BEFORE_REMOVE: 'BEFORE_REMOVE',
+    //在 removeChild() 方法中的第一行执行
+    AFTER_REMOVE: 'AFTER_REMOVE' //在 removeChild() 方法返回之前执行
+
+  };
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
 
   /**
    * FIXME:这里需要重构，TS 官方提供的这个版本只拷贝方法，不拷贝属性
@@ -6404,28 +6426,6 @@
 
     return ICECircle;
   }(ICEEllipse);
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  var ICE_CONSTS = {
-    ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
-    BEFORE_RENDER: 'BEFORE_RENDER',
-    AFTER_RENDER: 'AFTER_RENDER',
-    ICE_CLICK: 'ICE_CLICK',
-    BEFORE_ADD: 'BEFORE_ADD',
-    //在 addChild() 方法中的第一行执行
-    AFTER_ADD: 'AFTER_ADD',
-    //在 addChild() 方法返回之前执行
-    BEFORE_REMOVE: 'BEFORE_REMOVE',
-    //在 removeChild() 方法中的第一行执行
-    AFTER_REMOVE: 'AFTER_REMOVE' //在 removeChild() 方法返回之前执行
-
-  };
 
   /**
    * @class ICELinkSlot
@@ -6595,48 +6595,13 @@
     }
 
     _createClass(ICELinkable, [{
-      key: "initEvents",
-      value: function initEvents() {
-        _get(_getPrototypeOf(ICELinkable.prototype), "initEvents", this).call(this);
-
-        this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
-      }
-      /**
-       * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
-       * 此事件监听器只会执行一次。
-       * @param evt
-       */
-
-    }, {
-      key: "beforeRemoveHandler",
-      value: function beforeRemoveHandler(evt) {
-        var _this = this;
-
-        this.linkSlots.forEach(function (slot) {
-          slot.purgeEvents();
-
-          _this.ice.removeChild(slot);
-        });
-      }
-    }, {
-      key: "doRender",
-      value: function doRender() {
-        _get(_getPrototypeOf(ICELinkable.prototype), "doRender", this).call(this);
-
-        if (this.state.linkable && !this.linkSlots.length) {
-          this.createLinkSlots();
-        }
-
-        this.setSlotPositions();
-      }
+      key: "createLinkSlots",
+      value:
       /**
        * 创建连接插槽，插槽默认分布在组件最小边界盒子的4条边几何中点位置。
        * FIXME:插槽需要添加到显示列表中去。
        */
-
-    }, {
-      key: "createLinkSlots",
-      value: function createLinkSlots() {
+      function createLinkSlots() {
         var slot_1 = new ICELinkSlot({
           display: false,
           transformable: false,
@@ -6694,7 +6659,7 @@
     }, {
       key: "setSlotPositions",
       value: function setSlotPositions() {
-        var _this2 = this;
+        var _this = this;
 
         var box = this.getMinBoundingBox();
         this.linkSlots.forEach(function (slot) {
@@ -6703,23 +6668,23 @@
 
           switch (slot.state.position) {
             case 'T':
-              left = box.center.x - _this2.slotRadius;
-              top = box.tl.y - _this2.slotRadius;
+              left = box.center.x - _this.slotRadius;
+              top = box.tl.y - _this.slotRadius;
               break;
 
             case 'R':
-              left = box.tr.x - _this2.slotRadius;
-              top = box.center.y - _this2.slotRadius;
+              left = box.tr.x - _this.slotRadius;
+              top = box.center.y - _this.slotRadius;
               break;
 
             case 'B':
-              left = box.center.x - _this2.slotRadius;
-              top = box.br.y - _this2.slotRadius;
+              left = box.center.x - _this.slotRadius;
+              top = box.br.y - _this.slotRadius;
               break;
 
             case 'L':
-              left = box.bl.x - _this2.slotRadius;
-              top = box.center.y - _this2.slotRadius;
+              left = box.bl.x - _this.slotRadius;
+              top = box.center.y - _this.slotRadius;
               break;
           }
 
@@ -6751,14 +6716,112 @@
       _defineProperty(_assertThisInitialized(_this), "slotRadius", 10);
 
       return _this;
-    } //for Mixins...
+    }
 
+    _createClass(ICELinkableCircle, [{
+      key: "initEvents",
+      value: function initEvents() {
+        _get(_getPrototypeOf(ICELinkableCircle.prototype), "initEvents", this).call(this);
+
+        this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
+      }
+      /**
+       * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
+       * 此事件监听器只会执行一次。
+       * @param evt
+       */
+
+    }, {
+      key: "beforeRemoveHandler",
+      value: function beforeRemoveHandler(evt) {
+        var _this2 = this;
+
+        this.linkSlots.forEach(function (slot) {
+          slot.purgeEvents();
+
+          _this2.ice.removeChild(slot);
+        });
+      }
+    }, {
+      key: "doRender",
+      value: function doRender() {
+        _get(_getPrototypeOf(ICELinkableCircle.prototype), "doRender", this).call(this);
+
+        if (this.state.linkable && !this.linkSlots.length) {
+          this.createLinkSlots();
+        }
+
+        this.setSlotPositions();
+      } //for Mixins...
+
+    }]);
 
     return ICELinkableCircle;
   }(ICECircle); //@see https://www.typescriptlang.org/docs/handbook/mixins.html#alternative-pattern
 
 
   applyMixins(ICELinkableCircle, [ICELinkable]);
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+
+  var sin = Math.sin;
+  var cos = Math.cos;
+  var radian = Math.PI / 180;
+
+  var ICERose = /*#__PURE__*/function (_ICEPath) {
+    _inherits(ICERose, _ICEPath);
+
+    var _super = _createSuper(ICERose);
+
+    function ICERose() {
+      var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
+      _classCallCheck(this, ICERose);
+
+      return _super.call(this, _objectSpread2({
+        r: [10],
+        n: 1,
+        k: 0
+      }, props));
+    }
+
+    _createClass(ICERose, [{
+      key: "createPathObject",
+      value: function createPathObject() {
+        this.path2D = new Path2D();
+        var R = this.state.r;
+        var k = this.state.k;
+        var n = this.state.n;
+        var x0 = this.state.localOrigin.x;
+        var y0 = this.state.localOrigin.y;
+        var x;
+        var y;
+        var r;
+        this.path2D.moveTo(x0, y0);
+
+        for (var i = 0, len = R.length; i < len; i++) {
+          r = R[i];
+
+          for (var j = 0; j <= 360 * n; j++) {
+            x = r * sin(k / n * j % 360 * radian) * cos(j * radian) + x0;
+            y = r * sin(k / n * j % 360 * radian) * sin(j * radian) + y0;
+            this.path2D.lineTo(x, y);
+          }
+        }
+
+        this.path2D.closePath();
+        return this.path2D;
+      }
+    }]);
+
+    return ICERose;
+  }(ICEPath);
 
   /** `Object#toString` result references. */
   var stringTag$1 = '[object String]';
@@ -8943,6 +9006,19 @@
   // import ICEEllipse from /src/graphic/text/ICEText';
 
   let ice = new ICE().init('canvas-1');
+
+  let rose = new ICERose({
+    left: 10,
+    top: 10,
+    width: 100,
+    height: 100,
+    style: {
+      strokeStyle: '#0c09d4',
+      fillStyle: '#f5d106',
+      lineWidth: 5,
+    },
+  });
+  ice.addChild(rose);
 
   // let rect = new ICERect({
   //   left: 100,
