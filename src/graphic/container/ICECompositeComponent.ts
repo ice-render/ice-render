@@ -8,6 +8,9 @@
 import ICEGroup from './ICEGroup';
 
 /**
+ *
+ * FIXME:需要删掉这个组件，采用逻辑组合的方式，否则在 N 层叠放的情况下会变得非常复杂。
+ *
  * @class ICECompositeComponent
  *
  * 组合型组件

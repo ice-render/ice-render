@@ -6464,6 +6464,9 @@
   }(ICERect);
 
   /**
+   *
+   * FIXME:需要删掉这个组件，采用逻辑组合的方式，否则在 N 层叠放的情况下会变得非常复杂。
+   *
    * @class ICECompositeComponent
    *
    * 组合型组件
@@ -8971,7 +8974,6 @@
   }();
 
   // import ICEStar from '../src/graphic/shape/ICEStar';
-  // import ICECircle from '../src/graphic/shape/ICECircle';
   // import ICEEllipse from /src/graphic/text/ICEText';
 
   let ice = new ICE().init('canvas-1');
@@ -9306,12 +9308,12 @@
   // });
   // ice.addChild(ellipse);
 
-  // let circle2 = new ICECircle({
-  //   left: 400,
-  //   top: 10,
-  //   radius: 50,
-  // });
-  // ice.addChild(circle2);
+  let circle2 = new ICECircle({
+    left: 100,
+    top: 200,
+    radius: 50,
+  });
+  ice.addChild(circle2);
 
   // let group2 = new ICEGroup({
   //   left: 20,
