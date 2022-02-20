@@ -5,7 +5,7 @@ import ICECircle from '../shape/ICECircle';
 import ICELinkable from './ICELinkable';
 
 //FIXME:测试完功能之后重新命名，把其它可连接的组件删掉。
-class ICELinkableCircle extends ICECircle implements ICELinkable {
+class ICELinkableCircle extends ICECircle {
   constructor(props) {
     super(props);
   }
@@ -37,8 +37,8 @@ class ICELinkableCircle extends ICECircle implements ICELinkable {
   }
 
   //for Mixins...
-  linkSlots = [];
-  slotRadius = 10;
+  // linkSlots = [];
+  // slotRadius = 10;
 }
 
 //@see https://www.typescriptlang.org/docs/handbook/mixins.html#alternative-pattern

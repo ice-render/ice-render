@@ -6706,17 +6706,9 @@
     var _super = _createSuper(ICELinkableCircle);
 
     function ICELinkableCircle(props) {
-      var _this;
-
       _classCallCheck(this, ICELinkableCircle);
 
-      _this = _super.call(this, props);
-
-      _defineProperty(_assertThisInitialized(_this), "linkSlots", []);
-
-      _defineProperty(_assertThisInitialized(_this), "slotRadius", 10);
-
-      return _this;
+      return _super.call(this, props);
     }
 
     _createClass(ICELinkableCircle, [{
@@ -6735,12 +6727,12 @@
     }, {
       key: "beforeRemoveHandler",
       value: function beforeRemoveHandler(evt) {
-        var _this2 = this;
+        var _this = this;
 
         this.linkSlots.forEach(function (slot) {
           slot.purgeEvents();
 
-          _this2.ice.removeChild(slot);
+          _this.ice.removeChild(slot);
         });
       }
     }, {
@@ -6754,6 +6746,8 @@
 
         this.setSlotPositions();
       } //for Mixins...
+      // linkSlots = [];
+      // slotRadius = 10;
 
     }]);
 
