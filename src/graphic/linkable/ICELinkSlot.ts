@@ -18,17 +18,18 @@ import ICECircle from '../shape/ICECircle';
  * 连接插槽
  *
  * - ICELinkSlot 与 ICELinkHook 是一对组件，用来把两个组件连接起来。
+ * - ICELinkSlot 不能独立存在，它必须附属在某个宿主组件上。逻辑附属，非真实的外观附属。
+ * - ICELinkSlot 总是绘制在全局 canvas 中，它不是任何组件的子节点。
  * - ICELinkSlot 自身不进行任何 transform 。
- * - FIXME:ICELinkSlot 总是绘制在全局 canvas 中，它不是任何组件的子节点。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICELinkSlot extends ICECircle {
-  //宿主组件， ICELinkSlot 不能独立存在，它必须附属在某个宿主组件上。逻辑附属，非真实的外观附属。
+  //宿主组件。
   private _hostComponent;
 
   constructor(props: any = {}) {
-    //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边上。
+    //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边的几何中点上。
     super({ linkable: false, position: 'T', ...props });
   }
 

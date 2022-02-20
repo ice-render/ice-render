@@ -6279,28 +6279,6 @@
    * LICENSE file in the root directory of this source tree.
    *
    */
-  var ICE_CONSTS = {
-    ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
-    BEFORE_RENDER: 'BEFORE_RENDER',
-    AFTER_RENDER: 'AFTER_RENDER',
-    ICE_CLICK: 'ICE_CLICK',
-    BEFORE_ADD: 'BEFORE_ADD',
-    //在 addChild() 方法中的第一行执行
-    AFTER_ADD: 'AFTER_ADD',
-    //在 addChild() 方法返回之前执行
-    BEFORE_REMOVE: 'BEFORE_REMOVE',
-    //在 removeChild() 方法中的第一行执行
-    AFTER_REMOVE: 'AFTER_REMOVE' //在 removeChild() 方法返回之前执行
-
-  };
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
 
   /**
    * FIXME:这里需要重构，TS 官方提供的这个版本只拷贝方法，不拷贝属性
@@ -6428,13 +6406,36 @@
   }(ICEEllipse);
 
   /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  var ICE_CONSTS = {
+    ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
+    BEFORE_RENDER: 'BEFORE_RENDER',
+    AFTER_RENDER: 'AFTER_RENDER',
+    ICE_CLICK: 'ICE_CLICK',
+    BEFORE_ADD: 'BEFORE_ADD',
+    //在 addChild() 方法中的第一行执行
+    AFTER_ADD: 'AFTER_ADD',
+    //在 addChild() 方法返回之前执行
+    BEFORE_REMOVE: 'BEFORE_REMOVE',
+    //在 removeChild() 方法中的第一行执行
+    AFTER_REMOVE: 'AFTER_REMOVE' //在 removeChild() 方法返回之前执行
+
+  };
+
+  /**
    * @class ICELinkSlot
    *
    * 连接插槽
    *
    * - ICELinkSlot 与 ICELinkHook 是一对组件，用来把两个组件连接起来。
+   * - ICELinkSlot 不能独立存在，它必须附属在某个宿主组件上。逻辑附属，非真实的外观附属。
+   * - ICELinkSlot 总是绘制在全局 canvas 中，它不是任何组件的子节点。
    * - ICELinkSlot 自身不进行任何 transform 。
-   * - FIXME:ICELinkSlot 总是绘制在全局 canvas 中，它不是任何组件的子节点。
    *
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
@@ -6444,7 +6445,7 @@
 
     var _super = _createSuper(ICELinkSlot);
 
-    //宿主组件， ICELinkSlot 不能独立存在，它必须附属在某个宿主组件上。逻辑附属，非真实的外观附属。
+    //宿主组件。
     function ICELinkSlot() {
       var _this;
 
@@ -6452,7 +6453,7 @@
 
       _classCallCheck(this, ICELinkSlot);
 
-      //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边上。
+      //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边的几何中点上。
       _this = _super.call(this, _objectSpread2({
         linkable: false,
         position: 'T'
@@ -6594,13 +6595,48 @@
     }
 
     _createClass(ICELinkable, [{
-      key: "createLinkSlots",
-      value:
+      key: "initEvents",
+      value: function initEvents() {
+        _get(_getPrototypeOf(ICELinkable.prototype), "initEvents", this).call(this);
+
+        this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
+      }
+      /**
+       * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
+       * 此事件监听器只会执行一次。
+       * @param evt
+       */
+
+    }, {
+      key: "beforeRemoveHandler",
+      value: function beforeRemoveHandler(evt) {
+        var _this = this;
+
+        this.linkSlots.forEach(function (slot) {
+          slot.purgeEvents();
+
+          _this.ice.removeChild(slot);
+        });
+      }
+    }, {
+      key: "doRender",
+      value: function doRender() {
+        _get(_getPrototypeOf(ICELinkable.prototype), "doRender", this).call(this);
+
+        if (this.state.linkable && !this.linkSlots.length) {
+          this.createLinkSlots();
+        }
+
+        this.setSlotPositions();
+      }
       /**
        * 创建连接插槽，插槽默认分布在组件最小边界盒子的4条边几何中点位置。
        * FIXME:插槽需要添加到显示列表中去。
        */
-      function createLinkSlots() {
+
+    }, {
+      key: "createLinkSlots",
+      value: function createLinkSlots() {
         var slot_1 = new ICELinkSlot({
           display: false,
           transformable: false,
@@ -6658,7 +6694,7 @@
     }, {
       key: "setSlotPositions",
       value: function setSlotPositions() {
-        var _this = this;
+        var _this2 = this;
 
         var box = this.getMinBoundingBox();
         this.linkSlots.forEach(function (slot) {
@@ -6667,23 +6703,23 @@
 
           switch (slot.state.position) {
             case 'T':
-              left = box.center.x - _this.slotRadius;
-              top = box.tl.y - _this.slotRadius;
+              left = box.center.x - _this2.slotRadius;
+              top = box.tl.y - _this2.slotRadius;
               break;
 
             case 'R':
-              left = box.tr.x - _this.slotRadius;
-              top = box.center.y - _this.slotRadius;
+              left = box.tr.x - _this2.slotRadius;
+              top = box.center.y - _this2.slotRadius;
               break;
 
             case 'B':
-              left = box.center.x - _this.slotRadius;
-              top = box.br.y - _this.slotRadius;
+              left = box.center.x - _this2.slotRadius;
+              top = box.br.y - _this2.slotRadius;
               break;
 
             case 'L':
-              left = box.bl.x - _this.slotRadius;
-              top = box.center.y - _this.slotRadius;
+              left = box.bl.x - _this2.slotRadius;
+              top = box.center.y - _this2.slotRadius;
               break;
           }
 
@@ -6715,45 +6751,8 @@
       _defineProperty(_assertThisInitialized(_this), "slotRadius", 10);
 
       return _this;
-    }
+    } //for Mixins...
 
-    _createClass(ICELinkableCircle, [{
-      key: "initEvents",
-      value: function initEvents() {
-        _get(_getPrototypeOf(ICELinkableCircle.prototype), "initEvents", this).call(this);
-
-        this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
-      }
-      /**
-       * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
-       * 此事件监听器只会执行一次。
-       * @param evt
-       */
-
-    }, {
-      key: "beforeRemoveHandler",
-      value: function beforeRemoveHandler(evt) {
-        var _this2 = this;
-
-        this.linkSlots.forEach(function (slot) {
-          slot.purgeEvents();
-
-          _this2.ice.removeChild(slot);
-        });
-      }
-    }, {
-      key: "doRender",
-      value: function doRender() {
-        _get(_getPrototypeOf(ICELinkableCircle.prototype), "doRender", this).call(this);
-
-        if (this.state.linkable && !this.linkSlots.length) {
-          this.createLinkSlots();
-        }
-
-        this.setSlotPositions();
-      } //for Mixins...
-
-    }]);
 
     return ICELinkableCircle;
   }(ICECircle); //@see https://www.typescriptlang.org/docs/handbook/mixins.html#alternative-pattern
@@ -7166,6 +7165,7 @@
    * 连接钩子
    *
    * - ICELinkHook 与 ICELinkSlot 是一对组件，用来把两个组件连接起来
+   * - ICELinkHook 不能独立存在，它的实例放在 @see LineControlPanel 上
    * - ICELinkHook 自身不进行任何 transform 。
    *
    * @author 大漠穷秋<damoqiongqiu@126.com>

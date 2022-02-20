@@ -14,6 +14,7 @@ import ICECircle from '../shape/ICECircle';
  * 连接钩子
  *
  * - ICELinkHook 与 ICELinkSlot 是一对组件，用来把两个组件连接起来
+ * - ICELinkHook 不能独立存在，它的实例放在 @see LineControlPanel 上
  * - ICELinkHook 自身不进行任何 transform 。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
