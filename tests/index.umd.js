@@ -5477,9 +5477,15 @@
    *
    * 模拟 Microsoft Visio 中的折线算法，此实现从 diagramo 改进而来：http://diagramo.com/ 。
    *
-   * 基本特征：
+   * 基本特性：
    *
-   * - 除起始点和结束点之外，其它点会自动插值计算。
+   * - ICEVisioLink 只有 2 个端点，起点和终点。
+   * - 除起始点和终点坐标之外，其它点会自动插值计算。
+   * - ICEVisioLink 只能连接 2 个非线条类的组件。
+   * - 线条互相之间不能连接，在 ICE 引擎中，不能用线条连接线条。
+   * - 每一个可以被连接的组件上都有 4 个插槽（Slot），4 个插槽分布在组件最小边界盒子 4 条边的几何中点位置上。
+   * - ICEVisioLink 的端点在移动时会判断是否与某个插槽发生碰撞，如果与某个插槽发生碰撞， ICEVisioLink 会连接到插槽所在的组件上。
+   * - 同一个插槽（Slot）上可以连 N 根线，Slot 与 ICEVisioLink 之间的关系是 1->N 。
    *
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
@@ -6202,55 +6208,48 @@
       value: function followEndSlot(evt) {
         this.syncPosition(this.endSlot, 'end');
       } //FIXME:以下特性需要测试
-      //FIXME:监听目标组件上的 after-move 事件，同步位置
-      //FIXME:如果 slot 为 null ，清理事件和相关资源
-      //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
+      // - 监听目标组件上的 after-move 事件，同步位置
+      // - 如果 slot 为 null ，清理事件和相关资源
+      // - 设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
 
     }, {
-      key: "setStartSlot",
-      value: function setStartSlot(slot) {
-        //如果当前已经存在连接关系，首先解除
-        if (this.startSlot) {
-          this.startSlot.parentNode.off('after-move', this.followStartSlot, this);
-        }
+      key: "setSlot",
+      value: function setSlot(slot, position) {
+        if (!slot || !position) return; //总是先尝试解除连接关系，然后再重新尝试连接
 
-        this.startSlot = slot;
+        this.deleteSlot(slot, position);
+        this.setState({
+          draggable: false
+        });
 
-        if (this.startSlot) {
-          this.setState({
-            draggable: false
-          });
+        if (position === 'start') {
+          this.startSlot = slot;
           this.syncPosition(this.startSlot, 'start');
           this.startSlot.parentNode.on('after-move', this.followStartSlot, this);
-        } else {
-          this.startSlot.parentNode.off('after-move', this.followStartSlot, this);
-          this.setState({
-            draggable: true
-          });
-        }
-      } //FIXME:以下特性需要测试
-      //FIXME:监听目标组件上的 after-move 事件，同步位置
-      //FIXME:如果 slot 为 null ，清理事件和相关资源
-      //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
-
-    }, {
-      key: "setEndSlot",
-      value: function setEndSlot(slot) {
-        //如果当前已经存在连接关系，首先解除
-        if (this.endSlot) {
-          this.endSlot.parentNode.off('after-move', this.followEndSlot, this);
-        }
-
-        this.endSlot = slot;
-
-        if (this.endSlot) {
-          this.setState({
-            draggable: false
-          });
+        } else if (position === 'end') {
+          this.endSlot = slot;
           this.syncPosition(this.endSlot, 'end');
           this.endSlot.parentNode.on('after-move', this.followEndSlot, this);
-        } else {
+        }
+      }
+      /**
+       * 解除连线与组件之间的连接关系。
+       * @param slot
+       */
+
+    }, {
+      key: "deleteSlot",
+      value: function deleteSlot(slot, position) {
+        if (position === 'start' && this.startSlot === slot) {
+          this.startSlot.parentNode.off('after-move', this.followStartSlot, this);
+          this.startSlot = null;
+        } else if (position === 'end' && this.endSlot === slot) {
           this.endSlot.parentNode.off('after-move', this.followEndSlot, this);
+          this.endSlot = null;
+        } //如果两端都没有连接的组件，连接线自身变成可拖动
+
+
+        if (!this.startSlot && !this.endSlot) {
           this.setState({
             draggable: true
           });
@@ -6633,10 +6632,7 @@
     _createClass(ICELinkSlot, [{
       key: "initEvents",
       value: function initEvents() {
-        _get(_getPrototypeOf(ICELinkSlot.prototype), "initEvents", this).call(this); // this.on('mouseenter', this.mouseEnterHandler, this);
-        // this.on('mouseleave', this.mouseLeaveHandler, this);
-        // this.on('mouseup', this.mosueUpHandler, this);
-        //由于 ICELinkSlot 默认不可见，实例的 display 为 false ，所以不会触发 AFTER_RENDER 事件，这里只能监听 BEFORE_RENDER
+        _get(_getPrototypeOf(ICELinkSlot.prototype), "initEvents", this).call(this); //由于 ICELinkSlot 默认不可见，实例的 display 为 false ，所以不会触发 AFTER_RENDER 事件，这里只能监听 BEFORE_RENDER
         //这里不能直接访问 this.evtBus ，因为对象在进入到渲染阶段时才会被设置 evtBus 实例，在 initEvents() 被调用时 this.evtBus 为空。 @see ICE.evtBus
 
 
@@ -6657,6 +6653,11 @@
         this.evtBus.off('hook-mousemove', this.hookMouseMoveHandler, this);
         this.evtBus.off('hook-mouseup', this.hookMouseUpHandler, this);
       }
+      /**
+       * 监听 EventBus 上连接钩子鼠标按下事件
+       * @param evt
+       */
+
     }, {
       key: "hookMouseDownHandler",
       value: function hookMouseDownHandler(evt) {
@@ -6665,6 +6666,11 @@
           display: true
         });
       }
+      /**
+       * 监听 EventBus 上连接钩子鼠标移动事件
+       * @param evt
+       */
+
     }, {
       key: "hookMouseMoveHandler",
       value: function hookMouseMoveHandler(evt) {
@@ -6686,24 +6692,28 @@
           });
         }
       }
+      /**
+       * 监听 EventBus 上连接钩子鼠标弹起事件
+       * @param evt
+       */
+
     }, {
       key: "hookMouseUpHandler",
       value: function hookMouseUpHandler(evt) {
         var linkHook = evt.target;
+        var linkLine = linkHook.parentNode.targetComponent;
+        var position = linkHook.state.position;
 
         if (this.isIntersectWithHook(linkHook)) {
-          // 如果 hook 与 slot 重叠，建立连接关系
-          // 把连线上的起点或者终点设置为 ICELinkSlot 对应的实例
+          // 如果 hook 与 slot 位置重叠，让连接线与 slot 所在的组件建立连接关系
+          // 把连线上的起点或者终点坐标设置为当前发生碰撞的 ICELinkSlot 的坐标
           // ICELinkHook 实例在 LinkControlPanel 中，全局只有2个实例，所有连接线都共享同一个 LinkControlPanel 实例。
-          var linkLine = linkHook.parentNode.targetComponent;
-          var position = linkHook.state.position;
+          linkLine.setSlot(this, position);
+        } else {
+          //hook 没有与当前的 slot 重叠，让 hook 所在的连接线解除与当前 slot 之间的连接关系
+          linkLine.deleteSlot(this, position);
+        } //恢复插槽默认的外观
 
-          if (position === 'start') {
-            linkLine.setStartSlot(this);
-          } else if (position === 'end') {
-            linkLine.setEndSlot(this);
-          }
-        }
 
         var style = merge_1({}, this.state._cacheStyle);
         this.setState({
@@ -7267,7 +7277,7 @@
       value: function mosueUpHandler(evt) {
         this.evtBus.trigger('hook-mouseup', new ICEEvent({
           target: this
-        })); //FIXME:当 hook 不与任何 slot 重叠时，解除关联关系
+        }));
       }
     }, {
       key: "resizeEvtHandler",

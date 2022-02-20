@@ -31,10 +31,6 @@ class ICELinkSlot extends ICECircle {
   protected initEvents() {
     super.initEvents();
 
-    // this.on('mouseenter', this.mouseEnterHandler, this);
-    // this.on('mouseleave', this.mouseLeaveHandler, this);
-    // this.on('mouseup', this.mosueUpHandler, this);
-
     //由于 ICELinkSlot 默认不可见，实例的 display 为 false ，所以不会触发 AFTER_RENDER 事件，这里只能监听 BEFORE_RENDER
     //这里不能直接访问 this.evtBus ，因为对象在进入到渲染阶段时才会被设置 evtBus 实例，在 initEvents() 被调用时 this.evtBus 为空。 @see ICE.evtBus
     this.once(ICE_CONSTS.BEFORE_RENDER, this.afterAddHandler, this);
@@ -53,6 +49,10 @@ class ICELinkSlot extends ICECircle {
     this.evtBus.off('hook-mouseup', this.hookMouseUpHandler, this);
   }
 
+  /**
+   * 监听 EventBus 上连接钩子鼠标按下事件
+   * @param evt
+   */
   protected hookMouseDownHandler(evt: ICEEvent) {
     this.state._cacheStyle = merge({}, this.state.style);
     this.setState({
@@ -60,6 +60,10 @@ class ICELinkSlot extends ICECircle {
     });
   }
 
+  /**
+   * 监听 EventBus 上连接钩子鼠标移动事件
+   * @param evt
+   */
   protected hookMouseMoveHandler(evt: ICEEvent) {
     let linkHook = evt.target;
     if (this.isIntersectWithHook(linkHook)) {
@@ -79,21 +83,25 @@ class ICELinkSlot extends ICECircle {
     }
   }
 
+  /**
+   * 监听 EventBus 上连接钩子鼠标弹起事件
+   * @param evt
+   */
   protected hookMouseUpHandler(evt: ICEEvent) {
     let linkHook = evt.target;
+    let linkLine = linkHook.parentNode.targetComponent;
+    let position = linkHook.state.position;
     if (this.isIntersectWithHook(linkHook)) {
-      // 如果 hook 与 slot 重叠，建立连接关系
-      // 把连线上的起点或者终点设置为 ICELinkSlot 对应的实例
+      // 如果 hook 与 slot 位置重叠，让连接线与 slot 所在的组件建立连接关系
+      // 把连线上的起点或者终点坐标设置为当前发生碰撞的 ICELinkSlot 的坐标
       // ICELinkHook 实例在 LinkControlPanel 中，全局只有2个实例，所有连接线都共享同一个 LinkControlPanel 实例。
-      let linkLine = linkHook.parentNode.targetComponent;
-      let position = linkHook.state.position;
-      if (position === 'start') {
-        linkLine.setStartSlot(this);
-      } else if (position === 'end') {
-        linkLine.setEndSlot(this);
-      }
+      linkLine.setSlot(this, position);
+    } else {
+      //hook 没有与当前的 slot 重叠，让 hook 所在的连接线解除与当前 slot 之间的连接关系
+      linkLine.deleteSlot(this, position);
     }
 
+    //恢复插槽默认的外观
     let style = merge({}, this.state._cacheStyle);
     this.setState({
       display: false,

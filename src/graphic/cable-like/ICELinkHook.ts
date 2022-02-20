@@ -50,7 +50,7 @@ export default class ICELinkHook extends ICECircle {
    *
    * @param evt
    */
-   protected mosueMoveHandler(evt: ICEEvent) {
+  protected mosueMoveHandler(evt: ICEEvent) {
     this.evtBus.trigger('hook-mousemove', new ICEEvent({ target: this }));
   }
   /**
@@ -62,7 +62,6 @@ export default class ICELinkHook extends ICECircle {
    */
   protected mosueUpHandler(evt: ICEEvent) {
     this.evtBus.trigger('hook-mouseup', new ICEEvent({ target: this }));
-    //FIXME:当 hook 不与任何 slot 重叠时，解除关联关系
   }
 
   protected resizeEvtHandler(evt) {

@@ -20,9 +20,15 @@ import ICEPolyLine from '../line/ICEPolyLine';
  *
  * 模拟 Microsoft Visio 中的折线算法，此实现从 diagramo 改进而来：http://diagramo.com/ 。
  *
- * 基本特征：
+ * 基本特性：
  *
- * - 除起始点和结束点之外，其它点会自动插值计算。
+ * - ICEVisioLink 只有 2 个端点，起点和终点。
+ * - 除起始点和终点坐标之外，其它点会自动插值计算。
+ * - ICEVisioLink 只能连接 2 个非线条类的组件。
+ * - 线条互相之间不能连接，在 ICE 引擎中，不能用线条连接线条。
+ * - 每一个可以被连接的组件上都有 4 个插槽（Slot），4 个插槽分布在组件最小边界盒子 4 条边的几何中点位置上。
+ * - ICEVisioLink 的端点在移动时会判断是否与某个插槽发生碰撞，如果与某个插槽发生碰撞， ICEVisioLink 会连接到插槽所在的组件上。
+ * - 同一个插槽（Slot）上可以连 N 根线，Slot 与 ICEVisioLink 之间的关系是 1->N 。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
@@ -665,49 +671,45 @@ export default class ICEVisioLink extends ICEPolyLine {
   }
 
   //FIXME:以下特性需要测试
-  //FIXME:监听目标组件上的 after-move 事件，同步位置
-  //FIXME:如果 slot 为 null ，清理事件和相关资源
-  //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
-  public setStartSlot(slot) {
-    //如果当前已经存在连接关系，首先解除
-    if (this.startSlot) {
-      this.startSlot.parentNode.off('after-move', this.followStartSlot, this);
-    }
+  // - 监听目标组件上的 after-move 事件，同步位置
+  // - 如果 slot 为 null ，清理事件和相关资源
+  // - 设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
+  public setSlot(slot, position) {
+    if (!slot || !position) return;
 
-    this.startSlot = slot;
-    if (this.startSlot) {
-      this.setState({
-        draggable: false,
-      });
+    //总是先尝试解除连接关系，然后再重新尝试连接
+    this.deleteSlot(slot, position);
+
+    this.setState({
+      draggable: false,
+    });
+
+    if (position === 'start') {
+      this.startSlot = slot;
       this.syncPosition(this.startSlot, 'start');
       this.startSlot.parentNode.on('after-move', this.followStartSlot, this);
-    } else {
-      this.startSlot.parentNode.off('after-move', this.followStartSlot, this);
-      this.setState({
-        draggable: true,
-      });
+    } else if (position === 'end') {
+      this.endSlot = slot;
+      this.syncPosition(this.endSlot, 'end');
+      this.endSlot.parentNode.on('after-move', this.followEndSlot, this);
     }
   }
 
-  //FIXME:以下特性需要测试
-  //FIXME:监听目标组件上的 after-move 事件，同步位置
-  //FIXME:如果 slot 为 null ，清理事件和相关资源
-  //FIXME:设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
-  public setEndSlot(slot) {
-    //如果当前已经存在连接关系，首先解除
-    if (this.endSlot) {
+  /**
+   * 解除连线与组件之间的连接关系。
+   * @param slot
+   */
+  public deleteSlot(slot, position) {
+    if (position === 'start' && this.startSlot === slot) {
+      this.startSlot.parentNode.off('after-move', this.followStartSlot, this);
+      this.startSlot = null;
+    } else if (position === 'end' && this.endSlot === slot) {
       this.endSlot.parentNode.off('after-move', this.followEndSlot, this);
+      this.endSlot = null;
     }
 
-    this.endSlot = slot;
-    if (this.endSlot) {
-      this.setState({
-        draggable: false,
-      });
-      this.syncPosition(this.endSlot, 'end');
-      this.endSlot.parentNode.on('after-move', this.followEndSlot, this);
-    } else {
-      this.endSlot.parentNode.off('after-move', this.followEndSlot, this);
+    //如果两端都没有连接的组件，连接线自身变成可拖动
+    if (!this.startSlot && !this.endSlot) {
       this.setState({
         draggable: true,
       });
