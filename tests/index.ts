@@ -7,6 +7,7 @@ import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
 import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
 import ICELinkableRect from '../src/graphic/linkable/ICELinkableRect';
 import ICECircle from '../src/graphic/shape/ICECircle';
+// import ICEIsogon from '../src/graphic/shape/ICEIsogon';
 import ICE from '../src/ICE';
 // import ICEEllipse from /src/graphic/text/ICEText';
 
@@ -135,17 +136,17 @@ ice.addChild(linkableCircle);
 // });
 // ice.addChild(img);
 
-//正三角形
+// //正三角形
 // let isogon3 = new ICEIsogon({
 //   left: 600,
-//   top: 100,
+//   top: 300,
 //   radius: 50,
 //   edges: 3,
 //   transform: {
 //     // translate: [10, -10],
-//     scale: [1.5, 1.5],
+//     // scale: [1.5, 1.5],
 //     // skew: [50, 0],
-//     rotate: 45,
+//     // rotate: 45,
 //   },
 // });
 // ice.addChild(isogon3);
@@ -153,11 +154,20 @@ ice.addChild(linkableCircle);
 // //正五边形
 // let isogon5 = new ICEIsogon({
 //   left: 500,
-//   top: 0,
+//   top: 400,
 //   radius: 50,
 //   edges: 5,
 // });
 // ice.addChild(isogon5);
+
+// //正6边形
+// let isogon6 = new ICEIsogon({
+//   left: 650,
+//   top: 400,
+//   radius: 50,
+//   edges: 6,
+// });
+// ice.addChild(isogon6);
 
 // // 正十五边形
 // let isogon15 = new ICEIsogon({
