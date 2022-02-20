@@ -7079,14 +7079,6 @@
   };
 
   /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-
-  /**
    * @class DDManager
    *
    *  拖拽管理器
@@ -7114,6 +7106,11 @@
       key: "mouseDownHandler",
       value: function mouseDownHandler(evt) {
         var component = evt.target;
+
+        if (!(component instanceof ICEBaseComponent)) {
+          console.warn('DDManager: 点击在 canvas 画布上，没有点击任何图形。');
+          return;
+        }
 
         if (!component.state.interactive || !component.state.draggable) {
           return;
@@ -8299,6 +8296,11 @@
       key: "mouseDownHandler",
       value: function mouseDownHandler(evt) {
         var component = evt.target;
+
+        if (!(component instanceof ICEBaseComponent)) {
+          console.warn('ICEControlPanelManager: 点击在 canvas 画布上，没有点击任何图形。');
+          return;
+        }
 
         if (!component.state.interactive || !component.state.transformable) {
           //TODO:隐藏 ICEControlPanel

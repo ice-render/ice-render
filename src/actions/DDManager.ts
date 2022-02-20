@@ -6,6 +6,7 @@
  *
  */
 import ICEEvent from '../event/ICEEvent';
+import ICEBaseComponent from '../graphic/ICEBaseComponent';
 import ICE from '../ICE';
 
 /**
@@ -30,6 +31,11 @@ export default class DDManager {
 
   private mouseDownHandler(evt: ICEEvent) {
     let component = evt.target;
+
+    if (!(component instanceof ICEBaseComponent)) {
+      console.warn('DDManager: 点击在 canvas 画布上，没有点击任何图形。');
+      return;
+    }
 
     if (!component.state.interactive || !component.state.draggable) {
       return;
