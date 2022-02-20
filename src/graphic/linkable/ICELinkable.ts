@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import ICEEvent from '../../event/ICEEvent';
+import { ICE_CONSTS } from '../../ICE_CONSTS';
 import ICELinkSlot from './ICELinkSlot';
 
 /**
@@ -13,6 +15,31 @@ import ICELinkSlot from './ICELinkSlot';
 export default class ICELinkable {
   linkSlots = [];
   slotRadius = 10;
+
+  initEvents(): void {
+    super.initEvents();
+    this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
+  }
+
+  /**
+   * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
+   * 此事件监听器只会执行一次。
+   * @param evt
+   */
+  beforeRemoveHandler(evt: ICEEvent) {
+    this.linkSlots.forEach((slot) => {
+      slot.purgeEvents();
+      this.ice.removeChild(slot);
+    });
+  }
+
+  doRender(): void {
+    super.doRender();
+    if (this.state.linkable && !this.linkSlots.length) {
+      this.createLinkSlots();
+    }
+    this.setSlotPositions();
+  }
 
   /**
    * 创建连接插槽，插槽默认分布在组件最小边界盒子的4条边几何中点位置。
