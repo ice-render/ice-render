@@ -6,7 +6,6 @@ import { terser } from 'rollup-plugin-terser';
 import pkg from './package.json';
 const env = process.env.NODE_ENV;
 const extensions = ['.js', '.jsx', '.ts', '.tsx'];
-
 //TODO:make lodash external library.
 const CommonPlugins = [
   json(),
@@ -18,7 +17,12 @@ const CommonPlugins = [
   }),
   env === 'production' && terser(),
 ].filter(Boolean);
-export default [
+
+/**
+ * support config Intellisense
+ * @type {import('rollup').RollupOptions[]}
+ */
+const configs = [
   {
     input: 'src/index.ts',
     external: [...Object.keys(pkg.dependencies || {}), ...Object.keys(pkg.peerDependencies || {})],
@@ -58,3 +62,4 @@ export default [
     plugins: CommonPlugins,
   },
 ];
+export default configs;
