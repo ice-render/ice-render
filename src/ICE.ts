@@ -105,9 +105,11 @@ class ICE {
   public addChild(component) {
     component.trigger(ICE_CONSTS.BEFORE_ADD);
 
+    component.ice = this;
     component.root = this.root;
     component.ctx = this.ctx;
     component.evtBus = this.evtBus;
+
     this.displayMap.set(component.props.id, component);
 
     if (Object.keys(component.props.animations).length) {
@@ -126,10 +128,12 @@ class ICE {
   public removeChild(component) {
     component.trigger(ICE_CONSTS.BEFORE_REMOVE);
 
-    this.displayMap.delete(component.props.id);
+    component.ice = null;
     component.ctx = null;
     component.root = null;
     component.evtBus = null;
+
+    this.displayMap.delete(component.props.id);
 
     //FIXME:如果被移除的是容器型组件，先移除并清理其子节点，然后再移除容器自身
     //FIXME:立即停止组件上的所有动画效果
