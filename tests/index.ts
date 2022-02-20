@@ -6,8 +6,8 @@
 import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
 import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
 import ICELinkableRect from '../src/graphic/linkable/ICELinkableRect';
+import ICECircle from '../src/graphic/shape/ICECircle';
 import ICE from '../src/ICE';
-// import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEEllipse from /src/graphic/text/ICEText';
 
 let ice = new ICE().init('canvas-1');
@@ -342,12 +342,12 @@ ice.addChild(linkableCircle);
 // });
 // ice.addChild(ellipse);
 
-// let circle2 = new ICECircle({
-//   left: 400,
-//   top: 10,
-//   radius: 50,
-// });
-// ice.addChild(circle2);
+let circle2 = new ICECircle({
+  left: 100,
+  top: 200,
+  radius: 50,
+});
+ice.addChild(circle2);
 
 // let group2 = new ICEGroup({
 //   left: 20,
