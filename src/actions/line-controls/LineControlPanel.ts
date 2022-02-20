@@ -34,7 +34,7 @@ export default class LineControlPanel extends ICEControlPanel {
   private endControl: ICELinkHook;
 
   constructor(props) {
-    super({ ...props, zIndex: Number.MAX_VALUE });
+    super({ ...props, zIndex: Number.MAX_VALUE, showMinBoundingBox: true, showMaxBoundingBox: true });
     this.initControls();
   }
 
