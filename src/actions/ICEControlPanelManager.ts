@@ -6,6 +6,7 @@
  *
  */
 import ICEEvent from '../event/ICEEvent';
+import ICEBaseComponent from '../graphic/ICEBaseComponent';
 import ICEPolyLine from '../graphic/line/ICEPolyLine';
 import ICE from '../ICE';
 import ICEControlPanel from './ICEControlPanel';
@@ -69,6 +70,12 @@ class ICEControlPanelManager {
   //FIXME:ICEControlPanel 需要根据情况决定自己的外观和状态。
   private mouseDownHandler(evt: ICEEvent) {
     let component = evt.target;
+
+    if (!(component instanceof ICEBaseComponent)) {
+      console.warn('ICEControlPanelManager: 点击在 canvas 画布上，没有点击任何图形。');
+      return;
+    }
+
     if (!component.state.interactive || !component.state.transformable) {
       //TODO:隐藏 ICEControlPanel
       //FIXME:需要清理事件
