@@ -8,25 +8,11 @@ import ICELinkable from './ICELinkable';
 class ICELinkableCircle extends ICECircle implements ICELinkable {
   constructor(props) {
     super(props);
-    this.createLinkSlots();
   }
 
   protected initEvents(): void {
     super.initEvents();
-
-    this.once(ICE_CONSTS.BEFORE_RENDER, this.beforeRenderHandler, this);
     this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
-  }
-
-  /**
-   * 可连接的组件在渲染之前，会自动向 ice 实例里面添加连接插槽。
-   * 此事件监听器只会执行一次。
-   * @param evt
-   */
-  private beforeRenderHandler(evt: ICEEvent) {
-    this.linkSlots.forEach((slot) => {
-      this.ice.addChild(slot);
-    });
   }
 
   /**
@@ -43,6 +29,9 @@ class ICELinkableCircle extends ICECircle implements ICELinkable {
 
   protected doRender(): void {
     super.doRender();
+    if (this.state.linkable && !this.linkSlots.length) {
+      this.createLinkSlots();
+    }
     this.setSlotPositions();
   }
 

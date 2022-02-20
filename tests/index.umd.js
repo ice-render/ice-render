@@ -6613,6 +6613,7 @@
           }
         });
         slot_1.hostComponent = this;
+        this.ice.addChild(slot_1);
         var slot_2 = new ICELinkSlot({
           display: false,
           transformable: false,
@@ -6625,6 +6626,7 @@
           }
         });
         slot_2.hostComponent = this;
+        this.ice.addChild(slot_2);
         var slot_3 = new ICELinkSlot({
           display: false,
           transformable: false,
@@ -6637,6 +6639,7 @@
           }
         });
         slot_3.hostComponent = this;
+        this.ice.addChild(slot_3);
         var slot_4 = new ICELinkSlot({
           display: false,
           transformable: false,
@@ -6649,6 +6652,7 @@
           }
         });
         slot_4.hostComponent = this;
+        this.ice.addChild(slot_4);
         this.linkSlots = [slot_1, slot_2, slot_3, slot_4];
       }
     }, {
@@ -6710,8 +6714,6 @@
 
       _defineProperty(_assertThisInitialized(_this), "slotRadius", 10);
 
-      _this.createLinkSlots();
-
       return _this;
     }
 
@@ -6720,23 +6722,7 @@
       value: function initEvents() {
         _get(_getPrototypeOf(ICELinkableCircle.prototype), "initEvents", this).call(this);
 
-        this.once(ICE_CONSTS.BEFORE_RENDER, this.beforeRenderHandler, this);
         this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
-      }
-      /**
-       * 可连接的组件在渲染之前，会自动向 ice 实例里面添加连接插槽。
-       * 此事件监听器只会执行一次。
-       * @param evt
-       */
-
-    }, {
-      key: "beforeRenderHandler",
-      value: function beforeRenderHandler(evt) {
-        var _this2 = this;
-
-        this.linkSlots.forEach(function (slot) {
-          _this2.ice.addChild(slot);
-        });
       }
       /**
        * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
@@ -6747,18 +6733,22 @@
     }, {
       key: "beforeRemoveHandler",
       value: function beforeRemoveHandler(evt) {
-        var _this3 = this;
+        var _this2 = this;
 
         this.linkSlots.forEach(function (slot) {
           slot.purgeEvents();
 
-          _this3.ice.removeChild(slot);
+          _this2.ice.removeChild(slot);
         });
       }
     }, {
       key: "doRender",
       value: function doRender() {
         _get(_getPrototypeOf(ICELinkableCircle.prototype), "doRender", this).call(this);
+
+        if (this.state.linkable && !this.linkSlots.length) {
+          this.createLinkSlots();
+        }
 
         this.setSlotPositions();
       } //for Mixins...
