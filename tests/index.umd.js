@@ -4309,8 +4309,7 @@
      *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。
      *   draggable:true,                              //是否可以拖动
      *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
-     *   linkable:true,                               //是否可以用连接线进行连接，带有宽高的组件都可以用连接线进行连接，但是连线自身默认不能互相连接。linkable 为 true 时，会在组件的最小包围盒四边创建用于连线的插槽。
-     *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable, linkable 都无效 TODO:动画运行过程中不允许选中，不能进行交互？？？
+     *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable TODO:动画运行过程中不允许选中，不能进行交互？？？
      *   showMinBoundingBox:true,                     //是否显示最小包围盒，开发时打开，主要用于 debug
      *   showMaxBoundingBox:true,                     //是否显示最大包围盒，开发时打开，主要用于 debug
      * }
@@ -4371,7 +4370,6 @@
         display: true,
         draggable: true,
         transformable: true,
-        linkable: true,
         interactive: true,
         showMinBoundingBox: true,
         showMaxBoundingBox: true
@@ -5433,7 +5431,6 @@
         //dots 是内部计算使用的属性，外部传参用 points 属性
         //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
         var param = merge_1({
-          linkable: false,
           lineType: 'solid',
           lineWidth: 2,
           arrow: 'none',
@@ -5520,9 +5517,7 @@
         props.endPoint = [10, 10];
       }
 
-      props.points = [props.startPoint, props.endPoint];
-      props.linkable = false; //连线之间不能互相连接，在 ICE 引擎中，用线条把线条自身连接起来是没有意义的。
-      //escapeDistance 疏散距离，是4个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
+      props.points = [props.startPoint, props.endPoint]; //escapeDistance 疏散距离，是4个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
       //escapeDistance 不是固定值，会根据 startSlot 和 endSlot 宿主组件的尺寸动态计算和调整，这样可以保证连接线不与相连接的组件产生重叠。
 
       props = _objectSpread2({
@@ -6516,7 +6511,6 @@
 
       //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边的几何中点上。
       _this = _super.call(this, _objectSpread2({
-        linkable: false,
         position: 'T'
       }, props));
 
@@ -6665,7 +6659,9 @@
           args[_key] = arguments[_key];
         }
 
-        _this = _super.call(this, args && args.length ? args[0] : {});
+        var param = args && args.length ? args[0] : {};
+        param.linkable = true;
+        _this = _super.call(this, param);
 
         _defineProperty(_assertThisInitialized(_this), "linkSlots", []);
 
@@ -7158,9 +7154,7 @@
 
       _classCallCheck(this, ICEControlPanel);
 
-      _this = _super.call(this, _objectSpread2({
-        linkable: false
-      }, props));
+      _this = _super.call(this, props);
 
       _defineProperty(_assertThisInitialized(_this), "_targetComponent", void 0);
 
@@ -7210,9 +7204,7 @@
 
       _classCallCheck(this, ICELinkHook);
 
-      return _super.call(this, _objectSpread2({
-        linkable: false
-      }, props));
+      return _super.call(this, props);
     }
 
     _createClass(ICELinkHook, [{
@@ -7533,7 +7525,6 @@
       _classCallCheck(this, ResizeControl);
 
       _this = _super.call(this, _objectSpread2({
-        linkable: false,
         position: 'l',
         direction: 'x',
         quadrant: 1

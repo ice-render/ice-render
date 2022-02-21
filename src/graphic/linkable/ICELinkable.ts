@@ -26,7 +26,9 @@ function ICELinkable<T extends Constructor<ICEBaseComponent>>(Base: T) {
     private slotRadius = 10;
 
     constructor(...args: any[]) {
-      super(args && args.length ? args[0] : {});
+      let param = args && args.length ? args[0] : {};
+      param.linkable = true;
+      super(param);
     }
 
     protected initEvents(): void {

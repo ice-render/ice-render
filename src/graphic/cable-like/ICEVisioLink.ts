@@ -48,7 +48,6 @@ export default class ICEVisioLink extends ICEPolyLine {
       props.endPoint = [10, 10];
     }
     props.points = [props.startPoint, props.endPoint];
-    props.linkable = false; //连线之间不能互相连接，在 ICE 引擎中，用线条把线条自身连接起来是没有意义的。
 
     //escapeDistance 疏散距离，是4个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
     //escapeDistance 不是固定值，会根据 startSlot 和 endSlot 宿主组件的尺寸动态计算和调整，这样可以保证连接线不与相连接的组件产生重叠。

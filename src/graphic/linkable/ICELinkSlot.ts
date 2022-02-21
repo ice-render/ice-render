@@ -30,7 +30,7 @@ class ICELinkSlot extends ICECircle {
 
   constructor(props: any = {}) {
     //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边的几何中点上。
-    super({ linkable: false, position: 'T', ...props });
+    super({ position: 'T', ...props });
   }
 
   protected initEvents() {
