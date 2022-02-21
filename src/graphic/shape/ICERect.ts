@@ -6,7 +6,6 @@
  *
  */
 import ICEDotPath from '../ICEDotPath';
-import ICELinkable from '../linkable/ICELinkable';
 
 /**
  * @class ICERect 矩形
@@ -34,6 +33,4 @@ class ICERect extends ICEDotPath {
   }
 }
 
-const ICELinkableRect = ICELinkable(ICERect);
-
-export default ICELinkableRect;
+export default ICERect;
