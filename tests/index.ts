@@ -4,13 +4,11 @@
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
 // import ICECablelikeVisioLink from '../src/graphic/cable-like/ICECablelikeVisioLink';
 import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
-import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
+import { ICELinkableCircle, ICELinkableEllipse, ICELinkableRect } from '../src/graphic/linkable/linkable-components';
 // import ICEEllipse from /src/graphic/text/ICEText';
 import ICECircle from '../src/graphic/shape/ICECircle';
-import ICELinkableRect from '../src/graphic/shape/ICERect';
 // import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEIsogon from '../src/graphic/shape/ICEIsogon';
-// import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
 // import ICERose from '../src/graphic/shape/ICERose';
 import ICE from '../src/ICE';
 
@@ -112,7 +110,6 @@ let linkCircle3 = new ICELinkableCircle({
   radius: 50,
 });
 ice.addChild(linkCircle3);
-
 console.log(linkCircle3 instanceof ICECircle);
 
 let linkCircle4 = new ICELinkableCircle({
@@ -121,7 +118,6 @@ let linkCircle4 = new ICELinkableCircle({
   radius: 50,
 });
 ice.addChild(linkCircle4);
-
 console.log(linkCircle4 instanceof ICECircle);
 
 let linkRect1 = new ICELinkableRect({
@@ -136,6 +132,12 @@ let linkRect1 = new ICELinkableRect({
   },
 });
 ice.addChild(linkRect1);
+
+let linkEllipse1 = new ICELinkableEllipse({
+  left: 200,
+  top: 400,
+});
+ice.addChild(linkEllipse1);
 
 // let linkableRect = new ICELinkableRect({
 //   left: 100,

@@ -6375,6 +6375,54 @@
   }(ICEEllipse);
 
   /**
+   * @class ICERect 矩形
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  var ICERect = /*#__PURE__*/function (_ICEDotPath) {
+    _inherits(ICERect, _ICEDotPath);
+
+    var _super = _createSuper(ICERect);
+
+    function ICERect() {
+      var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
+      _classCallCheck(this, ICERect);
+
+      return _super.call(this, _objectSpread2({
+        width: 10,
+        height: 10
+      }, props));
+    }
+    /**
+     * 计算路径上的关键点:
+     * - 默认的坐标原点是 (0,0) 位置。
+     * - 这些点没有经过 transform 矩阵变换。
+     * - this.calcOriginalDimension() 会依赖此方法，在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+     * @returns
+     */
+
+
+    _createClass(ICERect, [{
+      key: "calcDots",
+      value: function calcDots() {
+        var point1 = new DOMPoint(0, 0); //top-left point
+
+        var point2 = new DOMPoint(this.state.width, 0); //top-right point
+
+        var point3 = new DOMPoint(this.state.width, this.state.height); //bottom-right point
+
+        var point4 = new DOMPoint(0, this.state.height); //bottom-left point
+
+        this.state.dots = [point1, point2, point3, point4];
+        return this.state.dots;
+      }
+    }]);
+
+    return ICERect;
+  }(ICEDotPath);
+
+  /**
    * Copyright (c) 2022 大漠穷秋.
    *
    * This source code is licensed under the MIT license found in the
@@ -6723,60 +6771,24 @@
   }
 
   /**
-   * 无法在 ICECircle 类内部直接使用 ICELinkable 来构造可连接的圆，因为 ICESlot 是 ICECircle 的子类，rollup 检测到循环依赖之后编译会报错。
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
    */
+  /**
+   *
+   * 用 ICELinkable 装饰并导出所有可连接的组件。
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   * @see https://www.typescriptlang.org/docs/handbook/mixins.html#constrained-mixins
+   *
+   */
+
+  var ICELinkableRect = ICELinkable(ICERect); //不能在 ICECircle 类内部直接使用 ICELinkable 来构造可连接的圆，因为 ICESlot 是 ICECircle 的子类，rollup 检测到循环依赖之后编译会报错。
 
   var ICELinkableCircle = ICELinkable(ICECircle);
-
-  /**
-   * @class ICERect 矩形
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  var ICERect = /*#__PURE__*/function (_ICEDotPath) {
-    _inherits(ICERect, _ICEDotPath);
-
-    var _super = _createSuper(ICERect);
-
-    function ICERect() {
-      var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-
-      _classCallCheck(this, ICERect);
-
-      return _super.call(this, _objectSpread2({
-        width: 10,
-        height: 10
-      }, props));
-    }
-    /**
-     * 计算路径上的关键点:
-     * - 默认的坐标原点是 (0,0) 位置。
-     * - 这些点没有经过 transform 矩阵变换。
-     * - this.calcOriginalDimension() 会依赖此方法，在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
-     * @returns
-     */
-
-
-    _createClass(ICERect, [{
-      key: "calcDots",
-      value: function calcDots() {
-        var point1 = new DOMPoint(0, 0); //top-left point
-
-        var point2 = new DOMPoint(this.state.width, 0); //top-right point
-
-        var point3 = new DOMPoint(this.state.width, this.state.height); //bottom-right point
-
-        var point4 = new DOMPoint(0, this.state.height); //bottom-left point
-
-        this.state.dots = [point1, point2, point3, point4];
-        return this.state.dots;
-      }
-    }]);
-
-    return ICERect;
-  }(ICEDotPath);
-
-  var ICELinkableRect = ICELinkable(ICERect);
+  var ICELinkableEllipse = ICELinkable(ICEEllipse);
 
   /** `Object#toString` result references. */
   var stringTag$1 = '[object String]';
@@ -7080,7 +7092,7 @@
     }]);
 
     return ICEGroup;
-  }(ICELinkableRect);
+  }(ICERect);
 
   /**
    * @class ICEControlPanel
@@ -7705,7 +7717,7 @@
     }]);
 
     return ResizeControl;
-  }(ICELinkableRect);
+  }(ICERect);
 
   /**
    * @class RotateControl 旋转操作手柄
@@ -9012,7 +9024,6 @@
     radius: 50,
   });
   ice.addChild(linkCircle3);
-
   console.log(linkCircle3 instanceof ICECircle);
 
   let linkCircle4 = new ICELinkableCircle({
@@ -9021,7 +9032,6 @@
     radius: 50,
   });
   ice.addChild(linkCircle4);
-
   console.log(linkCircle4 instanceof ICECircle);
 
   let linkRect1 = new ICELinkableRect({
@@ -9036,6 +9046,12 @@
     },
   });
   ice.addChild(linkRect1);
+
+  let linkEllipse1 = new ICELinkableEllipse({
+    left: 200,
+    top: 400,
+  });
+  ice.addChild(linkEllipse1);
 
   // let linkableRect = new ICELinkableRect({
   //   left: 100,
