@@ -4,29 +4,30 @@
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
 // import ICECablelikeVisioLink from '../src/graphic/cable-like/ICECablelikeVisioLink';
 import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
-// import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
-// import ICELinkableRect from '../src/graphic/linkable/ICELinkableRect';
+import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
+// import ICEEllipse from /src/graphic/text/ICEText';
+import ICECircle from '../src/graphic/shape/ICECircle';
+import ICELinkableRect from '../src/graphic/shape/ICERect';
 // import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEIsogon from '../src/graphic/shape/ICEIsogon';
-import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
-import ICERose from '../src/graphic/shape/ICERose';
+// import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
+// import ICERose from '../src/graphic/shape/ICERose';
 import ICE from '../src/ICE';
-// import ICEEllipse from /src/graphic/text/ICEText';
 
 let ice = new ICE().init('canvas-1');
 
-let rose = new ICERose({
-  left: 10,
-  top: 10,
-  width: 100,
-  height: 100,
-  style: {
-    strokeStyle: '#0c09d4',
-    fillStyle: '#f5d106',
-    lineWidth: 5,
-  },
-});
-ice.addChild(rose);
+// let rose = new ICERose({
+//   left: 10,
+//   top: 10,
+//   width: 100,
+//   height: 100,
+//   style: {
+//     strokeStyle: '#0c09d4',
+//     fillStyle: '#f5d106',
+//     lineWidth: 5,
+//   },
+// });
+// ice.addChild(rose);
 
 // let rect = new ICERect({
 //   left: 100,
@@ -105,19 +106,36 @@ let visioLink = new ICEVisioLink({
 });
 ice.addChild(visioLink);
 
-let linkCircle1 = new ICELinkableCircle({
+let linkCircle3 = new ICELinkableCircle({
   left: 100,
   top: 100,
   radius: 50,
 });
-ice.addChild(linkCircle1);
+ice.addChild(linkCircle3);
 
-let linkCircle2 = new ICELinkableCircle({
+console.log(linkCircle3 instanceof ICECircle);
+
+let linkCircle4 = new ICELinkableCircle({
   left: 500,
   top: 300,
   radius: 50,
 });
-ice.addChild(linkCircle2);
+ice.addChild(linkCircle4);
+
+console.log(linkCircle4 instanceof ICECircle);
+
+let linkRect1 = new ICELinkableRect({
+  left: 100,
+  top: 100,
+  width: 200,
+  height: 50,
+  style: {
+    strokeStyle: '#0c09d4',
+    fillStyle: '#f5d106',
+    lineWidth: 5,
+  },
+});
+ice.addChild(linkRect1);
 
 // let linkableRect = new ICELinkableRect({
 //   left: 100,
