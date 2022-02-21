@@ -5,14 +5,11 @@
 // import ICECablelikeVisioLink from '../src/graphic/cable-like/ICECablelikeVisioLink';
 import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
 import {
-  ICELinkableCircle,
-  ICELinkableEllipse,
-  ICELinkableImage,
+  // ICELinkableCircle,
+  // ICELinkableEllipse,
+  // ICELinkableImage,
   ICELinkableRect,
 } from '../src/graphic/linkable/linkable-components';
-// import ICEEllipse from /src/graphic/text/ICEText';
-import ICECircle from '../src/graphic/shape/ICECircle';
-// import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEIsogon from '../src/graphic/shape/ICEIsogon';
 // import ICERose from '../src/graphic/shape/ICERose';
 import ICE from '../src/ICE';
@@ -32,7 +29,7 @@ let ice = new ICE().init('canvas-1');
 // });
 // ice.addChild(rose);
 
-// let rect = new ICERect({
+// let baseRect1 = new ICERect({
 //   left: 100,
 //   top: 100,
 //   width: 300,
@@ -42,12 +39,12 @@ let ice = new ICE().init('canvas-1');
 //     fillStyle: '#f5d106',
 //     lineWidth: 5,
 //   },
-//   // animations: {
-//   //   left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
-//   //   top: { from: 0, to: 200, duration: 3000 },
-//   //   width: { from: 100, to: 200, duration: 5000 },
-//   //   height: { from: 100, to: 200, duration: 5000 },
-//   // },
+//   animations: {
+//     left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+//     top: { from: 0, to: 200, duration: 3000 },
+//     width: { from: 100, to: 200, duration: 5000 },
+//     height: { from: 100, to: 200, duration: 5000 },
+//   },
 //   transform: {
 //     // translate: [10, 10],
 //     rotate: 45,
@@ -55,10 +52,29 @@ let ice = new ICE().init('canvas-1');
 //     // scale: [1, 1],
 //   },
 // });
-// rect.on('click', (evt) => {
-//   console.log('rect');
+// baseRect1.on('click', (evt) => {
+//   console.log('baseRect1');
 // });
-// ice.addChild(rect);
+// ice.addChild(baseRect1);
+
+let linkableRect1 = new ICELinkableRect({
+  left: 100,
+  top: 20,
+  width: 100,
+  height: 100,
+  style: {
+    strokeStyle: '#0c09d4',
+    fillStyle: '#f5d106',
+    lineWidth: 5,
+  },
+  animations: {
+    left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+    top: { from: 0, to: 200, duration: 3000 },
+    width: { from: 100, to: 200, duration: 5000 },
+    height: { from: 100, to: 200, duration: 5000 },
+  },
+});
+ice.addChild(linkableRect1);
 
 // let polyLine = new ICEPolyLine({
 //   left: 0,
@@ -109,40 +125,27 @@ let visioLink = new ICEVisioLink({
 });
 ice.addChild(visioLink);
 
-let linkCircle3 = new ICELinkableCircle({
-  left: 100,
-  top: 100,
-  radius: 50,
-});
-ice.addChild(linkCircle3);
-console.log(linkCircle3 instanceof ICECircle);
+// let linkCircle3 = new ICELinkableCircle({
+//   left: 100,
+//   top: 100,
+//   radius: 50,
+// });
+// ice.addChild(linkCircle3);
+// console.log(linkCircle3 instanceof ICECircle);
 
-let linkCircle4 = new ICELinkableCircle({
-  left: 500,
-  top: 300,
-  radius: 50,
-});
-ice.addChild(linkCircle4);
-console.log(linkCircle4 instanceof ICECircle);
+// let linkCircle4 = new ICELinkableCircle({
+//   left: 500,
+//   top: 300,
+//   radius: 50,
+// });
+// ice.addChild(linkCircle4);
+// console.log(linkCircle4 instanceof ICECircle);
 
-let linkRect1 = new ICELinkableRect({
-  left: 100,
-  top: 20,
-  width: 200,
-  height: 50,
-  style: {
-    strokeStyle: '#0c09d4',
-    fillStyle: '#f5d106',
-    lineWidth: 5,
-  },
-});
-ice.addChild(linkRect1);
-
-let linkEllipse1 = new ICELinkableEllipse({
-  left: 200,
-  top: 400,
-});
-ice.addChild(linkEllipse1);
+// let linkEllipse1 = new ICELinkableEllipse({
+//   left: 200,
+//   top: 400,
+// });
+// ice.addChild(linkEllipse1);
 
 // let linkableRect = new ICELinkableRect({
 //   left: 100,
@@ -176,19 +179,19 @@ ice.addChild(linkEllipse1);
 // });
 // ice.addChild(linkableCircle);
 
-let img = new ICELinkableImage({
-  left: 100,
-  top: 500,
-  width: 100,
-  height: 100,
-  transform: {
-    // translate: [10, 10],
-    rotate: 45,
-    // skew: [20, 0],
-    scale: [1, 2],
-  },
-});
-ice.addChild(img);
+// let img = new ICELinkableImage({
+//   left: 100,
+//   top: 500,
+//   width: 100,
+//   height: 100,
+//   transform: {
+//     // translate: [10, 10],
+//     rotate: 45,
+//     // skew: [20, 0],
+//     scale: [1, 2],
+//   },
+// });
+// ice.addChild(img);
 
 // //正三角形
 // let isogon3 = new ICEIsogon({
