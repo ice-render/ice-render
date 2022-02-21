@@ -30,9 +30,9 @@ export default abstract class ICEControlPanel extends ICEGroup {
 
   protected abstract setControlPositions(): void;
 
-  protected renderChildren(): void {
+  protected doRender(): void {
+    super.doRender();
     this.setControlPositions();
-    super.renderChildren();
   }
 
   public moveGlobalPosition(tx: number, ty: number, evt?: any): void {

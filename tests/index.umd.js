@@ -4306,7 +4306,7 @@
      *   absoluteOrigin: new DOMPoint(0, 0),          //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
      *   zIndex: ICEBaseComponent.instanceCounter++,  //类似于 CSS 中的 zIndex
      *   isRendering:false,                           //标志位， Renderer 在渲染过程中会检查此标志位
-     *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。
+     *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
      *   draggable:true,                              //是否可以拖动
      *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
      *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable TODO:动画运行过程中不允许选中，不能进行交互？？？
@@ -6980,7 +6980,11 @@
 
   /**
    * @class ICEGroup
+   *
    * 容器型组件
+   *
+   * ICEGroup 可以包含自身，利用此组件可以构造出树形的对象结构。
+   *
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
 
@@ -7035,8 +7039,7 @@
         child.ctx = null;
         child.evtBus = null;
         child.ice = null;
-        this.childNodes.splice(this.childNodes.indexOf(child), 1); //FIXME:destory child???
-
+        this.childNodes.splice(this.childNodes.indexOf(child), 1);
         child.trigger(ICE_CONSTS.AFTER_REMOVE);
       }
     }, {
@@ -7047,42 +7050,6 @@
         arr.forEach(function (child) {
           _this3.removeChild(child);
         });
-      } //FIXME:这里需要重构，所有组件的 render 方法都交给 Renderer 统一进行调度。
-
-    }, {
-      key: "renderChildren",
-      value: function renderChildren() {
-        var _this4 = this;
-
-        this.childNodes.forEach(function (child) {
-          child.root = _this4.root;
-          child.ctx = _this4.ctx;
-          child.evtBus = _this4.evtBus;
-          child.ice = _this4.ice;
-          child.trigger(ICE_CONSTS.BEFORE_RENDER);
-
-          if (child.state.isRendering) {
-            return;
-          }
-
-          if (!child.state.display) {
-            return;
-          }
-
-          child.render();
-          child.trigger(ICE_CONSTS.AFTER_RENDER);
-        });
-      }
-      /**
-       * 先渲染自己，再渲染子组件。
-       */
-
-    }, {
-      key: "render",
-      value: function render() {
-        _get(_getPrototypeOf(ICEGroup.prototype), "render", this).call(this);
-
-        this.renderChildren();
       }
     }]);
 
@@ -7116,11 +7083,11 @@
     }
 
     _createClass(ICEControlPanel, [{
-      key: "renderChildren",
-      value: function renderChildren() {
-        this.setControlPositions();
+      key: "doRender",
+      value: function doRender() {
+        _get(_getPrototypeOf(ICEControlPanel.prototype), "doRender", this).call(this);
 
-        _get(_getPrototypeOf(ICEControlPanel.prototype), "renderChildren", this).call(this);
+        this.setControlPositions();
       }
     }, {
       key: "moveGlobalPosition",
@@ -8695,18 +8662,50 @@
     }
 
     _createClass(CanvasRenderer, [{
+      key: "renderRecursively",
+      value: function renderRecursively(component) {
+        var _this = this;
+
+        component.trigger(ICE_CONSTS.BEFORE_RENDER);
+
+        if (component.state.isRendering) {
+          return;
+        }
+
+        if (!component.state.display) {
+          return;
+        } //先渲染自己
+
+
+        component.render(); //如果有子节点，递归
+
+        if (component.childNodes && component.childNodes.length) {
+          component.childNodes.forEach(function (child) {
+            //子组件的 root/ctx/evtBus/ice 这4个属性总是和父组件保持一致
+            child.root = component.root;
+            child.ctx = component.ctx;
+            child.evtBus = component.evtBus;
+            child.ice = component.ice;
+
+            _this.renderRecursively(child);
+          });
+        }
+
+        component.trigger(ICE_CONSTS.AFTER_RENDER);
+      }
+    }, {
       key: "start",
       value: function start() {
-        var _this = this;
+        var _this2 = this;
 
         this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, function (evt) {
           //FIXME:fix this when using increamental rendering
           //FIXME:动画有闪烁
-          _this.ice.ctx.clearRect(0, 0, _this.ice.canvasWidth, _this.ice.canvasHeight);
+          _this2.ice.ctx.clearRect(0, 0, _this2.ice.canvasWidth, _this2.ice.canvasHeight);
 
-          if (_this.ice.displayMap && _this.ice.displayMap.size) {
+          if (_this2.ice.displayMap && _this2.ice.displayMap.size) {
             //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
-            var arr = Array.from(_this.ice.displayMap, function (_ref) {
+            var arr = Array.from(_this2.ice.displayMap, function (_ref) {
               var _ref2 = _slicedToArray(_ref, 2),
                   name = _ref2[0],
                   value = _ref2[1];
@@ -8717,18 +8716,7 @@
               return firstEl.state.zIndex - secondEl.state.zIndex;
             });
             arr.forEach(function (component) {
-              component.trigger(ICE_CONSTS.BEFORE_RENDER);
-
-              if (component.state.isRendering) {
-                return;
-              }
-
-              if (!component.state.display) {
-                return;
-              }
-
-              component.render();
-              component.trigger(ICE_CONSTS.AFTER_RENDER);
+              _this2.renderRecursively(component);
             });
           }
         });
@@ -8842,6 +8830,14 @@
         this.renderer = new CanvasRenderer(this).start();
         return this;
       }
+      /**
+       *
+       * 调用 ICE.addChild() 方法，会直接把对象画在 canvas 上。
+       * 如果需要在容器中画组件，参见 @see ICEGroup.addChild() 方法
+       *
+       * @param component
+       */
+
     }, {
       key: "addChild",
       value: function addChild(component) {

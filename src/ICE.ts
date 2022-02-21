@@ -102,6 +102,13 @@ class ICE {
     return this;
   }
 
+  /**
+   *
+   * 调用 ICE.addChild() 方法，会直接把对象画在 canvas 上。
+   * 如果需要在容器中画组件，参见 @see ICEGroup.addChild() 方法
+   *
+   * @param component
+   */
   public addChild(component) {
     component.trigger(ICE_CONSTS.BEFORE_ADD);
 
