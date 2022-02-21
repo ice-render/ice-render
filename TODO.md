@@ -51,7 +51,8 @@
 - TODO:重构容器型组件 ICEGroup 和 ICECompositeComponent 【已解决】
 - TODO:用容器型组件机制重构 transform 和 linkable 机制【已解决】
 - 
-- TODO:重构渲染机制，只有当组件的 state 发生变化的时候，才重新渲染，如果 state 没有变，不调用 render() 方法？？？<------------
+- TODO:Animation 机制改出了 bug ，需要 fix 。<------------
+- TODO:重构渲染机制，只有当组件的 state 发生变化的时候，才重新渲染，如果 state 没有变，不调用 render() 方法？？？
 - TODO:线条型的组件点击判断需要特殊处理，不能用边界盒子计算，需要用 isPointInPath() 进行判断。 
 - TODO:整理现有图形类的代码，扩展缺失的图形类型。
 - TODO:重构整体的数据结构
