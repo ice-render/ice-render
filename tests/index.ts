@@ -4,7 +4,12 @@
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
 // import ICECablelikeVisioLink from '../src/graphic/cable-like/ICECablelikeVisioLink';
 import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
-import { ICELinkableCircle, ICELinkableEllipse, ICELinkableRect } from '../src/graphic/linkable/linkable-components';
+import {
+  ICELinkableCircle,
+  ICELinkableEllipse,
+  ICELinkableImage,
+  ICELinkableRect,
+} from '../src/graphic/linkable/linkable-components';
 // import ICEEllipse from /src/graphic/text/ICEText';
 import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICECircle from '../src/graphic/shape/ICECircle';
@@ -171,19 +176,19 @@ ice.addChild(linkEllipse1);
 // });
 // ice.addChild(linkableCircle);
 
-// let img = new ICEImage({
-//   left: 100,
-//   top: 500,
-//   width: 100,
-//   height: 100,
-//   transform: {
-//     // translate: [10, 10],
-//     rotate: 45,
-//     // skew: [20, 0],
-//     scale: [1, 2],
-//   },
-// });
-// ice.addChild(img);
+let img = new ICELinkableImage({
+  left: 100,
+  top: 500,
+  width: 100,
+  height: 100,
+  transform: {
+    // translate: [10, 10],
+    rotate: 45,
+    // skew: [20, 0],
+    scale: [1, 2],
+  },
+});
+ice.addChild(img);
 
 // //正三角形
 // let isogon3 = new ICEIsogon({
