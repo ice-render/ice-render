@@ -16,8 +16,10 @@ import ICEText from '../text/ICEText';
 import ICELinkable from './ICELinkable';
 
 /**
- *
  * 用 ICELinkable 装饰并导出所有可连接的组件。
+ *
+ * 组件默认不是不能用线条连接起来的，只有经过 ICELinkable 包装过之后才能用线条进行连接。
+ *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  * @see https://www.typescriptlang.org/docs/handbook/mixins.html#constrained-mixins
  *
