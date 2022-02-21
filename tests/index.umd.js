@@ -8282,6 +8282,7 @@
    */
 
   /**
+   * 来源：https://github.com/AndrewRayCode/easing-utils/blob/master/src/easing.js
    * 一组缓动工具函数
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
@@ -8302,6 +8303,49 @@
       var deltaT = Date.now() - startTime;
       var deltaValue = to - from;
       return from + deltaValue / duration * (deltaT / duration) * deltaT;
+    },
+    easeOutQuad: function easeOutQuad(from, to, duration, startTime) {
+      var deltaT = Date.now() - startTime;
+      var deltaValue = to - from;
+      return -deltaValue * (deltaT /= duration) * (deltaT - 2) + from;
+    },
+    easeInOutQuad: function easeInOutQuad(from, to, duration, startTime) {
+      var deltaT = Date.now() - startTime;
+      var deltaValue = to - from;
+      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT + from;
+      return -deltaValue / 2 * (--deltaT * (deltaT - 2) - 1) + from;
+    },
+    easeInQuart: function easeInQuart(from, to, duration, startTime) {
+      var deltaT = Date.now() - startTime;
+      var deltaValue = to - from;
+      return deltaValue * (deltaT /= duration) * deltaT * deltaT * deltaT + from;
+    },
+    easeOutQuart: function easeOutQuart(from, to, duration, startTime) {
+      var deltaT = Date.now() - startTime;
+      var deltaValue = to - from;
+      return -deltaValue * ((deltaT = deltaT / duration - 1) * deltaT * deltaT * deltaT - 1) + from;
+    },
+    easeInOutQuart: function easeInOutQuart(from, to, duration, startTime) {
+      var deltaT = Date.now() - startTime;
+      var deltaValue = to - from;
+      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT * deltaT * deltaT + from;
+      return -deltaValue / 2 * ((deltaT -= 2) * deltaT * deltaT * deltaT - 2) + from;
+    },
+    easeInCubic: function easeInCubic(from, to, duration, startTime) {
+      var deltaT = Date.now() - startTime;
+      var deltaValue = to - from;
+      return deltaValue * (deltaT /= duration) * deltaT * deltaT + from;
+    },
+    easeOutCubic: function easeOutCubic(from, to, duration, startTime) {
+      var deltaT = Date.now() - startTime;
+      var deltaValue = to - from;
+      return deltaValue * ((deltaT = deltaT / duration - 1) * deltaT * deltaT + 1) + from;
+    },
+    easeInOutCubic: function easeInOutCubic(from, to, duration, startTime) {
+      var deltaT = Date.now() - startTime;
+      var deltaValue = to - from;
+      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT * deltaT + from;
+      return deltaValue / 2 * ((deltaT -= 2) * deltaT * deltaT + 2) + from;
     } //TODO:增加更多缓动算法
 
   };
@@ -8966,8 +9010,8 @@
       lineWidth: 5,
     },
     animations: {
-      left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
-      top: { from: 0, to: 200, duration: 3000 },
+      left: { from: 0, to: 100, duration: 2000, easing: 'easeOutQuart' },
+      // top: { from: 0, to: 200, duration: 3000 },
       width: { from: 100, to: 200, duration: 5000 },
       height: { from: 100, to: 200, duration: 5000 },
     },
