@@ -6,11 +6,13 @@
  *
  */
 
+import ICEImage from '../ICEImage';
 import ICECircle from '../shape/ICECircle';
 import ICEEllipse from '../shape/ICEEllipse';
 import ICEIsogon from '../shape/ICEIsogon';
 import ICERect from '../shape/ICERect';
 import ICEStar from '../shape/ICEStar';
+import ICEText from '../text/ICEText';
 import ICELinkable from './ICELinkable';
 
 /**
@@ -28,3 +30,5 @@ export const ICELinkableCircle = ICELinkable(ICECircle);
 export const ICELinkableEllipse = ICELinkable(ICEEllipse);
 export const ICELinkableIsogon = ICELinkable(ICEIsogon);
 export const ICELinkableStar = ICELinkable(ICEStar);
+export const ICELinkabeText = ICELinkable(ICEText);
+export const ICELinkableImage = ICELinkable(ICEImage);
