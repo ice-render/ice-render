@@ -23,7 +23,7 @@ import ICERect from '../../graphic/shape/ICERect';
  */
 export default class ResizeControl extends ICERect {
   constructor(props) {
-    super({ position: 'l', direction: 'x', quadrant: 1, ...props });
+    super({ linkable: false, position: 'l', direction: 'x', quadrant: 1, ...props });
     this.on('after-move', this.resizeEvtHandler, this);
   }
 

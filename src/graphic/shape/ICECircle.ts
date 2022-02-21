@@ -23,4 +23,5 @@ class ICECircle extends ICEEllipse {
     super(param);
   }
 }
+
 export default ICECircle;

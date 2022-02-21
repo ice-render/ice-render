@@ -113,10 +113,6 @@ abstract class ICEBaseComponent extends EventTarget {
    */
   public state: any = { ...this.props };
 
-  //linkSlots, slotRadius 用 mixin 的方式实现，这里只做占位，避免 TS 编译器报错
-  linkSlots = [];
-  slotRadius = 10;
-
   constructor(props: any = {}) {
     super();
     this.props = merge(this.props, props);
@@ -320,10 +316,6 @@ abstract class ICEBaseComponent extends EventTarget {
       this.ctx.closePath();
       this.ctx.stroke();
       this.ctx.fill();
-    }
-
-    //FIXME: 如果 this.state.linkable 为 true ，处理 ICELinkSlot 相关的逻辑
-    if (this.state.linkable && !this.linkSlots.length) {
     }
   }
 
