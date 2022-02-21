@@ -11,7 +11,11 @@ import ICERect from '../shape/ICERect';
 
 /**
  * @class ICEGroup
+ *
  * 容器型组件
+ *
+ * ICEGroup 可以包含自身，利用此组件可以构造出树形的对象结构。
+ *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICEGroup extends ICERect {
@@ -52,7 +56,6 @@ class ICEGroup extends ICERect {
     child.ice = null;
 
     this.childNodes.splice(this.childNodes.indexOf(child), 1);
-    //FIXME:destory child???
 
     child.trigger(ICE_CONSTS.AFTER_REMOVE);
   }
@@ -61,34 +64,6 @@ class ICEGroup extends ICERect {
     arr.forEach((child) => {
       this.removeChild(child);
     });
-  }
-
-  //FIXME:这里需要重构，所有组件的 render 方法都交给 Renderer 统一进行调度。
-  protected renderChildren(): void {
-    this.childNodes.forEach((child) => {
-      child.root = this.root;
-      child.ctx = this.ctx;
-      child.evtBus = this.evtBus;
-      child.ice = this.ice;
-
-      child.trigger(ICE_CONSTS.BEFORE_RENDER);
-      if (child.state.isRendering) {
-        return;
-      }
-      if (!child.state.display) {
-        return;
-      }
-      child.render();
-      child.trigger(ICE_CONSTS.AFTER_RENDER);
-    });
-  }
-
-  /**
-   * 先渲染自己，再渲染子组件。
-   */
-  public render(): void {
-    super.render();
-    this.renderChildren();
   }
 }
 

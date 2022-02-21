@@ -23,7 +23,35 @@ class CanvasRenderer implements IRenderer {
     this.ice = ice;
   }
 
-  start() {
+  private renderRecursively(component: ICEBaseComponent) {
+    component.trigger(ICE_CONSTS.BEFORE_RENDER);
+
+    if (component.state.isRendering) {
+      return;
+    }
+    if (!component.state.display) {
+      return;
+    }
+
+    //先渲染自己
+    component.render();
+
+    //如果有子节点，递归
+    if (component.childNodes && component.childNodes.length) {
+      component.childNodes.forEach((child: ICEBaseComponent) => {
+        //子组件的 root/ctx/evtBus/ice 这4个属性总是和父组件保持一致
+        child.root = component.root;
+        child.ctx = component.ctx;
+        child.evtBus = component.evtBus;
+        child.ice = component.ice;
+        this.renderRecursively(child);
+      });
+    }
+
+    component.trigger(ICE_CONSTS.AFTER_RENDER);
+  }
+
+  public start() {
     this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, (evt: ICEEvent) => {
       //FIXME:fix this when using increamental rendering
       //FIXME:动画有闪烁
@@ -35,24 +63,14 @@ class CanvasRenderer implements IRenderer {
           return firstEl.state.zIndex - secondEl.state.zIndex;
         });
         arr.forEach((component: ICEBaseComponent) => {
-          component.trigger(ICE_CONSTS.BEFORE_RENDER);
-
-          if (component.state.isRendering) {
-            return;
-          }
-          if (!component.state.display) {
-            return;
-          }
-          component.render();
-
-          component.trigger(ICE_CONSTS.AFTER_RENDER);
+          this.renderRecursively(component);
         });
       }
     });
     return this;
   }
 
-  stop(): void {
+  public stop(): void {
     throw new Error('Method not implemented.');
   }
 }
