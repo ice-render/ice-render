@@ -9081,7 +9081,7 @@
 
   let linkRect1 = new ICELinkableRect({
     left: 100,
-    top: 100,
+    top: 20,
     width: 200,
     height: 50,
     style: {
