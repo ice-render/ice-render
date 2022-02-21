@@ -45,24 +45,30 @@
 - TODO:重构 LineControlPanel 的实现，把 ICELinkHook 相关的逻辑移动到组件中，不采用全局管理的模式【已解决】 
 - TODO:实现连接线 & Visio 形态的连接线【已解决】
 - TODO:所有连接线的 TransformControl 都同时具有2种功能：拖动修改长度、吸附到组件上产生连接效果。【已解决】
-- TODO:线条型的组件点击判断需要特殊处理，不能用边界盒子计算，需要用 isPointInPath() 进行判断。<------------
-- TODO:删掉 ICECompositeComponent ，ICESlot 和组件之间的采用逻辑关联，不采用可见组件的容纳关系。
-- TODO:重构容器型组件 ICEGroup 和 ICECompositeComponent 
-- TODO:用容器型组件机制重构 transform 和 linkable 机制
-- TODO:解决 mixin 机制问题【需要继续重构，不能直接使用TS官方提供的实现】 
-- TODO:ICEGroup 需要重构，所有组件的 render 方法都交给 Renderer 统一进行调度。
-- TODO:重构整体的数据结构
-- TODO:序列化和反序列化
+- TODO:解决 mixin 机制问题【需要继续重构，不能直接使用TS官方提供的实现】【已解决】  
+- TODO:所有组件默认都是 linkable 的，需要重构 mixin 机制来实现这个特性。【已解决】
+- TODO:删掉 ICECompositeComponent ，ICESlot 和组件之间的采用逻辑关联，不采用可见组件的容纳关系。【已解决】
+- TODO:重构容器型组件 ICEGroup 和 ICECompositeComponent 【已解决】
+- TODO:用容器型组件机制重构 transform 和 linkable 机制【已解决】
+- TODO:Animation 机制改出了 bug ，需要 fix 。【已解决】
+- TODO:重构渲染机制，只有当组件的 state 发生变化的时候，才重新渲染，如果 state 没有变，不调用 render() 方法？？？ 【已解决】
+- TODO:ICEGroup 需要重构，所有组件的 render 方法都交给 Renderer 统一进行调度。【已解决】
+- TODO:工程名、包名都改成 ice-render【已解决】
+- 
+- TODO:序列化和反序列化（可能需要整理一下整体的数据结构） <------------
+- TODO:整理现有图形类的代码，扩展缺失的图形类型。
+- TODO:线条的两端需要绘制箭头或者其它形状。
+- TODO:线条型的组件点击判断需要特殊处理，不能用边界盒子计算，需要用 isPointInPath() 进行判断。 
 - TODO:ICEText 需要进一步精确的计算。
 - TODO:实现 GuideLine ， 增加磁吸效果
 - TODO:优化编译和测试环境参数配置
 - TODO:ICE 全局单例重构
 - TODO:补用例，跑测试。
+- 
 - TODO:Entity Designer 与 TypeORM 整合案例。
 - TODO:BPMN Designer 与流程引擎对接。
 - TODO:PageFlow 案例。
-- TODO:工程名、包名都改成 ice-render
-
+- 
 - TODO:增量渲染机制
 - TODO:碰撞检测和局部渲染机制
 

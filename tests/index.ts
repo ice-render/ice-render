@@ -4,31 +4,32 @@
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
 // import ICECablelikeVisioLink from '../src/graphic/cable-like/ICECablelikeVisioLink';
 import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
-// import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
-// import ICELinkableRect from '../src/graphic/linkable/ICELinkableRect';
-// import ICECircle from '../src/graphic/shape/ICECircle';
+import {
+  // ICELinkableCircle,
+  // ICELinkableEllipse,
+  // ICELinkableImage,
+  ICELinkableRect,
+} from '../src/graphic/linkable/linkable-components';
 // import ICEIsogon from '../src/graphic/shape/ICEIsogon';
-import ICELinkableCircle from '../src/graphic/linkable/ICELinkableCircle';
-import ICERose from '../src/graphic/shape/ICERose';
+// import ICERose from '../src/graphic/shape/ICERose';
 import ICE from '../src/ICE';
-// import ICEEllipse from /src/graphic/text/ICEText';
 
 let ice = new ICE().init('canvas-1');
 
-let rose = new ICERose({
-  left: 10,
-  top: 10,
-  width: 100,
-  height: 100,
-  style: {
-    strokeStyle: '#0c09d4',
-    fillStyle: '#f5d106',
-    lineWidth: 5,
-  },
-});
-ice.addChild(rose);
+// let rose = new ICERose({
+//   left: 10,
+//   top: 10,
+//   width: 100,
+//   height: 100,
+//   style: {
+//     strokeStyle: '#0c09d4',
+//     fillStyle: '#f5d106',
+//     lineWidth: 5,
+//   },
+// });
+// ice.addChild(rose);
 
-// let rect = new ICERect({
+// let baseRect1 = new ICERect({
 //   left: 100,
 //   top: 100,
 //   width: 300,
@@ -38,12 +39,12 @@ ice.addChild(rose);
 //     fillStyle: '#f5d106',
 //     lineWidth: 5,
 //   },
-//   // animations: {
-//   //   left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
-//   //   top: { from: 0, to: 200, duration: 3000 },
-//   //   width: { from: 100, to: 200, duration: 5000 },
-//   //   height: { from: 100, to: 200, duration: 5000 },
-//   // },
+//   animations: {
+//     left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+//     top: { from: 0, to: 200, duration: 3000 },
+//     width: { from: 100, to: 200, duration: 5000 },
+//     height: { from: 100, to: 200, duration: 5000 },
+//   },
 //   transform: {
 //     // translate: [10, 10],
 //     rotate: 45,
@@ -51,10 +52,29 @@ ice.addChild(rose);
 //     // scale: [1, 1],
 //   },
 // });
-// rect.on('click', (evt) => {
-//   console.log('rect');
+// baseRect1.on('click', (evt) => {
+//   console.log('baseRect1');
 // });
-// ice.addChild(rect);
+// ice.addChild(baseRect1);
+
+let linkableRect1 = new ICELinkableRect({
+  left: 100,
+  top: 20,
+  width: 100,
+  height: 100,
+  style: {
+    strokeStyle: '#0c09d4',
+    fillStyle: '#f5d106',
+    lineWidth: 5,
+  },
+  animations: {
+    left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+    top: { from: 0, to: 200, duration: 3000 },
+    width: { from: 100, to: 200, duration: 5000 },
+    height: { from: 100, to: 200, duration: 5000 },
+  },
+});
+ice.addChild(linkableRect1);
 
 // let polyLine = new ICEPolyLine({
 //   left: 0,
@@ -105,19 +125,27 @@ let visioLink = new ICEVisioLink({
 });
 ice.addChild(visioLink);
 
-let linkCircle1 = new ICELinkableCircle({
-  left: 100,
-  top: 100,
-  radius: 50,
-});
-ice.addChild(linkCircle1);
+// let linkCircle3 = new ICELinkableCircle({
+//   left: 100,
+//   top: 100,
+//   radius: 50,
+// });
+// ice.addChild(linkCircle3);
+// console.log(linkCircle3 instanceof ICECircle);
 
-let linkCircle2 = new ICELinkableCircle({
-  left: 500,
-  top: 300,
-  radius: 50,
-});
-ice.addChild(linkCircle2);
+// let linkCircle4 = new ICELinkableCircle({
+//   left: 500,
+//   top: 300,
+//   radius: 50,
+// });
+// ice.addChild(linkCircle4);
+// console.log(linkCircle4 instanceof ICECircle);
+
+// let linkEllipse1 = new ICELinkableEllipse({
+//   left: 200,
+//   top: 400,
+// });
+// ice.addChild(linkEllipse1);
 
 // let linkableRect = new ICELinkableRect({
 //   left: 100,
@@ -151,7 +179,7 @@ ice.addChild(linkCircle2);
 // });
 // ice.addChild(linkableCircle);
 
-// let img = new ICEImage({
+// let img = new ICELinkableImage({
 //   left: 100,
 //   top: 500,
 //   width: 100,

@@ -32,4 +32,5 @@ class ICERect extends ICEDotPath {
     return this.state.dots;
   }
 }
+
 export default ICERect;

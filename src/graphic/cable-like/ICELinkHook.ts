@@ -21,7 +21,7 @@ import ICECircle from '../shape/ICECircle';
  */
 export default class ICELinkHook extends ICECircle {
   constructor(props: any = {}) {
-    super({ linkable: false, ...props });
+    super(props);
   }
 
   protected initEvents() {

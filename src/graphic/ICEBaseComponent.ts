@@ -65,11 +65,10 @@ abstract class ICEBaseComponent extends EventTarget {
    *   absoluteOrigin: new DOMPoint(0, 0),          //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
    *   zIndex: ICEBaseComponent.instanceCounter++,  //类似于 CSS 中的 zIndex
    *   isRendering:false,                           //标志位， Renderer 在渲染过程中会检查此标志位
-   *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。
+   *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
    *   draggable:true,                              //是否可以拖动
    *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
-   *   linkable:true,                               //是否可以用连接线进行连接，带有宽高的组件都可以用连接线进行连接，但是连线自身默认不能互相连接。linkable 为 true 时，会在组件的最小包围盒四边创建用于连线的插槽。
-   *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable, linkable 都无效 TODO:动画运行过程中不允许选中，不能进行交互？？？
+   *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable TODO:动画运行过程中不允许选中，不能进行交互？？？
    *   showMinBoundingBox:true,                     //是否显示最小包围盒，开发时打开，主要用于 debug
    *   showMaxBoundingBox:true,                     //是否显示最大包围盒，开发时打开，主要用于 debug
    * }
@@ -100,7 +99,6 @@ abstract class ICEBaseComponent extends EventTarget {
     display: true,
     draggable: true,
     transformable: true,
-    linkable: true,
     interactive: true,
     showMinBoundingBox: true,
     showMaxBoundingBox: true,
@@ -112,10 +110,6 @@ abstract class ICEBaseComponent extends EventTarget {
    * @see https://reactjs.org/docs/components-and-props.html
    */
   public state: any = { ...this.props };
-
-  //linkSlots, slotRadius 用 mixin 的方式实现，这里只做占位，避免 TS 编译器报错
-  linkSlots = [];
-  slotRadius = 10;
 
   constructor(props: any = {}) {
     super();
@@ -320,10 +314,6 @@ abstract class ICEBaseComponent extends EventTarget {
       this.ctx.closePath();
       this.ctx.stroke();
       this.ctx.fill();
-    }
-
-    //FIXME: 如果 this.state.linkable 为 true ，处理 ICELinkSlot 相关的逻辑
-    if (this.state.linkable && !this.linkSlots.length) {
     }
   }
 

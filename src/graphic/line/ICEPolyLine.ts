@@ -58,10 +58,7 @@ class ICEPolyLine extends ICEDotPath {
   public static arrangeParam(props): any {
     //dots 是内部计算使用的属性，外部传参用 points 属性
     //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
-    let param = merge(
-      { linkable: false, lineType: 'solid', lineWidth: 2, arrow: 'none', closePath: false, points: [] },
-      props
-    );
+    let param = merge({ lineType: 'solid', lineWidth: 2, arrow: 'none', closePath: false, points: [] }, props);
 
     //至少有2个点，如果点数少于2个，自动填充。
     let len = param.points.length;

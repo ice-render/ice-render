@@ -7,3 +7,4 @@
  */
 //FIXME:包装 DOMPoint ，进行兼容处理。
 //https://developer.mozilla.org/en-US/docs/Web/API/DOMPoint
+// DOMPoint 类的浏览器兼容性 https://caniuse.com/?search=dompoint
