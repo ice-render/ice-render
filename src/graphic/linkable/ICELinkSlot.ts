@@ -9,7 +9,7 @@ import merge from 'lodash/merge';
 import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import { ICE_CONSTS } from '../../ICE_CONSTS';
-import ICELinkHook from '../cable-like/ICELinkHook';
+import ICELinkHook from './ICELinkHook';
 import ICECircle from '../shape/ICECircle';
 
 /**

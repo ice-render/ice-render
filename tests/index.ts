@@ -3,7 +3,7 @@
 // import ICEImage from '../src/graphic/ICEImage';
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
 // import ICECablelikeVisioLink from '../src/graphic/cable-like/ICECablelikeVisioLink';
-import ICEVisioLink from '../src/graphic/cable-like/ICEVisioLink';
+import ICEVisioLink from '../src/graphic/linkable/ICEVisioLink';
 import {
   // ICELinkableCircle,
   // ICELinkableEllipse,
