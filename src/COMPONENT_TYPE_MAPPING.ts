@@ -6,7 +6,7 @@
  *
  */
 
-import ICEVisioLink from './graphic/cable-like/ICEVisioLink';
+import ICEVisioLink from './graphic/linkable/ICEVisioLink';
 import ICEGroup from './graphic/container/ICEGroup';
 import ICEImage from './graphic/ICEImage';
 import ICEPolyLine from './graphic/line/ICEPolyLine';

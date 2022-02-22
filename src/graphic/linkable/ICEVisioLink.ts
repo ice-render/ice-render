@@ -11,7 +11,7 @@ import GeoLine from '../../geometry/GeoLine';
 import GeoPoint from '../../geometry/GeoPoint';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICEPolyLine from '../line/ICEPolyLine';
-import ICELinkSlot from '../linkable/ICELinkSlot';
+import ICELinkSlot from './ICELinkSlot';
 
 /**
  * @class ICEVisioLink

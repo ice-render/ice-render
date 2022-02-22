@@ -6,7 +6,7 @@
  *
  */
 import ICEEvent from '../../event/ICEEvent';
-import ICELinkHook from '../../graphic/cable-like/ICELinkHook';
+import ICELinkHook from '../../graphic/linkable/ICELinkHook';
 import ICEBaseComponent from '../../graphic/ICEBaseComponent';
 import ICEControlPanel from '../ICEControlPanel';
 
