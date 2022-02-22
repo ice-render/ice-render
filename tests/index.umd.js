@@ -189,10 +189,6 @@
     return _get.apply(this, arguments);
   }
 
-  function _slicedToArray(arr, i) {
-    return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest();
-  }
-
   function _toConsumableArray(arr) {
     return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _unsupportedIterableToArray(arr) || _nonIterableSpread();
   }
@@ -201,42 +197,8 @@
     if (Array.isArray(arr)) return _arrayLikeToArray(arr);
   }
 
-  function _arrayWithHoles(arr) {
-    if (Array.isArray(arr)) return arr;
-  }
-
   function _iterableToArray(iter) {
     if (typeof Symbol !== "undefined" && iter[Symbol.iterator] != null || iter["@@iterator"] != null) return Array.from(iter);
-  }
-
-  function _iterableToArrayLimit(arr, i) {
-    var _i = arr == null ? null : typeof Symbol !== "undefined" && arr[Symbol.iterator] || arr["@@iterator"];
-
-    if (_i == null) return;
-    var _arr = [];
-    var _n = true;
-    var _d = false;
-
-    var _s, _e;
-
-    try {
-      for (_i = _i.call(arr); !(_n = (_s = _i.next()).done); _n = true) {
-        _arr.push(_s.value);
-
-        if (i && _arr.length === i) break;
-      }
-    } catch (err) {
-      _d = true;
-      _e = err;
-    } finally {
-      try {
-        if (!_n && _i["return"] != null) _i["return"]();
-      } finally {
-        if (_d) throw _e;
-      }
-    }
-
-    return _arr;
   }
 
   function _unsupportedIterableToArray(o, minLen) {
@@ -258,10 +220,6 @@
 
   function _nonIterableSpread() {
     throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-  }
-
-  function _nonIterableRest() {
-    throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
   }
 
   /**
@@ -8575,7 +8533,7 @@
       value: function findTargetComponent(clientX, clientY) {
         var x = clientX - this.ice.canvasBoundingClientRect.left;
         var y = clientY - this.ice.canvasBoundingClientRect.top;
-        var components = Array.from(this.ice.displayMap.values());
+        var components = Array.from(this.ice.childNodes);
 
         for (var i = 0; i < components.length; i++) {
           var _component = components[i];
@@ -8752,15 +8710,9 @@
           //FIXME:动画有闪烁
           _this2.ice.ctx.clearRect(0, 0, _this2.ice.canvasWidth, _this2.ice.canvasHeight);
 
-          if (!_this2.ice.displayMap || !_this2.ice.displayMap.size) return; //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
+          if (!_this2.ice.childNodes || !_this2.ice.childNodes.length) return; //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
 
-          var arr = Array.from(_this2.ice.displayMap, function (_ref) {
-            var _ref2 = _slicedToArray(_ref, 2),
-                name = _ref2[0],
-                value = _ref2[1];
-
-            return value;
-          });
+          var arr = Array.from(_this2.ice.childNodes);
           arr.sort(function (firstEl, secondEl) {
             return firstEl.state.zIndex - secondEl.state.zIndex;
           });
@@ -8791,7 +8743,7 @@
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
   var ICE = /*#__PURE__*/function () {
-    //所有需要在 canvas 中渲染的对象都在此结构中 TODO:为了支持 zIndex 特性，需要改成数组，有堆叠顺序
+    //所有直接添加到 canvas 的对象都在此结构中
     //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
     //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
     //&lt;canvas&gt; tag
@@ -8802,7 +8754,7 @@
 
       _defineProperty(this, "version", pkg.version);
 
-      _defineProperty(this, "displayMap", new Map());
+      _defineProperty(this, "childNodes", []);
 
       _defineProperty(this, "evtBus", void 0);
 
@@ -8889,12 +8841,13 @@
     }, {
       key: "addChild",
       value: function addChild(component) {
+        if (this.childNodes.indexOf(component) !== -1) return;
         component.trigger(ICE_CONSTS.BEFORE_ADD);
         component.ice = this;
         component.root = this.root;
         component.ctx = this.ctx;
         component.evtBus = this.evtBus;
-        this.displayMap.set(component.props.id, component);
+        this.childNodes.push(component);
 
         if (Object.keys(component.props.animations).length) {
           this.animationManager.add(component);
@@ -8919,7 +8872,7 @@
         component.ctx = null;
         component.root = null;
         component.evtBus = null;
-        this.displayMap["delete"](component.props.id); //FIXME:如果被移除的是容器型组件，先移除并清理其子节点，然后再移除容器自身
+        this.childNodes.splice(this.childNodes.indexOf(component), 1); //FIXME:如果被移除的是容器型组件，先移除并清理其子节点，然后再移除容器自身
         //FIXME:立即停止组件上的所有动画效果
         //FIXME:清理所有事件监听，然后再从结构中删除
 
