@@ -8752,22 +8752,21 @@
           //FIXME:动画有闪烁
           _this2.ice.ctx.clearRect(0, 0, _this2.ice.canvasWidth, _this2.ice.canvasHeight);
 
-          if (_this2.ice.displayMap && _this2.ice.displayMap.size) {
-            //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
-            var arr = Array.from(_this2.ice.displayMap, function (_ref) {
-              var _ref2 = _slicedToArray(_ref, 2),
-                  name = _ref2[0],
-                  value = _ref2[1];
+          if (!_this2.ice.displayMap || !_this2.ice.displayMap.size) return; //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
 
-              return value;
-            });
-            arr.sort(function (firstEl, secondEl) {
-              return firstEl.state.zIndex - secondEl.state.zIndex;
-            });
-            arr.forEach(function (component) {
-              _this2.renderRecursively(component);
-            });
-          }
+          var arr = Array.from(_this2.ice.displayMap, function (_ref) {
+            var _ref2 = _slicedToArray(_ref, 2),
+                name = _ref2[0],
+                value = _ref2[1];
+
+            return value;
+          });
+          arr.sort(function (firstEl, secondEl) {
+            return firstEl.state.zIndex - secondEl.state.zIndex;
+          });
+          arr.forEach(function (component) {
+            _this2.renderRecursively(component);
+          });
         });
         return this;
       }

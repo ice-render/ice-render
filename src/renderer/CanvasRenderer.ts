@@ -56,16 +56,16 @@ class CanvasRenderer implements IRenderer {
       //FIXME:fix this when using increamental rendering
       //FIXME:动画有闪烁
       this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
-      if (this.ice.displayMap && this.ice.displayMap.size) {
-        //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
-        let arr = Array.from(this.ice.displayMap, ([name, value]) => value);
-        arr.sort((firstEl, secondEl) => {
-          return firstEl.state.zIndex - secondEl.state.zIndex;
-        });
-        arr.forEach((component: ICEBaseComponent) => {
-          this.renderRecursively(component);
-        });
-      }
+      if (!this.ice.displayMap || !this.ice.displayMap.size) return;
+
+      //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
+      let arr = Array.from(this.ice.displayMap, ([name, value]) => value);
+      arr.sort((firstEl, secondEl) => {
+        return firstEl.state.zIndex - secondEl.state.zIndex;
+      });
+      arr.forEach((component: ICEBaseComponent) => {
+        this.renderRecursively(component);
+      });
     });
     return this;
   }
