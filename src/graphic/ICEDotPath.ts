@@ -14,7 +14,7 @@ import ICEPath from './ICEPath';
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-export default class ICEDotPath extends ICEPath {
+export default abstract class ICEDotPath extends ICEPath {
   /**
    * FIXME:编写完整的配置项描述
    * @cfg

@@ -41,4 +41,16 @@ export default abstract class ICEControlPanel extends ICEGroup {
       this._targetComponent.moveGlobalPosition(tx, ty, evt);
     }
   }
+
+  /**
+   * 此类型不需要序列化，不需要持久化到 JSON 数据中。
+   * @returns
+   */
+  public toJSON(): object {
+    return null;
+  }
+
+  public fromJSON(jsonStr: string): object {
+    return null;
+  }
 }

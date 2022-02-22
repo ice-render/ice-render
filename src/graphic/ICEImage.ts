@@ -14,6 +14,12 @@ import ICEBaseComponent from './ICEBaseComponent';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICEImage extends ICEBaseComponent {
+  /**
+   * @required
+   * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
+   */
+  public static type: string = 'ICEImage';
+
   constructor(props: any = {}) {
     super({ width: 100, height: 100, ...props });
   }
@@ -36,6 +42,11 @@ class ICEImage extends ICEBaseComponent {
     );
 
     super.doRender();
+  }
+
+  public toJSON(): object {
+    let result = { ...super.toJSON(), type: ICEImage.type };
+    return result;
   }
 }
 

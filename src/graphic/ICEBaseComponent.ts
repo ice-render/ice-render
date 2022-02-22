@@ -482,15 +482,14 @@ abstract class ICEBaseComponent extends EventTarget {
   }
 
   /**
-   * TODO:改成 abstract?
-   * @returns
+   * @returns JSONObject
    */
-  public toJSON(): string {
-    return '{}';
+  public toJSON(): object {
+    return { props: this.props, state: this.state };
   }
 
   /**
-   * TODO:改成 abstract
+   * @param jsonStr:string
    * @returns
    */
   public fromJSON(jsonStr: string): object {

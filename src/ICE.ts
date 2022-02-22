@@ -17,6 +17,8 @@ import EventBus from './event/EventBus';
 import MouseEventInterceptor from './event/MouseEventInterceptor.js';
 import ICEBaseComponent from './graphic/ICEBaseComponent';
 import { ICE_CONSTS } from './ICE_CONSTS';
+import Deserializer from './persistence/Deserializer';
+import Serializer from './persistence/Serializer';
 import CanvasRenderer from './renderer/CanvasRenderer';
 import IRenderer from './renderer/IRenderer';
 
@@ -53,6 +55,8 @@ class ICE {
   private ddManager: DDManager;
   private controlPanelManager: ICEControlPanelManager;
   private renderer: IRenderer;
+  private serializer: Serializer;
+  private deserializer: Deserializer;
 
   constructor() {}
 
@@ -98,6 +102,8 @@ class ICE {
     this.ddManager = new DDManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
+    this.serializer = new Serializer(this);
+    this.deserializer = new Deserializer(this);
 
     return this;
   }
@@ -163,11 +169,12 @@ class ICE {
   }
 
   public toJSON(): string {
-    return '{}';
+    //FIXME:在序列化时，用来操控的组件不需要存储。
+    return this.serializer.toJSON();
   }
 
   public fromJSON(jsonStr: string): object {
-    return {};
+    return this.deserializer.fromJSON(jsonStr);
   }
 
   //FIXME:实现销毁 ICE 实例的过程

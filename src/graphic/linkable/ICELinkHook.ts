@@ -73,4 +73,12 @@ export default class ICELinkHook extends ICECircle {
     this.parentNode.trigger('before-resize', new ICEEvent(evt, { position }));
     this.parentNode.trigger('after-resize', new ICEEvent(evt, { position }));
   }
+
+  /**
+   * 此类型不需要序列化，不需要持久化到 JSON 数据中。
+   * @returns
+   */
+  public toJSON(): object {
+    return null;
+  }
 }

@@ -22,6 +22,12 @@ type Constructor<T> = new (...args: any[]) => T;
 
 function ICELinkable<T extends Constructor<ICEBaseComponent>>(Base: T) {
   return class Scaling extends Base {
+    /**
+     * @required
+     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
+     */
+    public static type: string = 'ICELinkable' + (Base.type + '').replace('ICE', '');
+
     private linkSlots = [];
     private slotRadius = 10;
 

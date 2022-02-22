@@ -6,10 +6,10 @@
  *
  */
 
-import ICEVisioLink from './graphic/linkable/ICEVisioLink';
 import ICEGroup from './graphic/container/ICEGroup';
 import ICEImage from './graphic/ICEImage';
 import ICEPolyLine from './graphic/line/ICEPolyLine';
+import ICEVisioLink from './graphic/linkable/ICEVisioLink';
 import {
   ICELinkabeText,
   ICELinkableCircle,
@@ -35,23 +35,23 @@ import ICEText from './graphic/text/ICEText';
  */
 const componentTypeMap = Object.fromEntries(
   new Map([
-    ['Rect', ICERect],
-    ['Circle', ICECircle],
-    ['Ellipse', ICEEllipse],
-    ['Star', ICEStar],
-    ['Isogon', ICEIsogon],
-    ['Text', ICEText],
-    ['Image', ICEImage],
-    ['Group', ICEGroup],
-    ['Visio', ICEVisioLink],
-    ['PolyLine', ICEPolyLine],
-    ['LinkableRect', ICELinkableRect],
-    ['LinkableCircle', ICELinkableCircle],
-    ['LinkableEllipse', ICELinkableEllipse],
-    ['LinkableIsogon', ICELinkableIsogon],
-    ['LinkableStar', ICELinkableStar],
-    ['LinkabeText', ICELinkabeText],
-    ['LinkableImage', ICELinkableImage],
+    [ICERect.type, ICERect],
+    [ICECircle.type, ICECircle],
+    [ICEEllipse.type, ICEEllipse],
+    [ICEStar.type, ICEStar],
+    [ICEIsogon.type, ICEIsogon],
+    [ICEText.type, ICEText],
+    [ICEImage.type, ICEImage],
+    [ICEGroup.type, ICEGroup],
+    [ICEVisioLink.type, ICEVisioLink],
+    [ICEPolyLine.type, ICEPolyLine],
+    [ICELinkableRect.type, ICELinkableRect],
+    [ICELinkableCircle.type, ICELinkableCircle],
+    [ICELinkableEllipse.type, ICELinkableEllipse],
+    [ICELinkableIsogon.type, ICELinkableIsogon],
+    [ICELinkableStar.type, ICELinkableStar],
+    [ICELinkabeText.type, ICELinkabeText],
+    [ICELinkableImage.type, ICELinkableImage],
   ])
 );
 
