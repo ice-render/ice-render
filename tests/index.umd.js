@@ -4044,8 +4044,12 @@
   };
 
   /**
-   * Canvas 内部的对象默认没有事件机制，模仿 W3C 定义的 EventTaregt 接口，为 Canvas 内部的组件添加事件机制。
-   * 部分 API 名称模仿 jQuery ，方便使用者调用。
+   * @class EventTarget
+   *
+   * - Canvas 内部的对象默认没有事件机制，模仿 W3C 定义的 EventTaregt 接口，为 Canvas 内部的组件添加事件机制。
+   * - ICE 内部的所有组件都是 EventTarget 的子类。
+   * - 部分 API 名称模仿 jQuery ，方便使用者调用。
+   *
    * TODO:需要完整模拟 W3C 和 jQuery 提供的事件接口，在 API 名称和调用逻辑上保持完全一致。
    *
    * listeners 的结构：
@@ -4072,8 +4076,9 @@
    *     ]
    * }
    *
-   * @see https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
+   * @abstract
    * @author 大漠穷秋<damoqiongqiu@126.com>
+   * @see https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
    */
 
   var EventTarget = /*#__PURE__*/function () {
@@ -9009,12 +9014,12 @@
       fillStyle: '#f5d106',
       lineWidth: 5,
     },
-    animations: {
-      left: { from: 0, to: 100, duration: 2000, easing: 'easeOutQuart' },
-      // top: { from: 0, to: 200, duration: 3000 },
-      width: { from: 100, to: 200, duration: 5000 },
-      height: { from: 100, to: 200, duration: 5000 },
-    },
+    // animations: {
+    //   left: { from: 0, to: 100, duration: 2000, easing: 'easeOutQuart' },
+    //   // top: { from: 0, to: 200, duration: 3000 },
+    //   width: { from: 100, to: 200, duration: 5000 },
+    //   height: { from: 100, to: 200, duration: 5000 },
+    // },
   });
   ice.addChild(linkableRect1);
 

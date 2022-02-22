@@ -8,7 +8,7 @@ import {
   // ICELinkableCircle,
   // ICELinkableEllipse,
   // ICELinkableImage,
-  ICELinkableRect
+  ICELinkableRect,
 } from '../src/graphic/linkable/linkable-components';
 // import ICEIsogon from '../src/graphic/shape/ICEIsogon';
 // import ICERose from '../src/graphic/shape/ICERose';
@@ -67,12 +67,12 @@ let linkableRect1 = new ICELinkableRect({
     fillStyle: '#f5d106',
     lineWidth: 5,
   },
-  animations: {
-    left: { from: 0, to: 100, duration: 2000, easing: 'easeOutQuart' },
-    // top: { from: 0, to: 200, duration: 3000 },
-    width: { from: 100, to: 200, duration: 5000 },
-    height: { from: 100, to: 200, duration: 5000 },
-  },
+  // animations: {
+  //   left: { from: 0, to: 100, duration: 2000, easing: 'easeOutQuart' },
+  //   // top: { from: 0, to: 200, duration: 3000 },
+  //   width: { from: 100, to: 200, duration: 5000 },
+  //   height: { from: 100, to: 200, duration: 5000 },
+  // },
 });
 ice.addChild(linkableRect1);
 
