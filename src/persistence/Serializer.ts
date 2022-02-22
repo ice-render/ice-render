@@ -22,34 +22,14 @@ export default class Serializer {
     this.ice = ice;
   }
 
-  /**
-   * 递归序列化
-   * @param pdata
-   * @param component
-   */
-  private serializeRecursively(pdata, component) {
-    let currentData = { props: component.props, state: component.state, childNodes: [] };
-    pdata.childNodes.push(currentData);
-    if (component.childNodes && component.childNodes.length) {
-      component.childNodes.forEach((child) => {
-        this.serializeRecursively(currentData, child);
-      });
-    }
-  }
-
   public toJSON(): string {
     let result = { time: new Date().toLocaleString(), childNodes: [] };
     this.ice.childNodes.forEach((child: ICEBaseComponent) => {
-      //子组件的 root/ctx/evtBus/ice 这4个属性总是和父组件保持一致
-      child.root = child.root;
-      child.ctx = child.ctx;
-      child.evtBus = child.evtBus;
-      child.ice = child.ice;
-      this.serializeRecursively(result, child);
+      if (child.toJSON()) {
+        result.childNodes.push(child.toJSON());
+      }
     });
-
     console.log(result);
-
     return JSON.stringify(result);
   }
 }

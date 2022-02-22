@@ -9,8 +9,8 @@ import merge from 'lodash/merge';
 import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import { ICE_CONSTS } from '../../ICE_CONSTS';
-import ICELinkHook from './ICELinkHook';
 import ICECircle from '../shape/ICECircle';
+import ICELinkHook from './ICELinkHook';
 
 /**
  * @class ICELinkSlot
@@ -129,6 +129,14 @@ class ICELinkSlot extends ICECircle {
 
   public get hostComponent() {
     return this._hostComponent;
+  }
+
+  /**
+   * 此类型不需要序列化，不需要持久化到 JSON 数据中。
+   * @returns
+   */
+  public toJSON(): object {
+    return null;
   }
 }
 
