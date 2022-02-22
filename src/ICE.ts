@@ -32,8 +32,8 @@ import IRenderer from './renderer/IRenderer';
  */
 class ICE {
   public version = pkg.version;
-  //所有需要在 canvas 中渲染的对象都在此结构中 TODO:为了支持 zIndex 特性，需要改成数组，有堆叠顺序
-  public displayMap = new Map();
+  //所有直接添加到 canvas 的对象都在此结构中
+  public childNodes = [];
   //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
   public evtBus: EventBus;
   //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
@@ -110,6 +110,8 @@ class ICE {
    * @param component
    */
   public addChild(component) {
+    if (this.childNodes.indexOf(component) !== -1) return;
+
     component.trigger(ICE_CONSTS.BEFORE_ADD);
 
     component.ice = this;
@@ -117,7 +119,7 @@ class ICE {
     component.ctx = this.ctx;
     component.evtBus = this.evtBus;
 
-    this.displayMap.set(component.props.id, component);
+    this.childNodes.push(component);
 
     if (Object.keys(component.props.animations).length) {
       this.animationManager.add(component);
@@ -140,7 +142,7 @@ class ICE {
     component.root = null;
     component.evtBus = null;
 
-    this.displayMap.delete(component.props.id);
+    this.childNodes.splice(this.childNodes.indexOf(component), 1);
 
     //FIXME:如果被移除的是容器型组件，先移除并清理其子节点，然后再移除容器自身
     //FIXME:立即停止组件上的所有动画效果
