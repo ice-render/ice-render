@@ -168,6 +168,12 @@ class ICE {
     //FIXME:清理所有事件监听，然后再从结构中删除
   }
 
+  /**
+   * 把对象序列化成 JSON 字符串：
+   * - 容器型组件需要负责子节点的序列化操作
+   * - 如果组件不需要序列化，需要返回 null
+   * @returns JSONObject
+   */
   public toJSON(): string {
     //FIXME:在序列化时，用来操控的组件不需要存储。
     return this.serializer.toJSON();
