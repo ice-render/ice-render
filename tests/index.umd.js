@@ -7193,6 +7193,52 @@
   var ICELinkabeText = ICELinkable(ICEText);
   var ICELinkableImage = ICELinkable(ICEImage);
 
+  /**
+   * i 代表角度 scale:放大比例
+   */
+
+  var ICEHeart = /*#__PURE__*/function (_ICEDotPath) {
+    _inherits(ICEHeart, _ICEDotPath);
+
+    var _super = _createSuper(ICEHeart);
+
+    /**
+     * @required
+     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
+     */
+    function ICEHeart() {
+      var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
+      _classCallCheck(this, ICEHeart);
+
+      var param = _objectSpread2({
+        scale: 2
+      }, props);
+
+      return _super.call(this, param);
+    }
+
+    _createClass(ICEHeart, [{
+      key: "calcDots",
+      value: function calcDots() {
+        this.state.dots = [];
+
+        for (var i = 0; i < 2 * Math.PI; i += 0.01) {
+          var scale = this.state.scale;
+          var x = scale * (12 * Math.sin(i) - 4 * Math.sin(3 * i)) + this.state.width / 2;
+          var y = -scale * (13 * Math.cos(i) - 5 * Math.cos(2 * i) - 2 * Math.cos(3 * i) - Math.cos(4 * i)) + this.state.height / 2;
+          this.state.dots.push(new DOMPoint(x, y));
+        }
+
+        return this.state.dots;
+      }
+    }]);
+
+    return ICEHeart;
+  }(ICEDotPath);
+
+  _defineProperty(ICEHeart, "type", 'ICEHeart');
+
   /** `Object#toString` result references. */
   var stringTag$1 = '[object String]';
 
@@ -9520,6 +9566,8 @@
 
   let ice = new ICE().init('canvas-1');
 
+  let heart = new ICEHeart();
+  ice.addChild(heart);
   // let rose = new ICERose({
   //   left: 10,
   //   top: 10,
