@@ -4766,6 +4766,9 @@
         };
       }
       /**
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
        * @returns JSONObject
        */
 
@@ -5395,6 +5398,13 @@
           return _get(_getPrototypeOf(ICEPolyLine.prototype), "getRotateAngle", this).call(this);
         }
       }
+      /**
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
+       * @returns JSONObject
+       */
+
     }, {
       key: "toJSON",
       value: function toJSON() {
@@ -6240,6 +6250,13 @@
           });
         }
       }
+      /**
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
+       * @returns JSONObject
+       */
+
     }, {
       key: "toJSON",
       value: function toJSON() {
@@ -6299,6 +6316,13 @@
 
         _get(_getPrototypeOf(ICEImage.prototype), "doRender", this).call(this);
       }
+      /**
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
+       * @returns JSONObject
+       */
+
     }, {
       key: "toJSON",
       value: function toJSON() {
@@ -6393,6 +6417,13 @@
 
         _get(_getPrototypeOf(ICEEllipse.prototype), "setState", this).call(this, newState);
       }
+      /**
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
+       * @returns JSONObject
+       */
+
     }, {
       key: "toJSON",
       value: function toJSON() {
@@ -6439,6 +6470,13 @@
       param.radiusY = param.radius;
       return _super.call(this, param);
     }
+    /**
+     * 把对象序列化成 JSON 字符串：
+     * - 容器型组件需要负责子节点的序列化操作
+     * - 如果组件不需要序列化，需要返回 null
+     * @returns JSONObject
+     */
+
 
     _createClass(ICECircle, [{
       key: "toJSON",
@@ -6538,6 +6576,13 @@
 
         return this.state.dots;
       }
+      /**
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
+       * @returns JSONObject
+       */
+
     }, {
       key: "toJSON",
       value: function toJSON() {
@@ -6601,6 +6646,13 @@
         this.state.dots = [point1, point2, point3, point4];
         return this.state.dots;
       }
+      /**
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
+       * @returns JSONObject
+       */
+
     }, {
       key: "toJSON",
       value: function toJSON() {
@@ -6669,6 +6721,13 @@
         this.path2D.closePath();
         return this.path2D;
       }
+      /**
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
+       * @returns JSONObject
+       */
+
     }, {
       key: "toJSON",
       value: function toJSON() {
@@ -6787,6 +6846,13 @@
         this.ctx.strokeText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
         this.ctx.fillText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
       }
+      /**
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
+       * @returns JSONObject
+       */
+
     }, {
       key: "toJSON",
       value: function toJSON() {
@@ -6970,8 +7036,10 @@
         return this._hostComponent;
       }
       /**
-       * 此类型不需要序列化，不需要持久化到 JSON 数据中。
-       * @returns
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
+       * @returns JSONObject
        */
       ,
       set: function set(component) {
@@ -7512,6 +7580,9 @@
         });
       }
       /**
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
        * @returns JSONObject
        */
 
@@ -7591,8 +7662,10 @@
         }
       }
       /**
-       * 此类型不需要序列化，不需要持久化到 JSON 数据中。
-       * @returns
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
+       * @returns JSONObject
        */
 
     }, {
@@ -7706,8 +7779,10 @@
         }));
       }
       /**
-       * 此类型不需要序列化，不需要持久化到 JSON 数据中。
-       * @returns
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
+       * @returns JSONObject
        */
 
     }, {
@@ -9277,6 +9352,13 @@
 
       this.ice = ice;
     }
+    /**
+     * 把对象序列化成 JSON 字符串：
+     * - 容器型组件需要负责子节点的序列化操作
+     * - 如果组件不需要序列化，需要返回 null
+     * @returns JSONObject
+     */
+
 
     _createClass(Serializer, [{
       key: "toJSON",
@@ -9542,6 +9624,13 @@
       value: function clearRenderMap() {//FIXME:停止所有对象的动画效果
         //FIXME:清理所有事件监听，然后再从结构中删除
       }
+      /**
+       * 把对象序列化成 JSON 字符串：
+       * - 容器型组件需要负责子节点的序列化操作
+       * - 如果组件不需要序列化，需要返回 null
+       * @returns JSONObject
+       */
+
     }, {
       key: "toJSON",
       value: function toJSON() {
