@@ -17,6 +17,10 @@ import ICE from '../src/ICE';
 
 let ice = new ICE().init('canvas-1');
 
+document.querySelector('#btn-1').addEventListener('click', (evt) => {
+  ice.toJSON();
+});
+
 // let heart = new ICEHeart();
 // ice.addChild(heart);
 // let rose = new ICERose({
