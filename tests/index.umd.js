@@ -3894,28 +3894,16 @@
         fn.call(scope, iceEvent);
       });
       return true;
-    } //FIXME:加上 scope 控制
+    }
 
-
-    suspend(eventName, fn) {
+    suspend(eventName) {
       if (eventName && !this.suspendedEventNames.includes(eventName)) {
         this.suspendedEventNames.push(eventName);
       }
-
-      if (fn) {
-        fn.prototype.suspended = true;
-      }
-    } //FIXME:加上 scope 控制
-
+    }
 
     resume(eventName, fn) {
-      if (eventName && this.suspendedEventNames.includes(eventName)) {
-        this.suspendedEventNames.splice(this.suspendedEventNames.findIndex(eventName), 1);
-      }
-
-      if (fn) {
-        fn.prototype.suspended = false;
-      }
+      this.suspendedEventNames.splice(this.suspendedEventNames.findIndex(el => el === eventName), 1);
     }
 
     purgeEvents() {
