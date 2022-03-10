@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import { v4 as uuid } from '@lukeed/uuid';
 import get from 'lodash/get';
 import merge from 'lodash/merge';
 import EventBus from '../event/EventBus';
@@ -24,15 +25,11 @@ import ICE from '../ICE';
  */
 abstract class ICEBaseComponent extends EventTarget {
   //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
-  //FIXME:@Inject()
   public root: any;
   //当对象被添加到 canvas 中时，ICE 会自动设置 ctx 的值，没有被添加到 canvas 中的对象 ctx 为 null 。
-  //FIXME:@Inject()
   public ctx: any;
   //事件总线， evtBus 在 render() 方法被调用时才会被设置
-  //FIXME:@Inject()
   public evtBus: EventBus;
-  //FIXME:@Inject()
   //FIXME:如果引用了 ICE 实例，以上属性是否可以删掉？？？直接从 ICE 实例上获取？？？
   //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
   public ice: ICE;
@@ -75,7 +72,7 @@ abstract class ICEBaseComponent extends EventTarget {
    * @param props
    */
   public props: any = {
-    id: 'ICE_' + Math.floor(Math.random() * 10000000000),
+    id: uuid(),
     left: 0,
     top: 0,
     width: 0,
@@ -116,9 +113,6 @@ abstract class ICEBaseComponent extends EventTarget {
     this.props = merge(this.props, props);
     this.state = JSON.parse(JSON.stringify(this.props));
 
-    //FIXME:生成随机ID有问题???
-    // this.props.id = 'ICE_' + sha256(Math.random() * 100000000).toString();
-    //sha256(Math.random() * 100000000).toString();
     this.initEvents();
   }
 
