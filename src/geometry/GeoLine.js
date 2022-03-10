@@ -43,9 +43,10 @@ export default class GeoLine {
    * Tests to see if a point belongs to this line (not as infinite line but more like a segment)
    * Algorithm: Compute line's equation and see if (x, y) verifies it.
    *
-   *
    * 测试某个点是否位于直线上（这里不是数学意义上的无线延长直线，而是线段）。
    * 算法：计算斜率，看(x,y)点是否位于线段上。
+   *
+   * @see http://www.jeffreythompson.org/collision-detection/line-point.php
    * @param {Number} x - the X coordinates
    * @param {Number} y - the Y coordinates
    */
