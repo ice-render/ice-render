@@ -35,10 +35,6 @@ export default class DDManager {
 
     if (!(component instanceof ICEBaseComponent)) {
       console.warn('DDManager: 点击在 canvas 画布上，没有点击任何图形。');
-
-      //just for test ...
-      this.ice.toJSON();
-
       return;
     }
 

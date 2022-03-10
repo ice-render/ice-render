@@ -6915,9 +6915,7 @@
       let component = evt.target;
 
       if (!(component instanceof ICEBaseComponent)) {
-        console.warn('DDManager: 点击在 canvas 画布上，没有点击任何图形。'); //just for test ...
-
-        this.ice.toJSON();
+        console.warn('DDManager: 点击在 canvas 画布上，没有点击任何图形。');
         return;
       }
 
@@ -8905,6 +8903,10 @@
   // import ICEStar from '../src/graphic/shape/ICEStar';
 
   let ice = new ICE().init('canvas-1');
+
+  document.querySelector('#btn-1').addEventListener('click', (evt) => {
+    ice.toJSON();
+  });
 
   // let heart = new ICEHeart();
   // ice.addChild(heart);
