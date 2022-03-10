@@ -366,8 +366,12 @@ class ICEPolyLine extends ICEDotPath {
     }
   }
 
-  //FIXME:对于线条类的组件，需要更精确的判定方法来判断指定的坐标点是否位于线条上
   public containsPoint(x: number, y: number): boolean {
+    //FIXME:对于线条类的组件，需要更精确的判定方法来判断指定的坐标点是否位于线条上，利用 GeoLine.contains 进行计算。
+    //计算步骤：
+    //step-1: 每两个点构成一条线段
+    //step-2: 依次判断给定的坐标点是否位于线段上
+    console.log(this.state.dots);
     return super.containsPoint(x, y);
   }
 
