@@ -73,33 +73,23 @@ class ICEControlPanelManager {
     let component = evt.target;
 
     if (!(component instanceof ICEBaseComponent)) {
-      console.warn('ICEControlPanelManager: 点击在 canvas 画布上，没有点击任何图形。');
       return;
     }
 
     if (!component.state.interactive || !component.state.transformable) {
-      //TODO:隐藏 ICEControlPanel
-      //FIXME:需要清理事件
-      this.ice.removeChild(this.transformControlPanel);
-      this.ice.removeChild(this.lineControlPanel);
       return;
     }
+
     //只有 ICEControlPanel 和它内部的变换手柄才具备跟随鼠标移动的功能，其它组件都需要由 ICEControlPanel 驱动进行移动和变换。
     const isControlPanel =
       component && (component instanceof ICEControlPanel || component.parentNode instanceof ICEControlPanel);
     if (!isControlPanel) {
-      //被点击的对象不是 ICEControlPanel 的实例，也不是 ICEControlPanel 内部的组件，说明点击了普通的组件。
-      if (evt.ctrlKey) {
-        this.ice.selectionList.push(component);
-      } else {
-        this.ice.selectionList = [component];
-      }
+      this.ice.selectionList = [component];
       if (component instanceof ICEPolyLine) {
         this.lineControlPanel.targetComponent = component;
         this.lineControlPanel.showHooks();
       } else {
         this.lineControlPanel.hideHooks();
-        //FIXME:处理多选的情况，如果实现多选机制，会导致 N 层重叠的对象的处理出现麻烦。
         this.transformControlPanel.targetComponent = component;
       }
     }
