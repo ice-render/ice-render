@@ -52,6 +52,7 @@ class ICEControlPanelManager {
     //在同一时刻，不可能同时出现多个 TransformControlPanel 实例，这里默认构造一个，放在距离可见区域很远的位置？？？
     //FIXME:需要测试是否会影响 toDataURL 的输出结果。
     this.ice.addChild(this.transformControlPanel);
+    this.transformControlPanel.disable(); //默认处于禁用状态
 
     this.lineControlPanel = new LineControlPanel({
       left: 700,
@@ -65,10 +66,9 @@ class ICEControlPanelManager {
       },
     });
     this.ice.addChild(this.lineControlPanel);
+    this.lineControlPanel.disable(); //默认处于禁用状态
   }
 
-  //FIXME:先取消选中列表中的原有对象的选中状态?
-  //FIXME:ICEControlPanel 需要根据情况决定自己的外观和状态。
   private mouseDownHandler(evt: ICEEvent) {
     let component = evt.target;
 
@@ -86,10 +86,13 @@ class ICEControlPanelManager {
     if (!isControlPanel) {
       this.ice.selectionList = [component];
       if (component instanceof ICEPolyLine) {
+        this.transformControlPanel.disable();
+        this.lineControlPanel.enable();
         this.lineControlPanel.targetComponent = component;
         this.lineControlPanel.showHooks();
       } else {
-        this.lineControlPanel.hideHooks();
+        this.lineControlPanel.disable();
+        this.transformControlPanel.enable();
         this.transformControlPanel.targetComponent = component;
       }
     }
