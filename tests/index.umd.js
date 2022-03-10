@@ -7206,8 +7206,8 @@
     constructor(props) {
       super({ ...props,
         zIndex: Number.MAX_VALUE,
-        showMinBoundingBox: false,
-        showMaxBoundingBox: false
+        showMinBoundingBox: true,
+        showMaxBoundingBox: true
       });
 
       _defineProperty(this, "controlSize", 16);
@@ -7312,9 +7312,9 @@
         //设置 LineControlPanel 自身的位置
         this.setState({
           left: 0,
-          top: 0,
-          width: 100,
-          height: 100,
+          top: -5,
+          width: 3,
+          height: 3,
           transform: {
             translate: [0, 0],
             scale: [1, 1],
