@@ -80,7 +80,7 @@ class DOMEventBridge {
       });
     }
 
-    let flag = component.getMinBoundingBox().containsPoint(new DOMPoint(x, y));
+    let flag = component.containsPoint(x, y);
     if (flag && component.state.interactive) {
       this.selectionCandidates.push(component);
     }

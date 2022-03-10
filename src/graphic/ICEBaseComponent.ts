@@ -475,6 +475,10 @@ abstract class ICEBaseComponent extends EventTarget {
     return { left, top, width, height };
   }
 
+  public containsPoint(x: number, y: number): boolean {
+    return this.getMinBoundingBox().containsPoint(new DOMPoint(x, y));
+  }
+
   /**
    * 把对象序列化成 JSON 字符串：
    * - 容器型组件需要负责子节点的序列化操作
