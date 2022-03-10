@@ -117,7 +117,7 @@ abstract class EventTarget {
     }
   }
 
-  resume(eventName: string, fn: Function) {
+  resume(eventName: string) {
     this.suspendedEventNames.splice(
       this.suspendedEventNames.findIndex((el) => el === eventName),
       1

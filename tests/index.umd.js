@@ -3902,7 +3902,7 @@
       }
     }
 
-    resume(eventName, fn) {
+    resume(eventName) {
       this.suspendedEventNames.splice(this.suspendedEventNames.findIndex(el => el === eventName), 1);
     }
 
