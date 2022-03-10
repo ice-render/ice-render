@@ -29,7 +29,7 @@ class DOMEventBridge {
     //FIXME:这里需要增加节流机制，防止触发事件的频率过高导致 CPU 飙升。
     mouseEvents.forEach((evtMapping) => {
       this.ice.evtBus.on(evtMapping[1], (evt: ICEEvent) => {
-        const component = this.findTargetComponent(evt.pageX, evt.pageY);
+        const component = this.findTargetComponent(evt.clientX, evt.clientY); //FIXME:需要把 clientX/clientY 转换成 canvas 内部的坐标
         if (component) {
           evt.target = component;
           component.trigger(evtMapping[0], evt);
@@ -45,13 +45,13 @@ class DOMEventBridge {
    * 在点击状态下，每次只能点击一个对象，当前不支持 DOM 冒泡特性。
    * FIXME:这里需要进行优化，当存在大量对象时，每一个对象都进行比较会有性能问题。
    *
-   * @param pageX
-   * @param pageY
+   * @param clientX
+   * @param clientY
    * @returns
    */
-  private findTargetComponent(pageX, pageY) {
-    let x = pageX - this.ice.canvasBoundingClientRect.left;
-    let y = pageY - this.ice.canvasBoundingClientRect.top;
+  private findTargetComponent(clientX, clientY) {
+    let x = clientX - this.ice.canvasBoundingClientRect.left;
+    let y = clientY - this.ice.canvasBoundingClientRect.top;
     let components = Array.from(this.ice.childNodes);
     for (let i = 0; i < components.length; i++) {
       let component: any = components[i];
