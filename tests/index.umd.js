@@ -4474,6 +4474,10 @@
         height
       };
     }
+
+    containsPoint(x, y) {
+      return this.getMinBoundingBox().containsPoint(new DOMPoint(x, y));
+    }
     /**
      * 把对象序列化成 JSON 字符串：
      * - 容器型组件需要负责子节点的序列化操作
@@ -5101,6 +5105,11 @@
       } else {
         return super.getRotateAngle();
       }
+    } //FIXME:对于线条类的组件，需要更精确的判定方法来判断指定的坐标点是否位于线条上
+
+
+    containsPoint(x, y) {
+      return super.containsPoint(x, y);
     }
     /**
      * 把对象序列化成 JSON 字符串：
@@ -8505,7 +8514,7 @@
         });
       }
 
-      let flag = component.getMinBoundingBox().containsPoint(new DOMPoint(x, y));
+      let flag = component.containsPoint(x, y);
 
       if (flag && component.state.interactive) {
         this.selectionCandidates.push(component);
