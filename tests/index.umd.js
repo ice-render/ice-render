@@ -8459,9 +8459,7 @@
       for (let i = 0; i < components.length; i++) {
         let component = components[i];
         this.traverse(x, y, component);
-      } //TODO: 按照 zIndex 倒排，然后取第0个元素。
-      //TODO: 需要重构设置和修改 zIndex 参数的时机。
-
+      }
 
       this.selectionCandidates.sort((a, b) => {
         return a.zIndex - b.zIndex;
