@@ -6525,10 +6525,10 @@
         // 如果 hook 与 slot 位置重叠，让连接线与 slot 所在的组件建立连接关系
         // 把连线上的起点或者终点坐标设置为当前发生碰撞的 ICELinkSlot 的坐标
         // ICELinkHook 实例在 LinkControlPanel 中，全局只有2个实例，所有连接线都共享同一个 LinkControlPanel 实例。
-        linkLine.setSlot(this, position);
+        linkLine && linkLine.setSlot(this, position);
       } else {
         //hook 没有与当前的 slot 重叠，让 hook 所在的连接线解除与当前 slot 之间的连接关系
-        linkLine.deleteSlot(this, position);
+        linkLine && linkLine.deleteSlot(this, position);
       } //恢复插槽默认的外观
 
 
@@ -7206,8 +7206,8 @@
     constructor(props) {
       super({ ...props,
         zIndex: Number.MAX_VALUE,
-        showMinBoundingBox: true,
-        showMaxBoundingBox: true
+        showMinBoundingBox: false,
+        showMaxBoundingBox: false
       });
 
       _defineProperty(this, "controlSize", 16);
