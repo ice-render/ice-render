@@ -128,7 +128,7 @@ let visioLink = new ICEVisioLink({
   left: 0,
   top: 0,
   startPoint: [500, 500],
-  endPoint: [700, 700],
+  endPoint: [600, 600],
   style: {
     strokeStyle: '#08ee00',
     fillStyle: '#008000',

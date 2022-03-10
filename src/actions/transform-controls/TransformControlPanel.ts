@@ -148,6 +148,18 @@ export default class TransformControlPanel extends ICEControlPanel {
     this.on('after-rotate', this.rotateEvtHandler, this);
   }
 
+  public enable() {
+    this.setState({ display: true });
+    this.resume('after-resize');
+    this.resume('after-rotate');
+  }
+
+  public disable() {
+    this.setState({ display: false });
+    this.suspend('after-resize');
+    this.suspend('after-rotate');
+  }
+
   protected setControlPositions() {
     //重新计算所有 ResizeControl 的位置，共8个
     let width = this.state.width;

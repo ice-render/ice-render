@@ -7247,6 +7247,20 @@
     initEvents() {
       this.on('after-resize', this.resizeEvtHandler, this);
     }
+
+    enable() {
+      this.setState({
+        display: true
+      });
+      this.resume('after-resize');
+    }
+
+    disable() {
+      this.setState({
+        display: false
+      });
+      this.suspend('after-resize');
+    }
     /**
      * 设置所有手柄在父组件中的位置，相对于父组件的本地坐标系。
      * LineControlPanel 不强制操作手柄的位置，操作手柄可以自由移动。
@@ -7803,6 +7817,22 @@
       this.on('after-rotate', this.rotateEvtHandler, this);
     }
 
+    enable() {
+      this.setState({
+        display: true
+      });
+      this.resume('after-resize');
+      this.resume('after-rotate');
+    }
+
+    disable() {
+      this.setState({
+        display: false
+      });
+      this.suspend('after-resize');
+      this.suspend('after-rotate');
+    }
+
     setControlPositions() {
       //重新计算所有 ResizeControl 的位置，共8个
       let width = this.state.width;
@@ -8090,6 +8120,8 @@
       //FIXME:需要测试是否会影响 toDataURL 的输出结果。
 
       this.ice.addChild(this.transformControlPanel);
+      this.transformControlPanel.disable(); //默认处于禁用状态
+
       this.lineControlPanel = new LineControlPanel({
         left: 700,
         top: 50,
@@ -8102,9 +8134,8 @@
         }
       });
       this.ice.addChild(this.lineControlPanel);
-    } //FIXME:先取消选中列表中的原有对象的选中状态?
-    //FIXME:ICEControlPanel 需要根据情况决定自己的外观和状态。
-
+      this.lineControlPanel.disable(); //默认处于禁用状态
+    }
 
     mouseDownHandler(evt) {
       let component = evt.target;
@@ -8124,10 +8155,13 @@
         this.ice.selectionList = [component];
 
         if (component instanceof ICEPolyLine) {
+          this.transformControlPanel.disable();
+          this.lineControlPanel.enable();
           this.lineControlPanel.targetComponent = component;
           this.lineControlPanel.showHooks();
         } else {
-          this.lineControlPanel.hideHooks();
+          this.lineControlPanel.disable();
+          this.transformControlPanel.enable();
           this.transformControlPanel.targetComponent = component;
         }
       }
@@ -9008,7 +9042,7 @@
     left: 0,
     top: 0,
     startPoint: [500, 500],
-    endPoint: [700, 700],
+    endPoint: [600, 600],
     style: {
       strokeStyle: '#08ee00',
       fillStyle: '#008000',

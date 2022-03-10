@@ -41,4 +41,8 @@ export default abstract class ICEControlPanel extends ICEGroup {
       this._targetComponent.moveGlobalPosition(tx, ty, evt);
     }
   }
+
+  public abstract enable();
+
+  public abstract disable();
 }
