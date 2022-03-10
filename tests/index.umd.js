@@ -4811,7 +4811,9 @@
         lineWidth: 2,
         arrow: 'none',
         closePath: false,
-        points: []
+        points: [],
+        showMinBoundingBox: false,
+        showMaxBoundingBox: false
       }, props); //至少有2个点，如果点数少于2个，自动填充。
 
       let len = param.points.length;
@@ -6929,13 +6931,11 @@
     }
 
     mouseMoveHandler(evt) {
-      console.log('window.devicePixelRatio>', window.devicePixelRatio); // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+      // console.log('window.devicePixelRatio>', window.devicePixelRatio);
+      // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
       // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-
-      let tx = evt.movementX; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-
-      let ty = evt.movementY; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-
+      let tx = evt.movementX;
+      let ty = evt.movementY;
       this.currentObj.moveGlobalPosition(tx, ty, evt);
       return true;
     }
@@ -8614,6 +8614,23 @@
     fromJSON(jsonStr) {
       console.log(componentTypeMap);
       console.log(jsonStr);
+      const jsonObj = JSON.parse(jsonStr);
+      console.log(jsonObj);
+      const childNodes = jsonObj.childNodes;
+
+      for (let i = 0; i < childNodes.length; i++) {
+        const node = childNodes[i];
+        const Clazz = componentTypeMap[node.type];
+        console.log('Clazz>', Clazz);
+        const props = node.props;
+        const state = node.state;
+        const instance = new Clazz(props);
+        console.log('instance>', instance); // instance.setState(state);
+
+        this.ice.clearRenderMap(); // this.ice.addChild(instance);
+        // console.log('instance>', instance);
+      }
+
       return {};
     }
 
@@ -8642,7 +8659,8 @@
 
     toJSON() {
       let result = {
-        time: new Date().toLocaleString(),
+        createTime: new Date().toLocaleString(),
+        lastModifyTime: new Date().toLocaleString(),
         childNodes: []
       };
       this.ice.childNodes.forEach(child => {
@@ -8875,8 +8893,8 @@
       });
     }
 
-    clearRenderMap() {//FIXME:停止所有对象的动画效果
-      //FIXME:清理所有事件监听，然后再从结构中删除
+    clearRenderMap() {
+      this.removeChildren(this.childNodes);
     }
     /**
      * 把对象序列化成 JSON 字符串：
@@ -8905,7 +8923,12 @@
   let ice = new ICE().init('canvas-1');
 
   document.querySelector('#btn-1').addEventListener('click', (evt) => {
-    ice.toJSON();
+    const jsonStr = ice.toJSON();
+    window.localStorage.setItem('json-data', jsonStr);
+  });
+  document.querySelector('#btn-2').addEventListener('click', (evt) => {
+    const jsonStr = window.localStorage.getItem('json-data');
+    ice.fromJSON(jsonStr);
   });
 
   // let heart = new ICEHeart();
@@ -9019,12 +9042,12 @@
   });
   ice.addChild(visioLink);
 
-  // let linkCircle3 = new ICELinkableCircle({
-  //   left: 100,
-  //   top: 100,
-  //   radius: 50,
-  // });
-  // ice.addChild(linkCircle3);
+  let linkCircle3 = new ICELinkableCircle({
+    left: 100,
+    top: 500,
+    radius: 50,
+  });
+  ice.addChild(linkCircle3);
   // console.log(linkCircle3 instanceof ICECircle);
 
   // let linkCircle4 = new ICELinkableCircle({

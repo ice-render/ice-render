@@ -30,7 +30,11 @@ export default class Serializer {
    * @returns JSONObject
    */
   public toJSON(): string {
-    let result = { time: new Date().toLocaleString(), childNodes: [] };
+    let result = {
+      createTime: new Date().toLocaleString(),
+      lastModifyTime: new Date().toLocaleString(),
+      childNodes: [],
+    };
     this.ice.childNodes.forEach((child: ICEBaseComponent) => {
       if (child instanceof ICEControlPanel) {
         console.warn('控制手柄类型的组件不需要存储...', child);

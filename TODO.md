@@ -54,10 +54,11 @@
 - TODO:重构渲染机制，只有当组件的 state 发生变化的时候，才重新渲染，如果 state 没有变，不调用 render() 方法？？？ 【已解决】
 - TODO:ICEGroup 需要重构，所有组件的 render 方法都交给 Renderer 统一进行调度。【已解决】
 - TODO:工程名、包名都改成 ice-render【已解决】
-- 
 - TODO:解决 uuid 无效的问题【已解决】
 - TODO:ICE 本身也需要一个 uuid【已解决】
-- TODO:序列化和反序列化（可能需要整理一下整体的数据结构） <------------
+- 
+- TODO:清理 TransformControlPanel， LinkHook， LinkSlot 相关的机制，点击之后才展示出来，并且不能影响序列化和反序列化 <------------
+- TODO:序列化和反序列化（可能需要整理一下整体的数据结构） 
 - TODO:整理现有图形类的代码，扩展缺失的图形类型。
 - TODO:线条的两端需要绘制箭头或者其它形状。
 - TODO:线条型的组件点击判断需要特殊处理，不能用边界盒子计算，需要用 isPointInPath() 进行判断。 

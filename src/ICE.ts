@@ -164,8 +164,7 @@ class ICE {
   }
 
   public clearRenderMap() {
-    //FIXME:停止所有对象的动画效果
-    //FIXME:清理所有事件监听，然后再从结构中删除
+    this.removeChildren(this.childNodes);
   }
 
   /**

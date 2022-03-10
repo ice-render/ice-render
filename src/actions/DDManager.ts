@@ -48,11 +48,11 @@ export default class DDManager {
   }
 
   private mouseMoveHandler(evt: ICEEvent): boolean {
-    console.log('window.devicePixelRatio>', window.devicePixelRatio);
+    // console.log('window.devicePixelRatio>', window.devicePixelRatio);
     // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
     // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-    let tx = evt.movementX; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-    let ty = evt.movementY; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+    let tx = evt.movementX;
+    let ty = evt.movementY;
     this.currentObj.moveGlobalPosition(tx, ty, evt);
     return true;
   }

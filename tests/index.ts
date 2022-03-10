@@ -5,7 +5,7 @@
 // import ICECablelikeVisioLink from '../src/graphic/cable-like/ICECablelikeVisioLink';
 import ICEVisioLink from '../src/graphic/linkable/ICEVisioLink';
 import {
-  // ICELinkableCircle,
+  ICELinkableCircle,
   // ICELinkableEllipse,
   // ICELinkableImage,
   ICELinkableRect,
@@ -18,7 +18,12 @@ import ICE from '../src/ICE';
 let ice = new ICE().init('canvas-1');
 
 document.querySelector('#btn-1').addEventListener('click', (evt) => {
-  ice.toJSON();
+  const jsonStr = ice.toJSON();
+  window.localStorage.setItem('json-data', jsonStr);
+});
+document.querySelector('#btn-2').addEventListener('click', (evt) => {
+  const jsonStr = window.localStorage.getItem('json-data');
+  ice.fromJSON(jsonStr);
 });
 
 // let heart = new ICEHeart();
@@ -132,12 +137,12 @@ let visioLink = new ICEVisioLink({
 });
 ice.addChild(visioLink);
 
-// let linkCircle3 = new ICELinkableCircle({
-//   left: 100,
-//   top: 100,
-//   radius: 50,
-// });
-// ice.addChild(linkCircle3);
+let linkCircle3 = new ICELinkableCircle({
+  left: 100,
+  top: 500,
+  radius: 50,
+});
+ice.addChild(linkCircle3);
 // console.log(linkCircle3 instanceof ICECircle);
 
 // let linkCircle4 = new ICELinkableCircle({
