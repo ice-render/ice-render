@@ -7206,8 +7206,8 @@
     constructor(props) {
       super({ ...props,
         zIndex: Number.MAX_VALUE,
-        showMinBoundingBox: true,
-        showMaxBoundingBox: true
+        showMinBoundingBox: false,
+        showMaxBoundingBox: false
       });
 
       _defineProperty(this, "controlSize", 16);
