@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import ICEControlPanel from '../actions/ICEControlPanel';
 import ICEBaseComponent from '../graphic/ICEBaseComponent';
 import ICE from '../ICE';
 
@@ -31,6 +32,10 @@ export default class Serializer {
   public toJSON(): string {
     let result = { time: new Date().toLocaleString(), childNodes: [] };
     this.ice.childNodes.forEach((child: ICEBaseComponent) => {
+      if (child instanceof ICEControlPanel) {
+        console.warn('控制手柄类型的组件不需要存储...', child);
+        return;
+      }
       if (child.toJSON()) {
         result.childNodes.push(child.toJSON());
       }

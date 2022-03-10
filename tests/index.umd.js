@@ -7612,23 +7612,6 @@
           this._targetComponent.moveGlobalPosition(tx, ty, evt);
         }
       }
-      /**
-       * 把对象序列化成 JSON 字符串：
-       * - 容器型组件需要负责子节点的序列化操作
-       * - 如果组件不需要序列化，需要返回 null
-       * @returns JSONObject
-       */
-
-    }, {
-      key: "toJSON",
-      value: function toJSON() {
-        return null;
-      }
-    }, {
-      key: "fromJSON",
-      value: function fromJSON(jsonStr) {
-        return null;
-      }
     }]);
 
     return ICEControlPanel;
@@ -9281,14 +9264,6 @@
   }();
 
   /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-
-  /**
    * @class Serializer
    *
    * 把图形序列化成 JSON 字符串。
@@ -9319,6 +9294,11 @@
           childNodes: []
         };
         this.ice.childNodes.forEach(function (child) {
+          if (child instanceof ICEControlPanel) {
+            console.warn('控制手柄类型的组件不需要存储...', child);
+            return;
+          }
+
           if (child.toJSON()) {
             result.childNodes.push(child.toJSON());
           }

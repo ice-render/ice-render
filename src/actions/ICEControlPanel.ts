@@ -41,18 +41,4 @@ export default abstract class ICEControlPanel extends ICEGroup {
       this._targetComponent.moveGlobalPosition(tx, ty, evt);
     }
   }
-
-  /**
-   * 把对象序列化成 JSON 字符串：
-   * - 容器型组件需要负责子节点的序列化操作
-   * - 如果组件不需要序列化，需要返回 null
-   * @returns JSONObject
-   */
-  public toJSON(): object {
-    return null;
-  }
-
-  public fromJSON(jsonStr: string): object {
-    return null;
-  }
 }
