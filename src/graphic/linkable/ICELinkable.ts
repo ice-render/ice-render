@@ -12,7 +12,6 @@ import ICEBaseComponent from '../ICEBaseComponent';
 import ICELinkSlot from './ICELinkSlot';
 
 /**
- *
  * 泛型工厂函数，把普通的图形类转换成可连接的图形类。
  * @author 大漠穷秋<damoqiongqiu@126.com>
  * @see https://www.typescriptlang.org/docs/handbook/mixins.html#constrained-mixins
