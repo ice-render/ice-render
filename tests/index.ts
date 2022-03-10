@@ -10,15 +10,15 @@ import {
   // ICELinkableImage,
   ICELinkableRect,
 } from '../src/graphic/linkable/linkable-components';
-import ICEHeart from '../src/graphic/shape/ICEHeart';
+// import ICEHeart from '../src/graphic/shape/ICEHeart';
 // import ICEIsogon from '../src/graphic/shape/ICEIsogon';
 // import ICERose from '../src/graphic/shape/ICERose';
 import ICE from '../src/ICE';
 
 let ice = new ICE().init('canvas-1');
 
-let heart = new ICEHeart();
-ice.addChild(heart);
+// let heart = new ICEHeart();
+// ice.addChild(heart);
 // let rose = new ICERose({
 //   left: 10,
 //   top: 10,

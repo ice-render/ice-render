@@ -6,8 +6,8 @@
  *
  */
 import ICEEvent from '../../event/ICEEvent';
-import ICELinkHook from '../../graphic/linkable/ICELinkHook';
 import ICEBaseComponent from '../../graphic/ICEBaseComponent';
+import ICELinkHook from '../../graphic/linkable/ICELinkHook';
 import ICEControlPanel from '../ICEControlPanel';
 
 /**
@@ -93,8 +93,8 @@ export default class LineControlPanel extends ICEControlPanel {
     }
 
     let position = evt.position;
-    let movementX = evt.movementX / window.devicePixelRatio;
-    let movementY = evt.movementY / window.devicePixelRatio;
+    let movementX = evt.movementX;
+    let movementY = evt.movementY;
     let targetState = this.targetComponent.state;
     let len = targetState.points.length;
     let newStartX = targetState.points[0][0];

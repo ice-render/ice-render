@@ -212,8 +212,8 @@ export default class TransformControlPanel extends ICEControlPanel {
     }
 
     let { quadrant } = evt;
-    let movementX = evt.movementX / window.devicePixelRatio;
-    let movementY = evt.movementY / window.devicePixelRatio;
+    let movementX = evt.movementX;
+    let movementY = evt.movementY;
     let targetState = this.targetComponent.state;
     let newLeft = targetState.left;
     let newTop = targetState.top;

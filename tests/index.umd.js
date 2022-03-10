@@ -1,21 +1,16 @@
 (function (factory) {
   typeof define === 'function' && define.amd ? define(factory) :
   factory();
-}((function () { 'use strict';
+})((function () { 'use strict';
 
   function ownKeys(object, enumerableOnly) {
     var keys = Object.keys(object);
 
     if (Object.getOwnPropertySymbols) {
       var symbols = Object.getOwnPropertySymbols(object);
-
-      if (enumerableOnly) {
-        symbols = symbols.filter(function (sym) {
-          return Object.getOwnPropertyDescriptor(object, sym).enumerable;
-        });
-      }
-
-      keys.push.apply(keys, symbols);
+      enumerableOnly && (symbols = symbols.filter(function (sym) {
+        return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+      })), keys.push.apply(keys, symbols);
     }
 
     return keys;
@@ -23,19 +18,12 @@
 
   function _objectSpread2(target) {
     for (var i = 1; i < arguments.length; i++) {
-      var source = arguments[i] != null ? arguments[i] : {};
-
-      if (i % 2) {
-        ownKeys(Object(source), true).forEach(function (key) {
-          _defineProperty(target, key, source[key]);
-        });
-      } else if (Object.getOwnPropertyDescriptors) {
-        Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
-      } else {
-        ownKeys(Object(source)).forEach(function (key) {
-          Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
-        });
-      }
+      var source = null != arguments[i] ? arguments[i] : {};
+      i % 2 ? ownKeys(Object(source), !0).forEach(function (key) {
+        _defineProperty$1(target, key, source[key]);
+      }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys(Object(source)).forEach(function (key) {
+        Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+      });
     }
 
     return target;
@@ -60,10 +48,13 @@
   function _createClass(Constructor, protoProps, staticProps) {
     if (protoProps) _defineProperties(Constructor.prototype, protoProps);
     if (staticProps) _defineProperties(Constructor, staticProps);
+    Object.defineProperty(Constructor, "prototype", {
+      writable: false
+    });
     return Constructor;
   }
 
-  function _defineProperty(obj, key, value) {
+  function _defineProperty$1(obj, key, value) {
     if (key in obj) {
       Object.defineProperty(obj, key, {
         value: value,
@@ -89,6 +80,9 @@
         writable: true,
         configurable: true
       }
+    });
+    Object.defineProperty(subClass, "prototype", {
+      writable: false
     });
     if (superClass) _setPrototypeOf(subClass, superClass);
   }
@@ -656,9 +650,9 @@
   var freeSelf = typeof self == 'object' && self && self.Object === Object && self;
 
   /** Used as a reference to the global object. */
-  var root = _freeGlobal || freeSelf || Function('return this')();
+  var root$2 = _freeGlobal || freeSelf || Function('return this')();
 
-  var _root = root;
+  var _root = root$2;
 
   /** Used to match a single whitespace character. */
   var reWhitespace = /\s/;
@@ -736,20 +730,20 @@
   var _Symbol = Symbol$1;
 
   /** Used for built-in method references. */
-  var objectProto = Object.prototype;
+  var objectProto$a = Object.prototype;
 
   /** Used to check objects for own properties. */
-  var hasOwnProperty = objectProto.hasOwnProperty;
+  var hasOwnProperty$8 = objectProto$a.hasOwnProperty;
 
   /**
    * Used to resolve the
    * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
    * of values.
    */
-  var nativeObjectToString = objectProto.toString;
+  var nativeObjectToString$1 = objectProto$a.toString;
 
   /** Built-in value references. */
-  var symToStringTag = _Symbol ? _Symbol.toStringTag : undefined;
+  var symToStringTag$1 = _Symbol ? _Symbol.toStringTag : undefined;
 
   /**
    * A specialized version of `baseGetTag` which ignores `Symbol.toStringTag` values.
@@ -759,20 +753,20 @@
    * @returns {string} Returns the raw `toStringTag`.
    */
   function getRawTag(value) {
-    var isOwn = hasOwnProperty.call(value, symToStringTag),
-        tag = value[symToStringTag];
+    var isOwn = hasOwnProperty$8.call(value, symToStringTag$1),
+        tag = value[symToStringTag$1];
 
     try {
-      value[symToStringTag] = undefined;
+      value[symToStringTag$1] = undefined;
       var unmasked = true;
     } catch (e) {}
 
-    var result = nativeObjectToString.call(value);
+    var result = nativeObjectToString$1.call(value);
     if (unmasked) {
       if (isOwn) {
-        value[symToStringTag] = tag;
+        value[symToStringTag$1] = tag;
       } else {
-        delete value[symToStringTag];
+        delete value[symToStringTag$1];
       }
     }
     return result;
@@ -781,14 +775,14 @@
   var _getRawTag = getRawTag;
 
   /** Used for built-in method references. */
-  var objectProto$1 = Object.prototype;
+  var objectProto$9 = Object.prototype;
 
   /**
    * Used to resolve the
    * [`toStringTag`](http://ecma-international.org/ecma-262/7.0/#sec-object.prototype.tostring)
    * of values.
    */
-  var nativeObjectToString$1 = objectProto$1.toString;
+  var nativeObjectToString = objectProto$9.toString;
 
   /**
    * Converts `value` to a string using `Object.prototype.toString`.
@@ -798,7 +792,7 @@
    * @returns {string} Returns the converted string.
    */
   function objectToString(value) {
-    return nativeObjectToString$1.call(value);
+    return nativeObjectToString.call(value);
   }
 
   var _objectToString = objectToString;
@@ -808,7 +802,7 @@
       undefinedTag = '[object Undefined]';
 
   /** Built-in value references. */
-  var symToStringTag$1 = _Symbol ? _Symbol.toStringTag : undefined;
+  var symToStringTag = _Symbol ? _Symbol.toStringTag : undefined;
 
   /**
    * The base implementation of `getTag` without fallbacks for buggy environments.
@@ -821,7 +815,7 @@
     if (value == null) {
       return value === undefined ? undefinedTag : nullTag;
     }
-    return (symToStringTag$1 && symToStringTag$1 in Object(value))
+    return (symToStringTag && symToStringTag in Object(value))
       ? _getRawTag(value)
       : _objectToString(value);
   }
@@ -947,7 +941,7 @@
   var toNumber_1 = toNumber;
 
   /** Used as references for various `Number` constants. */
-  var INFINITY = 1 / 0,
+  var INFINITY$2 = 1 / 0,
       MAX_INTEGER = 1.7976931348623157e+308;
 
   /**
@@ -978,7 +972,7 @@
       return value === 0 ? value : 0;
     }
     value = toNumber_1(value);
-    if (value === INFINITY || value === -INFINITY) {
+    if (value === INFINITY$2 || value === -INFINITY$2) {
       var sign = (value < 0 ? -1 : 1);
       return sign * MAX_INTEGER;
     }
@@ -1328,15 +1322,15 @@
 
       _classCallCheck(this, ICEBoundingBox);
 
-      _defineProperty(this, "tl", new DOMPoint());
+      _defineProperty$1(this, "tl", new DOMPoint());
 
-      _defineProperty(this, "tr", new DOMPoint());
+      _defineProperty$1(this, "tr", new DOMPoint());
 
-      _defineProperty(this, "bl", new DOMPoint());
+      _defineProperty$1(this, "bl", new DOMPoint());
 
-      _defineProperty(this, "br", new DOMPoint());
+      _defineProperty$1(this, "br", new DOMPoint());
 
-      _defineProperty(this, "center", new DOMPoint());
+      _defineProperty$1(this, "center", new DOMPoint());
 
       this.tl = new DOMPoint(props[0], props[1]);
       this.tr = new DOMPoint(props[2], props[3]);
@@ -1862,7 +1856,7 @@
 
   /** `Object#toString` result references. */
   var asyncTag = '[object AsyncFunction]',
-      funcTag = '[object Function]',
+      funcTag$1 = '[object Function]',
       genTag = '[object GeneratorFunction]',
       proxyTag = '[object Proxy]';
 
@@ -1890,7 +1884,7 @@
     // The use of `Object#toString` avoids issues with the `typeof` operator
     // in Safari 9 which returns 'object' for typed arrays and other constructors.
     var tag = _baseGetTag(value);
-    return tag == funcTag || tag == genTag || tag == asyncTag || tag == proxyTag;
+    return tag == funcTag$1 || tag == genTag || tag == asyncTag || tag == proxyTag;
   }
 
   var isFunction_1 = isFunction;
@@ -1920,10 +1914,10 @@
   var _isMasked = isMasked;
 
   /** Used for built-in method references. */
-  var funcProto = Function.prototype;
+  var funcProto$2 = Function.prototype;
 
   /** Used to resolve the decompiled source of functions. */
-  var funcToString = funcProto.toString;
+  var funcToString$2 = funcProto$2.toString;
 
   /**
    * Converts `func` to its source code.
@@ -1935,7 +1929,7 @@
   function toSource(func) {
     if (func != null) {
       try {
-        return funcToString.call(func);
+        return funcToString$2.call(func);
       } catch (e) {}
       try {
         return (func + '');
@@ -1957,17 +1951,17 @@
 
   /** Used for built-in method references. */
   var funcProto$1 = Function.prototype,
-      objectProto$2 = Object.prototype;
+      objectProto$8 = Object.prototype;
 
   /** Used to resolve the decompiled source of functions. */
   var funcToString$1 = funcProto$1.toString;
 
   /** Used to check objects for own properties. */
-  var hasOwnProperty$1 = objectProto$2.hasOwnProperty;
+  var hasOwnProperty$7 = objectProto$8.hasOwnProperty;
 
   /** Used to detect if a method is native. */
   var reIsNative = RegExp('^' +
-    funcToString$1.call(hasOwnProperty$1).replace(reRegExpChar, '\\$&')
+    funcToString$1.call(hasOwnProperty$7).replace(reRegExpChar, '\\$&')
     .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
   );
 
@@ -2061,13 +2055,13 @@
   var _hashDelete = hashDelete;
 
   /** Used to stand-in for `undefined` hash values. */
-  var HASH_UNDEFINED = '__lodash_hash_undefined__';
+  var HASH_UNDEFINED$1 = '__lodash_hash_undefined__';
 
   /** Used for built-in method references. */
-  var objectProto$3 = Object.prototype;
+  var objectProto$7 = Object.prototype;
 
   /** Used to check objects for own properties. */
-  var hasOwnProperty$2 = objectProto$3.hasOwnProperty;
+  var hasOwnProperty$6 = objectProto$7.hasOwnProperty;
 
   /**
    * Gets the hash value for `key`.
@@ -2082,18 +2076,18 @@
     var data = this.__data__;
     if (_nativeCreate) {
       var result = data[key];
-      return result === HASH_UNDEFINED ? undefined : result;
+      return result === HASH_UNDEFINED$1 ? undefined : result;
     }
-    return hasOwnProperty$2.call(data, key) ? data[key] : undefined;
+    return hasOwnProperty$6.call(data, key) ? data[key] : undefined;
   }
 
   var _hashGet = hashGet;
 
   /** Used for built-in method references. */
-  var objectProto$4 = Object.prototype;
+  var objectProto$6 = Object.prototype;
 
   /** Used to check objects for own properties. */
-  var hasOwnProperty$3 = objectProto$4.hasOwnProperty;
+  var hasOwnProperty$5 = objectProto$6.hasOwnProperty;
 
   /**
    * Checks if a hash value for `key` exists.
@@ -2106,13 +2100,13 @@
    */
   function hashHas(key) {
     var data = this.__data__;
-    return _nativeCreate ? (data[key] !== undefined) : hasOwnProperty$3.call(data, key);
+    return _nativeCreate ? (data[key] !== undefined) : hasOwnProperty$5.call(data, key);
   }
 
   var _hashHas = hashHas;
 
   /** Used to stand-in for `undefined` hash values. */
-  var HASH_UNDEFINED$1 = '__lodash_hash_undefined__';
+  var HASH_UNDEFINED = '__lodash_hash_undefined__';
 
   /**
    * Sets the hash `key` to `value`.
@@ -2127,7 +2121,7 @@
   function hashSet(key, value) {
     var data = this.__data__;
     this.size += this.has(key) ? 0 : 1;
-    data[key] = (_nativeCreate && value === undefined) ? HASH_UNDEFINED$1 : value;
+    data[key] = (_nativeCreate && value === undefined) ? HASH_UNDEFINED : value;
     return this;
   }
 
@@ -2366,7 +2360,7 @@
     } catch (e) {}
   }());
 
-  var _defineProperty$1 = defineProperty;
+  var _defineProperty = defineProperty;
 
   /**
    * The base implementation of `assignValue` and `assignMergeValue` without
@@ -2378,8 +2372,8 @@
    * @param {*} value The value to assign.
    */
   function baseAssignValue(object, key, value) {
-    if (key == '__proto__' && _defineProperty$1) {
-      _defineProperty$1(object, key, {
+    if (key == '__proto__' && _defineProperty) {
+      _defineProperty(object, key, {
         'configurable': true,
         'enumerable': true,
         'value': value,
@@ -2453,7 +2447,7 @@
 
   var _cloneBuffer = createCommonjsModule(function (module, exports) {
   /** Detect free variable `exports`. */
-  var freeExports =  exports && !exports.nodeType && exports;
+  var freeExports = exports && !exports.nodeType && exports;
 
   /** Detect free variable `module`. */
   var freeModule = freeExports && 'object' == 'object' && module && !module.nodeType && module;
@@ -2628,7 +2622,7 @@
   var _initCloneObject = initCloneObject;
 
   /** `Object#toString` result references. */
-  var argsTag = '[object Arguments]';
+  var argsTag$1 = '[object Arguments]';
 
   /**
    * The base implementation of `_.isArguments`.
@@ -2638,19 +2632,19 @@
    * @returns {boolean} Returns `true` if `value` is an `arguments` object,
    */
   function baseIsArguments(value) {
-    return isObjectLike_1(value) && _baseGetTag(value) == argsTag;
+    return isObjectLike_1(value) && _baseGetTag(value) == argsTag$1;
   }
 
   var _baseIsArguments = baseIsArguments;
 
   /** Used for built-in method references. */
-  var objectProto$6 = Object.prototype;
+  var objectProto$4 = Object.prototype;
 
   /** Used to check objects for own properties. */
-  var hasOwnProperty$4 = objectProto$6.hasOwnProperty;
+  var hasOwnProperty$4 = objectProto$4.hasOwnProperty;
 
   /** Built-in value references. */
-  var propertyIsEnumerable = objectProto$6.propertyIsEnumerable;
+  var propertyIsEnumerable = objectProto$4.propertyIsEnumerable;
 
   /**
    * Checks if `value` is likely an `arguments` object.
@@ -2678,7 +2672,7 @@
   var isArguments_1 = isArguments;
 
   /** Used as references for various `Number` constants. */
-  var MAX_SAFE_INTEGER = 9007199254740991;
+  var MAX_SAFE_INTEGER$1 = 9007199254740991;
 
   /**
    * Checks if `value` is a valid array-like length.
@@ -2708,7 +2702,7 @@
    */
   function isLength(value) {
     return typeof value == 'number' &&
-      value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER;
+      value > -1 && value % 1 == 0 && value <= MAX_SAFE_INTEGER$1;
   }
 
   var isLength_1 = isLength;
@@ -2796,7 +2790,7 @@
 
   var isBuffer_1 = createCommonjsModule(function (module, exports) {
   /** Detect free variable `exports`. */
-  var freeExports =  exports && !exports.nodeType && exports;
+  var freeExports = exports && !exports.nodeType && exports;
 
   /** Detect free variable `module`. */
   var freeModule = freeExports && 'object' == 'object' && module && !module.nodeType && module;
@@ -2833,20 +2827,20 @@
   });
 
   /** `Object#toString` result references. */
-  var objectTag = '[object Object]';
+  var objectTag$1 = '[object Object]';
 
   /** Used for built-in method references. */
-  var funcProto$2 = Function.prototype,
-      objectProto$7 = Object.prototype;
+  var funcProto = Function.prototype,
+      objectProto$3 = Object.prototype;
 
   /** Used to resolve the decompiled source of functions. */
-  var funcToString$2 = funcProto$2.toString;
+  var funcToString = funcProto.toString;
 
   /** Used to check objects for own properties. */
-  var hasOwnProperty$5 = objectProto$7.hasOwnProperty;
+  var hasOwnProperty$3 = objectProto$3.hasOwnProperty;
 
   /** Used to infer the `Object` constructor. */
-  var objectCtorString = funcToString$2.call(Object);
+  var objectCtorString = funcToString.call(Object);
 
   /**
    * Checks if `value` is a plain object, that is, an object created by the
@@ -2877,33 +2871,33 @@
    * // => true
    */
   function isPlainObject(value) {
-    if (!isObjectLike_1(value) || _baseGetTag(value) != objectTag) {
+    if (!isObjectLike_1(value) || _baseGetTag(value) != objectTag$1) {
       return false;
     }
     var proto = _getPrototype(value);
     if (proto === null) {
       return true;
     }
-    var Ctor = hasOwnProperty$5.call(proto, 'constructor') && proto.constructor;
+    var Ctor = hasOwnProperty$3.call(proto, 'constructor') && proto.constructor;
     return typeof Ctor == 'function' && Ctor instanceof Ctor &&
-      funcToString$2.call(Ctor) == objectCtorString;
+      funcToString.call(Ctor) == objectCtorString;
   }
 
   var isPlainObject_1 = isPlainObject;
 
   /** `Object#toString` result references. */
-  var argsTag$1 = '[object Arguments]',
+  var argsTag = '[object Arguments]',
       arrayTag = '[object Array]',
       boolTag = '[object Boolean]',
       dateTag = '[object Date]',
       errorTag = '[object Error]',
-      funcTag$1 = '[object Function]',
+      funcTag = '[object Function]',
       mapTag = '[object Map]',
       numberTag = '[object Number]',
-      objectTag$1 = '[object Object]',
+      objectTag = '[object Object]',
       regexpTag = '[object RegExp]',
       setTag = '[object Set]',
-      stringTag = '[object String]',
+      stringTag$1 = '[object String]',
       weakMapTag = '[object WeakMap]';
 
   var arrayBufferTag = '[object ArrayBuffer]',
@@ -2925,13 +2919,13 @@
   typedArrayTags[int32Tag] = typedArrayTags[uint8Tag] =
   typedArrayTags[uint8ClampedTag] = typedArrayTags[uint16Tag] =
   typedArrayTags[uint32Tag] = true;
-  typedArrayTags[argsTag$1] = typedArrayTags[arrayTag] =
+  typedArrayTags[argsTag] = typedArrayTags[arrayTag] =
   typedArrayTags[arrayBufferTag] = typedArrayTags[boolTag] =
   typedArrayTags[dataViewTag] = typedArrayTags[dateTag] =
-  typedArrayTags[errorTag] = typedArrayTags[funcTag$1] =
+  typedArrayTags[errorTag] = typedArrayTags[funcTag] =
   typedArrayTags[mapTag] = typedArrayTags[numberTag] =
-  typedArrayTags[objectTag$1] = typedArrayTags[regexpTag] =
-  typedArrayTags[setTag] = typedArrayTags[stringTag] =
+  typedArrayTags[objectTag] = typedArrayTags[regexpTag] =
+  typedArrayTags[setTag] = typedArrayTags[stringTag$1] =
   typedArrayTags[weakMapTag] = false;
 
   /**
@@ -2965,7 +2959,7 @@
 
   var _nodeUtil = createCommonjsModule(function (module, exports) {
   /** Detect free variable `exports`. */
-  var freeExports =  exports && !exports.nodeType && exports;
+  var freeExports = exports && !exports.nodeType && exports;
 
   /** Detect free variable `module`. */
   var freeModule = freeExports && 'object' == 'object' && module && !module.nodeType && module;
@@ -3041,10 +3035,10 @@
   var _safeGet = safeGet;
 
   /** Used for built-in method references. */
-  var objectProto$8 = Object.prototype;
+  var objectProto$2 = Object.prototype;
 
   /** Used to check objects for own properties. */
-  var hasOwnProperty$6 = objectProto$8.hasOwnProperty;
+  var hasOwnProperty$2 = objectProto$2.hasOwnProperty;
 
   /**
    * Assigns `value` to `key` of `object` if the existing value is not equivalent
@@ -3058,7 +3052,7 @@
    */
   function assignValue(object, key, value) {
     var objValue = object[key];
-    if (!(hasOwnProperty$6.call(object, key) && eq_1(objValue, value)) ||
+    if (!(hasOwnProperty$2.call(object, key) && eq_1(objValue, value)) ||
         (value === undefined && !(key in object))) {
       _baseAssignValue(object, key, value);
     }
@@ -3126,7 +3120,7 @@
   var _baseTimes = baseTimes;
 
   /** Used as references for various `Number` constants. */
-  var MAX_SAFE_INTEGER$1 = 9007199254740991;
+  var MAX_SAFE_INTEGER = 9007199254740991;
 
   /** Used to detect unsigned integer values. */
   var reIsUint = /^(?:0|[1-9]\d*)$/;
@@ -3141,7 +3135,7 @@
    */
   function isIndex(value, length) {
     var type = typeof value;
-    length = length == null ? MAX_SAFE_INTEGER$1 : length;
+    length = length == null ? MAX_SAFE_INTEGER : length;
 
     return !!length &&
       (type == 'number' ||
@@ -3152,10 +3146,10 @@
   var _isIndex = isIndex;
 
   /** Used for built-in method references. */
-  var objectProto$9 = Object.prototype;
+  var objectProto$1 = Object.prototype;
 
   /** Used to check objects for own properties. */
-  var hasOwnProperty$7 = objectProto$9.hasOwnProperty;
+  var hasOwnProperty$1 = objectProto$1.hasOwnProperty;
 
   /**
    * Creates an array of the enumerable property names of the array-like `value`.
@@ -3175,7 +3169,7 @@
         length = result.length;
 
     for (var key in value) {
-      if ((inherited || hasOwnProperty$7.call(value, key)) &&
+      if ((inherited || hasOwnProperty$1.call(value, key)) &&
           !(skipIndexes && (
              // Safari 9 has enumerable `arguments.length` in strict mode.
              key == 'length' ||
@@ -3216,10 +3210,10 @@
   var _nativeKeysIn = nativeKeysIn;
 
   /** Used for built-in method references. */
-  var objectProto$a = Object.prototype;
+  var objectProto = Object.prototype;
 
   /** Used to check objects for own properties. */
-  var hasOwnProperty$8 = objectProto$a.hasOwnProperty;
+  var hasOwnProperty = objectProto.hasOwnProperty;
 
   /**
    * The base implementation of `_.keysIn` which doesn't treat sparse arrays as dense.
@@ -3236,7 +3230,7 @@
         result = [];
 
     for (var key in object) {
-      if (!(key == 'constructor' && (isProto || !hasOwnProperty$8.call(object, key)))) {
+      if (!(key == 'constructor' && (isProto || !hasOwnProperty.call(object, key)))) {
         result.push(key);
       }
     }
@@ -3532,8 +3526,8 @@
    * @param {Function} string The `toString` result.
    * @returns {Function} Returns `func`.
    */
-  var baseSetToString = !_defineProperty$1 ? identity_1 : function(func, string) {
-    return _defineProperty$1(func, 'toString', {
+  var baseSetToString = !_defineProperty ? identity_1 : function(func, string) {
+    return _defineProperty(func, 'toString', {
       'configurable': true,
       'enumerable': false,
       'value': constant_1(string),
@@ -3873,7 +3867,7 @@
   var _castPath = castPath;
 
   /** Used as references for various `Number` constants. */
-  var INFINITY$2 = 1 / 0;
+  var INFINITY = 1 / 0;
 
   /**
    * Converts `value` to a string key if it's not a string or symbol.
@@ -3887,7 +3881,7 @@
       return value;
     }
     var result = (value + '');
-    return (result == '0' && (1 / value) == -INFINITY$2) ? '-0' : result;
+    return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;
   }
 
   var _toKey = toKey;
@@ -3957,13 +3951,13 @@
   /**
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
-  var root$1 = null;
+  var root = null;
 
   (function () {
-    root$1 = window || global || {};
+    root = window || global || {};
   })();
 
-  var root$2 = root$1;
+  var root$1 = root;
 
   /**
    * Copyright (c) 2022 大漠穷秋.
@@ -3981,15 +3975,15 @@
    * @see https://developer.mozilla.org/en-US/docs/Web/API/Event
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
-  var ICEEvent = function ICEEvent() {
+  var ICEEvent = /*#__PURE__*/_createClass(function ICEEvent() {
     var evt = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
     var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
 
     _classCallCheck(this, ICEEvent);
 
-    _defineProperty(this, "originalEvent", void 0);
+    _defineProperty$1(this, "originalEvent", void 0);
 
-    _defineProperty(this, "target", void 0);
+    _defineProperty$1(this, "target", void 0);
 
     //FIXME:事件对象的属性拷贝需要更加细致的控制
     for (var p in evt) {
@@ -3999,7 +3993,7 @@
     for (var _p in data) {
       this[_p] = data[_p];
     }
-  };
+  });
 
   /**
    * @class EventTarget
@@ -4043,15 +4037,15 @@
     function EventTarget() {
       _classCallCheck(this, EventTarget);
 
-      _defineProperty(this, "listeners", {});
+      _defineProperty$1(this, "listeners", {});
 
-      _defineProperty(this, "suspendedEventNames", []);
+      _defineProperty$1(this, "suspendedEventNames", []);
     }
 
     _createClass(EventTarget, [{
       key: "on",
       value: function on(eventName, fn) {
-        var scope = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : root$2;
+        var scope = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : root$1;
 
         if (!this.listeners[eventName]) {
           this.listeners[eventName] = [];
@@ -4066,7 +4060,7 @@
     }, {
       key: "off",
       value: function off(eventName, fn) {
-        var scope = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : root$2;
+        var scope = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : root$1;
         var arr = this.listeners[eventName];
         if (!arr) return;
 
@@ -4089,7 +4083,7 @@
     }, {
       key: "once",
       value: function once(eventName, fn) {
-        var scope = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : root$2;
+        var scope = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : root$1;
 
         function callback(evt) {
           this.off(eventName, callback, scope);
@@ -4293,17 +4287,17 @@
 
       _this = _super.call(this);
 
-      _defineProperty(_assertThisInitialized(_this), "root", void 0);
+      _defineProperty$1(_assertThisInitialized(_this), "root", void 0);
 
-      _defineProperty(_assertThisInitialized(_this), "ctx", void 0);
+      _defineProperty$1(_assertThisInitialized(_this), "ctx", void 0);
 
-      _defineProperty(_assertThisInitialized(_this), "evtBus", void 0);
+      _defineProperty$1(_assertThisInitialized(_this), "evtBus", void 0);
 
-      _defineProperty(_assertThisInitialized(_this), "ice", void 0);
+      _defineProperty$1(_assertThisInitialized(_this), "ice", void 0);
 
-      _defineProperty(_assertThisInitialized(_this), "parentNode", void 0);
+      _defineProperty$1(_assertThisInitialized(_this), "parentNode", void 0);
 
-      _defineProperty(_assertThisInitialized(_this), "props", {
+      _defineProperty$1(_assertThisInitialized(_this), "props", {
         id: 'ICE_' + Math.floor(Math.random() * 10000000000),
         left: 0,
         top: 0,
@@ -4338,7 +4332,7 @@
         showMaxBoundingBox: true
       });
 
-      _defineProperty(_assertThisInitialized(_this), "state", _objectSpread2({}, _this.props));
+      _defineProperty$1(_assertThisInitialized(_this), "state", _objectSpread2({}, _this.props));
 
       _this.props = merge_1(_this.props, props);
       _this.state = JSON.parse(JSON.stringify(_this.props)); //FIXME:生成随机ID有问题???
@@ -4799,7 +4793,7 @@
     return ICEBaseComponent;
   }(EventTarget);
 
-  _defineProperty(ICEBaseComponent, "instanceCounter", 0);
+  _defineProperty$1(ICEBaseComponent, "instanceCounter", 0);
 
   /**
    * @class ICEPath
@@ -4833,7 +4827,7 @@
         closePath: true
       }, props));
 
-      _defineProperty(_assertThisInitialized(_this), "path2D", new Path2D());
+      _defineProperty$1(_assertThisInitialized(_this), "path2D", new Path2D());
 
       return _this;
     }
@@ -5462,7 +5456,7 @@
     return ICEPolyLine;
   }(ICEDotPath);
 
-  _defineProperty(ICEPolyLine, "type", 'ICEPolyLine');
+  _defineProperty$1(ICEPolyLine, "type", 'ICEPolyLine');
 
   /**
    * @class ICEVisioLink
@@ -5520,9 +5514,9 @@
       }, props);
       _this = _super.call(this, props);
 
-      _defineProperty(_assertThisInitialized(_this), "startSlot", void 0);
+      _defineProperty$1(_assertThisInitialized(_this), "startSlot", void 0);
 
-      _defineProperty(_assertThisInitialized(_this), "endSlot", void 0);
+      _defineProperty$1(_assertThisInitialized(_this), "endSlot", void 0);
 
       return _this;
     }
@@ -6271,7 +6265,7 @@
     return ICEVisioLink;
   }(ICEPolyLine);
 
-  _defineProperty(ICEVisioLink, "type", 'ICEVisioLink');
+  _defineProperty$1(ICEVisioLink, "type", 'ICEVisioLink');
 
   /**
    * @class ICEImage
@@ -6337,7 +6331,7 @@
     return ICEImage;
   }(ICEBaseComponent);
 
-  _defineProperty(ICEImage, "type", 'ICEImage');
+  _defineProperty$1(ICEImage, "type", 'ICEImage');
 
   /**
    * @class ICEEllipse
@@ -6438,7 +6432,7 @@
     return ICEEllipse;
   }(ICEPath);
 
-  _defineProperty(ICEEllipse, "type", 'ICEEllipse');
+  _defineProperty$1(ICEEllipse, "type", 'ICEEllipse');
 
   /**
    * @class ICECircle
@@ -6492,7 +6486,7 @@
     return ICECircle;
   }(ICEEllipse);
 
-  _defineProperty(ICECircle, "type", 'ICECircle');
+  _defineProperty$1(ICECircle, "type", 'ICECircle');
 
   /**
    *
@@ -6539,9 +6533,9 @@
       param.height = param.radius * 2;
       _this = _super.call(this, param);
 
-      _defineProperty(_assertThisInitialized(_this), "radius", 10);
+      _defineProperty$1(_assertThisInitialized(_this), "radius", 10);
 
-      _defineProperty(_assertThisInitialized(_this), "edges", 3);
+      _defineProperty$1(_assertThisInitialized(_this), "edges", 3);
 
       _this.radius = _this.props.radius; //FIXME:delete?
 
@@ -6597,7 +6591,7 @@
     return ICEIsogon;
   }(ICEDotPath);
 
-  _defineProperty(ICEIsogon, "type", 'ICEIsogon');
+  _defineProperty$1(ICEIsogon, "type", 'ICEIsogon');
 
   /**
    * @class ICERect 矩形
@@ -6667,7 +6661,7 @@
     return ICERect;
   }(ICEDotPath);
 
-  _defineProperty(ICERect, "type", 'ICERect');
+  _defineProperty$1(ICERect, "type", 'ICERect');
 
   /**
    * @class ICEStar 五角星
@@ -6742,7 +6736,7 @@
     return ICEStar;
   }(ICEIsogon);
 
-  _defineProperty(ICEStar, "type", 'ICEStar');
+  _defineProperty$1(ICEStar, "type", 'ICEStar');
 
   /**
    * TODO:draw text along Path2D
@@ -6867,7 +6861,7 @@
     return ICEText;
   }(ICEBaseComponent);
 
-  _defineProperty(ICEText, "type", 'ICEText');
+  _defineProperty$1(ICEText, "type", 'ICEText');
 
   /**
    * Copyright (c) 2022 大漠穷秋.
@@ -6921,7 +6915,7 @@
         position: 'T'
       }, props));
 
-      _defineProperty(_assertThisInitialized(_this), "_hostComponent", void 0);
+      _defineProperty$1(_assertThisInitialized(_this), "_hostComponent", void 0);
 
       return _this;
     }
@@ -7056,7 +7050,6 @@
   }(ICECircle);
 
   /**
-   *
    * 泛型工厂函数，把普通的图形类转换成可连接的图形类。
    * @author 大漠穷秋<damoqiongqiu@126.com>
    * @see https://www.typescriptlang.org/docs/handbook/mixins.html#constrained-mixins
@@ -7064,9 +7057,9 @@
    */
 
   function ICELinkable(Base) {
-    var _class, _temp;
+    var _class;
 
-    return _temp = _class = /*#__PURE__*/function (_Base) {
+    return _class = /*#__PURE__*/function (_Base) {
       _inherits(Scaling, _Base);
 
       var _super = _createSuper(Scaling);
@@ -7088,9 +7081,9 @@
         param.linkable = true;
         _this = _super.call(this, param);
 
-        _defineProperty(_assertThisInitialized(_this), "linkSlots", []);
+        _defineProperty$1(_assertThisInitialized(_this), "linkSlots", []);
 
-        _defineProperty(_assertThisInitialized(_this), "slotRadius", 10);
+        _defineProperty$1(_assertThisInitialized(_this), "slotRadius", 10);
 
         return _this;
       }
@@ -7232,7 +7225,7 @@
       }]);
 
       return Scaling;
-    }(Base), _defineProperty(_class, "type", 'ICELinkable' + (Base.type + '').replace('ICE', '')), _temp;
+    }(Base), _defineProperty$1(_class, "type", 'ICELinkable' + (Base.type + '').replace('ICE', '')), _class;
   }
 
   /**
@@ -7261,54 +7254,8 @@
   var ICELinkabeText = ICELinkable(ICEText);
   var ICELinkableImage = ICELinkable(ICEImage);
 
-  /**
-   * i 代表角度 scale:放大比例
-   */
-
-  var ICEHeart = /*#__PURE__*/function (_ICEDotPath) {
-    _inherits(ICEHeart, _ICEDotPath);
-
-    var _super = _createSuper(ICEHeart);
-
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-    function ICEHeart() {
-      var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-
-      _classCallCheck(this, ICEHeart);
-
-      var param = _objectSpread2({
-        scale: 2
-      }, props);
-
-      return _super.call(this, param);
-    }
-
-    _createClass(ICEHeart, [{
-      key: "calcDots",
-      value: function calcDots() {
-        this.state.dots = [];
-
-        for (var i = 0; i < 2 * Math.PI; i += 0.01) {
-          var scale = this.state.scale;
-          var x = scale * (12 * Math.sin(i) - 4 * Math.sin(3 * i)) + this.state.width / 2;
-          var y = -scale * (13 * Math.cos(i) - 5 * Math.cos(2 * i) - 2 * Math.cos(3 * i) - Math.cos(4 * i)) + this.state.height / 2;
-          this.state.dots.push(new DOMPoint(x, y));
-        }
-
-        return this.state.dots;
-      }
-    }]);
-
-    return ICEHeart;
-  }(ICEDotPath);
-
-  _defineProperty(ICEHeart, "type", 'ICEHeart');
-
   /** `Object#toString` result references. */
-  var stringTag$1 = '[object String]';
+  var stringTag = '[object String]';
 
   /**
    * Checks if `value` is classified as a `String` primitive or object.
@@ -7329,7 +7276,7 @@
    */
   function isString(value) {
     return typeof value == 'string' ||
-      (!isArray_1(value) && isObjectLike_1(value) && _baseGetTag(value) == stringTag$1);
+      (!isArray_1(value) && isObjectLike_1(value) && _baseGetTag(value) == stringTag);
   }
 
   var isString_1 = isString;
@@ -7432,9 +7379,10 @@
    *
    *  拖拽管理器
    *
+   * - ICE Render 中所有组件的拖动都由 DDManager 管理。
    * - 拖拽管理器是纯逻辑组件，没有外观。
-   * - 全局单例，一个 ICE 实例上只能有一个 DDManager 实例。
    * - DDManager 只负责拖拽和移动位置，不进行其它操作。
+   * - 全局单例，一个 ICE 实例上只能有一个 DDManager 实例。
    *
    * @see ICE
    * @author 大漠穷秋<damoqiongqiu@126.com>
@@ -7444,9 +7392,9 @@
     function DDManager(ice) {
       _classCallCheck(this, DDManager);
 
-      _defineProperty(this, "ice", void 0);
+      _defineProperty$1(this, "ice", void 0);
 
-      _defineProperty(this, "currentObj", void 0);
+      _defineProperty$1(this, "currentObj", void 0);
 
       this.ice = ice;
     }
@@ -7474,9 +7422,12 @@
     }, {
       key: "mouseMoveHandler",
       value: function mouseMoveHandler(evt) {
-        var tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+        console.log('window.devicePixelRatio>', window.devicePixelRatio); // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+        // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
 
-        var ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+        var tx = evt.movementX; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+
+        var ty = evt.movementY; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
 
         this.currentObj.moveGlobalPosition(tx, ty, evt);
         return true;
@@ -7528,9 +7479,9 @@
 
       _this = _super.call(this, props);
 
-      _defineProperty(_assertThisInitialized(_this), "parentNode", null);
+      _defineProperty$1(_assertThisInitialized(_this), "parentNode", null);
 
-      _defineProperty(_assertThisInitialized(_this), "childNodes", []);
+      _defineProperty$1(_assertThisInitialized(_this), "childNodes", []);
 
       return _this;
     }
@@ -7617,7 +7568,7 @@
     return ICEGroup;
   }(ICERect);
 
-  _defineProperty(ICEGroup, "type", 'ICEGroup');
+  _defineProperty$1(ICEGroup, "type", 'ICEGroup');
 
   /**
    * @class ICEControlPanel
@@ -7640,7 +7591,7 @@
 
       _this = _super.call(this, props);
 
-      _defineProperty(_assertThisInitialized(_this), "_targetComponent", void 0);
+      _defineProperty$1(_assertThisInitialized(_this), "_targetComponent", void 0);
 
       return _this;
     }
@@ -7831,11 +7782,11 @@
         showMaxBoundingBox: true
       }));
 
-      _defineProperty(_assertThisInitialized(_this), "controlSize", 16);
+      _defineProperty$1(_assertThisInitialized(_this), "controlSize", 16);
 
-      _defineProperty(_assertThisInitialized(_this), "startControl", void 0);
+      _defineProperty$1(_assertThisInitialized(_this), "startControl", void 0);
 
-      _defineProperty(_assertThisInitialized(_this), "endControl", void 0);
+      _defineProperty$1(_assertThisInitialized(_this), "endControl", void 0);
 
       _this.initControls();
 
@@ -7901,8 +7852,8 @@
         }
 
         var position = evt.position;
-        var movementX = evt.movementX / window.devicePixelRatio;
-        var movementY = evt.movementY / window.devicePixelRatio;
+        var movementX = evt.movementX;
+        var movementY = evt.movementY;
         var targetState = this.targetComponent.state;
         var len = targetState.points.length;
         var newStartX = targetState.points[0][0];
@@ -8062,8 +8013,8 @@
         }
 
         var quadrant = evt.quadrant;
-        var movementX = evt.movementX / window.devicePixelRatio;
-        var movementY = evt.movementY / window.devicePixelRatio;
+        var movementX = evt.movementX;
+        var movementY = evt.movementY;
         var parentState = this.parentNode.state;
         var newLeft = parentState.left;
         var newTop = parentState.top;
@@ -8351,15 +8302,15 @@
         zIndex: Number.MAX_VALUE
       }));
 
-      _defineProperty(_assertThisInitialized(_this), "rotateControlInstance", void 0);
+      _defineProperty$1(_assertThisInitialized(_this), "rotateControlInstance", void 0);
 
-      _defineProperty(_assertThisInitialized(_this), "rotateControlSize", 8);
+      _defineProperty$1(_assertThisInitialized(_this), "rotateControlSize", 8);
 
-      _defineProperty(_assertThisInitialized(_this), "rotateControlffsetY", 60);
+      _defineProperty$1(_assertThisInitialized(_this), "rotateControlffsetY", 60);
 
-      _defineProperty(_assertThisInitialized(_this), "resizeControlInstanceCache", []);
+      _defineProperty$1(_assertThisInitialized(_this), "resizeControlInstanceCache", []);
 
-      _defineProperty(_assertThisInitialized(_this), "resizeControlSize", 16);
+      _defineProperty$1(_assertThisInitialized(_this), "resizeControlSize", 16);
 
       _this.initControls();
 
@@ -8556,8 +8507,8 @@
         }
 
         var quadrant = evt.quadrant;
-        var movementX = evt.movementX / window.devicePixelRatio;
-        var movementY = evt.movementY / window.devicePixelRatio;
+        var movementX = evt.movementX;
+        var movementY = evt.movementY;
         var targetState = this.targetComponent.state;
         var newLeft = targetState.left;
         var newTop = targetState.top;
@@ -8749,11 +8700,11 @@
     function ICEControlPanelManager(ice) {
       _classCallCheck(this, ICEControlPanelManager);
 
-      _defineProperty(this, "ice", void 0);
+      _defineProperty$1(this, "ice", void 0);
 
-      _defineProperty(this, "transformControlPanel", void 0);
+      _defineProperty$1(this, "transformControlPanel", void 0);
 
-      _defineProperty(this, "lineControlPanel", void 0);
+      _defineProperty$1(this, "lineControlPanel", void 0);
 
       this.ice = ice;
       this.transformControlPanel = new TransformControlPanel({
@@ -8960,9 +8911,9 @@
     function AnimationManager(ice) {
       _classCallCheck(this, AnimationManager);
 
-      _defineProperty(this, "animationMap", new Map());
+      _defineProperty$1(this, "animationMap", new Map());
 
-      _defineProperty(this, "ice", void 0);
+      _defineProperty$1(this, "ice", void 0);
 
       this.ice = ice;
     }
@@ -9068,11 +9019,11 @@
       FrameManager.evtBuses.forEach(function (evtBus) {
         evtBus.trigger(ICE_CONSTS.ICE_FRAME_EVENT);
       });
-      root$2.requestAnimationFrame(FrameManager.frameCallback);
+      root$1.requestAnimationFrame(FrameManager.frameCallback);
     },
     start: function start() {
       //TODO:为 Node 平台自定义一个 requestAnimationFrame 函数，签名、参数、调用方式全部相同。
-      root$2.requestAnimationFrame(FrameManager.frameCallback);
+      root$1.requestAnimationFrame(FrameManager.frameCallback);
     },
     stop: function stop() {},
     pause: function pause() {},
@@ -9119,9 +9070,9 @@
     function DOMEventBridge(ice) {
       _classCallCheck(this, DOMEventBridge);
 
-      _defineProperty(this, "selectionCandidates", []);
+      _defineProperty$1(this, "selectionCandidates", []);
 
-      _defineProperty(this, "ice", void 0);
+      _defineProperty$1(this, "ice", void 0);
 
       this.ice = ice;
     }
@@ -9233,7 +9184,7 @@
       return _super.call(this);
     }
 
-    return EventBus;
+    return _createClass(EventBus);
   }(EventTarget);
 
   /**
@@ -9255,13 +9206,13 @@
     //在同一个 window 中可能存在多个 ICE 实例，每一个 ICE 实例上都有一条事件总线，这里把多个事件总线实例隔开。
     evtBuses: [],
     start: function start() {
-      if (root$2 && root$2 && root$2.addEventListener) {
+      if (root$1 && root$1 && root$1.addEventListener) {
         //所有原生 DOM 事件全部通过 EventBus 转发到 canvas 内部的对象上去
         //TODO:不同浏览器版本，以及 NodeJS 环境兼容性测试
         //FIXME:全部转发是否有性能问题？
         MouseEventInterceptor.evtBuses.forEach(function (evtBus) {
           mouseEvents.forEach(function (item) {
-            root$2.addEventListener(item[0], function (evt) {
+            root$1.addEventListener(item[0], function (evt) {
               evtBus.trigger(item[1], evt);
             });
           });
@@ -9312,7 +9263,7 @@
     function Deserializer(ice) {
       _classCallCheck(this, Deserializer);
 
-      _defineProperty(this, "ice", void 0);
+      _defineProperty$1(this, "ice", void 0);
 
       this.ice = ice;
     }
@@ -9348,7 +9299,7 @@
     function Serializer(ice) {
       _classCallCheck(this, Serializer);
 
-      _defineProperty(this, "ice", void 0);
+      _defineProperty$1(this, "ice", void 0);
 
       this.ice = ice;
     }
@@ -9389,7 +9340,7 @@
     function CanvasRenderer(ice) {
       _classCallCheck(this, CanvasRenderer);
 
-      _defineProperty(this, "ice", void 0);
+      _defineProperty$1(this, "ice", void 0);
 
       this.ice = ice;
     }
@@ -9478,39 +9429,39 @@
     function ICE() {
       _classCallCheck(this, ICE);
 
-      _defineProperty(this, "version", pkg.version);
+      _defineProperty$1(this, "version", pkg.version);
 
-      _defineProperty(this, "childNodes", []);
+      _defineProperty$1(this, "childNodes", []);
 
-      _defineProperty(this, "evtBus", void 0);
+      _defineProperty$1(this, "evtBus", void 0);
 
-      _defineProperty(this, "root", void 0);
+      _defineProperty$1(this, "root", void 0);
 
-      _defineProperty(this, "canvasEl", void 0);
+      _defineProperty$1(this, "canvasEl", void 0);
 
-      _defineProperty(this, "ctx", void 0);
+      _defineProperty$1(this, "ctx", void 0);
 
-      _defineProperty(this, "canvasWidth", 0);
+      _defineProperty$1(this, "canvasWidth", 0);
 
-      _defineProperty(this, "canvasHeight", 0);
+      _defineProperty$1(this, "canvasHeight", 0);
 
-      _defineProperty(this, "canvasBoundingClientRect", void 0);
+      _defineProperty$1(this, "canvasBoundingClientRect", void 0);
 
-      _defineProperty(this, "selectionList", []);
+      _defineProperty$1(this, "selectionList", []);
 
-      _defineProperty(this, "animationManager", void 0);
+      _defineProperty$1(this, "animationManager", void 0);
 
-      _defineProperty(this, "eventBridge", void 0);
+      _defineProperty$1(this, "eventBridge", void 0);
 
-      _defineProperty(this, "ddManager", void 0);
+      _defineProperty$1(this, "ddManager", void 0);
 
-      _defineProperty(this, "controlPanelManager", void 0);
+      _defineProperty$1(this, "controlPanelManager", void 0);
 
-      _defineProperty(this, "renderer", void 0);
+      _defineProperty$1(this, "renderer", void 0);
 
-      _defineProperty(this, "serializer", void 0);
+      _defineProperty$1(this, "serializer", void 0);
 
-      _defineProperty(this, "deserializer", void 0);
+      _defineProperty$1(this, "deserializer", void 0);
     }
     /**
      * @param ctx DOM id or CanvasContext
@@ -9529,7 +9480,7 @@
           throw new Error('同一个 canvas 实例只能 init 一次...');
         }
 
-        this.root = root$2; //FIXME:防止 init 方法被调用多次
+        this.root = root$1; //FIXME:防止 init 方法被调用多次
 
         if (isString_1(ctx)) {
           this.canvasEl = this.root.document.getElementById(ctx); //禁用 canvas 元素上的原生右键菜单
@@ -9655,8 +9606,8 @@
 
   let ice = new ICE().init('canvas-1');
 
-  let heart = new ICEHeart();
-  ice.addChild(heart);
+  // let heart = new ICEHeart();
+  // ice.addChild(heart);
   // let rose = new ICERose({
   //   left: 10,
   //   top: 10,
@@ -10127,4 +10078,4 @@
   // });
   // ice.addChild(th);
 
-})));
+}));
