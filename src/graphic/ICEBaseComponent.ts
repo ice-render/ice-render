@@ -9,8 +9,8 @@ import { v4 as uuid } from '@lukeed/uuid';
 import get from 'lodash/get';
 import merge from 'lodash/merge';
 import EventBus from '../event/EventBus';
-import EventTarget from '../event/EventTarget';
 import ICEEvent from '../event/ICEEvent';
+import ICEEventTarget from '../event/ICEEventTarget';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICEMatrix from '../geometry/ICEMatrix';
 import ICE from '../ICE';
@@ -23,7 +23,7 @@ import ICE from '../ICE';
  * @abstract
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-abstract class ICEBaseComponent extends EventTarget {
+abstract class ICEBaseComponent extends ICEEventTarget {
   //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
   public root: any;
   //当对象被添加到 canvas 中时，ICE 会自动设置 ctx 的值，没有被添加到 canvas 中的对象 ctx 为 null 。
@@ -65,6 +65,7 @@ abstract class ICEBaseComponent extends EventTarget {
    *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
    *   draggable:true,                              //是否可以拖动
    *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
+   *   linkable:true,                               //组件是否可以用连接线连接起来，如果此状态为 true ，ICELinkSlotManager 在运行时会动态在组件上创建连接插槽 ICELinkSlot 的实例
    *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable TODO:动画运行过程中不允许选中，不能进行交互？？？
    *   showMinBoundingBox:true,                     //是否显示最小包围盒，开发时打开，主要用于 debug
    *   showMaxBoundingBox:true,                     //是否显示最大包围盒，开发时打开，主要用于 debug

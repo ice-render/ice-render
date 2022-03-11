@@ -21,7 +21,6 @@ import { ICE_CONSTS } from './ICE_CONSTS';
 import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
 import CanvasRenderer from './renderer/CanvasRenderer';
-import IRenderer from './renderer/IRenderer';
 
 /**
  * @class ICE
@@ -51,14 +50,14 @@ class ICE {
   //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
   public selectionList: Array<any> = [];
 
-  private animationManager: AnimationManager;
-  private eventBridge: DOMEventBridge;
-  private ddManager: DDManager;
-  private controlPanelManager: ICEControlPanelManager;
-  private linkSlotManager: ICELinkSlotManager;
-  private renderer: IRenderer;
-  private serializer: Serializer;
-  private deserializer: Deserializer;
+  public renderer: any;
+  public animationManager: AnimationManager;
+  public eventBridge: DOMEventBridge;
+  public ddManager: DDManager;
+  public controlPanelManager: ICEControlPanelManager;
+  public linkSlotManager: ICELinkSlotManager;
+  public serializer: Serializer;
+  public deserializer: Deserializer;
 
   constructor() {}
 
@@ -93,7 +92,7 @@ class ICE {
     }
 
     //启动当前 ICE 实例上的所有 Manager
-    this.evtBus = new EventBus();
+    this.evtBus = new EventBus(); //后续所有 Manager 都依赖事件总线，所以 this.evtBus 需要最先初始化。
     FrameManager.regitserEvtBus(this.evtBus);
     FrameManager.start();
 
@@ -103,8 +102,8 @@ class ICE {
     this.eventBridge = new DOMEventBridge(this).start();
     this.ddManager = new DDManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
-    this.linkSlotManager = new ICELinkSlotManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
+    this.linkSlotManager = new ICELinkSlotManager(this).start(); //linkSlotManager 内部会监听 renderer 上的事件，所以 linkSlotManager 需要在 renderer 后面实例化。
     this.serializer = new Serializer(this);
     this.deserializer = new Deserializer(this);
 
