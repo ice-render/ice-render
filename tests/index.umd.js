@@ -8579,7 +8579,8 @@
         component.childNodes.forEach(child => {
           this.traverse(x, y, child);
         });
-      }
+      } //不可交互的组件、没有渲染的组件，不派发事件。
+
 
       let {
         interactive,
