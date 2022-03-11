@@ -84,11 +84,13 @@ export default class LineControlPanel extends ICEControlPanel {
   public enable() {
     this.setState({ display: true });
     this.resume('after-resize');
+    this.showHooks();
   }
 
   public disable() {
     this.setState({ display: false });
     this.suspend('after-resize');
+    this.hideHooks();
   }
 
   /**

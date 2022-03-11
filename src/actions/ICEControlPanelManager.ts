@@ -72,31 +72,29 @@ class ICEControlPanelManager {
   private mouseDownHandler(evt: ICEEvent) {
     let component = evt.target;
 
-    if (!(component instanceof ICEBaseComponent)) {
+    if (!(component instanceof ICEBaseComponent) || !component.state.interactive || !component.state.transformable) {
       this.lineControlPanel.disable();
       this.transformControlPanel.disable();
-      return;
-    }
-
-    if (!component.state.interactive || !component.state.transformable) {
       return;
     }
 
     //只有 ICEControlPanel 和它内部的变换手柄才具备跟随鼠标移动的功能，其它组件都需要由 ICEControlPanel 驱动进行移动和变换。
     const isControlPanel =
       component && (component instanceof ICEControlPanel || component.parentNode instanceof ICEControlPanel);
-    if (!isControlPanel) {
-      this.ice.selectionList = [component];
-      if (component instanceof ICEPolyLine) {
-        this.transformControlPanel.disable();
-        this.lineControlPanel.enable();
-        this.lineControlPanel.targetComponent = component;
-        this.lineControlPanel.showHooks();
-      } else {
-        this.lineControlPanel.disable();
-        this.transformControlPanel.enable();
-        this.transformControlPanel.targetComponent = component;
-      }
+    if (isControlPanel) {
+      return;
+    }
+
+    this.ice.selectionList = [component];
+    this.lineControlPanel.disable();
+    this.transformControlPanel.disable();
+    //线条型的组件变换工具与其它组件不同
+    if (component instanceof ICEPolyLine) {
+      this.lineControlPanel.targetComponent = component;
+      this.lineControlPanel.enable();
+    } else {
+      this.transformControlPanel.targetComponent = component;
+      this.transformControlPanel.enable();
     }
   }
 
