@@ -73,6 +73,8 @@ class ICEControlPanelManager {
     let component = evt.target;
 
     if (!(component instanceof ICEBaseComponent)) {
+      this.lineControlPanel.disable();
+      this.transformControlPanel.disable();
       return;
     }
 
