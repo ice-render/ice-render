@@ -183,9 +183,9 @@ abstract class ICEBaseComponent extends EventTarget {
     point.y += ty;
 
     if (this.parentNode) {
-      let plox = this.parentNode.state.localOrigin.x;
-      let ploy = this.parentNode.state.localOrigin.y;
-      point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, -plox, -ploy]));
+      let pLocalX = this.parentNode.state.localOrigin.x;
+      let pLocalY = this.parentNode.state.localOrigin.y;
+      point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, -pLocalX, -pLocalY]));
 
       let pcm = this.parentNode.state.composedMatrix;
       point = point.matrixTransform(pcm);
