@@ -8580,9 +8580,13 @@
         });
       }
 
+      let {
+        interactive,
+        display
+      } = component.state;
       let flag = component.containsPoint(x, y);
 
-      if (flag && component.state.interactive) {
+      if (flag && interactive && display) {
         this.selectionCandidates.push(component);
       }
     }
