@@ -4070,6 +4070,7 @@
         draggable: true,
         transformable: true,
         interactive: true,
+        linkable: true,
         showMinBoundingBox: true,
         showMaxBoundingBox: true
       });
@@ -4814,6 +4815,7 @@
       //dots 是内部计算使用的属性，外部传参用 points 属性
       //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
       let param = merge_1({
+        linkable: false,
         lineType: 'solid',
         lineWidth: 2,
         arrow: 'none',
@@ -8669,6 +8671,39 @@
    * LICENSE file in the root directory of this source tree.
    *
    */
+
+  /**
+   * @class ICELinkSlotManager
+   *
+   * 连接插槽管理器
+   *
+   * @see ICE
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+  class ICELinkSlotManager {
+    constructor(ice) {
+      _defineProperty(this, "ice", void 0);
+
+      this.ice = ice;
+    }
+
+    start() {
+      console.log('ICELinkSlotManager start...');
+      return this;
+    } //FIXME:
+
+
+    stop() {}
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
   /**
    * 组件名称和构造函数引用之间的映射关系，把序列化之后的 JSON 字符串重新解析成图形时需要用到此映射关系。
    *
@@ -8871,6 +8906,8 @@
 
       _defineProperty(this, "controlPanelManager", void 0);
 
+      _defineProperty(this, "linkSlotManager", void 0);
+
       _defineProperty(this, "renderer", void 0);
 
       _defineProperty(this, "serializer", void 0);
@@ -8920,6 +8957,7 @@
       this.eventBridge = new DOMEventBridge(this).start();
       this.ddManager = new DDManager(this).start();
       this.controlPanelManager = new ICEControlPanelManager(this).start();
+      this.linkSlotManager = new ICELinkSlotManager(this).start();
       this.renderer = new CanvasRenderer(this).start();
       this.serializer = new Serializer(this);
       this.deserializer = new Deserializer(this);

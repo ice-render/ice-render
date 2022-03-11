@@ -16,6 +16,7 @@ import DOMEventBridge from './event/DOMEventBridge';
 import EventBus from './event/EventBus';
 import MouseEventInterceptor from './event/MouseEventInterceptor.js';
 import ICEBaseComponent from './graphic/ICEBaseComponent';
+import ICELinkSlotManager from './graphic/linkable/ICELinkSlotManager';
 import { ICE_CONSTS } from './ICE_CONSTS';
 import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
@@ -54,6 +55,7 @@ class ICE {
   private eventBridge: DOMEventBridge;
   private ddManager: DDManager;
   private controlPanelManager: ICEControlPanelManager;
+  private linkSlotManager: ICELinkSlotManager;
   private renderer: IRenderer;
   private serializer: Serializer;
   private deserializer: Deserializer;
@@ -101,6 +103,7 @@ class ICE {
     this.eventBridge = new DOMEventBridge(this).start();
     this.ddManager = new DDManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
+    this.linkSlotManager = new ICELinkSlotManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
     this.serializer = new Serializer(this);
     this.deserializer = new Deserializer(this);

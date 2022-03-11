@@ -97,6 +97,7 @@ abstract class ICEBaseComponent extends EventTarget {
     draggable: true,
     transformable: true,
     interactive: true,
+    linkable: true,
     showMinBoundingBox: true,
     showMaxBoundingBox: true,
   };
