@@ -69,7 +69,7 @@ class DOMEventBridge {
   }
 
   /**
-   * 如果存在子组件，遍历。
+   * 广度优先遍历。
    * @param x
    * @param y
    * @param component
