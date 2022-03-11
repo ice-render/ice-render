@@ -5123,7 +5123,8 @@
     }
     /**
      * 判断给定的坐标点是否位于线段上。
-     * 计算方法：如果给点的坐标点到线段两端的距离之和等于线段长度，则表示点位于线段上，允许的误差为正负0.1 。
+     * 计算方法：如果给点的坐标点到线段两端的距离之和等于线段长度，则表示点位于线段上，允许一定的误差范围，用 delta 参数进行调节。
+     * 算法来源：http://www.jeffreythompson.org/collision-detection/line-point.php
      * @param x
      * @param y
      * @returns
@@ -5131,7 +5132,7 @@
 
 
     containsPoint(x, y) {
-      const delta = 0.1; //允许的浮点运算误差，正负区间内。
+      const delta = 3; //允许的浮点运算误差，正负区间内，调节此参数可以扩大或者缩小精确度。
 
       const lines = this.getLines();
 
