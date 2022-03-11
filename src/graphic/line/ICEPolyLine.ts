@@ -8,7 +8,7 @@
 import isNil from 'lodash/isNil';
 import merge from 'lodash/merge';
 import round from 'lodash/round';
-import GeometryUtil from '../../geometry/GeoUtil';
+import { default as GeometryUtil, default as GeoUtil } from '../../geometry/GeoUtil';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICEDotPath from '../ICEDotPath';
 
@@ -29,6 +29,12 @@ import ICEDotPath from '../ICEDotPath';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICEPolyLine extends ICEDotPath {
+  /**
+   * @required
+   * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
+   */
+  public static type: string = 'ICEPolyLine';
+
   /**
    * FIXME:编写完整的配置项描述
    * @cfg
@@ -58,7 +64,19 @@ class ICEPolyLine extends ICEDotPath {
   public static arrangeParam(props): any {
     //dots 是内部计算使用的属性，外部传参用 points 属性
     //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
-    let param = merge({ lineType: 'solid', lineWidth: 2, arrow: 'none', closePath: false, points: [] }, props);
+    let param = merge(
+      {
+        linkable: false, //所有线条类型的组件 linkable 都为 false ，因为在 ICE 中，用线条连接线条是没有意义的，线条之间不能互相连接。
+        lineType: 'solid',
+        lineWidth: 2,
+        arrow: 'none',
+        closePath: false,
+        points: [],
+        showMinBoundingBox: false,
+        showMaxBoundingBox: false,
+      },
+      props
+    );
 
     //至少有2个点，如果点数少于2个，自动填充。
     let len = param.points.length;
@@ -347,6 +365,61 @@ class ICEPolyLine extends ICEDotPath {
     } else {
       return super.getRotateAngle();
     }
+  }
+
+  /**
+   * 判断给定的坐标点是否位于线段上。
+   * 计算方法：如果给点的坐标点到线段两端的距离之和等于线段长度，则表示点位于线段上，允许一定的误差范围，用 delta 参数进行调节。
+   * 算法来源：http://www.jeffreythompson.org/collision-detection/line-point.php
+   * @param x
+   * @param y
+   * @returns
+   */
+  public containsPoint(x: number, y: number): boolean {
+    const delta = 3; //允许的浮点运算误差，正负区间内，调节此参数可以扩大或者缩小精确度。
+    const lines = this.getLines();
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const x1 = line.o.x;
+      const y1 = line.o.y;
+      const x2 = line.d.x;
+      const y2 = line.d.y;
+      const lineLength = GeoUtil.getLength(x1, y1, x2, y2);
+      const len1 = GeoUtil.getLength(x, y, x1, y1);
+      const len2 = GeoUtil.getLength(x, y, x2, y2);
+      if (len1 + len2 >= lineLength - delta && len1 + len2 <= lineLength + delta) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private getLines(): Array<any> {
+    const result = [];
+    const dots = this.state.transformedDots;
+    if (!dots || dots.length < 2) {
+      return result;
+    }
+    for (let i = 0; i < dots.length - 1; i++) {
+      const x1 = dots[i].x;
+      const y1 = dots[i].y;
+      const x2 = dots[i + 1].x;
+      const y2 = dots[i + 1].y;
+      const line = { o: new DOMPoint(x1, y1), d: new DOMPoint(x2, y2) }; //o:origin, d:destination
+      result.push(line);
+    }
+    return result;
+  }
+
+  /**
+   * 把对象序列化成 JSON 字符串：
+   * - 容器型组件需要负责子节点的序列化操作
+   * - 如果组件不需要序列化，需要返回 null
+   * @returns JSONObject
+   */
+  public toJSON(): object {
+    let result = { ...super.toJSON(), type: ICEPolyLine.type };
+    return result;
   }
 }
 

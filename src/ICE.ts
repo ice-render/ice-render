@@ -16,9 +16,11 @@ import DOMEventBridge from './event/DOMEventBridge';
 import EventBus from './event/EventBus';
 import MouseEventInterceptor from './event/MouseEventInterceptor.js';
 import ICEBaseComponent from './graphic/ICEBaseComponent';
+import ICELinkSlotManager from './graphic/linkable/ICELinkSlotManager';
 import { ICE_CONSTS } from './ICE_CONSTS';
+import Deserializer from './persistence/Deserializer';
+import Serializer from './persistence/Serializer';
 import CanvasRenderer from './renderer/CanvasRenderer';
-import IRenderer from './renderer/IRenderer';
 
 /**
  * @class ICE
@@ -32,8 +34,8 @@ import IRenderer from './renderer/IRenderer';
  */
 class ICE {
   public version = pkg.version;
-  //所有需要在 canvas 中渲染的对象都在此结构中 TODO:为了支持 zIndex 特性，需要改成数组，有堆叠顺序
-  public displayMap = new Map();
+  //所有直接添加到 canvas 的对象都在此结构中
+  public childNodes = [];
   //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
   public evtBus: EventBus;
   //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
@@ -48,11 +50,14 @@ class ICE {
   //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
   public selectionList: Array<any> = [];
 
-  private animationManager: AnimationManager;
-  private eventBridge: DOMEventBridge;
-  private ddManager: DDManager;
-  private controlPanelManager: ICEControlPanelManager;
-  private renderer: IRenderer;
+  public renderer: any;
+  public animationManager: AnimationManager;
+  public eventBridge: DOMEventBridge;
+  public ddManager: DDManager;
+  public controlPanelManager: ICEControlPanelManager;
+  public linkSlotManager: ICELinkSlotManager;
+  public serializer: Serializer;
+  public deserializer: Deserializer;
 
   constructor() {}
 
@@ -87,7 +92,7 @@ class ICE {
     }
 
     //启动当前 ICE 实例上的所有 Manager
-    this.evtBus = new EventBus();
+    this.evtBus = new EventBus(); //后续所有 Manager 都依赖事件总线，所以 this.evtBus 需要最先初始化。
     FrameManager.regitserEvtBus(this.evtBus);
     FrameManager.start();
 
@@ -98,6 +103,9 @@ class ICE {
     this.ddManager = new DDManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
+    this.linkSlotManager = new ICELinkSlotManager(this).start(); //linkSlotManager 内部会监听 renderer 上的事件，所以 linkSlotManager 需要在 renderer 后面实例化。
+    this.serializer = new Serializer(this);
+    this.deserializer = new Deserializer(this);
 
     return this;
   }
@@ -110,6 +118,8 @@ class ICE {
    * @param component
    */
   public addChild(component) {
+    if (this.childNodes.indexOf(component) !== -1) return;
+
     component.trigger(ICE_CONSTS.BEFORE_ADD);
 
     component.ice = this;
@@ -117,7 +127,7 @@ class ICE {
     component.ctx = this.ctx;
     component.evtBus = this.evtBus;
 
-    this.displayMap.set(component.props.id, component);
+    this.childNodes.push(component);
 
     if (Object.keys(component.props.animations).length) {
       this.animationManager.add(component);
@@ -140,7 +150,7 @@ class ICE {
     component.root = null;
     component.evtBus = null;
 
-    this.displayMap.delete(component.props.id);
+    this.childNodes.splice(this.childNodes.indexOf(component), 1);
 
     //FIXME:如果被移除的是容器型组件，先移除并清理其子节点，然后再移除容器自身
     //FIXME:立即停止组件上的所有动画效果
@@ -156,16 +166,22 @@ class ICE {
   }
 
   public clearRenderMap() {
-    //FIXME:停止所有对象的动画效果
-    //FIXME:清理所有事件监听，然后再从结构中删除
+    this.removeChildren(this.childNodes);
   }
 
+  /**
+   * 把对象序列化成 JSON 字符串：
+   * - 容器型组件需要负责子节点的序列化操作
+   * - 如果组件不需要序列化，需要返回 null
+   * @returns JSONObject
+   */
   public toJSON(): string {
-    return '{}';
+    //FIXME:在序列化时，用来操控的组件不需要存储。
+    return this.serializer.toJSON();
   }
 
   public fromJSON(jsonStr: string): object {
-    return {};
+    return this.deserializer.fromJSON(jsonStr);
   }
 
   //FIXME:实现销毁 ICE 实例的过程

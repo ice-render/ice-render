@@ -5,11 +5,12 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import { v4 as uuid } from '@lukeed/uuid';
 import get from 'lodash/get';
 import merge from 'lodash/merge';
 import EventBus from '../event/EventBus';
-import EventTarget from '../event/EventTarget';
 import ICEEvent from '../event/ICEEvent';
+import ICEEventTarget from '../event/ICEEventTarget';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICEMatrix from '../geometry/ICEMatrix';
 import ICE from '../ICE';
@@ -22,17 +23,13 @@ import ICE from '../ICE';
  * @abstract
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-abstract class ICEBaseComponent extends EventTarget {
+abstract class ICEBaseComponent extends ICEEventTarget {
   //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
-  //FIXME:@Inject()
   public root: any;
   //当对象被添加到 canvas 中时，ICE 会自动设置 ctx 的值，没有被添加到 canvas 中的对象 ctx 为 null 。
-  //FIXME:@Inject()
   public ctx: any;
   //事件总线， evtBus 在 render() 方法被调用时才会被设置
-  //FIXME:@Inject()
   public evtBus: EventBus;
-  //FIXME:@Inject()
   //FIXME:如果引用了 ICE 实例，以上属性是否可以删掉？？？直接从 ICE 实例上获取？？？
   //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
   public ice: ICE;
@@ -68,6 +65,7 @@ abstract class ICEBaseComponent extends EventTarget {
    *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
    *   draggable:true,                              //是否可以拖动
    *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
+   *   linkable:true,                               //组件是否可以用连接线连接起来，如果此状态为 true ，ICELinkSlotManager 在运行时会动态在组件上创建连接插槽 ICELinkSlot 的实例
    *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable TODO:动画运行过程中不允许选中，不能进行交互？？？
    *   showMinBoundingBox:true,                     //是否显示最小包围盒，开发时打开，主要用于 debug
    *   showMaxBoundingBox:true,                     //是否显示最大包围盒，开发时打开，主要用于 debug
@@ -75,7 +73,7 @@ abstract class ICEBaseComponent extends EventTarget {
    * @param props
    */
   public props: any = {
-    id: 'ICE_' + Math.floor(Math.random() * 10000000000),
+    id: uuid(),
     left: 0,
     top: 0,
     width: 0,
@@ -100,6 +98,7 @@ abstract class ICEBaseComponent extends EventTarget {
     draggable: true,
     transformable: true,
     interactive: true,
+    linkable: true,
     showMinBoundingBox: true,
     showMaxBoundingBox: true,
   };
@@ -116,9 +115,6 @@ abstract class ICEBaseComponent extends EventTarget {
     this.props = merge(this.props, props);
     this.state = JSON.parse(JSON.stringify(this.props));
 
-    //FIXME:生成随机ID有问题???
-    // this.props.id = 'ICE_' + sha256(Math.random() * 100000000).toString();
-    //sha256(Math.random() * 100000000).toString();
     this.initEvents();
   }
 
@@ -189,9 +185,9 @@ abstract class ICEBaseComponent extends EventTarget {
     point.y += ty;
 
     if (this.parentNode) {
-      let plox = this.parentNode.state.localOrigin.x;
-      let ploy = this.parentNode.state.localOrigin.y;
-      point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, -plox, -ploy]));
+      let pLocalX = this.parentNode.state.localOrigin.x;
+      let pLocalY = this.parentNode.state.localOrigin.y;
+      point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, -pLocalX, -pLocalY]));
 
       let pcm = this.parentNode.state.composedMatrix;
       point = point.matrixTransform(pcm);
@@ -481,16 +477,22 @@ abstract class ICEBaseComponent extends EventTarget {
     return { left, top, width, height };
   }
 
-  /**
-   * TODO:改成 abstract?
-   * @returns
-   */
-  public toJSON(): string {
-    return '{}';
+  public containsPoint(x: number, y: number): boolean {
+    return this.getMinBoundingBox().containsPoint(new DOMPoint(x, y));
   }
 
   /**
-   * TODO:改成 abstract
+   * 把对象序列化成 JSON 字符串：
+   * - 容器型组件需要负责子节点的序列化操作
+   * - 如果组件不需要序列化，需要返回 null
+   * @returns JSONObject
+   */
+  public toJSON(): object {
+    return { props: this.props, state: this.state };
+  }
+
+  /**
+   * @param jsonStr:string
    * @returns
    */
   public fromJSON(jsonStr: string): object {

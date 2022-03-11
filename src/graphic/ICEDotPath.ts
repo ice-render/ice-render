@@ -14,7 +14,7 @@ import ICEPath from './ICEPath';
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-export default class ICEDotPath extends ICEPath {
+export default abstract class ICEDotPath extends ICEPath {
   /**
    * FIXME:编写完整的配置项描述
    * @cfg
@@ -26,7 +26,7 @@ export default class ICEDotPath extends ICEPath {
    */
   constructor(props) {
     //dots 是内部计算使用的属性
-    super({ dots: [], closePath: true, ...props });
+    super({ dots: [], transformedDots: [], closePath: true, ...props });
   }
 
   /**
@@ -146,5 +146,18 @@ export default class ICEDotPath extends ICEPath {
     const y4 = maxY;
 
     return [new DOMPoint(x1, y1), new DOMPoint(x2, y2), new DOMPoint(x3, y3), new DOMPoint(x4, y4)];
+  }
+
+  protected applyTransformToCtx(): void {
+    super.applyTransformToCtx();
+
+    const matrix = this.state.composedMatrix;
+    const dots = this.state.dots;
+    this.state.transformedDots = [];
+    for (let i = 0; i < dots.length; i++) {
+      const dot = dots[i];
+      const point = DOMPoint.fromPoint(dot).matrixTransform(matrix);
+      this.state.transformedDots.push(point);
+    }
   }
 }

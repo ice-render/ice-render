@@ -23,7 +23,7 @@ import ICERect from '../../graphic/shape/ICERect';
  */
 export default class ResizeControl extends ICERect {
   constructor(props) {
-    super({ position: 'l', direction: 'x', quadrant: 1, ...props });
+    super({ linkable: false, position: 'l', direction: 'x', quadrant: 1, ...props });
     this.on('after-move', this.resizeEvtHandler, this);
   }
 
@@ -38,8 +38,8 @@ export default class ResizeControl extends ICERect {
     }
 
     let { quadrant } = evt;
-    let movementX = evt.movementX / window.devicePixelRatio;
-    let movementY = evt.movementY / window.devicePixelRatio;
+    let movementX = evt.movementX;
+    let movementY = evt.movementY;
     let parentState = this.parentNode.state;
     let newLeft = parentState.left;
     let newTop = parentState.top;

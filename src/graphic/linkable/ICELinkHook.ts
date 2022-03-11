@@ -17,11 +17,12 @@ import ICECircle from '../shape/ICECircle';
  * - ICELinkHook 不能独立存在，它的实例放在 @see LineControlPanel 上
  * - ICELinkHook 自身不进行任何 transform 。
  *
+ * @see ICELinkSlot
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default class ICELinkHook extends ICECircle {
   constructor(props: any = {}) {
-    super(props);
+    super({ linkable: false, ...props });
   }
 
   protected initEvents() {
@@ -72,5 +73,15 @@ export default class ICELinkHook extends ICECircle {
     let position = this.props.position;
     this.parentNode.trigger('before-resize', new ICEEvent(evt, { position }));
     this.parentNode.trigger('after-resize', new ICEEvent(evt, { position }));
+  }
+
+  /**
+   * 把对象序列化成 JSON 字符串：
+   * - 容器型组件需要负责子节点的序列化操作
+   * - 如果组件不需要序列化，需要返回 null
+   * @returns JSONObject
+   */
+  public toJSON(): object {
+    return null;
   }
 }

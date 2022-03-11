@@ -9,8 +9,8 @@ import merge from 'lodash/merge';
 import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import { ICE_CONSTS } from '../../ICE_CONSTS';
-import ICELinkHook from '../cable-like/ICELinkHook';
 import ICECircle from '../shape/ICECircle';
+import ICELinkHook from './ICELinkHook';
 
 /**
  * @class ICELinkSlot
@@ -21,7 +21,10 @@ import ICECircle from '../shape/ICECircle';
  * - ICELinkSlot 不能独立存在，它必须附属在某个宿主组件上。逻辑附属，非真实的外观附属。
  * - ICELinkSlot 总是绘制在全局 canvas 中，它不是任何组件的子节点。
  * - ICELinkSlot 自身不进行任何 transform 。
+ * - ICELinkSlot 的实例是由 ICELinkSlotManager 统一动态创建的，如果组件的 linkable 状态为 tue ，ICELinkSlotManager 会动态在组件上创建连接插槽。
  *
+ * @see ICELinkHook
+ * @see ICELinkSlotManager
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICELinkSlot extends ICECircle {
@@ -30,7 +33,7 @@ class ICELinkSlot extends ICECircle {
 
   constructor(props: any = {}) {
     //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边的几何中点上。
-    super({ position: 'T', ...props });
+    super({ linkable: false, position: 'T', ...props });
   }
 
   protected initEvents() {
@@ -100,10 +103,10 @@ class ICELinkSlot extends ICECircle {
       // 如果 hook 与 slot 位置重叠，让连接线与 slot 所在的组件建立连接关系
       // 把连线上的起点或者终点坐标设置为当前发生碰撞的 ICELinkSlot 的坐标
       // ICELinkHook 实例在 LinkControlPanel 中，全局只有2个实例，所有连接线都共享同一个 LinkControlPanel 实例。
-      linkLine.setSlot(this, position);
+      linkLine && linkLine.setSlot(this, position);
     } else {
       //hook 没有与当前的 slot 重叠，让 hook 所在的连接线解除与当前 slot 之间的连接关系
-      linkLine.deleteSlot(this, position);
+      linkLine && linkLine.deleteSlot(this, position);
     }
 
     //恢复插槽默认的外观
@@ -129,6 +132,16 @@ class ICELinkSlot extends ICECircle {
 
   public get hostComponent() {
     return this._hostComponent;
+  }
+
+  /**
+   * 把对象序列化成 JSON 字符串：
+   * - 容器型组件需要负责子节点的序列化操作
+   * - 如果组件不需要序列化，需要返回 null
+   * @returns JSONObject
+   */
+  public toJSON(): object {
+    return null;
   }
 }
 

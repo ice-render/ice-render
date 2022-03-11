@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICEEvent from '../../event/ICEEvent';
 import ICEBaseComponent from '../../graphic/ICEBaseComponent';
 import ICEControlPanel from '../ICEControlPanel';
 import ResizeControl from './ResizeControl';
@@ -148,6 +147,18 @@ export default class TransformControlPanel extends ICEControlPanel {
     this.on('after-rotate', this.rotateEvtHandler, this);
   }
 
+  public enable() {
+    this.setState({ display: true });
+    this.resume('after-resize');
+    this.resume('after-rotate');
+  }
+
+  public disable() {
+    this.setState({ display: false });
+    this.suspend('after-resize');
+    this.suspend('after-rotate');
+  }
+
   protected setControlPositions() {
     //重新计算所有 ResizeControl 的位置，共8个
     let width = this.state.width;
@@ -212,8 +223,8 @@ export default class TransformControlPanel extends ICEControlPanel {
     }
 
     let { quadrant } = evt;
-    let movementX = evt.movementX / window.devicePixelRatio;
-    let movementY = evt.movementY / window.devicePixelRatio;
+    let movementX = evt.movementX;
+    let movementY = evt.movementY;
     let targetState = this.targetComponent.state;
     let newLeft = targetState.left;
     let newTop = targetState.top;
@@ -294,17 +305,13 @@ export default class TransformControlPanel extends ICEControlPanel {
     }
   }
 
-  protected followTargetComponent(evt: ICEEvent): void {
-    this.updatePosition();
-  }
-
   public set targetComponent(component: ICEBaseComponent) {
     this._targetComponent = component;
     if (component) {
       this.updatePosition();
-      component.on('after-move', this.followTargetComponent, this);
+      component.on('after-move', this.updatePosition, this);
     } else {
-      component.off('after-move', this.followTargetComponent, this);
+      component.off('after-move', this.updatePosition, this);
     }
   }
 

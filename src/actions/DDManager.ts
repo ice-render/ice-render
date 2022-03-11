@@ -14,9 +14,10 @@ import ICE from '../ICE';
  *
  *  拖拽管理器
  *
+ * - ICE Render 中所有组件的拖动都由 DDManager 管理。
  * - 拖拽管理器是纯逻辑组件，没有外观。
- * - 全局单例，一个 ICE 实例上只能有一个 DDManager 实例。
  * - DDManager 只负责拖拽和移动位置，不进行其它操作。
+ * - 全局单例，一个 ICE 实例上只能有一个 DDManager 实例。
  *
  * @see ICE
  * @author 大漠穷秋<damoqiongqiu@126.com>
@@ -47,8 +48,11 @@ export default class DDManager {
   }
 
   private mouseMoveHandler(evt: ICEEvent): boolean {
-    let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-    let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+    // console.log('window.devicePixelRatio>', window.devicePixelRatio);
+    // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+    // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+    let tx = evt.movementX;
+    let ty = evt.movementY;
     this.currentObj.moveGlobalPosition(tx, ty, evt);
     return true;
   }

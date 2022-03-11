@@ -9,8 +9,12 @@ import root from '../cross-platform/root.js';
 import ICEEvent from './ICEEvent';
 
 /**
- * Canvas 内部的对象默认没有事件机制，模仿 W3C 定义的 EventTaregt 接口，为 Canvas 内部的组件添加事件机制。
- * 部分 API 名称模仿 jQuery ，方便使用者调用。
+ * @class ICEEventTarget
+ *
+ * - canvas 标签内部没有事件机制，模仿 W3C 定义的 EventTaregt 接口，为 Canvas 内部的组件添加事件机制。
+ * - ICE 内部的大部分组件都是 ICEEventTarget 的子类。
+ * - 部分 API 名称模仿 jQuery ，方便使用者调用。
+ *
  * TODO:需要完整模拟 W3C 和 jQuery 提供的事件接口，在 API 名称和调用逻辑上保持完全一致。
  *
  * listeners 的结构：
@@ -37,10 +41,11 @@ import ICEEvent from './ICEEvent';
  *     ]
  * }
  *
- * @see https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
+ * @abstract
  * @author 大漠穷秋<damoqiongqiu@126.com>
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
  */
-abstract class EventTarget {
+abstract class ICEEventTarget {
   protected listeners: any = {};
   protected suspendedEventNames: any = [];
 
@@ -81,7 +86,7 @@ abstract class EventTarget {
     this.on(eventName, callback, scope);
   }
 
-  trigger(eventName: string, originalEvent: any = null) {
+  trigger(eventName: string, originalEvent: any = null, param = {}) {
     if (!this.listeners[eventName]) return false;
     if (this.suspendedEventNames.includes(eventName)) return false;
 
@@ -91,10 +96,12 @@ abstract class EventTarget {
     if (originalEvent) {
       iceEvent = new ICEEvent(originalEvent);
       iceEvent.originalEvent = originalEvent;
+      iceEvent.param = { ...param };
     } else {
       iceEvent = new ICEEvent({
         type: eventName,
         timeStamp: new Date().getTime(),
+        param: { ...param },
       });
     }
 
@@ -106,35 +113,43 @@ abstract class EventTarget {
     return true;
   }
 
-  //FIXME:加上 scope 控制
-  suspend(eventName: string, fn: Function) {
+  suspend(eventName: string) {
     if (eventName && !this.suspendedEventNames.includes(eventName)) {
       this.suspendedEventNames.push(eventName);
     }
-    if (fn) {
-      fn.prototype.suspended = true;
-    }
   }
 
-  //FIXME:加上 scope 控制
-  resume(eventName: string, fn: Function) {
-    if (eventName && this.suspendedEventNames.includes(eventName)) {
-      this.suspendedEventNames.splice(this.suspendedEventNames.findIndex(eventName), 1);
-    }
-    if (fn) {
-      fn.prototype.suspended = false;
-    }
+  resume(eventName: string) {
+    this.suspendedEventNames.splice(
+      this.suspendedEventNames.findIndex((el) => el === eventName),
+      1
+    );
   }
 
   purgeEvents() {
     this.listeners = {};
     this.suspendedEventNames = [];
   }
+
+  hasListener(eventName: string, fn: Function, scope: any = root): boolean {
+    if (!this.listeners[eventName]) {
+      return false;
+    }
+    let arr = this.listeners[eventName];
+    if (!arr) return false;
+    for (let i = 0; i < arr.length; i++) {
+      let item = arr[i];
+      if (item.callback === fn && item.scope === scope) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
 //增加别名，模拟 W3C 的 EventTarget 接口
-EventTarget.prototype.addEventListener = EventTarget.prototype.on;
-EventTarget.prototype.removeEventListener = EventTarget.prototype.off;
-EventTarget.prototype.dispatchEvent = EventTarget.prototype.trigger;
+ICEEventTarget.prototype.addEventListener = ICEEventTarget.prototype.on;
+ICEEventTarget.prototype.removeEventListener = ICEEventTarget.prototype.off;
+ICEEventTarget.prototype.dispatchEvent = ICEEventTarget.prototype.trigger;
 
-export default EventTarget;
+export default ICEEventTarget;

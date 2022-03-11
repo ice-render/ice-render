@@ -21,7 +21,7 @@ export default abstract class ICEControlPanel extends ICEGroup {
   protected _targetComponent: ICEBaseComponent;
 
   constructor(props: any) {
-    super(props);
+    super({ linkable: false, ...props });
   }
 
   protected abstract initControls(): void;
@@ -41,4 +41,8 @@ export default abstract class ICEControlPanel extends ICEGroup {
       this._targetComponent.moveGlobalPosition(tx, ty, evt);
     }
   }
+
+  public abstract enable();
+
+  public abstract disable();
 }

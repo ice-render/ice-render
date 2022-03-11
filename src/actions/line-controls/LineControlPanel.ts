@@ -5,9 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICEEvent from '../../event/ICEEvent';
-import ICELinkHook from '../../graphic/cable-like/ICELinkHook';
 import ICEBaseComponent from '../../graphic/ICEBaseComponent';
+import ICELinkHook from '../../graphic/linkable/ICELinkHook';
 import ICEControlPanel from '../ICEControlPanel';
 
 /**
@@ -34,7 +33,7 @@ export default class LineControlPanel extends ICEControlPanel {
   private endControl: ICELinkHook;
 
   constructor(props) {
-    super({ ...props, zIndex: Number.MAX_VALUE, showMinBoundingBox: true, showMaxBoundingBox: true });
+    super({ ...props, zIndex: Number.MAX_VALUE, showMinBoundingBox: false, showMaxBoundingBox: false });
     this.initControls();
   }
 
@@ -81,6 +80,18 @@ export default class LineControlPanel extends ICEControlPanel {
     this.on('after-resize', this.resizeEvtHandler, this);
   }
 
+  public enable() {
+    this.setState({ display: true });
+    this.resume('after-resize');
+    this.showHooks();
+  }
+
+  public disable() {
+    this.setState({ display: false });
+    this.suspend('after-resize');
+    this.hideHooks();
+  }
+
   /**
    * 设置所有手柄在父组件中的位置，相对于父组件的本地坐标系。
    * LineControlPanel 不强制操作手柄的位置，操作手柄可以自由移动。
@@ -93,8 +104,8 @@ export default class LineControlPanel extends ICEControlPanel {
     }
 
     let position = evt.position;
-    let movementX = evt.movementX / window.devicePixelRatio;
-    let movementY = evt.movementY / window.devicePixelRatio;
+    let movementX = evt.movementX;
+    let movementY = evt.movementY;
     let targetState = this.targetComponent.state;
     let len = targetState.points.length;
     let newStartX = targetState.points[0][0];
@@ -134,9 +145,9 @@ export default class LineControlPanel extends ICEControlPanel {
       //设置 LineControlPanel 自身的位置
       this.setState({
         left: 0,
-        top: 0,
-        width: 100,
-        height: 100,
+        top: -5,
+        width: 3,
+        height: 3,
         transform: {
           translate: [0, 0],
           scale: [1, 1],
@@ -163,17 +174,13 @@ export default class LineControlPanel extends ICEControlPanel {
     }
   }
 
-  protected followTargetComponent(evt: ICEEvent): void {
-    this.updatePosition();
-  }
-
   public set targetComponent(component: ICEBaseComponent) {
     this._targetComponent = component;
     if (component) {
       this.updatePosition();
-      component.on('after-move', this.followTargetComponent, this);
+      component.on('after-move', this.updatePosition, this);
     } else {
-      component.off('after-move', this.followTargetComponent, this);
+      component.off('after-move', this.updatePosition, this);
     }
   }
 

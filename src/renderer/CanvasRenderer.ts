@@ -6,24 +6,26 @@
  *
  */
 import ICEEvent from '../event/ICEEvent';
+import ICEEventTarget from '../event/ICEEventTarget';
 import ICEBaseComponent from '../graphic/ICEBaseComponent';
 import ICE from '../ICE';
 import { ICE_CONSTS } from '../ICE_CONSTS';
-import IRenderer from './IRenderer';
 
 /**
  * @class CanvasRenderer
  * Canvas 渲染器，全局单例。
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-class CanvasRenderer implements IRenderer {
+class CanvasRenderer extends ICEEventTarget {
   private ice: ICE;
 
   constructor(ice: ICE) {
+    super();
     this.ice = ice;
   }
 
   private renderRecursively(component: ICEBaseComponent) {
+    this.trigger(ICE_CONSTS.BEFORE_RENDER, null, { component: component });
     component.trigger(ICE_CONSTS.BEFORE_RENDER);
 
     if (component.state.isRendering) {
@@ -49,6 +51,7 @@ class CanvasRenderer implements IRenderer {
     }
 
     component.trigger(ICE_CONSTS.AFTER_RENDER);
+    this.trigger(ICE_CONSTS.AFTER_RENDER, null, { component: component });
   }
 
   public start() {
@@ -56,16 +59,16 @@ class CanvasRenderer implements IRenderer {
       //FIXME:fix this when using increamental rendering
       //FIXME:动画有闪烁
       this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
-      if (this.ice.displayMap && this.ice.displayMap.size) {
-        //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
-        let arr = Array.from(this.ice.displayMap, ([name, value]) => value);
-        arr.sort((firstEl, secondEl) => {
-          return firstEl.state.zIndex - secondEl.state.zIndex;
-        });
-        arr.forEach((component: ICEBaseComponent) => {
-          this.renderRecursively(component);
-        });
-      }
+      if (!this.ice.childNodes || !this.ice.childNodes.length) return;
+
+      //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
+      let arr = Array.from(this.ice.childNodes);
+      arr.sort((firstEl, secondEl) => {
+        return firstEl.state.zIndex - secondEl.state.zIndex;
+      });
+      arr.forEach((component: ICEBaseComponent) => {
+        this.renderRecursively(component);
+      });
     });
     return this;
   }

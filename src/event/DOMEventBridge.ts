@@ -29,7 +29,7 @@ class DOMEventBridge {
     //FIXME:这里需要增加节流机制，防止触发事件的频率过高导致 CPU 飙升。
     mouseEvents.forEach((evtMapping) => {
       this.ice.evtBus.on(evtMapping[1], (evt: ICEEvent) => {
-        const component = this.findTargetComponent(evt.clientX, evt.clientY);
+        const component = this.findTargetComponent(evt.clientX, evt.clientY); //FIXME:需要把 clientX/clientY 转换成 canvas 内部的坐标
         if (component) {
           evt.target = component;
           component.trigger(evtMapping[0], evt);
@@ -52,14 +52,13 @@ class DOMEventBridge {
   private findTargetComponent(clientX, clientY) {
     let x = clientX - this.ice.canvasBoundingClientRect.left;
     let y = clientY - this.ice.canvasBoundingClientRect.top;
-    let components = Array.from(this.ice.displayMap.values());
+
+    let components = Array.from(this.ice.childNodes);
     for (let i = 0; i < components.length; i++) {
       let component: any = components[i];
       this.traverse(x, y, component);
     }
 
-    //TODO: 按照 zIndex 倒排，然后取第0个元素。
-    //TODO: 需要重构设置和修改 zIndex 参数的时机。
     this.selectionCandidates.sort((a, b) => {
       return a.zIndex - b.zIndex;
     });
@@ -70,7 +69,7 @@ class DOMEventBridge {
   }
 
   /**
-   * 如果存在子组件，遍历。
+   * 广度优先遍历。
    * @param x
    * @param y
    * @param component
@@ -82,8 +81,10 @@ class DOMEventBridge {
       });
     }
 
-    let flag = component.getMinBoundingBox().containsPoint(new DOMPoint(x, y));
-    if (flag && component.state.interactive) {
+    //不可交互的组件、没有渲染的组件，不派发事件。
+    let { interactive, display } = component.state;
+    let flag = component.containsPoint(x, y);
+    if (flag && interactive && display) {
       this.selectionCandidates.push(component);
     }
   }
