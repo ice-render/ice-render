@@ -4602,6 +4602,7 @@
       //dots 是内部计算使用的属性
       super({
         dots: [],
+        transformedDots: [],
         closePath: true,
         ...props
       });
@@ -4741,6 +4742,19 @@
       const x4 = maxX;
       const y4 = maxY;
       return [new DOMPoint(x1, y1), new DOMPoint(x2, y2), new DOMPoint(x3, y3), new DOMPoint(x4, y4)];
+    }
+
+    applyTransformToCtx() {
+      super.applyTransformToCtx();
+      const matrix = this.state.composedMatrix;
+      const dots = this.state.dots;
+      this.state.transformedDots = [];
+
+      for (let i = 0; i < dots.length; i++) {
+        const dot = dots[i];
+        const point = DOMPoint.fromPoint(dot).matrixTransform(matrix);
+        this.state.transformedDots.push(point);
+      }
     }
 
   }
@@ -5107,14 +5121,60 @@
         return super.getRotateAngle();
       }
     }
+    /**
+     * 判断给定的坐标点是否位于线段上。
+     * 计算方法：如果给点的坐标点到线段两端的距离之和等于线段长度，则表示点位于线段上，允许的误差为正负0.1 。
+     * @param x
+     * @param y
+     * @returns
+     */
+
 
     containsPoint(x, y) {
-      //FIXME:对于线条类的组件，需要更精确的判定方法来判断指定的坐标点是否位于线条上，利用 GeoLine.contains 进行计算。
-      //计算步骤：
-      //step-1: 每两个点构成一条线段
-      //step-2: 依次判断给定的坐标点是否位于线段上
-      console.log(this.state.dots);
-      return super.containsPoint(x, y);
+      const delta = 0.1; //允许的浮点运算误差，正负区间内。
+
+      const lines = this.getLines();
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const x1 = line.o.x;
+        const y1 = line.o.y;
+        const x2 = line.d.x;
+        const y2 = line.d.y;
+        const lineLength = GeoUtil.getLength(x1, y1, x2, y2);
+        const len1 = GeoUtil.getLength(x, y, x1, y1);
+        const len2 = GeoUtil.getLength(x, y, x2, y2);
+
+        if (len1 + len2 >= lineLength - delta && len1 + len2 <= lineLength + delta) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    getLines() {
+      const result = [];
+      const dots = this.state.transformedDots;
+
+      if (!dots || dots.length < 2) {
+        return result;
+      }
+
+      for (let i = 0; i < dots.length - 1; i++) {
+        const x1 = dots[i].x;
+        const y1 = dots[i].y;
+        const x2 = dots[i + 1].x;
+        const y2 = dots[i + 1].y;
+        const line = {
+          o: new DOMPoint(x1, y1),
+          d: new DOMPoint(x2, y2)
+        }; //o:origin, d:destination
+
+        result.push(line);
+      }
+
+      return result;
     }
     /**
      * 把对象序列化成 JSON 字符串：
@@ -8155,6 +8215,8 @@
       let component = evt.target;
 
       if (!(component instanceof ICEBaseComponent)) {
+        this.lineControlPanel.disable();
+        this.transformControlPanel.disable();
         return;
       }
 
