@@ -81,6 +81,7 @@ class DOMEventBridge {
       });
     }
 
+    //不可交互的组件、没有渲染的组件，不派发事件。
     let { interactive, display } = component.state;
     let flag = component.containsPoint(x, y);
     if (flag && interactive && display) {
