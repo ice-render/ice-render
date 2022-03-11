@@ -10,15 +10,6 @@ import ICEGroup from './graphic/container/ICEGroup';
 import ICEImage from './graphic/ICEImage';
 import ICEPolyLine from './graphic/line/ICEPolyLine';
 import ICEVisioLink from './graphic/linkable/ICEVisioLink';
-import {
-  ICELinkabeText,
-  ICELinkableCircle,
-  ICELinkableEllipse,
-  ICELinkableImage,
-  ICELinkableIsogon,
-  ICELinkableRect,
-  ICELinkableStar,
-} from './graphic/linkable/linkable-components';
 import ICECircle from './graphic/shape/ICECircle';
 import ICEEllipse from './graphic/shape/ICEEllipse';
 import ICEIsogon from './graphic/shape/ICEIsogon';
@@ -45,13 +36,6 @@ const componentTypeMap = Object.fromEntries(
     [ICEGroup.type, ICEGroup],
     [ICEVisioLink.type, ICEVisioLink],
     [ICEPolyLine.type, ICEPolyLine],
-    [ICELinkableRect.type, ICELinkableRect],
-    [ICELinkableCircle.type, ICELinkableCircle],
-    [ICELinkableEllipse.type, ICELinkableEllipse],
-    [ICELinkableIsogon.type, ICELinkableIsogon],
-    [ICELinkableStar.type, ICELinkableStar],
-    [ICELinkabeText.type, ICELinkabeText],
-    [ICELinkableImage.type, ICELinkableImage],
   ])
 );
 

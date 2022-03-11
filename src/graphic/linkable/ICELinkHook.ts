@@ -17,11 +17,12 @@ import ICECircle from '../shape/ICECircle';
  * - ICELinkHook 不能独立存在，它的实例放在 @see LineControlPanel 上
  * - ICELinkHook 自身不进行任何 transform 。
  *
+ * @see ICELinkSlot
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default class ICELinkHook extends ICECircle {
   constructor(props: any = {}) {
-    super(props);
+    super({ linkable: false, ...props });
   }
 
   protected initEvents() {

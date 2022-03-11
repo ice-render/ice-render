@@ -3732,25 +3732,6 @@
    */
 
   /**
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-  let root$1 = null;
-
-  (() => {
-    root$1 = window || global || {};
-  })();
-
-  var root$2 = root$1;
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-
-  /**
    * @class ICEEvent
    * 在 ICE 中，所有事件都会被转化成 ICEEvent 进行处理。
    * ICEEvent 用来模拟 W3C 定义的 Event 接口，ICE 自定义的事件也使用此实现，事件对象上能获取到的属性不同。
@@ -3767,6 +3748,8 @@
 
       _defineProperty(this, "target", void 0);
 
+      _defineProperty(this, "param", void 0);
+
       //FIXME:事件对象的属性拷贝需要更加细致的控制
       for (let p in evt) {
         this[p] = evt[p];
@@ -3780,10 +3763,29 @@
   }
 
   /**
-   * @class EventTarget
+   * Copyright (c) 2022 大漠穷秋.
    *
-   * - Canvas 内部的对象默认没有事件机制，模仿 W3C 定义的 EventTaregt 接口，为 Canvas 内部的组件添加事件机制。
-   * - ICE 内部的所有组件都是 EventTarget 的子类。
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+
+  /**
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+  let root$1 = null;
+
+  (() => {
+    root$1 = window || global || {};
+  })();
+
+  var root$2 = root$1;
+
+  /**
+   * @class ICEEventTarget
+   *
+   * - canvas 标签内部没有事件机制，模仿 W3C 定义的 EventTaregt 接口，为 Canvas 内部的组件添加事件机制。
+   * - ICE 内部的大部分组件都是 ICEEventTarget 的子类。
    * - 部分 API 名称模仿 jQuery ，方便使用者调用。
    *
    * TODO:需要完整模拟 W3C 和 jQuery 提供的事件接口，在 API 名称和调用逻辑上保持完全一致。
@@ -3817,7 +3819,7 @@
    * @see https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
    */
 
-  class EventTarget {
+  class ICEEventTarget {
     constructor() {
       _defineProperty(this, "listeners", {});
 
@@ -3873,6 +3875,7 @@
 
     trigger(eventName) {
       let originalEvent = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
+      let param = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
       if (!this.listeners[eventName]) return false;
       if (this.suspendedEventNames.includes(eventName)) return false; //DOM 事件和代码触发的事件都会被转换成 ICEEvent
       //FIXME:这里需要判断传递了 originalEvent 且类型为 ICEEvent 的情况。
@@ -3882,10 +3885,14 @@
       if (originalEvent) {
         iceEvent = new ICEEvent(originalEvent);
         iceEvent.originalEvent = originalEvent;
+        iceEvent.param = { ...param
+        };
       } else {
         iceEvent = new ICEEvent({
           type: eventName,
-          timeStamp: new Date().getTime()
+          timeStamp: new Date().getTime(),
+          param: { ...param
+          }
         });
       }
 
@@ -3912,12 +3919,33 @@
       this.suspendedEventNames = [];
     }
 
+    hasListener(eventName, fn) {
+      let scope = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : root$2;
+
+      if (!this.listeners[eventName]) {
+        return false;
+      }
+
+      let arr = this.listeners[eventName];
+      if (!arr) return false;
+
+      for (let i = 0; i < arr.length; i++) {
+        let item = arr[i];
+
+        if (item.callback === fn && item.scope === scope) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
   } //增加别名，模拟 W3C 的 EventTarget 接口
 
 
-  EventTarget.prototype.addEventListener = EventTarget.prototype.on;
-  EventTarget.prototype.removeEventListener = EventTarget.prototype.off;
-  EventTarget.prototype.dispatchEvent = EventTarget.prototype.trigger;
+  ICEEventTarget.prototype.addEventListener = ICEEventTarget.prototype.on;
+  ICEEventTarget.prototype.removeEventListener = ICEEventTarget.prototype.off;
+  ICEEventTarget.prototype.dispatchEvent = ICEEventTarget.prototype.trigger;
 
   /**
    * Copyright (c) 2022 大漠穷秋.
@@ -3977,7 +4005,7 @@
    * @abstract
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
-  class ICEBaseComponent extends EventTarget {
+  class ICEBaseComponent extends ICEEventTarget {
     //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
     //当对象被添加到 canvas 中时，ICE 会自动设置 ctx 的值，没有被添加到 canvas 中的对象 ctx 为 null 。
     //事件总线， evtBus 在 render() 方法被调用时才会被设置
@@ -4013,6 +4041,7 @@
      *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
      *   draggable:true,                              //是否可以拖动
      *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
+     *   linkable:true,                               //组件是否可以用连接线连接起来，如果此状态为 true ，ICELinkSlotManager 在运行时会动态在组件上创建连接插槽 ICELinkSlot 的实例
      *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable TODO:动画运行过程中不允许选中，不能进行交互？？？
      *   showMinBoundingBox:true,                     //是否显示最小包围盒，开发时打开，主要用于 debug
      *   showMaxBoundingBox:true,                     //是否显示最大包围盒，开发时打开，主要用于 debug
@@ -4816,6 +4845,7 @@
       //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
       let param = merge_1({
         linkable: false,
+        //所有线条类型的组件 linkable 都为 false ，因为在 ICE 中，用线条连接线条是没有意义的，线条之间不能互相连接。
         lineType: 'solid',
         lineWidth: 2,
         arrow: 'none',
@@ -5972,58 +6002,6 @@
   _defineProperty(ICEVisioLink, "type", 'ICEVisioLink');
 
   /**
-   * @class ICEImage
-   * TODO:支持以下几种图片类型：jpg/jpeg/png/gif
-   * TODO:ICEImage 来源的几种方式
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEImage extends ICEBaseComponent {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        width: 100,
-        height: 100,
-        ...props
-      });
-    }
-    /**
-     * 空实现。
-     */
-
-
-    initEvents() {}
-
-    doRender() {
-      let img = new Image();
-      img.src = 'data:image/png;base64,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';
-      this.ctx.drawImage(img, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y, this.state.width, this.state.height);
-      super.doRender();
-    }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICEImage.type
-      };
-      return result;
-    }
-
-  }
-
-  _defineProperty(ICEImage, "type", 'ICEImage');
-
-  /**
    * @class ICEEllipse
    *
    * 椭圆形。
@@ -6153,94 +6131,6 @@
   _defineProperty(ICECircle, "type", 'ICECircle');
 
   /**
-   *
-   * FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
-   *
-   * @class ICEIsogon
-   *
-   * 正多边形
-   *
-   * 用宽高描述法描述正多边形，方便传参。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEIsogon extends ICEDotPath {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-    //外接圆的半径
-    //边数 N ，正整数
-
-    /**
-     * radius, edges 会暴露给 AnimationManager ，可能会动态变化。
-     * @param props
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      let param = {
-        radius: 10,
-        edges: 3,
-        ...props
-      };
-      param.width = param.radius * 2;
-      param.height = param.radius * 2;
-      super(param);
-
-      _defineProperty(this, "radius", 10);
-
-      _defineProperty(this, "edges", 3);
-
-      this.radius = this.props.radius; //FIXME:delete?
-
-      this.edges = this.props.edges; //FIXME:delete?
-    }
-    /**
-     * 计算路径上的关键点:
-     * - 默认的坐标原点是 (0,0) 位置。
-     * - 这些点没有经过 transform 矩阵变换。
-     * @returns
-     */
-
-
-    calcDots() {
-      //求正 N 边形的顶点坐标，极坐标法。
-      this.state.dots = [];
-      let avgAngle = 2 * Math.PI / this.state.edges; //FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
-      //FIXME:这里需要重新设置起始角度
-      //FIXME:当边数为奇数时，把一个顶点放在正上方90度位置，当边数为偶数时，把一条边与 X 轴平行
-
-      for (let i = 0; i < this.state.edges; i++) {
-        let currentAngel = avgAngle * i;
-        let radius = this.state.radius;
-        let x = Math.floor(radius * Math.cos(currentAngel) + radius);
-        let y = Math.floor(radius * Math.sin(currentAngel) + radius);
-        this.state.dots.push(new DOMPoint(x, y));
-      }
-
-      return this.state.dots;
-    }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICEIsogon.type
-      };
-      return result;
-    }
-
-  }
-
-  _defineProperty(ICEIsogon, "type", 'ICEIsogon');
-
-  /**
    * @class ICERect 矩形
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
@@ -6297,526 +6187,6 @@
   }
 
   _defineProperty(ICERect, "type", 'ICERect');
-
-  /**
-   * @class ICEStar 五角星
-   * TODO:实现正 N 角星
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEStar extends ICEIsogon {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        radius: 10,
-        edges: 5,
-        ...props
-      });
-    }
-
-    doCreatePath() {
-      this.path2D = new Path2D();
-      let counter = 0;
-      let i = 0;
-
-      while (counter < this.state.edges) {
-        let j = (i + 2) % this.state.edges;
-        let v1 = this.state.dots[i];
-        let v2 = this.state.dots[j];
-
-        if (counter == 0) {
-          this.path2D.moveTo(v1.x, v1.y);
-          this.path2D.lineTo(v2.x, v2.y);
-        } else {
-          this.path2D.lineTo(v2.x, v2.y);
-        }
-
-        i = j;
-        counter++;
-      }
-
-      this.path2D.closePath();
-      return this.path2D;
-    }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICEStar.type
-      };
-      return result;
-    }
-
-  }
-
-  _defineProperty(ICEStar, "type", 'ICEStar');
-
-  /**
-   * TODO:draw text along Path2D
-   * @see https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEText extends ICEBaseComponent {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-
-    /**
-     * @cfg
-     * {
-     *   text:'文本内容',
-     *   left:0,
-     *   top:0,
-     *   fontSize:48,
-     *   fontFamily:'Arial',
-     *   fontWeight:24,
-     * }
-     * FIXME: fontSize/fontFamily/fontWeight 移动到 style 配置项中一起处理。
-     * @param props
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        text: '',
-        left: 0,
-        top: 0,
-        fontSize: 48,
-        fontFamily: 'Arial',
-        fontWeight: 24,
-        ...props
-      });
-    }
-    /**
-     * 空实现。
-     */
-
-
-    initEvents() {}
-    /**
-     * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
-     * 文本尺寸的计算需要使用特殊的方法。
-     * 这里使用的方法来自 https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
-     *
-     * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
-     *
-     * FIXME:某些运行时环境可能不支持动态插入 HTML 标签，以上测量文本宽高的方法可能存在兼容性问题。
-     * FIXME:边界盒子的高度与字体高度之间存在误差。
-     * @returns
-     */
-
-
-    calcOriginalDimension() {
-      const div = this.root.document.createElement('div');
-      div.contenteditable = false;
-      div.innerHTML = this.state.text;
-      div.style.position = 'absolute';
-      div.style.top = '200px';
-      div.style.left = '0';
-      div.style.fontFamily = this.state.fontFamily;
-      div.style.fontWeight = this.state.fontWeight;
-      div.style.fontSize = this.state.fontSize + 'px';
-      this.root.document.body.appendChild(div);
-      let cssSize = {
-        width: div.offsetWidth,
-        height: div.offsetHeight
-      };
-      this.root.document.body.removeChild(div); //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
-
-      this.props.width = cssSize.width;
-      this.props.height = cssSize.height;
-      this.state.width = cssSize.width;
-      this.state.height = cssSize.height;
-      return {
-        width: this.state.width,
-        height: this.state.height
-      };
-    }
-    /**
-     * 文本是基于 baseline 绘制的，文本是从 y 坐标向屏幕上方绘制的，48 是文本高度，这里需要补偿文本高度。
-     * 同时把移动坐标轴原点的偏移量计算进去。
-     */
-
-
-    doRender() {
-      this.ctx.strokeText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
-      this.ctx.fillText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
-    }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICEText.type
-      };
-      return result;
-    }
-
-  }
-
-  _defineProperty(ICEText, "type", 'ICEText');
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  const ICE_CONSTS = {
-    ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
-    BEFORE_RENDER: 'BEFORE_RENDER',
-    AFTER_RENDER: 'AFTER_RENDER',
-    ICE_CLICK: 'ICE_CLICK',
-    BEFORE_ADD: 'BEFORE_ADD',
-    //在 addChild() 方法中的第一行执行
-    AFTER_ADD: 'AFTER_ADD',
-    //在 addChild() 方法返回之前执行
-    BEFORE_REMOVE: 'BEFORE_REMOVE',
-    //在 removeChild() 方法中的第一行执行
-    AFTER_REMOVE: 'AFTER_REMOVE' //在 removeChild() 方法返回之前执行
-
-  };
-
-  /**
-   * @class ICELinkSlot
-   *
-   * 连接插槽
-   *
-   * - ICELinkSlot 与 ICELinkHook 是一对组件，用来把两个组件连接起来。
-   * - ICELinkSlot 不能独立存在，它必须附属在某个宿主组件上。逻辑附属，非真实的外观附属。
-   * - ICELinkSlot 总是绘制在全局 canvas 中，它不是任何组件的子节点。
-   * - ICELinkSlot 自身不进行任何 transform 。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-  class ICELinkSlot extends ICECircle {
-    //宿主组件。
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边的几何中点上。
-      super({
-        position: 'T',
-        ...props
-      });
-
-      _defineProperty(this, "_hostComponent", void 0);
-    }
-
-    initEvents() {
-      super.initEvents(); //由于 ICELinkSlot 默认不可见，实例的 display 为 false ，所以不会触发 AFTER_RENDER 事件，这里只能监听 BEFORE_RENDER
-      //这里不能直接访问 this.evtBus ，因为对象在进入到渲染阶段时才会被设置 evtBus 实例，在 initEvents() 被调用时 this.evtBus 为空。 @see ICE.evtBus
-
-      this.once(ICE_CONSTS.BEFORE_RENDER, this.afterAddHandler, this);
-      this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
-    }
-
-    afterAddHandler(evt) {
-      this.evtBus.on('hook-mousedown', this.hookMouseDownHandler, this);
-      this.evtBus.on('hook-mousemove', this.hookMouseMoveHandler, this);
-      this.evtBus.on('hook-mouseup', this.hookMouseUpHandler, this);
-    }
-
-    beforeRemoveHandler(evt) {
-      this.evtBus.off('hook-mousedown', this.hookMouseDownHandler, this);
-      this.evtBus.off('hook-mousemove', this.hookMouseMoveHandler, this);
-      this.evtBus.off('hook-mouseup', this.hookMouseUpHandler, this);
-    }
-    /**
-     * 监听 EventBus 上连接钩子鼠标按下事件
-     * @param evt
-     */
-
-
-    hookMouseDownHandler(evt) {
-      this.state._cacheStyle = merge_1({}, this.state.style);
-      this.setState({
-        display: true
-      });
-    }
-    /**
-     * 监听 EventBus 上连接钩子鼠标移动事件
-     * @param evt
-     */
-
-
-    hookMouseMoveHandler(evt) {
-      let linkHook = evt.target;
-
-      if (this.isIntersectWithHook(linkHook)) {
-        this.setState({
-          //FIXME:鼠标划过时的样式移动到配置项里面去
-          style: {
-            strokeStyle: '#0916d4',
-            fillStyle: '#fffb00',
-            lineWidth: 1
-          }
-        });
-      } else {
-        let style = merge_1({}, this.state._cacheStyle);
-        this.setState({
-          style
-        });
-      }
-    }
-    /**
-     * 监听 EventBus 上连接钩子鼠标弹起事件
-     * @param evt
-     */
-
-
-    hookMouseUpHandler(evt) {
-      let linkHook = evt.target;
-      let linkLine = linkHook.parentNode.targetComponent;
-      let position = linkHook.state.position;
-
-      if (this.isIntersectWithHook(linkHook)) {
-        // 如果 hook 与 slot 位置重叠，让连接线与 slot 所在的组件建立连接关系
-        // 把连线上的起点或者终点坐标设置为当前发生碰撞的 ICELinkSlot 的坐标
-        // ICELinkHook 实例在 LinkControlPanel 中，全局只有2个实例，所有连接线都共享同一个 LinkControlPanel 实例。
-        linkLine && linkLine.setSlot(this, position);
-      } else {
-        //hook 没有与当前的 slot 重叠，让 hook 所在的连接线解除与当前 slot 之间的连接关系
-        linkLine && linkLine.deleteSlot(this, position);
-      } //恢复插槽默认的外观
-
-
-      let style = merge_1({}, this.state._cacheStyle);
-      this.setState({
-        display: false,
-        style
-      });
-    }
-
-    isIntersectWithHook(linkHook) {
-      let slotBounding = this.getMaxBoundingBox();
-      let hookBounding = linkHook.getMaxBoundingBox();
-
-      if (slotBounding.isIntersect(hookBounding)) {
-        return true;
-      }
-
-      return false;
-    }
-
-    set hostComponent(component) {
-      this._hostComponent = component;
-    }
-
-    get hostComponent() {
-      return this._hostComponent;
-    }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      return null;
-    }
-
-  }
-
-  /**
-   * 泛型工厂函数，把普通的图形类转换成可连接的图形类。
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   * @see https://www.typescriptlang.org/docs/handbook/mixins.html#constrained-mixins
-   *
-   */
-
-  function ICELinkable(Base) {
-    var _class;
-
-    return _class = class Scaling extends Base {
-      /**
-       * @required
-       * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-       */
-      constructor() {
-        for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
-          args[_key] = arguments[_key];
-        }
-
-        let param = args && args.length ? args[0] : {};
-        param.linkable = true;
-        super(param);
-
-        _defineProperty(this, "linkSlots", []);
-
-        _defineProperty(this, "slotRadius", 10);
-      }
-
-      initEvents() {
-        this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
-      }
-      /**
-       * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
-       * 此事件监听器只会执行一次。
-       * @param evt
-       */
-
-
-      beforeRemoveHandler(evt) {
-        this.linkSlots.forEach(slot => {
-          slot.purgeEvents();
-          this.ice.removeChild(slot);
-        });
-      }
-
-      doRender() {
-        super.doRender();
-
-        if (this.state.linkable) {
-          if (!this.linkSlots.length) {
-            this.createLinkSlots();
-          }
-
-          this.setSlotPositions();
-        }
-      }
-      /**
-       * 创建连接插槽，插槽默认分布在组件最小边界盒子的4条边几何中点位置。
-       */
-
-
-      createLinkSlots() {
-        let slot_1 = new ICELinkSlot({
-          display: false,
-          transformable: false,
-          radius: this.slotRadius,
-          position: 'T',
-          style: {
-            strokeStyle: '#0c09d4',
-            fillStyle: '#3ce92c',
-            lineWidth: 1
-          }
-        });
-        slot_1.hostComponent = this;
-        this.ice.addChild(slot_1);
-        let slot_2 = new ICELinkSlot({
-          display: false,
-          transformable: false,
-          radius: this.slotRadius,
-          position: 'R',
-          style: {
-            strokeStyle: '#0c09d4',
-            fillStyle: '#3ce92c',
-            lineWidth: 1
-          }
-        });
-        slot_2.hostComponent = this;
-        this.ice.addChild(slot_2);
-        let slot_3 = new ICELinkSlot({
-          display: false,
-          transformable: false,
-          radius: this.slotRadius,
-          position: 'B',
-          style: {
-            strokeStyle: '#0c09d4',
-            fillStyle: '#3ce92c',
-            lineWidth: 1
-          }
-        });
-        slot_3.hostComponent = this;
-        this.ice.addChild(slot_3);
-        let slot_4 = new ICELinkSlot({
-          display: false,
-          transformable: false,
-          radius: this.slotRadius,
-          position: 'L',
-          style: {
-            strokeStyle: '#0c09d4',
-            fillStyle: '#3ce92c',
-            lineWidth: 1
-          }
-        });
-        slot_4.hostComponent = this;
-        this.ice.addChild(slot_4);
-        this.linkSlots = [slot_1, slot_2, slot_3, slot_4];
-      }
-
-      setSlotPositions() {
-        let box = this.getMinBoundingBox();
-        this.linkSlots.forEach(slot => {
-          let left = 0;
-          let top = 0;
-
-          switch (slot.state.position) {
-            case 'T':
-              left = box.center.x - this.slotRadius;
-              top = box.tl.y - this.slotRadius;
-              break;
-
-            case 'R':
-              left = box.tr.x - this.slotRadius;
-              top = box.center.y - this.slotRadius;
-              break;
-
-            case 'B':
-              left = box.center.x - this.slotRadius;
-              top = box.br.y - this.slotRadius;
-              break;
-
-            case 'L':
-              left = box.bl.x - this.slotRadius;
-              top = box.center.y - this.slotRadius;
-              break;
-          }
-
-          slot.setState({
-            left,
-            top
-          });
-        });
-      }
-
-    }, _defineProperty(_class, "type", 'ICELinkable' + (Base.type + '').replace('ICE', '')), _class;
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  /**
-   * 用 ICELinkable 装饰并导出所有可连接的组件。
-   *
-   * 组件默认不是不能用线条连接起来的，只有经过 ICELinkable 包装过之后才能用线条进行连接。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   * @see https://www.typescriptlang.org/docs/handbook/mixins.html#constrained-mixins
-   *
-   */
-
-  const ICELinkableRect = ICELinkable(ICERect); //不能在 ICECircle 类内部直接使用 ICELinkable 来构造可连接的圆，因为 ICESlot 是 ICECircle 的子类，rollup 检测到循环依赖之后编译会报错。
-
-  const ICELinkableCircle = ICELinkable(ICECircle);
-  const ICELinkableEllipse = ICELinkable(ICEEllipse);
-  const ICELinkableIsogon = ICELinkable(ICEIsogon);
-  const ICELinkableStar = ICELinkable(ICEStar);
-  const ICELinkabeText = ICELinkable(ICEText);
-  const ICELinkableImage = ICELinkable(ICEImage);
 
   /** `Object#toString` result references. */
   var stringTag$1 = '[object String]';
@@ -7021,6 +6391,28 @@
   }
 
   /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  const ICE_CONSTS = {
+    ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
+    BEFORE_RENDER: 'BEFORE_RENDER',
+    AFTER_RENDER: 'AFTER_RENDER',
+    ICE_CLICK: 'ICE_CLICK',
+    BEFORE_ADD: 'BEFORE_ADD',
+    //在 addChild() 方法中的第一行执行
+    AFTER_ADD: 'AFTER_ADD',
+    //在 addChild() 方法返回之前执行
+    BEFORE_REMOVE: 'BEFORE_REMOVE',
+    //在 removeChild() 方法中的第一行执行
+    AFTER_REMOVE: 'AFTER_REMOVE' //在 removeChild() 方法返回之前执行
+
+  };
+
+  /**
    * @class ICEGroup
    *
    * 容器型组件
@@ -7125,7 +6517,10 @@
    */
   class ICEControlPanel extends ICEGroup {
     constructor(props) {
-      super(props);
+      super({
+        linkable: false,
+        ...props
+      });
 
       _defineProperty(this, "_targetComponent", void 0);
     }
@@ -7161,13 +6556,17 @@
    * - ICELinkHook 不能独立存在，它的实例放在 @see LineControlPanel 上
    * - ICELinkHook 自身不进行任何 transform 。
    *
+   * @see ICELinkSlot
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
 
   class ICELinkHook extends ICECircle {
     constructor() {
       let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super(props);
+      super({
+        linkable: false,
+        ...props
+      });
     }
 
     initEvents() {
@@ -7480,6 +6879,7 @@
   class ResizeControl extends ICERect {
     constructor(props) {
       super({
+        linkable: false,
         position: 'l',
         direction: 'x',
         quadrant: 1,
@@ -7726,7 +7126,10 @@
 
   class RotateControl extends ICECircle {
     constructor(props) {
-      super(props);
+      super({
+        linkable: false,
+        props
+      });
       this.on('after-move', this.rotateEvtHandler, this);
     }
 
@@ -8597,19 +8000,22 @@
    *
    */
   /**
-   * @class EventTarget
-   * EventBus, global singleton.
-   * EventBus 是 EventTarget 接口的实现类，ICE 内部的全局事件总线。
-   * EventBus 的用途：
-   * - 把外层 DOM 上的原生时间转发到 canvas 内部(mouse/keyboard/touch)
-   * - requestAnimationFrame 触发的事件
-   * - ICE 内部需要使用事件总线的实现
-   *
+   * @class EventBus
    * @singleton
+   *
+   * EventBus 事件总线。
+   *
+   * - canvas 标签内部没有事件机制，ICE 借助于 EventBus 把原生 DOM 事件转发到 canvas 内部(mouse/keyboard/touch)，在转发过程中可能会把原生 DOM 事件转换成 ICEEvent 。
+   * - EventBus 是 ICEEventTarget 的实现类。
+   * - EventBus 是全局单例，同一个 ICE 实例上只能有一个事件总线的实例。
+   * - ICE 内部几乎所有机制都依赖事件总线来实现。
+   * - requestAnimationFrame 会利用事件总线触发 FRAME 事件。
+   *
+   * @see ICEEventTaregt
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
 
-  class EventBus extends EventTarget {
+  class EventBus extends ICEEventTarget {
     constructor() {
       super();
     }
@@ -8665,30 +8071,304 @@
   };
 
   /**
-   * Copyright (c) 2022 大漠穷秋.
+   * @class ICELinkSlot
    *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
+   * 连接插槽
    *
+   * - ICELinkSlot 与 ICELinkHook 是一对组件，用来把两个组件连接起来。
+   * - ICELinkSlot 不能独立存在，它必须附属在某个宿主组件上。逻辑附属，非真实的外观附属。
+   * - ICELinkSlot 总是绘制在全局 canvas 中，它不是任何组件的子节点。
+   * - ICELinkSlot 自身不进行任何 transform 。
+   * - ICELinkSlot 的实例是由 ICELinkSlotManager 统一动态创建的，如果组件的 linkable 状态为 tue ，ICELinkSlotManager 会动态在组件上创建连接插槽。
+   *
+   * @see ICELinkHook
+   * @see ICELinkSlotManager
+   * @author 大漠穷秋<damoqiongqiu@126.com>
    */
+  class ICELinkSlot extends ICECircle {
+    //宿主组件。
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边的几何中点上。
+      super({
+        linkable: false,
+        position: 'T',
+        ...props
+      });
+
+      _defineProperty(this, "_hostComponent", void 0);
+    }
+
+    initEvents() {
+      super.initEvents(); //由于 ICELinkSlot 默认不可见，实例的 display 为 false ，所以不会触发 AFTER_RENDER 事件，这里只能监听 BEFORE_RENDER
+      //这里不能直接访问 this.evtBus ，因为对象在进入到渲染阶段时才会被设置 evtBus 实例，在 initEvents() 被调用时 this.evtBus 为空。 @see ICE.evtBus
+
+      this.once(ICE_CONSTS.BEFORE_RENDER, this.afterAddHandler, this);
+      this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
+    }
+
+    afterAddHandler(evt) {
+      this.evtBus.on('hook-mousedown', this.hookMouseDownHandler, this);
+      this.evtBus.on('hook-mousemove', this.hookMouseMoveHandler, this);
+      this.evtBus.on('hook-mouseup', this.hookMouseUpHandler, this);
+    }
+
+    beforeRemoveHandler(evt) {
+      this.evtBus.off('hook-mousedown', this.hookMouseDownHandler, this);
+      this.evtBus.off('hook-mousemove', this.hookMouseMoveHandler, this);
+      this.evtBus.off('hook-mouseup', this.hookMouseUpHandler, this);
+    }
+    /**
+     * 监听 EventBus 上连接钩子鼠标按下事件
+     * @param evt
+     */
+
+
+    hookMouseDownHandler(evt) {
+      this.state._cacheStyle = merge_1({}, this.state.style);
+      this.setState({
+        display: true
+      });
+    }
+    /**
+     * 监听 EventBus 上连接钩子鼠标移动事件
+     * @param evt
+     */
+
+
+    hookMouseMoveHandler(evt) {
+      let linkHook = evt.target;
+
+      if (this.isIntersectWithHook(linkHook)) {
+        this.setState({
+          //FIXME:鼠标划过时的样式移动到配置项里面去
+          style: {
+            strokeStyle: '#0916d4',
+            fillStyle: '#fffb00',
+            lineWidth: 1
+          }
+        });
+      } else {
+        let style = merge_1({}, this.state._cacheStyle);
+        this.setState({
+          style
+        });
+      }
+    }
+    /**
+     * 监听 EventBus 上连接钩子鼠标弹起事件
+     * @param evt
+     */
+
+
+    hookMouseUpHandler(evt) {
+      let linkHook = evt.target;
+      let linkLine = linkHook.parentNode.targetComponent;
+      let position = linkHook.state.position;
+
+      if (this.isIntersectWithHook(linkHook)) {
+        // 如果 hook 与 slot 位置重叠，让连接线与 slot 所在的组件建立连接关系
+        // 把连线上的起点或者终点坐标设置为当前发生碰撞的 ICELinkSlot 的坐标
+        // ICELinkHook 实例在 LinkControlPanel 中，全局只有2个实例，所有连接线都共享同一个 LinkControlPanel 实例。
+        linkLine && linkLine.setSlot(this, position);
+      } else {
+        //hook 没有与当前的 slot 重叠，让 hook 所在的连接线解除与当前 slot 之间的连接关系
+        linkLine && linkLine.deleteSlot(this, position);
+      } //恢复插槽默认的外观
+
+
+      let style = merge_1({}, this.state._cacheStyle);
+      this.setState({
+        display: false,
+        style
+      });
+    }
+
+    isIntersectWithHook(linkHook) {
+      let slotBounding = this.getMaxBoundingBox();
+      let hookBounding = linkHook.getMaxBoundingBox();
+
+      if (slotBounding.isIntersect(hookBounding)) {
+        return true;
+      }
+
+      return false;
+    }
+
+    set hostComponent(component) {
+      this._hostComponent = component;
+    }
+
+    get hostComponent() {
+      return this._hostComponent;
+    }
+    /**
+     * 把对象序列化成 JSON 字符串：
+     * - 容器型组件需要负责子节点的序列化操作
+     * - 如果组件不需要序列化，需要返回 null
+     * @returns JSONObject
+     */
+
+
+    toJSON() {
+      return null;
+    }
+
+  }
 
   /**
    * @class ICELinkSlotManager
    *
-   * 连接插槽管理器
+   * - ICELinkSlotManager 连接插槽管理器，用于管理所有可连接组件上的连接插槽。
+   * - ICELinkSlotManager 监听 renderer 上的 BEFORE_RENDER 和 AFTER_RENDER 事件，如果发现组件的 linkable 状态为 true ，会动态在组件上创建用于连接的插槽 ICELinkSlot 。
+   * - ICELinkSlotManager 的实例是在 ICE 初始化时创建的。
+   * - ICELinkSlotManager 是全局单例，同一个 ICE 实例上只能有一个 ICELinkSlotManager 实例。
    *
    * @see ICE
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
+
   class ICELinkSlotManager {
     constructor(ice) {
+      _defineProperty(this, "slotRadius", 10);
+
       _defineProperty(this, "ice", void 0);
 
       this.ice = ice;
     }
 
+    beforeRenderHandler(evt) {}
+
+    afterRenderHandler(evt) {
+      const component = evt.param.component;
+
+      if (!component || !component.state.linkable) {
+        return;
+      }
+
+      if (!component.hasListener(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this)) {
+        component.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, component);
+      }
+
+      if (!component.linkSlots || !component.linkSlots.length) {
+        this.createLinkSlots(component);
+      }
+
+      this.setSlotPositions(component);
+    }
+    /**
+     * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
+     * 此事件监听器只会执行一次。
+     * FIXME:此方法需要测试
+     * @param evt
+     */
+
+
+    beforeRemoveHandler(evt) {
+      this.linkSlots.forEach(slot => {
+        slot.purgeEvents();
+        this.ice.removeChild(slot);
+      });
+    }
+    /**
+     * 创建连接插槽，插槽默认分布在组件最小边界盒子的4条边几何中点位置。
+     */
+
+
+    createLinkSlots(component) {
+      let slot_1 = new ICELinkSlot({
+        display: false,
+        transformable: false,
+        radius: this.slotRadius,
+        position: 'T',
+        style: {
+          strokeStyle: '#0c09d4',
+          fillStyle: '#3ce92c',
+          lineWidth: 1
+        }
+      });
+      slot_1.hostComponent = component;
+      this.ice.addChild(slot_1);
+      let slot_2 = new ICELinkSlot({
+        display: false,
+        transformable: false,
+        radius: this.slotRadius,
+        position: 'R',
+        style: {
+          strokeStyle: '#0c09d4',
+          fillStyle: '#3ce92c',
+          lineWidth: 1
+        }
+      });
+      slot_2.hostComponent = component;
+      this.ice.addChild(slot_2);
+      let slot_3 = new ICELinkSlot({
+        display: false,
+        transformable: false,
+        radius: this.slotRadius,
+        position: 'B',
+        style: {
+          strokeStyle: '#0c09d4',
+          fillStyle: '#3ce92c',
+          lineWidth: 1
+        }
+      });
+      slot_3.hostComponent = component;
+      this.ice.addChild(slot_3);
+      let slot_4 = new ICELinkSlot({
+        display: false,
+        transformable: false,
+        radius: this.slotRadius,
+        position: 'L',
+        style: {
+          strokeStyle: '#0c09d4',
+          fillStyle: '#3ce92c',
+          lineWidth: 1
+        }
+      });
+      slot_4.hostComponent = component;
+      this.ice.addChild(slot_4);
+      component.linkSlots = [slot_1, slot_2, slot_3, slot_4];
+    }
+
+    setSlotPositions(component) {
+      let box = component.getMinBoundingBox();
+      component.linkSlots.forEach(slot => {
+        let left = 0;
+        let top = 0;
+
+        switch (slot.state.position) {
+          case 'T':
+            left = box.center.x - this.slotRadius;
+            top = box.tl.y - this.slotRadius;
+            break;
+
+          case 'R':
+            left = box.tr.x - this.slotRadius;
+            top = box.center.y - this.slotRadius;
+            break;
+
+          case 'B':
+            left = box.center.x - this.slotRadius;
+            top = box.br.y - this.slotRadius;
+            break;
+
+          case 'L':
+            left = box.bl.x - this.slotRadius;
+            top = box.center.y - this.slotRadius;
+            break;
+        }
+
+        slot.setState({
+          left,
+          top
+        });
+      });
+    }
+
     start() {
-      console.log('ICELinkSlotManager start...');
+      this.ice.renderer.on(ICE_CONSTS.BEFORE_RENDER, this.beforeRenderHandler, this);
+      this.ice.renderer.on(ICE_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
       return this;
     } //FIXME:
 
@@ -8696,6 +8376,320 @@
     stop() {}
 
   }
+
+  /**
+   * @class ICEImage
+   * TODO:支持以下几种图片类型：jpg/jpeg/png/gif
+   * TODO:ICEImage 来源的几种方式
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEImage extends ICEBaseComponent {
+    /**
+     * @required
+     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        width: 100,
+        height: 100,
+        ...props
+      });
+    }
+    /**
+     * 空实现。
+     */
+
+
+    initEvents() {}
+
+    doRender() {
+      let img = new Image();
+      img.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAO0AAADUCAMAAABH5lTYAAAAYFBMVEX///8A2P8A1/8A1f/x/P/s+/++8f/7/v/e+P+i7P/4/v9j4f/O9P/k+f+H5//G8//W9v+Z6v9V3/+s7f+07/9z5P+T6f+A5v9F3f/L9P+F5v+x7v+o7f8w2/945P9J3v9/jwyPAAATg0lEQVR4nO0dabeyOO9aFBdUFBFX9P//yxdcSNKmS4ow75wz+TLzeKE0bZo96d/ff/Af2GC1K5fVttof8s0Ao8/y5SkrzufiWKWzAcYXwaKqE9VBUl/T1e8Gnx0yhUZvhq/+SYTzBtUJgWZK5+VPpjTbt+s40YZPsn8K3805mTDQIlz2HTt96uvY4Vv9Yu5iuFnm80JYbXvswWqvjF1Fg5/nv0MiFE7sxmKaW8QNvNral/E99GT6W1T88HDP6IVvEcGk5z5cX+j+kBWGwN69s93+Sndh6SBhNHA9CFI2WIcgOxHzlMskBNd23GwozBiY00l95SE7L5WGjjrNuDV8S9pEGz4JHrU/HBWezeSxTNP0UGUTU0C2EyvCyPnAvNzg+dyWu81stkiv5O9qYBQBFmgP1HkHf5imR2aLVXL3jzk9m+8pdbrgZw54kbe/xsoGT/hqstf/mGcmU1Vn3/aWxksNi8v1p2boXCcjiaEdbG1yYP6+2hvMRiVu7co4sY16wmGzgoHH2tys+6R6WB4pDXwTBxfd6U8rZZDM91FYlnFO7grtg/0pA181selWS21jnWJrC0t964VGINzhe04xcNf5FUv2mFS+VOA8kfD1cw8kggGYp0ejmT+0TUuO5kOzWpPd9c58CMO+ez4ZwfgDQlZeu25hoKIruGtKAMrk8TrM4fsBgq0vpLC2AU8vqWRRih7eA919VQdsV6faqCIOAwl0xk+YrqpTKlH5rhRZ/8a2kMPJjUJABHX3rUBVdW9FifInO9PWAEjZc8T7AxzbYGVmQYVR8hXSVFd0CWQKRUddgx/cXShHxqBt4uu8rSiJW8QTB8sOW5ty8zPoNHPFiBMrUAWilZRTsuE693LCOmbB42AbR0Y7aq7VlLpljjV0mISTF0NHlOrifxjBtNZYEv6HhEwaAPIfWr/oWHIidbHpGiLMOUjwIAA2NTRTFukWFLa8M0vudDl12A7trwFhJ3/3wPqd5PuzH0sETbsJx/DD3EBXqQifc9lhO3CUZPOdr3rGvL7Tzm6c27/THdUpZhLhsJBpyQZsKLaGTRQE6yiZHwG7ntgCT+8xSN8lD4Zdz2XVDd6o6W7Gsvl6EtFTl7lRJ+9fgi2jYCRL+TDAKgfGthclbzltKiKiM9re9uFSrHLRoCtWL0bDdhH/IRIFJRaQVOaOxpNn3ZGRenM3BNkSB84cTngWeovBUIjWHOeEeBd/KUZXqJddRnNexFoF2AmVrJsf7hhdmRzqnLyDR74iLT4c3/7E+zCHTkQxHfAWSS1jKYA1L+EtZCO/U8TSN5GkG4HFF+66i4NOG5L4zXYYWRDUWI1UAvtgPGse4hJG5NwKU4wV4kiYc0l4PPjGhvbUVBF+A7SHVNps4jhVvG9MCgc5PyQZONRLiJ0Z4SpkD9+YEC5iyY4ViZfswbDHnCrQX7rq4xuTASI+8QsTJpUIMebQfD5QpYaPzksd9ZgTcXYTPtRhdhUoFwM7av5wRDNIBHn3DjPssKNbjaZcYPYfMrUb5rq8PnLBpB5ydGUz6AewsgHO3I2LQxkjBh5deDoy31sAcGoCLFzkYVR2lwzyVoXItfFCfHi7/Pz/hM7kebPO07I83JfL5b6B5j/3w61M88sO+9T9noyoeHk0gGx3azLTzY3GqO2AH5ssPGc3Ll4eC08Pk9hcbtXxOUnYZOUAaFOv6+y6THc8V4Okngh3pRiATV01NPP7qZgk9jx0CcqvjHNVH6t0ocXtQQTa2N4vITXPzfSyPNavbPi+WHJYJ5OsSrtTg/IQxqgcmRKeOMurQulZ/7+GF87nU9lKnMuoTArLu1M2OKIUZVXswcAePH/oBWDBjYUoQbn7397FgkGQjo4jC2qMas30ETc3J0SNmN2GLaRY3QqxFG1Ll5JJfS6y42lb7V8a1K0sb7dDq1btq+3jmBXnun1KPvJ5OZSvZnV7hqFK097Os8AdmM9opCjkW2299W+KmymkmR/Vdw1ane3Rb6J0NeS3UdnpqYIkeLPDt59W5G6unq++lYBie1u3G5mjScu0O+xhbv45X6T7j9ri/npy/JlelZ5dJ+ql4T2vtx2sL0JW6DlC9jASp5u08gn2hqJ/kSk2d1Z1t/hsS41TII+qOO0SWfaa7TfN94V7Jura8wRPr76qbpMF4XIsueMI2f+MZnhwU3R09XoL04dXKDBxJ/d8fYDqP5kzf/TMRyVFZLBkdeJxbcXcs/uHEWheIlqMEYbI32GGEeFvTDOML74xX92zuDaoZuUUcV3d7JqivYmLJaOP6eEI8lm21veF71GqY6VcBXuL6sdfAc4pLc6cURkSASg2pLspwf558/rLg0VYWK0/ezLJPg2NgNUBPl1KykgdSsJDnhQK64KB/dMdaa64uQ0lhn+cIeJmCfeYPlB9GyEbYFHx+S5TG6NCH0WyZn4wuuW0T2Rhng29Fu21rZleM8HXDt5dLCYYEKMjIXs4JRqzXzDCI6wZg9l+hm06w34ZdYbo5RBEFIK8qKg60xh8vjQZTUD1GFPBzqoIiKqA4596s6g34NMP+sLNcno+UBo0qSYej7f+hrLuEXCMjgFu7NxUCKg0HzTts4UzdpAa+DqDhguNn9ur9Yla8/0JmKmDRc1uj3PrWq+Lys43MaP6ThiFZKweKUNwOmTRhVKxSh4Ovgaezq8XG9OfjUXd686WaY0ng/l9YW+eCTAYEoc5q7f1sa67Vr+iajfVGwMi3mJZ0UrXBRpDzYIveuZzlkIIp4H5UUODD0XmWozKl2e21da6RAyZfYHvMJQULAEhx6Z6DY9Kqj0VhDutZJBDd0eRfXrF5UYTuehl9lxZCtuadWXNFkgDfcebCpNPWIF+iqGFGVmPoELCmohcpBKwhl7Bbezna9zqLCgXmMHaBijBtDuKmXgWsNo6IPm3w8YYK32MahEvukdyUBGPCvJQkMXVC7ex6WJ2pbAALPcRzYY9J9ZyVPsCISnUKDAwfGDqdoWpmVraJBM8uGLggdbbbcMv3cjy+TZ4ARGPCk2kKcnhxX/BOxtuu+w4vsPlB2wsDAq9xe0YYsvoyeDpYWc8PuxIvxUZaqQo7wOcYmH2BTPRZY7unXlNUoSK0YXTjvU0kQP4Zk6Hc89cvFvbAjN+4GJaAakQsIvXaNOFwZbR6gK2lt9cM3Yq9BFgl+B3c9FPQn+sUavGEZr/1L7e5KjKOCpS2woZKp+cGFD5xF7CmWENMw9VIVvLy1HjDEg91Ni/8P4FGZPCsQwNibUQOV7GAKuYa4dAnn0A0YWPqcZ48oJBa1HKLdcqiJB50RUyvgfg3dchg2MVk4BEK8O55dI7A1iBpVKiccb0QIDioZfWBB0GYtoclGQ23idcwKakEg0mZju0LFToHhEVycBqDms5ebXGDhdWlOJ03qgMKVBv2391GktcZ5ClwfU02Adjyxo3CzR+VHwWqodaygBso1zApU816YntGmEbFa2E8ed4unGdQXB6OVtpyWm7PLbsqUQyKK5wnKaq92vFlRNcuCeCU+fYg7C2m6lhgERC+0+UkxoxGJUQrMslFFvWICHqRUy2eWcEfFRsGExOygtNdeCeCdUuuK9r2kVEKE3XncC6lQ+mJUKwJ9fhfyPvck4JvdOLWEgif9bb4oGDK465mloh85A7EaYDLgJgNKSSqo7YbPn8hL4orJ4ypAsns8MUZXalDYNCqhMAbXSqD1YQZLTMTJp5ypf3815oRphy7Fw0P5yg08k3hK1ICuXmbDjt0bCCGWCVdO45STYH6hWDTjxSAESmAcd/OFfNyb+5nPRj3F4iDYP4jdG06qjh0J6h5eLYphdZ9i006Nm5LAHIYlcBadEQvLsoyueJ3bKeZ4wsd4CABaoChYFChRBueaQ5vbA7TdWByc04GALEyio8Nze6XLcLdDdBIypBZwsUQiTOpzNfrKH5sjM+AByzYR1IzLCOS9cVO4o15U5EDUChkSDfFI166axtRTiC5+oIY8A/ErVhFd67FV014ZDFKSvt3+HxAAe/1sLXlBPU68s129cArIm3uwgRHisldpZc6oRni8gT/HJZoM79XsqjhMS6PLTg/MRnOoNO8jbDsR3LvjA/Mhl6ykKYmO29DvUqmE9ttEwEXh3W7Q2PRQSVoZ/NQR+weEEWhd7Q3+pFRCkrHzoMdXtXSQiypvPWGSoFUvg+hhNDbM7BGb6bESfFaoD1ne/sgkK4esaUw3NnZIed7XGhq7nUZ7cU+sA0X26Px0d1cxwVHNDoVgR+sipAOz3A5sxUnuorY8/jBsw6it95pFA4oPvvQO9AfIonnY2Rq+yz6XTVVyUnFl9IhUPGS8ZNMgJwPg0E9ZAQ4Oy+hYFrgN5gqAEqeTDy8EGErTGffk3M0JHAPAb6nZtruS4Mhh9034NxE1ObjG2cMdNKbgEX4sXX1iEXNVG64Xfd9Vya6ee+y7U6MO/FU0lN30XVG4Ra0Cvx3SjQklX8H8gSb7bc3Xb+ZD7AhVMDrojzgDuCEhUu+Iht2oav6KR/4b5aclWGNp3FAlzlU1sZ+F0wa8zXXvARCphFaSz1olNUfuSKoBpOIzxGCzY1RCXPQ4vw2nqCsIUf13EeaVGG/k8WOeergSaJQ0uwAlsA9bmqeWsh5D9aZRkTk3NWxgGR15ZKr4ZfR9YhGbeufRFWVkL+I4wqom+buzIOB/y4qTW/9ugL4b2Oltk+lAcTERH2nHvndFQvXFu4u6+kVaV5RpBGJQ61pHYW9bcpr670nOaI/aBzGiO5yXom5xMuI6eXXQpTObA1gFX/Rbl99Qxw4WpqQHGwYysDEcLvPkHltyEUrjCQKZC4Q+Dbht+lVVb7eiPoVYY9Ybr09qT5NITKqttlBt7f+CzMY7o/nkN6QCju7ti+sLNINwZp4gET8GXiCQzs6NIcpMMwfaZCOnww6E/q56drS9v1Ls3z/NJA85+07Yr3bt5SPOtJEhjWRkMP08kEELYJdc+0/CAetGGB9+HbEK09FRFjwdCXA33g8Y9i29vqEAL68mht0r6fSyZg9Y1yTzfKOJpd9iN1hnuJt6LKp9iP/XO5w4De4XC49oYfNFvWm+3zL0eCjvYD32H2ArhbEnev3OTLx6ch1G+wfqOpzsd9SlVxyFQc4bZfZ2fS+SK/b7NX7XQ01q+WXO/epAtOb5C0ve0PQbG26eJSLmm6RaCsTe75zi1GrX6TAUCytDh1qM5v90Zvqrbb6+kF1+22avSr+61c47QP/2EsHMT1axB1i8Zba7eGsM0UEGMAxjF83/P4TuA2+5M8FECcwKaGb6As67GOQ9i2MCc+tCGeloUmAocEmHxQKgryM1mMP2zBh2WVjtj4vM/tDJweT0pKhEMOzpTFZITztRlCxdkeoUFfYMpDd8cGlhyay3x34YPdFcE1K6A7Dt1U+C7XUjMHp8K3jAQrgsvRRNA2Yl1rqzw9yg/tH6avoQ36LOLM4M4hZAcxhxJkaox2++Bf5zyVXDiNi4aR5UTuUxE4niGOOPQFQTA9SYiUXPH0DQ6RW70kahG0TBvaWRNpbpG7994+hxU6srIE/17XwEtgFbustXFEyW18kcUbAytT0Xek0jjAjIYupSkatMh0OIi//5bWwNGLNaW5VR2rHFh17MH8cVEDiaHJS6Y7Z9HA2MIt3fKqbkuyfUS5PijKw162mPdRY9ggg5Adv2B8bK/+hw1gq6UiPP7/Dmz1AtNJZGrvv4KSGzB6aXq6FfIwFpfqe0H2VCPjOAM17oJlOQBPjvT30dLjSDcakMZPr9wwoO/F9rQ1XRRD/hvvAtxNrOb4hqWR2B7aTRHDaDZQtFXwAqY5KV/W5gYwFYd2KPfx5fIJG/K7P9ej+S6AQYjZoa0ZnrjV/62f0BcARG+FVtqMlk0SdIXtgMAT+ItbclwAt1iyLXisoHVnpkQdUBGKAVY8SjcRwDJOmaooskete42MNY8Xro662HFOzYGkTSrf0HRIwcGAhRo8FQHlDwXrMVqd8eeYajWDQQ2qXwDhiuHTTGA7QlkppWIIfc31/uSB1AwW0PCxeemtnfq1JZhkKYGrsPVDRdbDX4Bbyk7NUqt0pqrTSdv2EN58GEtLbgH12fCnIiz0jdV9UFqnhJB7fSDzb2hNinzNz5W1reNK8fVOCUnm0dGg3H2UK2FRLwS3cDeKp9gcEv0iF+VhzucxCZlUY7nsIKMwzlrprF2V4a7XQmxjjAvYSSsGa+cJ5vIa++RK0+q1sQTcvOZH9T8ewI03+FmZBWLubhIb8yKjmt9f1Pls6NjtF5DpxhzFNXfJ1tnDe3R+1q7P1qR8/OWhLYIvkKyfjAjQy5Upk1KJ3zJbm/WCbf0LQTjHTbvG2lotSyZ5Li+b2Wyzvm3PbL1QUgQZ/g8mTNTWEdwvm1V78fGekHvUrZVxsNI0vlf+tCX9OuymuBZ2ZiShGz3R1jHy1so4MLpK2kAlkmktQy/qjvTMxoJxUYEF10xmb6+4pkzcwGMUxyAI6EipkkIe0tqYPUlM6NkFJwL8F+9Glv/uvPjG9cjuB66+dm3LiXimafbXIUNH+Nt/AGZDmw7V+t4vHDXd26qbldA/+UO4m3NqC7OqX8jCNVfdrJLzP0DFHaQZKexJVHb4ndhff9uqvZexGf00OnvSYXfYZsXzWWTbe/77E9WOfq4ndV2cDv84qv/B/zH8D3OHxzhj1luJAAAAAElFTkSuQmCC';
+      this.ctx.drawImage(img, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y, this.state.width, this.state.height);
+      super.doRender();
+    }
+    /**
+     * 把对象序列化成 JSON 字符串：
+     * - 容器型组件需要负责子节点的序列化操作
+     * - 如果组件不需要序列化，需要返回 null
+     * @returns JSONObject
+     */
+
+
+    toJSON() {
+      let result = { ...super.toJSON(),
+        type: ICEImage.type
+      };
+      return result;
+    }
+
+  }
+
+  _defineProperty(ICEImage, "type", 'ICEImage');
+
+  /**
+   *
+   * FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
+   *
+   * @class ICEIsogon
+   *
+   * 正多边形
+   *
+   * 用宽高描述法描述正多边形，方便传参。
+   *
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEIsogon extends ICEDotPath {
+    /**
+     * @required
+     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
+     */
+    //外接圆的半径
+    //边数 N ，正整数
+
+    /**
+     * radius, edges 会暴露给 AnimationManager ，可能会动态变化。
+     * @param props
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      let param = {
+        radius: 10,
+        edges: 3,
+        ...props
+      };
+      param.width = param.radius * 2;
+      param.height = param.radius * 2;
+      super(param);
+
+      _defineProperty(this, "radius", 10);
+
+      _defineProperty(this, "edges", 3);
+
+      this.radius = this.props.radius; //FIXME:delete?
+
+      this.edges = this.props.edges; //FIXME:delete?
+    }
+    /**
+     * 计算路径上的关键点:
+     * - 默认的坐标原点是 (0,0) 位置。
+     * - 这些点没有经过 transform 矩阵变换。
+     * @returns
+     */
+
+
+    calcDots() {
+      //求正 N 边形的顶点坐标，极坐标法。
+      this.state.dots = [];
+      let avgAngle = 2 * Math.PI / this.state.edges; //FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
+      //FIXME:这里需要重新设置起始角度
+      //FIXME:当边数为奇数时，把一个顶点放在正上方90度位置，当边数为偶数时，把一条边与 X 轴平行
+
+      for (let i = 0; i < this.state.edges; i++) {
+        let currentAngel = avgAngle * i;
+        let radius = this.state.radius;
+        let x = Math.floor(radius * Math.cos(currentAngel) + radius);
+        let y = Math.floor(radius * Math.sin(currentAngel) + radius);
+        this.state.dots.push(new DOMPoint(x, y));
+      }
+
+      return this.state.dots;
+    }
+    /**
+     * 把对象序列化成 JSON 字符串：
+     * - 容器型组件需要负责子节点的序列化操作
+     * - 如果组件不需要序列化，需要返回 null
+     * @returns JSONObject
+     */
+
+
+    toJSON() {
+      let result = { ...super.toJSON(),
+        type: ICEIsogon.type
+      };
+      return result;
+    }
+
+  }
+
+  _defineProperty(ICEIsogon, "type", 'ICEIsogon');
+
+  /**
+   * @class ICEStar 五角星
+   * TODO:实现正 N 角星
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEStar extends ICEIsogon {
+    /**
+     * @required
+     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        radius: 10,
+        edges: 5,
+        ...props
+      });
+    }
+
+    doCreatePath() {
+      this.path2D = new Path2D();
+      let counter = 0;
+      let i = 0;
+
+      while (counter < this.state.edges) {
+        let j = (i + 2) % this.state.edges;
+        let v1 = this.state.dots[i];
+        let v2 = this.state.dots[j];
+
+        if (counter == 0) {
+          this.path2D.moveTo(v1.x, v1.y);
+          this.path2D.lineTo(v2.x, v2.y);
+        } else {
+          this.path2D.lineTo(v2.x, v2.y);
+        }
+
+        i = j;
+        counter++;
+      }
+
+      this.path2D.closePath();
+      return this.path2D;
+    }
+    /**
+     * 把对象序列化成 JSON 字符串：
+     * - 容器型组件需要负责子节点的序列化操作
+     * - 如果组件不需要序列化，需要返回 null
+     * @returns JSONObject
+     */
+
+
+    toJSON() {
+      let result = { ...super.toJSON(),
+        type: ICEStar.type
+      };
+      return result;
+    }
+
+  }
+
+  _defineProperty(ICEStar, "type", 'ICEStar');
+
+  /**
+   * TODO:draw text along Path2D
+   * @see https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEText extends ICEBaseComponent {
+    /**
+     * @required
+     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
+     */
+
+    /**
+     * @cfg
+     * {
+     *   text:'文本内容',
+     *   left:0,
+     *   top:0,
+     *   fontSize:48,
+     *   fontFamily:'Arial',
+     *   fontWeight:24,
+     * }
+     * FIXME: fontSize/fontFamily/fontWeight 移动到 style 配置项中一起处理。
+     * @param props
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        text: '',
+        left: 0,
+        top: 0,
+        fontSize: 48,
+        fontFamily: 'Arial',
+        fontWeight: 24,
+        ...props
+      });
+    }
+    /**
+     * 空实现。
+     */
+
+
+    initEvents() {}
+    /**
+     * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
+     * 文本尺寸的计算需要使用特殊的方法。
+     * 这里使用的方法来自 https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
+     *
+     * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+     *
+     * FIXME:某些运行时环境可能不支持动态插入 HTML 标签，以上测量文本宽高的方法可能存在兼容性问题。
+     * FIXME:边界盒子的高度与字体高度之间存在误差。
+     * @returns
+     */
+
+
+    calcOriginalDimension() {
+      const div = this.root.document.createElement('div');
+      div.contenteditable = false;
+      div.innerHTML = this.state.text;
+      div.style.position = 'absolute';
+      div.style.top = '200px';
+      div.style.left = '0';
+      div.style.fontFamily = this.state.fontFamily;
+      div.style.fontWeight = this.state.fontWeight;
+      div.style.fontSize = this.state.fontSize + 'px';
+      this.root.document.body.appendChild(div);
+      let cssSize = {
+        width: div.offsetWidth,
+        height: div.offsetHeight
+      };
+      this.root.document.body.removeChild(div); //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
+
+      this.props.width = cssSize.width;
+      this.props.height = cssSize.height;
+      this.state.width = cssSize.width;
+      this.state.height = cssSize.height;
+      return {
+        width: this.state.width,
+        height: this.state.height
+      };
+    }
+    /**
+     * 文本是基于 baseline 绘制的，文本是从 y 坐标向屏幕上方绘制的，48 是文本高度，这里需要补偿文本高度。
+     * 同时把移动坐标轴原点的偏移量计算进去。
+     */
+
+
+    doRender() {
+      this.ctx.strokeText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
+      this.ctx.fillText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
+    }
+    /**
+     * 把对象序列化成 JSON 字符串：
+     * - 容器型组件需要负责子节点的序列化操作
+     * - 如果组件不需要序列化，需要返回 null
+     * @returns JSONObject
+     */
+
+
+    toJSON() {
+      let result = { ...super.toJSON(),
+        type: ICEText.type
+      };
+      return result;
+    }
+
+  }
+
+  _defineProperty(ICEText, "type", 'ICEText');
 
   /**
    * Copyright (c) 2022 大漠穷秋.
@@ -8712,7 +8706,7 @@
    * //FIXME:需要扩展一个注册方法，让外部使用方把自己扩展的组件注册进来，否则无法序列化和反解析。
    */
 
-  const componentTypeMap = Object.fromEntries(new Map([[ICERect.type, ICERect], [ICECircle.type, ICECircle], [ICEEllipse.type, ICEEllipse], [ICEStar.type, ICEStar], [ICEIsogon.type, ICEIsogon], [ICEText.type, ICEText], [ICEImage.type, ICEImage], [ICEGroup.type, ICEGroup], [ICEVisioLink.type, ICEVisioLink], [ICEPolyLine.type, ICEPolyLine], [ICELinkableRect.type, ICELinkableRect], [ICELinkableCircle.type, ICELinkableCircle], [ICELinkableEllipse.type, ICELinkableEllipse], [ICELinkableIsogon.type, ICELinkableIsogon], [ICELinkableStar.type, ICELinkableStar], [ICELinkabeText.type, ICELinkabeText], [ICELinkableImage.type, ICELinkableImage]]));
+  const componentTypeMap = Object.fromEntries(new Map([[ICERect.type, ICERect], [ICECircle.type, ICECircle], [ICEEllipse.type, ICEEllipse], [ICEStar.type, ICEStar], [ICEIsogon.type, ICEIsogon], [ICEText.type, ICEText], [ICEImage.type, ICEImage], [ICEGroup.type, ICEGroup], [ICEVisioLink.type, ICEVisioLink], [ICEPolyLine.type, ICEPolyLine]]));
 
   /**
    * @class Deserializer
@@ -8801,14 +8795,20 @@
    * Canvas 渲染器，全局单例。
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
-  class CanvasRenderer {
+
+  class CanvasRenderer extends ICEEventTarget {
     constructor(ice) {
+      super();
+
       _defineProperty(this, "ice", void 0);
 
       this.ice = ice;
     }
 
     renderRecursively(component) {
+      this.trigger(ICE_CONSTS.BEFORE_RENDER, null, {
+        component: component
+      });
       component.trigger(ICE_CONSTS.BEFORE_RENDER);
 
       if (component.state.isRendering) {
@@ -8834,6 +8834,9 @@
       }
 
       component.trigger(ICE_CONSTS.AFTER_RENDER);
+      this.trigger(ICE_CONSTS.AFTER_RENDER, null, {
+        component: component
+      });
     }
 
     start() {
@@ -8870,6 +8873,7 @@
    * FIXME:使用 TS 的 namespance 机制进行改造
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
+
   class ICE {
     //所有直接添加到 canvas 的对象都在此结构中
     //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
@@ -8898,6 +8902,8 @@
 
       _defineProperty(this, "selectionList", []);
 
+      _defineProperty(this, "renderer", void 0);
+
       _defineProperty(this, "animationManager", void 0);
 
       _defineProperty(this, "eventBridge", void 0);
@@ -8907,8 +8913,6 @@
       _defineProperty(this, "controlPanelManager", void 0);
 
       _defineProperty(this, "linkSlotManager", void 0);
-
-      _defineProperty(this, "renderer", void 0);
 
       _defineProperty(this, "serializer", void 0);
 
@@ -8948,7 +8952,8 @@
       } //启动当前 ICE 实例上的所有 Manager
 
 
-      this.evtBus = new EventBus();
+      this.evtBus = new EventBus(); //后续所有 Manager 都依赖事件总线，所以 this.evtBus 需要最先初始化。
+
       FrameManager.regitserEvtBus(this.evtBus);
       FrameManager.start();
       MouseEventInterceptor.regitserEvtBus(this.evtBus);
@@ -8957,8 +8962,9 @@
       this.eventBridge = new DOMEventBridge(this).start();
       this.ddManager = new DDManager(this).start();
       this.controlPanelManager = new ICEControlPanelManager(this).start();
-      this.linkSlotManager = new ICELinkSlotManager(this).start();
       this.renderer = new CanvasRenderer(this).start();
+      this.linkSlotManager = new ICELinkSlotManager(this).start(); //linkSlotManager 内部会监听 renderer 上的事件，所以 linkSlotManager 需要在 renderer 后面实例化。
+
       this.serializer = new Serializer(this);
       this.deserializer = new Deserializer(this);
       return this;
@@ -9094,7 +9100,7 @@
   // });
   // ice.addChild(baseRect1);
 
-  let linkableRect1 = new ICELinkableRect({
+  let rect1 = new ICERect({
     left: 100,
     top: 20,
     width: 100,
@@ -9111,7 +9117,7 @@
     //   height: { from: 100, to: 200, duration: 5000 },
     // },
   });
-  ice.addChild(linkableRect1);
+  ice.addChild(rect1);
 
   // let polyLine = new ICEPolyLine({
   //   left: 0,
@@ -9162,73 +9168,13 @@
   });
   ice.addChild(visioLink);
 
-  let linkCircle3 = new ICELinkableCircle({
+  let linkCircle3 = new ICECircle({
     left: 100,
     top: 500,
     radius: 50,
   });
   ice.addChild(linkCircle3);
   // console.log(linkCircle3 instanceof ICECircle);
-
-  // let linkCircle4 = new ICELinkableCircle({
-  //   left: 500,
-  //   top: 300,
-  //   radius: 50,
-  // });
-  // ice.addChild(linkCircle4);
-  // console.log(linkCircle4 instanceof ICECircle);
-
-  // let linkEllipse1 = new ICELinkableEllipse({
-  //   left: 200,
-  //   top: 400,
-  // });
-  // ice.addChild(linkEllipse1);
-
-  // let linkableRect = new ICELinkableRect({
-  //   left: 100,
-  //   top: 100,
-  //   width: 200,
-  //   height: 50,
-  //   style: {
-  //     strokeStyle: '#0c09d4',
-  //     fillStyle: '#f5d106',
-  //     lineWidth: 5,
-  //   },
-  //   // animations: {
-  //   //   left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
-  //   //   top: { from: 0, to: 200, duration: 3000 },
-  //   //   width: { from: 100, to: 200, duration: 5000 },
-  //   //   height: { from: 100, to: 200, duration: 5000 },
-  //   // },
-  //   transform: {
-  //     // translate: [10, 10],
-  //     // rotate: 45,
-  //     // skew: [20, 0],
-  //     // scale: [1, 1],
-  //   },
-  // });
-  // ice.addChild(linkableRect);
-
-  // let linkableCircle = new ICELinkableCircle({
-  //   left: 200,
-  //   top: 500,
-  //   radius: 30,
-  // });
-  // ice.addChild(linkableCircle);
-
-  // let img = new ICELinkableImage({
-  //   left: 100,
-  //   top: 500,
-  //   width: 100,
-  //   height: 100,
-  //   transform: {
-  //     // translate: [10, 10],
-  //     rotate: 45,
-  //     // skew: [20, 0],
-  //     scale: [1, 2],
-  //   },
-  // });
-  // ice.addChild(img);
 
   // //正三角形
   // let isogon3 = new ICEIsogon({

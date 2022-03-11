@@ -66,7 +66,7 @@ class ICEPolyLine extends ICEDotPath {
     //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
     let param = merge(
       {
-        linkable: false,
+        linkable: false, //所有线条类型的组件 linkable 都为 false ，因为在 ICE 中，用线条连接线条是没有意义的，线条之间不能互相连接。
         lineType: 'solid',
         lineWidth: 2,
         arrow: 'none',

@@ -21,7 +21,10 @@ import ICELinkHook from './ICELinkHook';
  * - ICELinkSlot 不能独立存在，它必须附属在某个宿主组件上。逻辑附属，非真实的外观附属。
  * - ICELinkSlot 总是绘制在全局 canvas 中，它不是任何组件的子节点。
  * - ICELinkSlot 自身不进行任何 transform 。
+ * - ICELinkSlot 的实例是由 ICELinkSlotManager 统一动态创建的，如果组件的 linkable 状态为 tue ，ICELinkSlotManager 会动态在组件上创建连接插槽。
  *
+ * @see ICELinkHook
+ * @see ICELinkSlotManager
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICELinkSlot extends ICECircle {
@@ -30,7 +33,7 @@ class ICELinkSlot extends ICECircle {
 
   constructor(props: any = {}) {
     //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边的几何中点上。
-    super({ position: 'T', ...props });
+    super({ linkable: false, position: 'T', ...props });
   }
 
   protected initEvents() {

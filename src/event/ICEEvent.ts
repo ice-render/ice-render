@@ -16,6 +16,7 @@
 class ICEEvent {
   public originalEvent: any;
   public target: any;
+  public param: any;
 
   constructor(evt: any = {}, data: any = {}) {
     //FIXME:事件对象的属性拷贝需要更加细致的控制

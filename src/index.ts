@@ -33,4 +33,3 @@ export * from './graphic/shape/ICEStar';
 export * from './graphic/text/ICEText';
 export * from './ICE';
 export * from './renderer/CanvasRenderer';
-export * from './renderer/IRenderer';
