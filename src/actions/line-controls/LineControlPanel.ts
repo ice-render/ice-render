@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICEEvent from '../../event/ICEEvent';
 import ICEBaseComponent from '../../graphic/ICEBaseComponent';
 import ICELinkHook from '../../graphic/linkable/ICELinkHook';
 import ICEControlPanel from '../ICEControlPanel';
@@ -175,17 +174,13 @@ export default class LineControlPanel extends ICEControlPanel {
     }
   }
 
-  protected followTargetComponent(evt: ICEEvent): void {
-    this.updatePosition();
-  }
-
   public set targetComponent(component: ICEBaseComponent) {
     this._targetComponent = component;
     if (component) {
       this.updatePosition();
-      component.on('after-move', this.followTargetComponent, this);
+      component.on('after-move', this.updatePosition, this);
     } else {
-      component.off('after-move', this.followTargetComponent, this);
+      component.off('after-move', this.updatePosition, this);
     }
   }
 

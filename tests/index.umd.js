@@ -7420,18 +7420,14 @@
       }
     }
 
-    followTargetComponent(evt) {
-      this.updatePosition();
-    }
-
     set targetComponent(component) {
       this._targetComponent = component;
 
       if (component) {
         this.updatePosition();
-        component.on('after-move', this.followTargetComponent, this);
+        component.on('after-move', this.updatePosition, this);
       } else {
-        component.off('after-move', this.followTargetComponent, this);
+        component.off('after-move', this.updatePosition, this);
       }
     }
 
@@ -8079,18 +8075,14 @@
       }
     }
 
-    followTargetComponent(evt) {
-      this.updatePosition();
-    }
-
     set targetComponent(component) {
       this._targetComponent = component;
 
       if (component) {
         this.updatePosition();
-        component.on('after-move', this.followTargetComponent, this);
+        component.on('after-move', this.updatePosition, this);
       } else {
-        component.off('after-move', this.followTargetComponent, this);
+        component.off('after-move', this.updatePosition, this);
       }
     }
 
