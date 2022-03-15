@@ -53,23 +53,27 @@ class ICEGroup extends ICERect {
   }
 
   public removeChild(child: ICEBaseComponent) {
-    child.trigger(ICE_CONSTS.BEFORE_REMOVE);
-
-    child.parentNode = null;
-    child.root = null;
-    child.ctx = null;
-    child.evtBus = null;
-    child.ice = null;
-
+    child.destory();
     this.childNodes.splice(this.childNodes.indexOf(child), 1);
-
-    child.trigger(ICE_CONSTS.AFTER_REMOVE);
   }
 
   public removeChildren(arr: Array<ICEBaseComponent>): void {
     arr.forEach((child) => {
       this.removeChild(child);
     });
+  }
+
+  /**
+   * @override
+   * @method destory
+   * 销毁组件
+   * - FIXME:立即停止组件上的所有动画效果
+   * - 需要清理绑定的事件
+   * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
+   */
+  public destory(): void {
+    this.removeChildren(this.childNodes);
+    super.destory();
   }
 
   /**
@@ -86,14 +90,6 @@ class ICEGroup extends ICERect {
       }
     });
     return result;
-  }
-
-  /**
-   * @param jsonStr:string
-   * @returns
-   */
-  public fromJSON(jsonStr: string): object {
-    return {};
   }
 }
 

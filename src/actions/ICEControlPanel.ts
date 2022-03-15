@@ -13,6 +13,8 @@ import ICEBaseComponent from '../graphic/ICEBaseComponent';
  *
  * 控制面板
  *
+ * FIXME:所有 ControlPanel 类型的组件都需要处理组件的 REMOVE 事件，当组件被删除时，清理关联关系。
+ *
  * - ICEControlPanel 本身总是直接画在 canvas 上，不是任何组件的孩子。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>

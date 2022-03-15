@@ -27,9 +27,9 @@ import CanvasRenderer from './renderer/CanvasRenderer';
  *
  * ICE: Interactive Canvas Engine ， 交互式 canvas 渲染引擎。
  *
- * 同一个 &lt;canvas&gt; 标签上只能初始化一个 ICE 实例。
+ * - ICE 是整个引擎的主入口类。
+ * - 同一个 &lt;canvas&gt; 标签上只能初始化一个 ICE 实例。
  *
- * FIXME:使用 TS 的 namespance 机制进行改造
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICE {
@@ -98,8 +98,8 @@ class ICE {
 
     MouseEventInterceptor.regitserEvtBus(this.evtBus);
     MouseEventInterceptor.start();
-    this.animationManager = new AnimationManager(this).start();
     this.eventBridge = new DOMEventBridge(this).start();
+    this.animationManager = new AnimationManager(this).start();
     this.ddManager = new DDManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
@@ -121,18 +121,14 @@ class ICE {
     if (this.childNodes.indexOf(component) !== -1) return;
 
     component.trigger(ICE_CONSTS.BEFORE_ADD);
-
     component.ice = this;
     component.root = this.root;
     component.ctx = this.ctx;
     component.evtBus = this.evtBus;
-
     this.childNodes.push(component);
-
     if (Object.keys(component.props.animations).length) {
       this.animationManager.add(component);
     }
-
     component.trigger(ICE_CONSTS.AFTER_ADD);
   }
 
@@ -142,21 +138,9 @@ class ICE {
     });
   }
 
-  public removeChild(component) {
-    component.trigger(ICE_CONSTS.BEFORE_REMOVE);
-
-    component.ice = null;
-    component.ctx = null;
-    component.root = null;
-    component.evtBus = null;
-
+  public removeChild(component: ICEBaseComponent) {
+    component.destory();
     this.childNodes.splice(this.childNodes.indexOf(component), 1);
-
-    //FIXME:如果被移除的是容器型组件，先移除并清理其子节点，然后再移除容器自身
-    //FIXME:立即停止组件上的所有动画效果
-    //FIXME:清理所有事件监听，然后再从结构中删除
-
-    component.trigger(ICE_CONSTS.AFTER_REMOVE);
   }
 
   public removeChildren(arr: Array<ICEBaseComponent>): void {
@@ -176,16 +160,27 @@ class ICE {
    * @returns JSONObject
    */
   public toJSON(): string {
-    //FIXME:在序列化时，用来操控的组件不需要存储。
     return this.serializer.toJSON();
   }
 
-  public fromJSON(jsonStr: string): object {
-    return this.deserializer.fromJSON(jsonStr);
-  }
+  public fromJSON(jsonStr: string) {
+    //先停止关键的管理器
+    this.eventBridge.stopped = true;
+    this.animationManager.stop();
+    this.ddManager.stop();
+    this.controlPanelManager.stop();
+    this.linkSlotManager.stop();
 
-  //FIXME:实现销毁 ICE 实例的过程
-  public destory(): void {}
+    //反序列化，创建组件实例
+    this.deserializer.fromJSON(jsonStr);
+
+    //重新启动关键管理器
+    this.eventBridge.stopped = false;
+    this.animationManager.start();
+    this.ddManager.start();
+    this.controlPanelManager.start();
+    this.linkSlotManager.start();
+  }
 }
 
 export default ICE;

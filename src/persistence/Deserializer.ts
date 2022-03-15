@@ -23,23 +23,18 @@ export default class Deserializer {
   }
 
   public fromJSON(jsonStr: string) {
-    console.log(componentTypeMap);
-    console.log(jsonStr);
+    this.ice.clearRenderMap();
     const jsonObj = JSON.parse(jsonStr);
-    console.log(jsonObj);
     const childNodes = jsonObj.childNodes;
     for (let i = 0; i < childNodes.length; i++) {
       const node = childNodes[i];
       const Clazz = componentTypeMap[node.type];
-      console.log('Clazz>', Clazz);
-      const props = node.props;
+      // const props = node.props;
       const state = node.state;
-      const instance = new Clazz(props);
-      console.log('instance>', instance);
+      const instance = new Clazz(state);
       // instance.setState(state);
-      this.ice.clearRenderMap();
-      // this.ice.addChild(instance);
-      // console.log('instance>', instance);
+      this.ice.addChild(instance);
+      return {};
     }
     return {};
   }

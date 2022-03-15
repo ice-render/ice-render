@@ -19,6 +19,7 @@ import mouseEvents from './MOUSE_EVENT_MAPPING_CONSTS';
 class DOMEventBridge {
   private selectionCandidates: Array<any> = [];
   private ice: ICE;
+  private _stopped: boolean = false;
 
   constructor(ice: ICE) {
     this.ice = ice;
@@ -28,16 +29,31 @@ class DOMEventBridge {
     //FIXME:这里触发事件的频率太高，所有所有鼠标事件都会被触发出来。
     //FIXME:这里需要增加节流机制，防止触发事件的频率过高导致 CPU 飙升。
     mouseEvents.forEach((evtMapping) => {
-      this.ice.evtBus.on(evtMapping[1], (evt: ICEEvent) => {
+      const iceEvtName = evtMapping[1];
+      const originEvtName = evtMapping[0];
+      this.ice.evtBus.on(iceEvtName, (evt: ICEEvent) => {
+        //在一些场景下，需要整体禁用事件系统。
+        if (this._stopped) {
+          return;
+        }
+
         const component = this.findTargetComponent(evt.clientX, evt.clientY); //FIXME:需要把 clientX/clientY 转换成 canvas 内部的坐标
         if (component) {
           evt.target = component;
-          component.trigger(evtMapping[0], evt);
+          component.trigger(originEvtName, evt);
         }
-        this.ice.evtBus.trigger(evtMapping[0], evt); //this.ice.evtBus 本身一定会触发一次事件。
+        this.ice.evtBus.trigger(originEvtName, evt); //this.ice.evtBus 本身一定会触发一次事件。
       });
     });
     return this;
+  }
+
+  public set stopped(flag: boolean) {
+    this._stopped = flag;
+  }
+
+  public get stopped() {
+    return this._stopped;
   }
 
   /**
@@ -53,7 +69,8 @@ class DOMEventBridge {
     let x = clientX - this.ice.canvasBoundingClientRect.left;
     let y = clientY - this.ice.canvasBoundingClientRect.top;
 
-    let components = Array.from(this.ice.childNodes);
+    // let components = Array.from(this.ice.childNodes);
+    let components = this.ice.childNodes;
     for (let i = 0; i < components.length; i++) {
       let component: any = components[i];
       this.traverse(x, y, component);

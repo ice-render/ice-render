@@ -24,6 +24,32 @@ class CanvasRenderer extends ICEEventTarget {
     this.ice = ice;
   }
 
+  public start() {
+    this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
+    return this;
+  }
+
+  public stop() {
+    this.ice.evtBus.off(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
+    return this;
+  }
+
+  private frameEvtHandler(evt: ICEEvent) {
+    //FIXME:fix this when using increamental rendering
+    //FIXME:动画有闪烁
+    this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
+    if (!this.ice.childNodes || !this.ice.childNodes.length) return;
+
+    //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
+    let arr = Array.from(this.ice.childNodes);
+    arr.sort((firstEl, secondEl) => {
+      return firstEl.state.zIndex - secondEl.state.zIndex;
+    });
+    arr.forEach((component: ICEBaseComponent) => {
+      this.renderRecursively(component);
+    });
+  }
+
   private renderRecursively(component: ICEBaseComponent) {
     this.trigger(ICE_CONSTS.BEFORE_RENDER, null, { component: component });
     component.trigger(ICE_CONSTS.BEFORE_RENDER);
@@ -46,35 +72,13 @@ class CanvasRenderer extends ICEEventTarget {
         child.ctx = component.ctx;
         child.evtBus = component.evtBus;
         child.ice = component.ice;
+        child.parentNode = component;
         this.renderRecursively(child);
       });
     }
 
     component.trigger(ICE_CONSTS.AFTER_RENDER);
     this.trigger(ICE_CONSTS.AFTER_RENDER, null, { component: component });
-  }
-
-  public start() {
-    this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, (evt: ICEEvent) => {
-      //FIXME:fix this when using increamental rendering
-      //FIXME:动画有闪烁
-      this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
-      if (!this.ice.childNodes || !this.ice.childNodes.length) return;
-
-      //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
-      let arr = Array.from(this.ice.childNodes);
-      arr.sort((firstEl, secondEl) => {
-        return firstEl.state.zIndex - secondEl.state.zIndex;
-      });
-      arr.forEach((component: ICEBaseComponent) => {
-        this.renderRecursively(component);
-      });
-    });
-    return this;
-  }
-
-  public stop(): void {
-    throw new Error('Method not implemented.');
   }
 }
 

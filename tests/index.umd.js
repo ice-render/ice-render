@@ -3998,6 +3998,28 @@
   }
 
   /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  const ICE_CONSTS = {
+    ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
+    BEFORE_RENDER: 'BEFORE_RENDER',
+    AFTER_RENDER: 'AFTER_RENDER',
+    ICE_CLICK: 'ICE_CLICK',
+    BEFORE_ADD: 'BEFORE_ADD',
+    //在 addChild() 方法中的第一行执行
+    AFTER_ADD: 'AFTER_ADD',
+    //在 addChild() 方法返回之前执行
+    BEFORE_REMOVE: 'BEFORE_REMOVE',
+    //在 removeChild() 方法中的第一行执行
+    AFTER_REMOVE: 'AFTER_REMOVE' //在 removeChild() 方法返回之前执行
+
+  };
+
+  /**
    * @class ICEBaseComponent
    *
    * 最顶级的抽象类，Canvas 内部所有可见的组件都是它的子类。
@@ -4005,6 +4027,7 @@
    * @abstract
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
+
   class ICEBaseComponent extends ICEEventTarget {
     //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
     //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
@@ -4068,7 +4091,7 @@
       _defineProperty(this, "parentNode", void 0);
 
       _defineProperty(this, "props", {
-        id: v4(),
+        id: 'ICE_' + v4(),
         left: 0,
         top: 0,
         width: 0,
@@ -4509,6 +4532,24 @@
       return this.getMinBoundingBox().containsPoint(new DOMPoint(x, y));
     }
     /**
+     * @method destory
+     * 销毁组件
+     * - FIXME:立即停止组件上的所有动画效果
+     * - 需要清理绑定的事件
+     * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
+     */
+
+
+    destory() {
+      this.trigger(ICE_CONSTS.BEFORE_REMOVE);
+      this.purgeEvents();
+      this.ice = null;
+      this.ctx = null;
+      this.root = null;
+      this.evtBus = null;
+      this.parentNode = null;
+    }
+    /**
      * 把对象序列化成 JSON 字符串：
      * - 容器型组件需要负责子节点的序列化操作
      * - 如果组件不需要序列化，需要返回 null
@@ -4522,18 +4563,6 @@
         state: this.state
       };
     }
-    /**
-     * @param jsonStr:string
-     * @returns
-     */
-
-
-    fromJSON(jsonStr) {
-      return {};
-    } //FIXME:
-
-
-    destory() {}
 
   }
 
@@ -4672,7 +4701,15 @@
 
       for (let i = 0; i < this.state.dots.length; i++) {
         let dot = this.state.dots[i];
-        dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -origin.x, -origin.y]));
+
+        if (!dot.matrixTransform) {
+          console.log(dot);
+          console.log(this);
+          console.log(dot.matrixTransform);
+        } else {
+          dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -origin.x, -origin.y]));
+        }
+
         this.state.dots[i] = dot;
       }
 
@@ -6347,6 +6384,18 @@
       this.ice = ice;
     }
 
+    start() {
+      this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
+      return this;
+    }
+
+    stop() {
+      this.ice.evtBus.off('mousedown', this.mouseDownHandler, this);
+      this.ice.evtBus.off('mousemove', this.mouseMoveHandler, this);
+      this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
+      return this;
+    }
+
     mouseDownHandler(evt) {
       let component = evt.target;
 
@@ -6379,37 +6428,7 @@
       this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
     }
 
-    start() {
-      this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
-      return this;
-    } //FIXME:
-
-
-    stop() {}
-
   }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  const ICE_CONSTS = {
-    ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
-    BEFORE_RENDER: 'BEFORE_RENDER',
-    AFTER_RENDER: 'AFTER_RENDER',
-    ICE_CLICK: 'ICE_CLICK',
-    BEFORE_ADD: 'BEFORE_ADD',
-    //在 addChild() 方法中的第一行执行
-    AFTER_ADD: 'AFTER_ADD',
-    //在 addChild() 方法返回之前执行
-    BEFORE_REMOVE: 'BEFORE_REMOVE',
-    //在 removeChild() 方法中的第一行执行
-    AFTER_REMOVE: 'AFTER_REMOVE' //在 removeChild() 方法返回之前执行
-
-  };
 
   /**
    * @class ICEGroup
@@ -6454,20 +6473,28 @@
     }
 
     removeChild(child) {
-      child.trigger(ICE_CONSTS.BEFORE_REMOVE);
-      child.parentNode = null;
-      child.root = null;
-      child.ctx = null;
-      child.evtBus = null;
-      child.ice = null;
+      child.destory();
       this.childNodes.splice(this.childNodes.indexOf(child), 1);
-      child.trigger(ICE_CONSTS.AFTER_REMOVE);
     }
 
     removeChildren(arr) {
       arr.forEach(child => {
         this.removeChild(child);
       });
+    }
+    /**
+     * @override
+     * @method destory
+     * 销毁组件
+     * - FIXME:立即停止组件上的所有动画效果
+     * - 需要清理绑定的事件
+     * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
+     */
+
+
+    destory() {
+      this.removeChildren(this.childNodes);
+      super.destory();
     }
     /**
      * 把对象序列化成 JSON 字符串：
@@ -6491,15 +6518,6 @@
       });
       return result;
     }
-    /**
-     * @param jsonStr:string
-     * @returns
-     */
-
-
-    fromJSON(jsonStr) {
-      return {};
-    }
 
   }
 
@@ -6509,6 +6527,8 @@
    * @class ICEControlPanel
    *
    * 控制面板
+   *
+   * FIXME:所有 ControlPanel 类型的组件都需要处理组件的 REMOVE 事件，当组件被删除时，清理关联关系。
    *
    * - ICEControlPanel 本身总是直接画在 canvas 上，不是任何组件的孩子。
    *
@@ -7630,6 +7650,16 @@
       this.lineControlPanel.disable(); //默认处于禁用状态
     }
 
+    start() {
+      this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
+      return this;
+    }
+
+    stop() {
+      this.ice.evtBus.off('mousedown', this.mouseDownHandler, this);
+      return this;
+    }
+
     mouseDownHandler(evt) {
       let component = evt.target;
 
@@ -7658,14 +7688,6 @@
         this.transformControlPanel.enable();
       }
     }
-
-    start() {
-      this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
-      return this;
-    } //FIXME:
-
-
-    stop() {}
 
   }
 
@@ -7792,15 +7814,22 @@
     }
 
     start() {
-      this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, evt => {
-        this.animationMap.forEach(el => {
-          //在动画过程中，对象不响应鼠标或者触摸交互，防止影响属性值的计算。
-          el.state.interactive = false;
-          this.tween(el);
-          el.state.interactive = true;
-        });
-      });
+      this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
       return this;
+    }
+
+    stop() {
+      this.ice.evtBus.off(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
+      return this;
+    }
+
+    frameEventHandler(evt) {
+      this.animationMap.forEach(el => {
+        //在动画过程中，对象不响应鼠标或者触摸交互，防止影响属性值的计算。
+        el.state.interactive = false;
+        this.tween(el);
+        el.state.interactive = true;
+      });
     } //TODO:处理无限循环播放的情况，处理播放次数的情况
     //TODO:每一个属性变化的持续时间不同，需要做同步处理，所有动画都执行完毕之后，需要把对象从动画列表中删除
 
@@ -7861,10 +7890,7 @@
       } else {
         this.animationMap.delete(el.props.id);
       }
-    } //FIXME:
-
-
-    stop() {}
+    }
 
   }
 
@@ -7934,6 +7960,8 @@
 
       _defineProperty(this, "ice", void 0);
 
+      _defineProperty(this, "_stopped", false);
+
       this.ice = ice;
     }
 
@@ -7941,18 +7969,33 @@
       //FIXME:这里触发事件的频率太高，所有所有鼠标事件都会被触发出来。
       //FIXME:这里需要增加节流机制，防止触发事件的频率过高导致 CPU 飙升。
       mouseEvents.forEach(evtMapping => {
-        this.ice.evtBus.on(evtMapping[1], evt => {
+        const iceEvtName = evtMapping[1];
+        const originEvtName = evtMapping[0];
+        this.ice.evtBus.on(iceEvtName, evt => {
+          //在一些场景下，需要整体禁用事件系统。
+          if (this._stopped) {
+            return;
+          }
+
           const component = this.findTargetComponent(evt.clientX, evt.clientY); //FIXME:需要把 clientX/clientY 转换成 canvas 内部的坐标
 
           if (component) {
             evt.target = component;
-            component.trigger(evtMapping[0], evt);
+            component.trigger(originEvtName, evt);
           }
 
-          this.ice.evtBus.trigger(evtMapping[0], evt); //this.ice.evtBus 本身一定会触发一次事件。
+          this.ice.evtBus.trigger(originEvtName, evt); //this.ice.evtBus 本身一定会触发一次事件。
         });
       });
       return this;
+    }
+
+    set stopped(flag) {
+      this._stopped = flag;
+    }
+
+    get stopped() {
+      return this._stopped;
     }
     /**
      * 找到被点击的对象，用代码触发 click 事件。
@@ -7967,8 +8010,9 @@
 
     findTargetComponent(clientX, clientY) {
       let x = clientX - this.ice.canvasBoundingClientRect.left;
-      let y = clientY - this.ice.canvasBoundingClientRect.top;
-      let components = Array.from(this.ice.childNodes);
+      let y = clientY - this.ice.canvasBoundingClientRect.top; // let components = Array.from(this.ice.childNodes);
+
+      let components = this.ice.childNodes;
 
       for (let i = 0; i < components.length; i++) {
         let component = components[i];
@@ -8276,6 +8320,7 @@
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
 
+
   class ICELinkSlotManager {
     constructor(ice) {
       _defineProperty(this, "slotRadius", 10);
@@ -8285,18 +8330,27 @@
       this.ice = ice;
     }
 
-    beforeRenderHandler(evt) {}
+    start() {
+      this.ice.renderer.on(ICE_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
+      return this;
+    }
+
+    stop() {
+      this.ice.renderer.off(ICE_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
+      return this;
+    }
 
     afterRenderHandler(evt) {
       const component = evt.param.component;
 
       if (!component || !component.state.linkable) {
         return;
-      }
+      } //FIXME:这里需要处理删除事件
+      // console.log(component.hasListener(ICE_CONSTS.BEFORE_REMOVE, slotBeforeRemoveHandler, component));
+      // if (!component.hasListener(ICE_CONSTS.BEFORE_REMOVE, slotBeforeRemoveHandler, component)) {
+      //   component.once(ICE_CONSTS.BEFORE_REMOVE, slotBeforeRemoveHandler, component);
+      // }
 
-      if (!component.hasListener(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this)) {
-        component.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, component);
-      }
 
       if (!component.linkSlots || !component.linkSlots.length) {
         this.createLinkSlots(component);
@@ -8304,21 +8358,6 @@
 
 
       this.setSlotPositions(component);
-    }
-    /**
-     * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
-     * 此事件监听器只会执行一次。
-     * FIXME:此方法需要测试
-     * @param evt
-     */
-
-
-    beforeRemoveHandler(evt) {
-      const component = evt.param.component;
-      component.linkSlots.forEach(slot => {
-        slot.purgeEvents();
-        this.ice.removeChild(slot);
-      });
     }
     /**
      * 创建连接插槽，插槽默认分布在组件最小边界盒子的4条边几何中点位置。
@@ -8416,15 +8455,6 @@
         });
       });
     }
-
-    start() {
-      this.ice.renderer.on(ICE_CONSTS.BEFORE_RENDER, this.beforeRenderHandler, this);
-      this.ice.renderer.on(ICE_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
-      return this;
-    } //FIXME:
-
-
-    stop() {}
 
   }
 
@@ -8774,23 +8804,19 @@
     }
 
     fromJSON(jsonStr) {
-      console.log(componentTypeMap);
-      console.log(jsonStr);
+      this.ice.clearRenderMap();
       const jsonObj = JSON.parse(jsonStr);
-      console.log(jsonObj);
       const childNodes = jsonObj.childNodes;
 
       for (let i = 0; i < childNodes.length; i++) {
         const node = childNodes[i];
-        const Clazz = componentTypeMap[node.type];
-        console.log('Clazz>', Clazz);
-        const props = node.props;
-        const state = node.state;
-        const instance = new Clazz(props);
-        console.log('instance>', instance); // instance.setState(state);
+        const Clazz = componentTypeMap[node.type]; // const props = node.props;
 
-        this.ice.clearRenderMap(); // this.ice.addChild(instance);
-        // console.log('instance>', instance);
+        const state = node.state;
+        const instance = new Clazz(state); // instance.setState(state);
+
+        this.ice.addChild(instance);
+        return {};
       }
 
       return {};
@@ -8856,6 +8882,31 @@
       this.ice = ice;
     }
 
+    start() {
+      this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
+      return this;
+    }
+
+    stop() {
+      this.ice.evtBus.off(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
+      return this;
+    }
+
+    frameEvtHandler(evt) {
+      //FIXME:fix this when using increamental rendering
+      //FIXME:动画有闪烁
+      this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
+      if (!this.ice.childNodes || !this.ice.childNodes.length) return; //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
+
+      let arr = Array.from(this.ice.childNodes);
+      arr.sort((firstEl, secondEl) => {
+        return firstEl.state.zIndex - secondEl.state.zIndex;
+      });
+      arr.forEach(component => {
+        this.renderRecursively(component);
+      });
+    }
+
     renderRecursively(component) {
       this.trigger(ICE_CONSTS.BEFORE_RENDER, null, {
         component: component
@@ -8880,6 +8931,7 @@
           child.ctx = component.ctx;
           child.evtBus = component.evtBus;
           child.ice = component.ice;
+          child.parentNode = component;
           this.renderRecursively(child);
         });
       }
@@ -8890,28 +8942,6 @@
       });
     }
 
-    start() {
-      this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, evt => {
-        //FIXME:fix this when using increamental rendering
-        //FIXME:动画有闪烁
-        this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
-        if (!this.ice.childNodes || !this.ice.childNodes.length) return; //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
-
-        let arr = Array.from(this.ice.childNodes);
-        arr.sort((firstEl, secondEl) => {
-          return firstEl.state.zIndex - secondEl.state.zIndex;
-        });
-        arr.forEach(component => {
-          this.renderRecursively(component);
-        });
-      });
-      return this;
-    }
-
-    stop() {
-      throw new Error('Method not implemented.');
-    }
-
   }
 
   /**
@@ -8919,9 +8949,9 @@
    *
    * ICE: Interactive Canvas Engine ， 交互式 canvas 渲染引擎。
    *
-   * 同一个 &lt;canvas&gt; 标签上只能初始化一个 ICE 实例。
+   * - ICE 是整个引擎的主入口类。
+   * - 同一个 &lt;canvas&gt; 标签上只能初始化一个 ICE 实例。
    *
-   * FIXME:使用 TS 的 namespance 机制进行改造
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
 
@@ -9009,8 +9039,8 @@
       FrameManager.start();
       MouseEventInterceptor.regitserEvtBus(this.evtBus);
       MouseEventInterceptor.start();
-      this.animationManager = new AnimationManager(this).start();
       this.eventBridge = new DOMEventBridge(this).start();
+      this.animationManager = new AnimationManager(this).start();
       this.ddManager = new DDManager(this).start();
       this.controlPanelManager = new ICEControlPanelManager(this).start();
       this.renderer = new CanvasRenderer(this).start();
@@ -9052,16 +9082,8 @@
     }
 
     removeChild(component) {
-      component.trigger(ICE_CONSTS.BEFORE_REMOVE);
-      component.ice = null;
-      component.ctx = null;
-      component.root = null;
-      component.evtBus = null;
-      this.childNodes.splice(this.childNodes.indexOf(component), 1); //FIXME:如果被移除的是容器型组件，先移除并清理其子节点，然后再移除容器自身
-      //FIXME:立即停止组件上的所有动画效果
-      //FIXME:清理所有事件监听，然后再从结构中删除
-
-      component.trigger(ICE_CONSTS.AFTER_REMOVE);
+      component.destory();
+      this.childNodes.splice(this.childNodes.indexOf(component), 1);
     }
 
     removeChildren(arr) {
@@ -9082,16 +9104,25 @@
 
 
     toJSON() {
-      //FIXME:在序列化时，用来操控的组件不需要存储。
       return this.serializer.toJSON();
     }
 
     fromJSON(jsonStr) {
-      return this.deserializer.fromJSON(jsonStr);
-    } //FIXME:实现销毁 ICE 实例的过程
+      //先停止关键的管理器
+      this.eventBridge.stopped = true;
+      this.animationManager.stop();
+      this.ddManager.stop();
+      this.controlPanelManager.stop();
+      this.linkSlotManager.stop(); //反序列化，创建组件实例
 
+      this.deserializer.fromJSON(jsonStr); //重新启动关键管理器
 
-    destory() {}
+      this.eventBridge.stopped = false;
+      this.animationManager.start();
+      this.ddManager.start();
+      this.controlPanelManager.start();
+      this.linkSlotManager.start();
+    }
 
   }
 

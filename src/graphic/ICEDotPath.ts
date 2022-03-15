@@ -57,7 +57,13 @@ export default abstract class ICEDotPath extends ICEPath {
 
     for (let i = 0; i < this.state.dots.length; i++) {
       let dot = this.state.dots[i];
-      dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -origin.x, -origin.y]));
+      if (!dot.matrixTransform) {
+        console.log(dot);
+        console.log(this);
+        console.log(dot.matrixTransform);
+      } else {
+        dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -origin.x, -origin.y]));
+      }
       this.state.dots[i] = dot;
     }
 
