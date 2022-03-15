@@ -24,15 +24,14 @@ import ICE from '../ICE';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 abstract class ICEBaseComponent extends ICEEventTarget {
+  //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
+  public ice: ICE;
   //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
   public root: any;
   //当对象被添加到 canvas 中时，ICE 会自动设置 ctx 的值，没有被添加到 canvas 中的对象 ctx 为 null 。
   public ctx: any;
-  //事件总线， evtBus 在 render() 方法被调用时才会被设置
+  //事件总线， evtBus 在 render() 方法被调用时才会被设置，在被渲染出来之前，evtBus 为 null 。
   public evtBus: EventBus;
-  //FIXME:如果引用了 ICE 实例，以上属性是否可以删掉？？？直接从 ICE 实例上获取？？？
-  //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
-  public ice: ICE;
   //所有组件都有父组件，但不一定都有子组件，只有容器型的组件才有子组件。如果父组件为 null ，说明直接添加在 canvas 中。
   public parentNode: any;
   //静态属性，实例计数器
