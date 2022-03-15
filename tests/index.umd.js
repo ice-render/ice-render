@@ -6690,14 +6690,15 @@
       let halfControlSize = this.controlSize / 2;
       this.startControl = new ICELinkHook({
         zIndex: Number.MAX_VALUE - counter++,
+        display: false,
         left: -halfControlSize,
         top: -halfControlSize,
         width: this.controlSize,
         height: this.controlSize,
         //TODO: style 放到 props 中去变成可配置的参数
         style: {
-          strokeStyle: '#8b0000',
-          fillStyle: '#CC3300',
+          strokeStyle: '#0c09d4',
+          fillStyle: '#3ce92c',
           lineWidth: 1
         },
         position: 'start'
@@ -6705,14 +6706,15 @@
       this.addChild(this.startControl);
       this.endControl = new ICELinkHook({
         zIndex: Number.MAX_VALUE - counter++,
+        display: false,
         left: width - halfControlSize,
         top: height - halfControlSize,
         width: this.controlSize,
         height: this.controlSize,
         //TODO: style 放到 props 中去变成可配置的参数
         style: {
-          strokeStyle: '#8b0000',
-          fillStyle: '#CC3300',
+          strokeStyle: '#0c09d4',
+          fillStyle: '#3ce92c',
           lineWidth: 1
         },
         position: 'end'
@@ -7256,6 +7258,7 @@
       resizeControlConfig.forEach(controlConfig => {
         const handleInstance = new ResizeControl({
           zIndex: Number.MAX_VALUE - counter++,
+          display: false,
           left: controlConfig.position.x,
           top: controlConfig.position.y,
           width: this.resizeControlSize,
@@ -7277,6 +7280,7 @@
       let top = -this.rotateControlffsetY;
       this.rotateControlInstance = new RotateControl({
         zIndex: Number.MAX_VALUE - counter++,
+        display: false,
         left: left,
         top: top,
         radius: this.rotateControlSize,
@@ -7296,6 +7300,14 @@
     }
 
     enable() {
+      this.rotateControlInstance.setState({
+        display: true
+      });
+      this.resizeControlInstanceCache.forEach(item => {
+        item.setState({
+          display: true
+        });
+      });
       this.setState({
         display: true
       });
@@ -7304,6 +7316,14 @@
     }
 
     disable() {
+      this.rotateControlInstance.setState({
+        display: false
+      });
+      this.resizeControlInstanceCache.forEach(item => {
+        item.setState({
+          display: false
+        });
+      });
       this.setState({
         display: false
       });
@@ -8087,11 +8107,22 @@
    */
   class ICELinkSlot extends ICECircle {
     //宿主组件。
+
+    /**
+     * position 有4个取值，分别位于宿主边界盒子的4个边的几何中点上：
+     * - T: 顶部
+     * - R: 右侧
+     * - B: 底部
+     * - L: 左侧
+     *
+     * 连接插槽自身不可拖拽、不可连接。
+     * @param props
+     */
     constructor() {
       let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边的几何中点上。
       super({
         linkable: false,
+        draggable: false,
         position: 'T',
         ...props
       });
@@ -8125,7 +8156,6 @@
 
 
     hookMouseDownHandler(evt) {
-      this.state._cacheStyle = merge_1({}, this.state.style);
       this.setState({
         display: true
       });
@@ -8140,18 +8170,17 @@
       let linkHook = evt.target;
 
       if (this.isIntersectWithHook(linkHook)) {
+        //FIXME:鼠标划过时的样式移动到配置项里面去
         this.setState({
-          //FIXME:鼠标划过时的样式移动到配置项里面去
           style: {
-            strokeStyle: '#0916d4',
-            fillStyle: '#fffb00',
-            lineWidth: 1
+            fillStyle: '#fffb00'
           }
         });
       } else {
-        let style = merge_1({}, this.state._cacheStyle);
         this.setState({
-          style
+          style: {
+            fillStyle: '#3ce92c'
+          }
         });
       }
     }
@@ -8174,13 +8203,13 @@
       } else {
         //hook 没有与当前的 slot 重叠，让 hook 所在的连接线解除与当前 slot 之间的连接关系
         linkLine && linkLine.deleteSlot(this, position);
-      } //恢复插槽默认的外观
+      }
 
-
-      let style = merge_1({}, this.state._cacheStyle);
       this.setState({
         display: false,
-        style
+        style: {
+          fillStyle: '#3ce92c'
+        }
       });
     }
 
@@ -8265,7 +8294,8 @@
 
 
     beforeRemoveHandler(evt) {
-      this.linkSlots.forEach(slot => {
+      const component = evt.param.component;
+      component.linkSlots.forEach(slot => {
         slot.purgeEvents();
         this.ice.removeChild(slot);
       });
