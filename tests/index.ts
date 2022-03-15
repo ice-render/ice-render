@@ -132,6 +132,19 @@ let visioLink = new ICEVisioLink({
 });
 ice.addChild(visioLink);
 
+let visioLink2 = new ICEVisioLink({
+  left: 0,
+  top: 0,
+  startPoint: [300, 300],
+  endPoint: [400, 400],
+  style: {
+    strokeStyle: '#08ee00',
+    fillStyle: '#008000',
+    lineWidth: 5,
+  },
+});
+ice.addChild(visioLink2);
+
 let linkCircle3 = new ICECircle({
   left: 100,
   top: 500,
