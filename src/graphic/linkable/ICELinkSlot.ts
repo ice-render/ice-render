@@ -76,7 +76,8 @@ class ICELinkSlot extends ICECircle {
   }
 
   /**
-   * 监听 EventBus 上连接钩子鼠标移动事件
+   * 监听 EventBus 上连接钩子鼠标移动事件，判断钩子是否与插槽发生了碰撞。
+   * FIXME:这里需要更好的碰撞检测算法，与所有插槽进行比对的方式效率太低。
    * @param evt
    */
   protected hookMouseMoveHandler(evt: ICEEvent) {
@@ -88,12 +89,27 @@ class ICELinkSlot extends ICECircle {
           fillStyle: '#fffb00',
         },
       });
+
+      linkHook._currentAboveSlot = this;
+      linkHook.setState({
+        style: {
+          fillStyle: '#fffb00',
+        },
+      });
     } else {
       this.setState({
         style: {
           fillStyle: '#3ce92c',
         },
       });
+
+      if (linkHook._currentAboveSlot === this) {
+        linkHook.setState({
+          style: {
+            fillStyle: '#3ce92c',
+          },
+        });
+      }
     }
   }
 
@@ -117,6 +133,12 @@ class ICELinkSlot extends ICECircle {
 
     this.setState({
       display: false,
+      style: {
+        fillStyle: '#3ce92c',
+      },
+    });
+
+    linkHook.setState({
       style: {
         fillStyle: '#3ce92c',
       },
