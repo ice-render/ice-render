@@ -53,7 +53,8 @@ export default class ICELinkSlotManager {
    * @param evt
    */
   private beforeRemoveHandler(evt: ICEEvent) {
-    this.linkSlots.forEach((slot) => {
+    const component = evt.param.component;
+    component.linkSlots.forEach((slot) => {
       slot.purgeEvents();
       this.ice.removeChild(slot);
     });

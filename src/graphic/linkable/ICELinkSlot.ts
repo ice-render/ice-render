@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import merge from 'lodash/merge';
 import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import { ICE_CONSTS } from '../../ICE_CONSTS';
@@ -31,9 +30,18 @@ class ICELinkSlot extends ICECircle {
   //宿主组件。
   private _hostComponent;
 
+  /**
+   * position 有4个取值，分别位于宿主边界盒子的4个边的几何中点上：
+   * - T: 顶部
+   * - R: 右侧
+   * - B: 底部
+   * - L: 左侧
+   *
+   * 连接插槽自身不可拖拽、不可连接。
+   * @param props
+   */
   constructor(props: any = {}) {
-    //position 有4个取值，T/R/B/L 分别位于宿主边界盒子的4个边的几何中点上。
-    super({ linkable: false, position: 'T', ...props });
+    super({ linkable: false, draggable: false, position: 'T', ...props });
   }
 
   protected initEvents() {
@@ -62,7 +70,6 @@ class ICELinkSlot extends ICECircle {
    * @param evt
    */
   protected hookMouseDownHandler(evt: ICEEvent) {
-    this.state._cacheStyle = merge({}, this.state.style);
     this.setState({
       display: true,
     });
@@ -75,18 +82,17 @@ class ICELinkSlot extends ICECircle {
   protected hookMouseMoveHandler(evt: ICEEvent) {
     let linkHook = evt.target;
     if (this.isIntersectWithHook(linkHook)) {
+      //FIXME:鼠标划过时的样式移动到配置项里面去
       this.setState({
-        //FIXME:鼠标划过时的样式移动到配置项里面去
         style: {
-          strokeStyle: '#0916d4',
           fillStyle: '#fffb00',
-          lineWidth: 1,
         },
       });
     } else {
-      let style = merge({}, this.state._cacheStyle);
       this.setState({
-        style,
+        style: {
+          fillStyle: '#3ce92c',
+        },
       });
     }
   }
@@ -109,11 +115,11 @@ class ICELinkSlot extends ICECircle {
       linkLine && linkLine.deleteSlot(this, position);
     }
 
-    //恢复插槽默认的外观
-    let style = merge({}, this.state._cacheStyle);
     this.setState({
       display: false,
-      style,
+      style: {
+        fillStyle: '#3ce92c',
+      },
     });
   }
 

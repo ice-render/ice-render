@@ -45,14 +45,15 @@ export default class LineControlPanel extends ICEControlPanel {
 
     this.startControl = new ICELinkHook({
       zIndex: Number.MAX_VALUE - counter++,
+      display: false,
       left: -halfControlSize,
       top: -halfControlSize,
       width: this.controlSize,
       height: this.controlSize,
       //TODO: style 放到 props 中去变成可配置的参数
       style: {
-        strokeStyle: '#8b0000',
-        fillStyle: '#CC3300',
+        strokeStyle: '#0c09d4',
+        fillStyle: '#3ce92c',
         lineWidth: 1,
       },
       position: 'start',
@@ -61,14 +62,15 @@ export default class LineControlPanel extends ICEControlPanel {
 
     this.endControl = new ICELinkHook({
       zIndex: Number.MAX_VALUE - counter++,
+      display: false,
       left: width - halfControlSize,
       top: height - halfControlSize,
       width: this.controlSize,
       height: this.controlSize,
       //TODO: style 放到 props 中去变成可配置的参数
       style: {
-        strokeStyle: '#8b0000',
-        fillStyle: '#CC3300',
+        strokeStyle: '#0c09d4',
+        fillStyle: '#3ce92c',
         lineWidth: 1,
       },
       position: 'end',

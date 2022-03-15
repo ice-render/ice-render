@@ -106,6 +106,7 @@ export default class TransformControlPanel extends ICEControlPanel {
     resizeControlConfig.forEach((controlConfig) => {
       const handleInstance = new ResizeControl({
         zIndex: Number.MAX_VALUE - counter++,
+        display: false,
         left: controlConfig.position.x,
         top: controlConfig.position.y,
         width: this.resizeControlSize,
@@ -129,6 +130,7 @@ export default class TransformControlPanel extends ICEControlPanel {
     let top = -this.rotateControlffsetY;
     this.rotateControlInstance = new RotateControl({
       zIndex: Number.MAX_VALUE - counter++,
+      display: false,
       left: left,
       top: top,
       radius: this.rotateControlSize,
@@ -148,12 +150,20 @@ export default class TransformControlPanel extends ICEControlPanel {
   }
 
   public enable() {
+    this.rotateControlInstance.setState({ display: true });
+    this.resizeControlInstanceCache.forEach((item) => {
+      item.setState({ display: true });
+    });
     this.setState({ display: true });
     this.resume('after-resize');
     this.resume('after-rotate');
   }
 
   public disable() {
+    this.rotateControlInstance.setState({ display: false });
+    this.resizeControlInstanceCache.forEach((item) => {
+      item.setState({ display: false });
+    });
     this.setState({ display: false });
     this.suspend('after-resize');
     this.suspend('after-rotate');
