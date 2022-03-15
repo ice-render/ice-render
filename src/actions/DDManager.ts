@@ -30,6 +30,18 @@ export default class DDManager {
     this.ice = ice;
   }
 
+  start() {
+    this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
+    return this;
+  }
+
+  stop() {
+    this.ice.evtBus.off('mousedown', this.mouseDownHandler, this);
+    this.ice.evtBus.off('mousemove', this.mouseMoveHandler, this);
+    this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
+    return this;
+  }
+
   private mouseDownHandler(evt: ICEEvent) {
     let component = evt.target;
 
@@ -61,12 +73,4 @@ export default class DDManager {
     this.ice.evtBus.off('mousemove', this.mouseMoveHandler, this);
     this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
   }
-
-  start() {
-    this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
-    return this;
-  }
-
-  //FIXME:
-  stop() {}
 }

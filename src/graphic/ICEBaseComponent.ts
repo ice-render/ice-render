@@ -14,6 +14,7 @@ import ICEEventTarget from '../event/ICEEventTarget';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICEMatrix from '../geometry/ICEMatrix';
 import ICE from '../ICE';
+import { ICE_CONSTS } from '../ICE_CONSTS';
 
 /**
  * @class ICEBaseComponent
@@ -72,7 +73,7 @@ abstract class ICEBaseComponent extends ICEEventTarget {
    * @param props
    */
   public props: any = {
-    id: uuid(),
+    id: 'ICE_' + uuid(),
     left: 0,
     top: 0,
     width: 0,
@@ -481,6 +482,25 @@ abstract class ICEBaseComponent extends ICEEventTarget {
   }
 
   /**
+   * @method destory
+   * 销毁组件
+   * - FIXME:立即停止组件上的所有动画效果
+   * - 需要清理绑定的事件
+   * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
+   */
+  public destory(): void {
+    this.trigger(ICE_CONSTS.BEFORE_REMOVE);
+
+    this.purgeEvents();
+
+    this.ice = null;
+    this.ctx = null;
+    this.root = null;
+    this.evtBus = null;
+    this.parentNode = null;
+  }
+
+  /**
    * 把对象序列化成 JSON 字符串：
    * - 容器型组件需要负责子节点的序列化操作
    * - 如果组件不需要序列化，需要返回 null
@@ -489,17 +509,6 @@ abstract class ICEBaseComponent extends ICEEventTarget {
   public toJSON(): object {
     return { props: this.props, state: this.state };
   }
-
-  /**
-   * @param jsonStr:string
-   * @returns
-   */
-  public fromJSON(jsonStr: string): object {
-    return {};
-  }
-
-  //FIXME:
-  public destory(): void {}
 }
 
 export default ICEBaseComponent;

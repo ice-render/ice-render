@@ -60,11 +60,12 @@
 - FIXME:连接钩子离开之后，LinkSlot 没有恢复默认的外观。【已解决】
 - FIXME:需要测试多条连接线连接在同一个插槽上的情况，是否有 bug 【已测试OK】。
 - FIXME:连接插槽的位置计算有错误，不在 minBoundingBox 上面。（先跳过，后面补）
-- FIXME:ICEVisioLink 会出现闪烁的情况。
+- FIXME:ICEVisioLink 会出现闪烁的情况。（先跳过，后面补）
 - 
 - TODO:重构 addChild() 机制，全部从 ICE 入口走，重构整体数据结构 <------------
 - TODO:序列化和反序列化（可能需要整理一下整体的数据结构） 
-- TODO:清理 TransformControlPanel， LinkHook， LinkSlot 相关的机制，点击之后才展示出来，并且不能影响序列化和反序列化 
+- TODO:清理 TransformControlPanel， LinkHook， LinkSlot 相关的机制，点击之后才展示出来，并且不能影响序列化和反序列化。
+- 
 - TODO:整理现有图形类的代码，扩展缺失的图形类型。
 - TODO:线条的两端需要绘制箭头或者其它形状。
 - TODO:线条型的组件点击判断需要特殊处理，不能用边界盒子计算，需要用 isPointInPath() 进行判断。 

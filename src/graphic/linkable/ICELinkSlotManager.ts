@@ -11,6 +11,22 @@ import { ICE_CONSTS } from '../../ICE_CONSTS';
 import ICELinkSlot from './ICELinkSlot';
 
 /**
+ * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
+ * 此事件监听器只会执行一次。
+ * @param evt
+ */
+function slotBeforeRemoveHandler(evt: ICEEvent) {
+  if (!this.linkSlots || !this.linkSlots.length) {
+    return;
+  }
+  this.linkSlots.forEach((slot) => {
+    slot.hostComponent = null;
+    slot.purgeEvents();
+    this.ice.removeChild(slot);
+  });
+}
+
+/**
  * @class ICELinkSlotManager
  *
  * - ICELinkSlotManager 连接插槽管理器，用于管理所有可连接组件上的连接插槽。
@@ -21,6 +37,7 @@ import ICELinkSlot from './ICELinkSlot';
  * @see ICE
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
+
 export default class ICELinkSlotManager {
   private slotRadius = 10;
   private ice: ICE;
@@ -29,7 +46,15 @@ export default class ICELinkSlotManager {
     this.ice = ice;
   }
 
-  private beforeRenderHandler(evt) {}
+  start() {
+    this.ice.renderer.on(ICE_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
+    return this;
+  }
+
+  stop() {
+    this.ice.renderer.off(ICE_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
+    return this;
+  }
 
   private afterRenderHandler(evt) {
     const component = evt.param.component;
@@ -37,9 +62,12 @@ export default class ICELinkSlotManager {
       return;
     }
 
-    if (!component.hasListener(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this)) {
-      component.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, component);
-    }
+    //FIXME:这里需要处理删除事件
+    // console.log(component.hasListener(ICE_CONSTS.BEFORE_REMOVE, slotBeforeRemoveHandler, component));
+
+    // if (!component.hasListener(ICE_CONSTS.BEFORE_REMOVE, slotBeforeRemoveHandler, component)) {
+    //   component.once(ICE_CONSTS.BEFORE_REMOVE, slotBeforeRemoveHandler, component);
+    // }
 
     if (!component.linkSlots || !component.linkSlots.length) {
       this.createLinkSlots(component);
@@ -47,20 +75,6 @@ export default class ICELinkSlotManager {
 
     //FIXME: 如果 slot 处于显示状态，则计算所有 slot 当前的位置。当 slot 处于隐藏状态时，不计算它们的位置，节约性能？？？
     this.setSlotPositions(component);
-  }
-
-  /**
-   * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
-   * 此事件监听器只会执行一次。
-   * FIXME:此方法需要测试
-   * @param evt
-   */
-  private beforeRemoveHandler(evt: ICEEvent) {
-    const component = evt.param.component;
-    component.linkSlots.forEach((slot) => {
-      slot.purgeEvents();
-      this.ice.removeChild(slot);
-    });
   }
 
   /**
@@ -155,13 +169,4 @@ export default class ICELinkSlotManager {
       slot.setState({ left, top });
     });
   }
-
-  start() {
-    this.ice.renderer.on(ICE_CONSTS.BEFORE_RENDER, this.beforeRenderHandler, this);
-    this.ice.renderer.on(ICE_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
-    return this;
-  }
-
-  //FIXME:
-  stop() {}
 }

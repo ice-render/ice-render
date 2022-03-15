@@ -69,6 +69,16 @@ class ICEControlPanelManager {
     this.lineControlPanel.disable(); //默认处于禁用状态
   }
 
+  start() {
+    this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
+    return this;
+  }
+
+  stop() {
+    this.ice.evtBus.off('mousedown', this.mouseDownHandler, this);
+    return this;
+  }
+
   private mouseDownHandler(evt: ICEEvent) {
     let component = evt.target;
 
@@ -97,14 +107,6 @@ class ICEControlPanelManager {
       this.transformControlPanel.enable();
     }
   }
-
-  start() {
-    this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
-    return this;
-  }
-
-  //FIXME:
-  stop() {}
 }
 
 export default ICEControlPanelManager;
