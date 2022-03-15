@@ -36,6 +36,7 @@ export default class ICELinkSlotManager {
     if (!component || !component.state.linkable) {
       return;
     }
+
     if (!component.hasListener(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this)) {
       component.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, component);
     }
@@ -43,6 +44,8 @@ export default class ICELinkSlotManager {
     if (!component.linkSlots || !component.linkSlots.length) {
       this.createLinkSlots(component);
     }
+
+    //FIXME: 如果 slot 处于显示状态，则计算所有 slot 当前的位置。当 slot 处于隐藏状态时，不计算它们的位置，节约性能？？？
     this.setSlotPositions(component);
   }
 
@@ -123,6 +126,7 @@ export default class ICELinkSlotManager {
     component.linkSlots = [slot_1, slot_2, slot_3, slot_4];
   }
 
+  //FIXME:这里需要采用 TransformControlPanel 中的算法来计算插槽位置。
   protected setSlotPositions(component) {
     let box = component.getMinBoundingBox();
     component.linkSlots.forEach((slot) => {
