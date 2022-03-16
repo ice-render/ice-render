@@ -24,17 +24,26 @@ export default class Deserializer {
 
   public fromJSON(jsonStr: string) {
     const jsonObj = JSON.parse(jsonStr);
+    console.log(jsonObj);
+
     const childNodes = jsonObj.childNodes;
     for (let i = 0; i < childNodes.length; i++) {
-      const node = childNodes[i];
-      const Clazz = componentTypeMap[node.type];
-      // const props = node.props;
-      const state = node.state;
-      const instance = new Clazz(state);
-      // instance.setState(state);
-      this.ice.addChild(instance);
-      return {};
+      this.decodeRecursively(this.ice, childNodes[i]);
     }
-    return {};
+  }
+
+  //递归
+  private decodeRecursively(parentNode, nodeData) {
+    const Clazz = componentTypeMap[nodeData.type];
+    const state = nodeData.state;
+    const instance = new Clazz(state);
+    parentNode.addChild(instance);
+
+    let childNodes = nodeData.childNodes;
+    if (childNodes && childNodes.length) {
+      for (let i = 0; i < childNodes.length; i++) {
+        this.decodeRecursively(instance, childNodes[i]);
+      }
+    }
   }
 }

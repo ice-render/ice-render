@@ -18,6 +18,28 @@
     return obj;
   }
 
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  const ICE_CONSTS = {
+    ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
+    BEFORE_RENDER: 'BEFORE_RENDER',
+    AFTER_RENDER: 'AFTER_RENDER',
+    ICE_CLICK: 'ICE_CLICK',
+    BEFORE_ADD: 'BEFORE_ADD',
+    //在 addChild() 方法中的第一行执行
+    AFTER_ADD: 'AFTER_ADD',
+    //在 addChild() 方法返回之前执行
+    BEFORE_REMOVE: 'BEFORE_REMOVE',
+    //在 removeChild() 方法中的第一行执行
+    AFTER_REMOVE: 'AFTER_REMOVE' //在 removeChild() 方法返回之前执行
+
+  };
+
   var IDX=256, HEX=[], BUFFER;
   while (IDX--) HEX[IDX] = (IDX + 256).toString(16).substring(1);
 
@@ -3601,28 +3623,6 @@
   }
 
   /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  const ICE_CONSTS = {
-    ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
-    BEFORE_RENDER: 'BEFORE_RENDER',
-    AFTER_RENDER: 'AFTER_RENDER',
-    ICE_CLICK: 'ICE_CLICK',
-    BEFORE_ADD: 'BEFORE_ADD',
-    //在 addChild() 方法中的第一行执行
-    AFTER_ADD: 'AFTER_ADD',
-    //在 addChild() 方法返回之前执行
-    BEFORE_REMOVE: 'BEFORE_REMOVE',
-    //在 removeChild() 方法中的第一行执行
-    AFTER_REMOVE: 'AFTER_REMOVE' //在 removeChild() 方法返回之前执行
-
-  };
-
-  /**
    * @class ICEBaseComponent
    *
    * 最顶级的抽象类，Canvas 内部所有可见的组件都是它的子类。
@@ -4144,27 +4144,15 @@
 
 
     destory() {
-      this.trigger(ICE_CONSTS.BEFORE_REMOVE);
+      this.trigger(ICE_CONSTS.BEFORE_REMOVE, null, {
+        component: this
+      });
       this.purgeEvents();
       this.ice = null;
       this.ctx = null;
       this.root = null;
       this.evtBus = null;
       this.parentNode = null;
-    }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      return {
-        props: this.props,
-        state: this.state
-      };
     }
 
   }
@@ -4421,15 +4409,18 @@
   }
 
   /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
    * @class ICERect 矩形
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
 
   class ICERect extends ICEDotPath {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
     constructor() {
       let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
       super({
@@ -4459,24 +4450,202 @@
       this.state.dots = [point1, point2, point3, point4];
       return this.state.dots;
     }
+
+  }
+
+  /**
+   * @class ICEGroup
+   *
+   * 容器型组件
+   *
+   * ICEGroup 可以包含自身，利用此组件可以构造出树形的对象结构。
+   *
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEGroup extends ICERect {
+    constructor(props) {
+      super(props);
+
+      _defineProperty(this, "parentNode", null);
+
+      _defineProperty(this, "childNodes", []);
+    }
     /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
+     * 注意，在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。
+     * 所以此时 child.root, child.ctx, child.evtBus 都可能为空。
+     * @param child
      */
 
 
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICERect.type
-      };
-      return result;
+    addChild(child) {
+      child.trigger(ICE_CONSTS.BEFORE_ADD);
+      child.parentNode = this;
+      this.childNodes.push(child);
+      child.trigger(ICE_CONSTS.AFTER_ADD);
+    }
+
+    addChildren(arr) {
+      arr.forEach(child => {
+        this.addChild(child);
+      });
+    }
+
+    removeChild(child) {
+      child.destory();
+      this.childNodes.splice(this.childNodes.indexOf(child), 1);
+    }
+
+    removeChildren(arr) {
+      arr.forEach(child => {
+        this.removeChild(child);
+      });
+    }
+    /**
+     * @override
+     * @method destory
+     * 销毁组件
+     * - FIXME:立即停止组件上的所有动画效果
+     * - 需要清理绑定的事件
+     * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
+     */
+
+
+    destory() {
+      this.removeChildren(this.childNodes);
+      super.destory();
     }
 
   }
 
-  _defineProperty(ICERect, "type", 'ICERect');
+  /**
+   * Checks if `value` is `null` or `undefined`.
+   *
+   * @static
+   * @memberOf _
+   * @since 4.0.0
+   * @category Lang
+   * @param {*} value The value to check.
+   * @returns {boolean} Returns `true` if `value` is nullish, else `false`.
+   * @example
+   *
+   * _.isNil(null);
+   * // => true
+   *
+   * _.isNil(void 0);
+   * // => true
+   *
+   * _.isNil(NaN);
+   * // => false
+   */
+  function isNil(value) {
+    return value == null;
+  }
+
+  var isNil_1 = isNil;
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
+   * @class ICEEllipse
+   *
+   * 椭圆形。
+   *
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEEllipse extends ICEPath {
+    //@see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/ellipse
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      let param = {
+        radiusX: 20,
+        radiusY: 10,
+        rotation: 0,
+        startAngle: 0,
+        endAngle: 2 * Math.PI,
+        counterclockwise: true,
+        ...props
+      };
+      param.width = param.radiusX * 2;
+      param.height = param.radiusY * 2;
+      super(param);
+    }
+    /**
+     * 所有坐标点的坐标都是相对于父层组件，而不是全局坐标。
+     * @returns
+     */
+
+
+    createPathObject() {
+      this.path2D = new Path2D();
+      this.path2D.ellipse(this.state.radiusX - this.state.localOrigin.x, this.state.radiusY - this.state.localOrigin.y, this.state.radiusX, this.state.radiusY, this.state.rotation, this.state.startAngle, this.state.endAngle, this.state.counterclockwise);
+      this.path2D.closePath();
+      return this.path2D;
+    }
+    /**
+     * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
+     *
+     * Ellipse 有自己特殊的处理方法：
+     *
+     * - 如果 setState 时指定了 radiusX 参数，则 width 会被重新计算，如果指定了 radiusY 参数则 height 会被重新计算。
+     * - 如果 setState 时仅仅指定 width 参数，则 radiusX 会被重新计算，如果仅仅指定了 height 参数，则 radiusY 会被重新计算。
+     * @overwrite
+     * @param newState
+     */
+
+
+    setState(newState) {
+      if (!isNil_1(newState.radiusX)) {
+        newState.width = 2 * newState.radiusX;
+      } else if (!isNil_1(newState.width)) {
+        newState.radiusX = newState.width / 2;
+      }
+
+      if (!isNil_1(newState.radiusY)) {
+        newState.height = 2 * newState.radiusY;
+      } else if (!isNil_1(newState.height)) {
+        newState.radiusY = newState.height / 2;
+      }
+
+      super.setState(newState);
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
+   * @class ICECircle
+   *
+   * 正圆形，采用椭圆绘制方法，正圆形作为椭圆的特殊情况。
+   *
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICECircle extends ICEEllipse {
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      let param = {
+        radius: 10,
+        ...props
+      };
+      param.radiusX = param.radius;
+      param.radiusY = param.radius;
+      super(param);
+    }
+
+  }
 
   /** `Object#toString` result references. */
   var stringTag$1 = '[object String]';
@@ -4685,31 +4854,12 @@
   }
 
   /**
-   * Checks if `value` is `null` or `undefined`.
+   * Copyright (c) 2022 大漠穷秋.
    *
-   * @static
-   * @memberOf _
-   * @since 4.0.0
-   * @category Lang
-   * @param {*} value The value to check.
-   * @returns {boolean} Returns `true` if `value` is nullish, else `false`.
-   * @example
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
    *
-   * _.isNil(null);
-   * // => true
-   *
-   * _.isNil(void 0);
-   * // => true
-   *
-   * _.isNil(NaN);
-   * // => false
    */
-  function isNil(value) {
-    return value == null;
-  }
-
-  var isNil_1 = isNil;
-
   /**
    *
    * @class ICEPolyLine
@@ -4728,11 +4878,6 @@
    */
 
   class ICEPolyLine extends ICEDotPath {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-
     /**
      * FIXME:编写完整的配置项描述
      * @cfg
@@ -5130,117 +5275,8 @@
 
       return result;
     }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICEPolyLine.type
-      };
-      return result;
-    }
 
   }
-
-  _defineProperty(ICEPolyLine, "type", 'ICEPolyLine');
-
-  /**
-   * @class ICEGroup
-   *
-   * 容器型组件
-   *
-   * ICEGroup 可以包含自身，利用此组件可以构造出树形的对象结构。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEGroup extends ICERect {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-    constructor(props) {
-      super(props);
-
-      _defineProperty(this, "parentNode", null);
-
-      _defineProperty(this, "childNodes", []);
-    }
-    /**
-     * 注意，在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。
-     * 所以此时 child.root, child.ctx, child.evtBus 都可能为空。
-     * @param child
-     */
-
-
-    addChild(child) {
-      child.trigger(ICE_CONSTS.BEFORE_ADD);
-      child.parentNode = this;
-      this.childNodes.push(child);
-      child.trigger(ICE_CONSTS.AFTER_ADD);
-    }
-
-    addChildren(arr) {
-      arr.forEach(child => {
-        this.addChild(child);
-      });
-    }
-
-    removeChild(child) {
-      child.destory();
-      this.childNodes.splice(this.childNodes.indexOf(child), 1);
-    }
-
-    removeChildren(arr) {
-      arr.forEach(child => {
-        this.removeChild(child);
-      });
-    }
-    /**
-     * @override
-     * @method destory
-     * 销毁组件
-     * - FIXME:立即停止组件上的所有动画效果
-     * - 需要清理绑定的事件
-     * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
-     */
-
-
-    destory() {
-      this.removeChildren(this.childNodes);
-      super.destory();
-    }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = {
-        type: ICEGroup.type,
-        props: this.props,
-        state: this.state,
-        childNodes: []
-      };
-      this.childNodes.forEach(child => {
-        if (child.toJSON()) {
-          result.childNodes.push(child.toJSON());
-        }
-      });
-      return result;
-    }
-
-  }
-
-  _defineProperty(ICEGroup, "type", 'ICEGroup');
 
   /**
    * @class ICEControlPanel
@@ -5255,9 +5291,8 @@
    */
   class ICEControlPanel extends ICEGroup {
     constructor(props) {
-      super({
-        linkable: false,
-        ...props
+      super({ ...props,
+        linkable: false
       });
 
       _defineProperty(this, "_targetComponent", void 0);
@@ -5277,135 +5312,6 @@
     }
 
   }
-
-  /**
-   * @class ICEEllipse
-   *
-   * 椭圆形。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEEllipse extends ICEPath {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-    //@see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/ellipse
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      let param = {
-        radiusX: 20,
-        radiusY: 10,
-        rotation: 0,
-        startAngle: 0,
-        endAngle: 2 * Math.PI,
-        counterclockwise: true,
-        ...props
-      };
-      param.width = param.radiusX * 2;
-      param.height = param.radiusY * 2;
-      super(param);
-    }
-    /**
-     * 所有坐标点的坐标都是相对于父层组件，而不是全局坐标。
-     * @returns
-     */
-
-
-    createPathObject() {
-      this.path2D = new Path2D();
-      this.path2D.ellipse(this.state.radiusX - this.state.localOrigin.x, this.state.radiusY - this.state.localOrigin.y, this.state.radiusX, this.state.radiusY, this.state.rotation, this.state.startAngle, this.state.endAngle, this.state.counterclockwise);
-      this.path2D.closePath();
-      return this.path2D;
-    }
-    /**
-     * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
-     *
-     * Ellipse 有自己特殊的处理方法：
-     *
-     * - 如果 setState 时指定了 radiusX 参数，则 width 会被重新计算，如果指定了 radiusY 参数则 height 会被重新计算。
-     * - 如果 setState 时仅仅指定 width 参数，则 radiusX 会被重新计算，如果仅仅指定了 height 参数，则 radiusY 会被重新计算。
-     * @overwrite
-     * @param newState
-     */
-
-
-    setState(newState) {
-      if (!isNil_1(newState.radiusX)) {
-        newState.width = 2 * newState.radiusX;
-      } else if (!isNil_1(newState.width)) {
-        newState.radiusX = newState.width / 2;
-      }
-
-      if (!isNil_1(newState.radiusY)) {
-        newState.height = 2 * newState.radiusY;
-      } else if (!isNil_1(newState.height)) {
-        newState.radiusY = newState.height / 2;
-      }
-
-      super.setState(newState);
-    }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICEEllipse.type
-      };
-      return result;
-    }
-
-  }
-
-  _defineProperty(ICEEllipse, "type", 'ICEEllipse');
-
-  /**
-   * @class ICECircle
-   *
-   * 正圆形，采用椭圆绘制方法，正圆形作为椭圆的特殊情况。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICECircle extends ICEEllipse {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      let param = {
-        radius: 10,
-        ...props
-      };
-      param.radiusX = param.radius;
-      param.radiusY = param.radius;
-      super(param);
-    }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICECircle.type
-      };
-      return result;
-    }
-
-  }
-
-  _defineProperty(ICECircle, "type", 'ICECircle');
 
   /**
    * Copyright (c) 2022 大漠穷秋.
@@ -5499,17 +5405,6 @@
         position
       }));
     }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      return null;
-    }
 
   }
 
@@ -5537,6 +5432,7 @@
     constructor(props) {
       super({ ...props,
         zIndex: Number.MAX_VALUE,
+        linkable: false,
         showMinBoundingBox: false,
         showMaxBoundingBox: false
       });
@@ -5748,11 +5644,11 @@
   class ResizeControl extends ICERect {
     constructor(props) {
       super({
-        linkable: false,
         position: 'l',
         direction: 'x',
         quadrant: 1,
-        ...props
+        ...props,
+        linkable: false
       });
       this.on('after-move', this.resizeEvtHandler, this);
     }
@@ -5996,8 +5892,8 @@
   class RotateControl extends ICECircle {
     constructor(props) {
       super({
-        linkable: false,
-        props
+        props,
+        linkable: false
       });
       this.on('after-move', this.rotateEvtHandler, this);
     }
@@ -6042,7 +5938,10 @@
     //TODO:改成可配置参数
     constructor(props) {
       super({ ...props,
-        zIndex: Number.MAX_VALUE
+        zIndex: Number.MAX_VALUE,
+        linkable: false,
+        showMinBoundingBox: false,
+        showMaxBoundingBox: false
       });
 
       _defineProperty(this, "rotateControlInstance", void 0);
@@ -6998,6 +6897,7 @@
    * 连接插槽
    *
    * - ICELinkSlot 与 ICELinkHook 是一对组件，用来把两个组件连接起来。
+   * - 一个插槽上面可以连多个钩子，ICELinkSlot 与 ICELinkHook 之间是一对多的关系。
    * - ICELinkSlot 不能独立存在，它必须附属在某个宿主组件上。逻辑附属，非真实的外观附属。
    * - ICELinkSlot 总是绘制在全局 canvas 中，它不是任何组件的子节点。
    * - ICELinkSlot 自身不进行任何 transform 。
@@ -7050,6 +6950,7 @@
       this.evtBus.off('hook-mousedown', this.hookMouseDownHandler, this);
       this.evtBus.off('hook-mousemove', this.hookMouseMoveHandler, this);
       this.evtBus.off('hook-mouseup', this.hookMouseUpHandler, this);
+      this._hostComponent = null;
     }
     /**
      * 监听 EventBus 上连接钩子鼠标按下事件
@@ -7153,17 +7054,6 @@
     get hostComponent() {
       return this._hostComponent;
     }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      return null;
-    }
 
   }
 
@@ -7178,7 +7068,6 @@
    * @see ICE
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
-
 
   class ICELinkSlotManager {
     constructor(ice) {
@@ -7204,12 +7093,7 @@
 
       if (!component || !component.state.linkable) {
         return;
-      } //FIXME:这里需要处理删除事件
-      // console.log(component.hasListener(ICE_CONSTS.BEFORE_REMOVE, slotBeforeRemoveHandler, component));
-      // if (!component.hasListener(ICE_CONSTS.BEFORE_REMOVE, slotBeforeRemoveHandler, component)) {
-      //   component.once(ICE_CONSTS.BEFORE_REMOVE, slotBeforeRemoveHandler, component);
-      // }
-
+      }
 
       if (!component.linkSlots || !component.linkSlots.length) {
         this.createLinkSlots(component);
@@ -7318,6 +7202,13 @@
   }
 
   /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
    * @class ICEImage
    * TODO:支持以下几种图片类型：jpg/jpeg/png/gif
    * TODO:ICEImage 来源的几种方式
@@ -7325,10 +7216,6 @@
    */
 
   class ICEImage extends ICEBaseComponent {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
     constructor() {
       let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
       super({
@@ -7350,24 +7237,8 @@
       this.ctx.drawImage(img, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y, this.state.width, this.state.height);
       super.doRender();
     }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICEImage.type
-      };
-      return result;
-    }
 
   }
-
-  _defineProperty(ICEImage, "type", 'ICEImage');
 
   /**
    * Copyright (c) 2022 大漠穷秋.
@@ -7760,12 +7631,6 @@
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
   class ICEVisioLink extends ICEPolyLine {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-    //FIXME:序列化时存组件 ID
-
     /**
      * FIXME:补全 props 配置项的描述
      */
@@ -8448,16 +8313,25 @@
 
     followEndSlot(evt) {
       this.syncPosition(this.endSlot, 'end');
-    } //FIXME:以下特性需要测试
-    // - 监听目标组件上的 after-move 事件，同步位置
-    // - 如果 slot 为 null ，清理事件和相关资源
-    // - 设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
+    } //当 Slot 被删除时，清理它与连接线、宿主组件之间的关联关系。
 
+
+    slotBeforeRemoveHandler(evt) {
+      const slot = evt.param.component;
+      if (!slot) return;
+
+      if (this.startSlot === slot) {
+        this.deleteSlot(slot, 'start');
+      } else if (this.endSlot === slot) {
+        this.deleteSlot(slot, 'end');
+      }
+    }
 
     setSlot(slot, position) {
       if (!slot || !position) return; //总是先尝试解除连接关系，然后再重新尝试连接
 
-      this.deleteSlot(slot, position);
+      this.deleteSlot(slot, position); //设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
+
       this.setState({
         draggable: false
       });
@@ -8466,10 +8340,12 @@
         this.startSlot = slot;
         this.syncPosition(this.startSlot, 'start');
         this.startSlot.hostComponent.on('after-move', this.followStartSlot, this);
+        this.startSlot.once(ICE_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
       } else if (position === 'end') {
         this.endSlot = slot;
         this.syncPosition(this.endSlot, 'end');
         this.endSlot.hostComponent.on('after-move', this.followEndSlot, this);
+        this.endSlot.once(ICE_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
       }
     }
     /**
@@ -8494,24 +8370,8 @@
         });
       }
     }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICEVisioLink.type
-      };
-      return result;
-    }
 
   }
-
-  _defineProperty(ICEVisioLink, "type", 'ICEVisioLink');
 
   /**
    *
@@ -8527,10 +8387,6 @@
    */
 
   class ICEIsogon extends ICEDotPath {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
     //外接圆的半径
     //边数 N ，正整数
 
@@ -8582,25 +8438,16 @@
 
       return this.state.dots;
     }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICEIsogon.type
-      };
-      return result;
-    }
 
   }
 
-  _defineProperty(ICEIsogon, "type", 'ICEIsogon');
-
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
   /**
    * @class ICEStar 五角星
    * TODO:实现正 N 角星
@@ -8608,10 +8455,6 @@
    */
 
   class ICEStar extends ICEIsogon {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
     constructor() {
       let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
       super({
@@ -8645,25 +8488,16 @@
       this.path2D.closePath();
       return this.path2D;
     }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICEStar.type
-      };
-      return result;
-    }
 
   }
 
-  _defineProperty(ICEStar, "type", 'ICEStar');
-
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
   /**
    * TODO:draw text along Path2D
    * @see https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
@@ -8671,11 +8505,6 @@
    */
 
   class ICEText extends ICEBaseComponent {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-
     /**
      * @cfg
      * {
@@ -8756,24 +8585,8 @@
       this.ctx.strokeText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
       this.ctx.fillText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
     }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICEText.type
-      };
-      return result;
-    }
 
   }
-
-  _defineProperty(ICEText, "type", 'ICEText');
 
   /**
    * Copyright (c) 2022 大漠穷秋.
@@ -8790,7 +8603,7 @@
    * //FIXME:需要扩展一个注册方法，让外部使用方把自己扩展的组件注册进来，否则无法序列化和反解析。
    */
 
-  const componentTypeMap = Object.fromEntries(new Map([[ICERect.type, ICERect], [ICECircle.type, ICECircle], [ICEEllipse.type, ICEEllipse], [ICEStar.type, ICEStar], [ICEIsogon.type, ICEIsogon], [ICEText.type, ICEText], [ICEImage.type, ICEImage], [ICEGroup.type, ICEGroup], [ICEVisioLink.type, ICEVisioLink], [ICEPolyLine.type, ICEPolyLine]]));
+  const componentTypeMap = Object.fromEntries(new Map([['ICERect', ICERect], ['ICECircle', ICECircle], ['ICEEllipse', ICEEllipse], ['ICEStar', ICEStar], ['ICEIsogon', ICEIsogon], ['ICEText', ICEText], ['ICEImage', ICEImage], ['ICEGroup', ICEGroup], ['ICEVisioLink', ICEVisioLink], ['ICEPolyLine', ICEPolyLine]]));
 
   /**
    * @class Deserializer
@@ -8808,20 +8621,27 @@
 
     fromJSON(jsonStr) {
       const jsonObj = JSON.parse(jsonStr);
+      console.log(jsonObj);
       const childNodes = jsonObj.childNodes;
 
       for (let i = 0; i < childNodes.length; i++) {
-        const node = childNodes[i];
-        const Clazz = componentTypeMap[node.type]; // const props = node.props;
-
-        const state = node.state;
-        const instance = new Clazz(state); // instance.setState(state);
-
-        this.ice.addChild(instance);
-        return {};
+        this.decodeRecursively(this.ice, childNodes[i]);
       }
+    } //递归
 
-      return {};
+
+    decodeRecursively(parentNode, nodeData) {
+      const Clazz = componentTypeMap[nodeData.type];
+      const state = nodeData.state;
+      const instance = new Clazz(state);
+      parentNode.addChild(instance);
+      let childNodes = nodeData.childNodes;
+
+      if (childNodes && childNodes.length) {
+        for (let i = 0; i < childNodes.length; i++) {
+          this.decodeRecursively(instance, childNodes[i]);
+        }
+      }
     }
 
   }
@@ -8854,17 +8674,31 @@
         childNodes: []
       };
       this.ice.childNodes.forEach(child => {
-        if (child instanceof ICEControlPanel) {
+        if (child instanceof ICEControlPanel || child.parentNode instanceof ICEControlPanel || child instanceof ICELinkSlot || child instanceof ICELinkHook) {
           console.warn('控制手柄类型的组件不需要存储...', child);
           return;
         }
 
-        if (child.toJSON()) {
-          result.childNodes.push(child.toJSON());
-        }
+        this.encodeRecursively(child, result);
       });
       console.log(result);
       return JSON.stringify(result);
+    } //递归序列化
+
+
+    encodeRecursively(component, parentData) {
+      let currentData = {
+        state: component.state,
+        type: component.constructor.name,
+        childNodes: []
+      };
+      parentData.childNodes.push(currentData);
+
+      if (component.childNodes && component.childNodes.length) {
+        for (let i = 0; i < component.childNodes.length; i++) {
+          this.encodeRecursively(component.childNodes[i], currentData);
+        }
+      }
     }
 
   }
@@ -8882,6 +8716,8 @@
       _defineProperty(this, "ice", void 0);
 
       _defineProperty(this, "stopped", false);
+
+      _defineProperty(this, "cacheArr", []);
 
       this.ice = ice;
     }
@@ -8901,32 +8737,36 @@
 
 
     frameEvtHandler(evt) {
-      if (this.stopped) return;
-      console.log('CanvasRenderer...');
       this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
+
+      if (this.stopped) {
+        this.cacheArr = [];
+        return;
+      }
+
       if (!this.ice.childNodes || !this.ice.childNodes.length) return; //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
 
-      let arr = Array.from(this.ice.childNodes);
-      arr.sort((firstEl, secondEl) => {
+      this.cacheArr = Array.from(this.ice.childNodes);
+      this.cacheArr.sort((firstEl, secondEl) => {
         return firstEl.state.zIndex - secondEl.state.zIndex;
       });
-      arr.forEach(component => {
+      this.cacheArr.forEach(component => {
         this.renderRecursively(component);
       });
     }
 
     renderRecursively(component) {
-      if (this.stopped) return;
+      if (this.stopped) {
+        this.cacheArr = [];
+        return;
+      }
+
       this.trigger(ICE_CONSTS.BEFORE_RENDER, null, {
         component: component
       });
       component.trigger(ICE_CONSTS.BEFORE_RENDER);
 
-      if (component.state.isRendering) {
-        return;
-      }
-
-      if (!component.state.display) {
+      if (component.state.isRendering || !component.state.display) {
         return;
       } //先渲染自己
 
@@ -9101,9 +8941,10 @@
       });
     }
 
-    clearRenderMap() {
-      //FIXME:不删除编辑工具类型的实例。
-      this.removeChildren(this.childNodes);
+    clearAll() {
+      console.log('before clear>', this.childNodes);
+      this.removeChildren([...this.childNodes]);
+      console.log('after clear>', this.childNodes);
     }
     /**
      * 把对象序列化成 JSON 字符串：
@@ -9115,10 +8956,12 @@
 
     toJSON() {
       return this.serializer.toJSON();
-    }
+    } //FIXME:从 JSON 数据反序列化需要的处理时间可能会比较长，需要防止 fromJSON() 方法被高频调用导致的问题。
+
 
     fromJSON(jsonStr) {
-      //先停止关键的管理器
+      let startTime = new Date().getTime(); //先停止关键的管理器
+
       FrameManager.stop();
       this.renderer.stop();
       this.eventBridge.stopped = true;
@@ -9126,9 +8969,10 @@
       this.ddManager.stop();
       this.controlPanelManager.stop();
       this.linkSlotManager.stop();
-      this.clearRenderMap(); //反序列化，创建组件实例
+      this.clearAll(); //反序列化，创建组件实例
 
-      this.deserializer.fromJSON(jsonStr); //重新启动关键管理器
+      this.deserializer.fromJSON(jsonStr);
+      console.log('deserialize>', this.childNodes); //重新启动关键管理器
 
       FrameManager.start();
       this.renderer.start();
@@ -9138,7 +8982,9 @@
       this.linkSlotManager.start();
       setTimeout(() => {
         this.eventBridge.stopped = false;
-      }, 0);
+      }, 300);
+      let endTime = new Date().getTime();
+      console.log(`fromJSON> ${endTime - startTime} ms`);
     }
 
   }
@@ -9154,6 +9000,9 @@
   document.querySelector('#btn-2').addEventListener('click', (evt) => {
     const jsonStr = window.localStorage.getItem('json-data');
     ice.fromJSON(jsonStr);
+  });
+  document.querySelector('#btn-3').addEventListener('click', (evt) => {
+    ice.clearAll();
   });
 
   // let heart = new ICEHeart();
@@ -9372,88 +9221,88 @@
   // let path = new ICEDotPath({ dots: [p1, p2, p3, p4] });
   // ice.addChild(path);
 
-  // let g = new ICEGroup({
-  //   left: 100,
-  //   top: 100,
-  //   width: 300,
-  //   height: 200,
-  //   style: {
-  //     strokeStyle: '#fa0404',
-  //     fillStyle: '#beffff',
-  //     lineWidth: 1,
-  //   },
-  //   transform: {
-  //     // translate: [10, -10],
-  //     scale: [1.5, 1.5],
-  //     // skew: [50, 0],
-  //     rotate: 45,
-  //   },
-  // });
-  // ice.addChild(g);
-  // g.setState({
-  //   transform: {
-  //     scale: [1.2, 1.2],
-  //   },
-  // });
+  let g = new ICEGroup({
+    left: 100,
+    top: 100,
+    width: 300,
+    height: 200,
+    style: {
+      strokeStyle: '#fa0404',
+      fillStyle: '#beffff',
+      lineWidth: 1,
+    },
+    transform: {
+      // translate: [10, -10],
+      scale: [1.5, 1.5],
+      // skew: [50, 0],
+      rotate: 45,
+    },
+  });
+  ice.addChild(g);
+  g.setState({
+    transform: {
+      scale: [1.2, 1.2],
+    },
+  });
 
-  // let group1 = new ICEGroup({
-  //   left: 10,
-  //   top: 10,
-  //   width: 200,
-  //   height: 100,
-  //   style: {
-  //     strokeStyle: '#fa0404',
-  //     fillStyle: '#37dd0d',
-  //     lineWidth: 1,
-  //   },
-  //   transform: {
-  //     // translate: [10, -10],
-  //     // scale: [1, 1],
-  //     rotate: 0,
-  //   },
-  // });
-  // g.addChild(group1);
+  let group1 = new ICEGroup({
+    left: 10,
+    top: 10,
+    width: 200,
+    height: 100,
+    style: {
+      strokeStyle: '#fa0404',
+      fillStyle: '#37dd0d',
+      lineWidth: 1,
+    },
+    transform: {
+      // translate: [10, -10],
+      // scale: [1, 1],
+      rotate: 0,
+    },
+  });
+  g.addChild(group1);
 
-  // let group2 = new ICEGroup({
-  //   left: 10,
-  //   top: 10,
-  //   width: 100,
-  //   height: 50,
-  //   style: {
-  //     strokeStyle: '#fa0404',
-  //     fillStyle: '#08b2dd',
-  //     lineWidth: 1,
-  //   },
-  //   transform: {
-  //     // translate: [10, -10],
-  //     // scale: [1, 1],
-  //     rotate: 10,
-  //   },
-  // });
-  // group1.addChild(group2);
+  let group2 = new ICEGroup({
+    left: 10,
+    top: 10,
+    width: 100,
+    height: 50,
+    style: {
+      strokeStyle: '#fa0404',
+      fillStyle: '#08b2dd',
+      lineWidth: 1,
+    },
+    transform: {
+      // translate: [10, -10],
+      // scale: [1, 1],
+      rotate: 10,
+    },
+  });
+  group1.addChild(group2);
 
-  // group2.addChild(
-  //   new ICECircle({
-  //     left: 20,
-  //     top: 10,
-  //     radius: 10,
-  //     transform: {
-  //       rotate: 45,
-  //     },
-  //   })
-  // );
+  group2.addChild(
+    new ICECircle({
+      left: 20,
+      top: 10,
+      radius: 10,
+      transform: {
+        rotate: 45,
+      },
+    })
+  );
 
-  // group2.addChild(
-  //   new ICERect({
-  //     left: 60,
-  //     top: 10,
-  //     width: 30,
-  //     height: 20,
-  //     transform: {
-  //       rotate: 0,
-  //     },
-  //   })
-  // );
+  group2.addChild(
+    new ICERect({
+      left: 60,
+      top: 10,
+      width: 30,
+      height: 20,
+      transform: {
+        rotate: 0,
+      },
+    })
+  );
 
   // let group1 = new ICEGroup({
   //   left: 100,

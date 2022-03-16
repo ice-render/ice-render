@@ -26,16 +26,16 @@ import ICEText from './graphic/text/ICEText';
  */
 const componentTypeMap = Object.fromEntries(
   new Map([
-    [ICERect.type, ICERect],
-    [ICECircle.type, ICECircle],
-    [ICEEllipse.type, ICEEllipse],
-    [ICEStar.type, ICEStar],
-    [ICEIsogon.type, ICEIsogon],
-    [ICEText.type, ICEText],
-    [ICEImage.type, ICEImage],
-    [ICEGroup.type, ICEGroup],
-    [ICEVisioLink.type, ICEVisioLink],
-    [ICEPolyLine.type, ICEPolyLine],
+    ['ICERect', ICERect],
+    ['ICECircle', ICECircle],
+    ['ICEEllipse', ICEEllipse],
+    ['ICEStar', ICEStar],
+    ['ICEIsogon', ICEIsogon],
+    ['ICEText', ICEText],
+    ['ICEImage', ICEImage],
+    ['ICEGroup', ICEGroup],
+    ['ICEVisioLink', ICEVisioLink],
+    ['ICEPolyLine', ICEPolyLine],
   ])
 );
 

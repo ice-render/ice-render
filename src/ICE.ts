@@ -121,6 +121,7 @@ class ICE {
     if (this.childNodes.indexOf(component) !== -1) return;
 
     component.trigger(ICE_CONSTS.BEFORE_ADD);
+
     component.ice = this;
     component.root = this.root;
     component.ctx = this.ctx;
@@ -129,6 +130,7 @@ class ICE {
     if (Object.keys(component.props.animations).length) {
       this.animationManager.add(component);
     }
+
     component.trigger(ICE_CONSTS.AFTER_ADD);
   }
 
@@ -149,9 +151,10 @@ class ICE {
     });
   }
 
-  public clearRenderMap() {
-    //FIXME:不删除编辑工具类型的实例。
-    this.removeChildren(this.childNodes);
+  public clearAll() {
+    console.log('before clear>', this.childNodes);
+    this.removeChildren([...this.childNodes]);
+    console.log('after clear>', this.childNodes);
   }
 
   /**
@@ -164,7 +167,10 @@ class ICE {
     return this.serializer.toJSON();
   }
 
+  //FIXME:从 JSON 数据反序列化需要的处理时间可能会比较长，需要防止 fromJSON() 方法被高频调用导致的问题。
   public fromJSON(jsonStr: string) {
+    let startTime = new Date().getTime();
+
     //先停止关键的管理器
     FrameManager.stop();
     this.renderer.stop();
@@ -174,9 +180,11 @@ class ICE {
     this.controlPanelManager.stop();
     this.linkSlotManager.stop();
 
-    this.clearRenderMap();
+    this.clearAll();
     //反序列化，创建组件实例
     this.deserializer.fromJSON(jsonStr);
+
+    console.log('deserialize>', this.childNodes);
 
     //重新启动关键管理器
     FrameManager.start();
@@ -187,7 +195,10 @@ class ICE {
     this.linkSlotManager.start();
     setTimeout(() => {
       this.eventBridge.stopped = false;
-    }, 0);
+    }, 300);
+
+    let endTime = new Date().getTime();
+    console.log(`fromJSON> ${endTime - startTime} ms`);
   }
 }
 

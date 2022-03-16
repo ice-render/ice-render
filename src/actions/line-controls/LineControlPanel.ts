@@ -33,7 +33,13 @@ export default class LineControlPanel extends ICEControlPanel {
   private endControl: ICELinkHook;
 
   constructor(props) {
-    super({ ...props, zIndex: Number.MAX_VALUE, showMinBoundingBox: false, showMaxBoundingBox: false });
+    super({
+      ...props,
+      zIndex: Number.MAX_VALUE,
+      linkable: false,
+      showMinBoundingBox: false,
+      showMaxBoundingBox: false,
+    });
     this.initControls();
   }
 

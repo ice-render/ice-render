@@ -5,26 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICEEvent from '../../event/ICEEvent';
 import ICE from '../../ICE';
 import { ICE_CONSTS } from '../../ICE_CONSTS';
 import ICELinkSlot from './ICELinkSlot';
-
-/**
- * 可连接的组件在自己被删除之前，需要把连接插槽全部删掉。
- * 此事件监听器只会执行一次。
- * @param evt
- */
-function slotBeforeRemoveHandler(evt: ICEEvent) {
-  if (!this.linkSlots || !this.linkSlots.length) {
-    return;
-  }
-  this.linkSlots.forEach((slot) => {
-    slot.hostComponent = null;
-    slot.purgeEvents();
-    this.ice.removeChild(slot);
-  });
-}
 
 /**
  * @class ICELinkSlotManager
@@ -61,13 +44,6 @@ export default class ICELinkSlotManager {
     if (!component || !component.state.linkable) {
       return;
     }
-
-    //FIXME:这里需要处理删除事件
-    // console.log(component.hasListener(ICE_CONSTS.BEFORE_REMOVE, slotBeforeRemoveHandler, component));
-
-    // if (!component.hasListener(ICE_CONSTS.BEFORE_REMOVE, slotBeforeRemoveHandler, component)) {
-    //   component.once(ICE_CONSTS.BEFORE_REMOVE, slotBeforeRemoveHandler, component);
-    // }
 
     if (!component.linkSlots || !component.linkSlots.length) {
       this.createLinkSlots(component);

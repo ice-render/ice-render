@@ -489,7 +489,7 @@ abstract class ICEBaseComponent extends ICEEventTarget {
    * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
    */
   public destory(): void {
-    this.trigger(ICE_CONSTS.BEFORE_REMOVE);
+    this.trigger(ICE_CONSTS.BEFORE_REMOVE, null, { component: this });
 
     this.purgeEvents();
 
@@ -498,16 +498,6 @@ abstract class ICEBaseComponent extends ICEEventTarget {
     this.root = null;
     this.evtBus = null;
     this.parentNode = null;
-  }
-
-  /**
-   * 把对象序列化成 JSON 字符串：
-   * - 容器型组件需要负责子节点的序列化操作
-   * - 如果组件不需要序列化，需要返回 null
-   * @returns JSONObject
-   */
-  public toJSON(): object {
-    return { props: this.props, state: this.state };
   }
 }
 
