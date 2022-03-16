@@ -150,6 +150,7 @@ class ICE {
   }
 
   public clearRenderMap() {
+    //FIXME:不删除编辑工具类型的实例。
     this.removeChildren(this.childNodes);
   }
 
@@ -165,21 +166,28 @@ class ICE {
 
   public fromJSON(jsonStr: string) {
     //先停止关键的管理器
+    FrameManager.stop();
+    this.renderer.stop();
     this.eventBridge.stopped = true;
     this.animationManager.stop();
     this.ddManager.stop();
     this.controlPanelManager.stop();
     this.linkSlotManager.stop();
 
+    this.clearRenderMap();
     //反序列化，创建组件实例
     this.deserializer.fromJSON(jsonStr);
 
     //重新启动关键管理器
-    this.eventBridge.stopped = false;
+    FrameManager.start();
+    this.renderer.start();
     this.animationManager.start();
     this.ddManager.start();
     this.controlPanelManager.start();
     this.linkSlotManager.start();
+    setTimeout(() => {
+      this.eventBridge.stopped = false;
+    }, 0);
   }
 }
 

@@ -23,7 +23,6 @@ export default class Deserializer {
   }
 
   public fromJSON(jsonStr: string) {
-    this.ice.clearRenderMap();
     const jsonObj = JSON.parse(jsonStr);
     const childNodes = jsonObj.childNodes;
     for (let i = 0; i < childNodes.length; i++) {

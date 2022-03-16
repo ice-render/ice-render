@@ -18,402 +18,57 @@
     return obj;
   }
 
+  var IDX=256, HEX=[], BUFFER;
+  while (IDX--) HEX[IDX] = (IDX + 256).toString(16).substring(1);
+
+  function v4() {
+  	var i=0, num, out='';
+
+  	if (!BUFFER || ((IDX + 16) > 256)) {
+  		BUFFER = Array(i=256);
+  		while (i--) BUFFER[i] = 256 * Math.random() | 0;
+  		i = IDX = 0;
+  	}
+
+  	for (; i < 16; i++) {
+  		num = BUFFER[IDX + i];
+  		if (i==6) out += HEX[num & 15 | 64];
+  		else if (i==8) out += HEX[num & 63 | 128];
+  		else out += HEX[num];
+
+  		if (i & 1 && i > 1 && i < 11) out += '-';
+  	}
+
+  	IDX++;
+  	return out;
+  }
+
   /**
-   * Checks if `value` is `null` or `undefined`.
+   * Checks if `value` is classified as an `Array` object.
    *
    * @static
    * @memberOf _
-   * @since 4.0.0
+   * @since 0.1.0
    * @category Lang
    * @param {*} value The value to check.
-   * @returns {boolean} Returns `true` if `value` is nullish, else `false`.
+   * @returns {boolean} Returns `true` if `value` is an array, else `false`.
    * @example
    *
-   * _.isNil(null);
+   * _.isArray([1, 2, 3]);
    * // => true
    *
-   * _.isNil(void 0);
-   * // => true
+   * _.isArray(document.body.children);
+   * // => false
    *
-   * _.isNil(NaN);
+   * _.isArray('abc');
+   * // => false
+   *
+   * _.isArray(_.noop);
    * // => false
    */
-  function isNil(value) {
-    return value == null;
-  }
+  var isArray = Array.isArray;
 
-  var isNil_1 = isNil;
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-
-  /**
-   * FIXME: 与 ICEPoint 合并。
-   *
-   * @class GeoPoint
-   * A geometrically point, invisible, no dimension, just used for mathematical operations.
-   * This implementation is improved from http://diagramo.com/ .
-   *
-   *
-   * 几何学意义上的点，它不可见，没有大小，用来进行数学运算。此实现从 diagramo 改进而来：http://diagramo.com/ 。
-   *
-   * @docauthor 大漠穷秋 <damoqiongqiu@126.com>
-   */
-  class GeoPoint {
-    /**
-     * @constructor GeoPoint
-     * @param {*} x
-     * @param {*} y
-     */
-    constructor() {
-      let x = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
-      let y = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
-      this.x = x;
-      this.y = y;
-    }
-    /**
-     *
-     * @method load
-     * Creates a {GeoPoint} out of JSON parsed object.
-     *
-     *
-     * 从 JSON 对象创建 {GeoPoint} 实例。
-     * @param {JSONObject} o the JSON parsed object
-     * @return {GeoPoint} a newly constructed GeoPoint
-     */
-
-
-    static load(o) {
-      return new GeoPoint(Number(o.x), Number(o.y));
-    }
-    /**
-     *
-     * @method loadArray
-     * Creates an array of points from an array of {JSONObject}s.
-     *
-     *
-     * 从 {JSONObject} 数组创建实例。
-     * @param {Array} v the array of JSONObjects
-     * @return an {Array} of {GeoPoint}s
-     */
-
-
-    static loadArray(v) {
-      let newPoints = [];
-
-      for (let i = 0; i < v.length; i++) {
-        newPoints.push(GeoPoint.load(v[i]));
-      }
-
-      return newPoints;
-    }
-    /**
-     *
-     * @method cloneArray
-     * Clones an array of points.
-     *
-     *
-     * 克隆一组点。
-     * @param {Array} v - the array of {GeoPoint}s
-     * @return an {Array} of {GeoPoint}s
-     */
-
-
-    static cloneArray(v) {
-      let newPoints = [];
-
-      for (let i = 0; i < v.length; i++) {
-        newPoints.push(v[i].clone());
-      }
-
-      return newPoints;
-    }
-    /**
-     *
-     * @method pointsToArray
-     * @param {*} points
-     */
-
-
-    static pointsToArray(points) {
-      let result = [];
-
-      for (let i = 0; i < points.length; i++) {
-        result.push([points[i].x, points[i].y]);
-      }
-
-      return result;
-    }
-    /**
-     * @method toArray
-     */
-
-
-    toArray() {
-      return [this.x, this.y];
-    }
-    /**
-     * @method transform
-     * @param {*} matrix
-     */
-
-
-    transform(matrix) {
-      let oldX = this.x;
-      let oldY = this.y;
-      this.x = matrix[0][0] * oldX + matrix[0][1] * oldY + matrix[0][2];
-      this.y = matrix[1][0] * oldX + matrix[1][1] * oldY + matrix[1][2];
-    }
-    /**
-     * @method equals
-     * Tests if this point is equals to other point.
-     *
-     *
-     * 测试当前点是否与另一个点相等。
-     * @param {GeoPoint} anotherPoint - the other point
-     */
-
-
-    equals(anotherPoint) {
-      return this.x == anotherPoint.x && this.y == anotherPoint.y;
-    }
-    /**
-     * @method clone
-     * Clone current GeoPoint.
-     *
-     *
-     * 克隆当前点。
-     */
-
-
-    clone() {
-      let newPoint = new GeoPoint(this.x, this.y);
-      return newPoint;
-    }
-    /**
-     * @method add
-     * @param {*} point
-     */
-
-
-    add(point) {
-      this.x = this.x + point.x;
-      this.y = this.y + point.y;
-      return this;
-    }
-    /**
-     * @method near
-     * Tests to see if a point (x, y) is within a range of current GeoPoint.
-     *
-     *
-     * 测试某个点 (x,y) 是否处于当前 GeoPoint 的某个范围内。
-     * @param {Numeric} x - the x coordinate of tested point
-     * @param {Numeric} y - the x coordinate of tested point
-     * @param {Numeric} radius - the radius of the vicinity
-     */
-
-
-    near(x, y, radius) {
-      let distance = Math.sqrt(Math.pow(this.x - x, 2) + Math.pow(this.y - y, 2));
-      return distance <= radius;
-    }
-    /**
-     * @method toString
-     */
-
-
-    toString() {
-      return '[' + this.x + ',' + this.y + ']';
-    }
-
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  /**
-   * @class GeoLine
-   * A geometrically line, invisible, no dimension, just used for mathematical operations.
-   * This implementation is improved from http://diagramo.com/ .
-   *
-   *
-   * 几何学意义上的直线，它不可见，没有宽度，用来进行数学运算。此实现从 diagramo 改进而来：http://diagramo.com/ 。
-   *
-   * @docauthor 大漠穷秋 <damoqiongqiu@126.com>
-   */
-
-  class GeoLine {
-    constructor(startPoint, endPoint) {
-      this.startPoint = startPoint;
-      this.endPoint = endPoint;
-    }
-    /**
-     *
-     * @method load
-     * Creates a {GeoLine} out of JSON parsed object.
-     *
-     *
-     * 从 JSON 对象创建直线。
-     * @param {JSONObject} o - the JSON parsed object
-     * @return {GeoLine} a newly constructed GeoLine
-     */
-
-
-    static load(o) {
-      let newLine = new GeoLine(GeoPoint.load(o.startPoint), GeoPoint.load(o.endPoint));
-      return newLine;
-    }
-    /**
-     * @method constants
-     * Tests to see if a point belongs to this line (not as infinite line but more like a segment)
-     * Algorithm: Compute line's equation and see if (x, y) verifies it.
-     *
-     * 测试某个点是否位于直线上（这里不是数学意义上的无线延长直线，而是线段）。
-     * 算法：计算斜率，看(x,y)点是否位于线段上。
-     *
-     * @see http://www.jeffreythompson.org/collision-detection/line-point.php
-     * @param {Number} x - the X coordinates
-     * @param {Number} y - the Y coordinates
-     */
-
-
-    contains(x, y) {
-      // if the point is inside rectangle bounds of the segment
-      if (Math.min(this.startPoint.x, this.endPoint.x) <= x && x <= Math.max(this.startPoint.x, this.endPoint.x) && Math.min(this.startPoint.y, this.endPoint.y) <= y && y <= Math.max(this.startPoint.y, this.endPoint.y)) {
-        // check for vertical line
-        if (this.startPoint.x == this.endPoint.x) {
-          return x == this.startPoint.x;
-        } else {
-          // usual (not vertical) line can be represented as y = a * x + b
-          let a = (this.endPoint.y - this.startPoint.y) / (this.endPoint.x - this.startPoint.x);
-          let b = this.startPoint.y - a * this.startPoint.x;
-          return y == a * x + b;
-        }
-      } else {
-        return false;
-      }
-    }
-    /**
-     * @method near
-     * See if we are near a {GeoLine} by a certain radius (also includes the extremities into computation).
-     *
-     *
-     * 测试某个点是否在某个角度上接近 {GeoLine} （断点也计算在内）。
-     *
-     * @param {Number} x - the x coordinates
-     * @param {Number} y - the y coordinates
-     * @param {Number} radius - the radius to search for
-     * @see http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-     * @see "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
-     */
-
-
-    near(x, y, radius) {
-      if (this.endPoint.x === this.startPoint.x) {
-        //Vertical line, so the vicinity area is a rectangle
-        return (this.startPoint.y - radius <= y && this.endPoint.y + radius >= y || this.endPoint.y - radius <= y && this.startPoint.y + radius >= y) && x > this.startPoint.x - radius && x < this.startPoint.x + radius;
-      }
-
-      if (this.startPoint.y === this.endPoint.y) {
-        //Horizontal line, so the vicinity area is a rectangle
-        return (this.startPoint.x - radius <= x && this.endPoint.x + radius >= x || this.endPoint.x - radius <= x && this.startPoint.x + radius >= x) && y > this.startPoint.y - radius && y < this.startPoint.y + radius;
-      }
-
-      let startX = Math.min(this.endPoint.x, this.startPoint.x);
-      let startY = Math.min(this.endPoint.y, this.startPoint.y);
-      let endX = Math.max(this.endPoint.x, this.startPoint.x);
-      let endY = Math.max(this.endPoint.y, this.startPoint.y);
-      /*We will compute the distance from point to the line
-       * by using the algorithm from
-       * http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-       * */
-      //First we need to find a,b,c of the line equation ax + by + c = 0
-
-      let a = this.endPoint.y - this.startPoint.y;
-      let b = this.startPoint.x - this.endPoint.x;
-      let c = -(this.startPoint.x * this.endPoint.y - this.endPoint.x * this.startPoint.y); //Secondly we get the distance "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
-
-      let d = Math.abs((a * x + b * y + c) / Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2))); //Thirdly we get coordinates of closest line's point to target point
-      //http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Cartesian_coordinates
-
-      let closestX = (b * (b * x - a * y) - a * c) / (Math.pow(a, 2) + Math.pow(b, 2));
-      let closestY = (a * (-b * x + a * y) - b * c) / (Math.pow(a, 2) + Math.pow(b, 2));
-      let r = d <= radius && endX >= closestX && closestX >= startX && endY >= closestY && closestY >= startY || //the projection of the point falls INSIDE of the segment
-      this.startPoint.near(x, y, radius) || this.endPoint.near(x, y, radius); //the projection of the point falls OUTSIDE of the segment
-
-      return r;
-    }
-    /**
-     * @method getPoints
-     * Get an arry composed by the start point and end point of the line.
-     *
-     *
-     * 获取端点构成的数组。
-     */
-
-
-    getPoints() {
-      let points = [];
-      points.push(this.startPoint);
-      points.push(this.endPoint);
-      return points;
-    }
-    /**
-     * @method getPoint
-     * Return the {GeoPoint} corresponding the t certain t value.
-     *
-     *
-     * 获取指定百分比上的点，参数 t 是百分比。
-     * @param {Number} t the value of parameter t, where t in [0,1], t is like a percent
-     */
-
-
-    getPoint(t) {
-      let xp = t * (this.endPoint.x - this.startPoint.x) + this.startPoint.x;
-      let yp = t * (this.endPoint.y - this.startPoint.y) + this.startPoint.y;
-      return new GeoPoint(xp, yp);
-    }
-    /**
-     * @method clone
-     */
-
-
-    clone() {
-      let ret = new GeoLine(this.startPoint.clone(), this.endPoint.clone());
-      return ret;
-    }
-    /**
-     * @equals
-     * @param {*} anotherLine
-     */
-
-
-    equals(anotherLine) {
-      if (!(anotherLine instanceof GeoLine)) {
-        return false;
-      }
-
-      return this.startPoint.equals(anotherLine.startPoint) && this.endPoint.equals(anotherLine.endPoint);
-    }
-    /**
-     * @method toString
-     */
-
-
-    toString() {
-      return 'line(' + this.startPoint + ',' + this.endPoint + ')';
-    }
-
-  }
+  var isArray_1 = isArray;
 
   var commonjsGlobal = typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : typeof self !== 'undefined' ? self : {};
 
@@ -433,76 +88,6 @@
   var root = _freeGlobal || freeSelf || Function('return this')();
 
   var _root = root;
-
-  /** Used to match a single whitespace character. */
-  var reWhitespace = /\s/;
-
-  /**
-   * Used by `_.trim` and `_.trimEnd` to get the index of the last non-whitespace
-   * character of `string`.
-   *
-   * @private
-   * @param {string} string The string to inspect.
-   * @returns {number} Returns the index of the last non-whitespace character.
-   */
-  function trimmedEndIndex(string) {
-    var index = string.length;
-
-    while (index-- && reWhitespace.test(string.charAt(index))) {}
-    return index;
-  }
-
-  var _trimmedEndIndex = trimmedEndIndex;
-
-  /** Used to match leading whitespace. */
-  var reTrimStart = /^\s+/;
-
-  /**
-   * The base implementation of `_.trim`.
-   *
-   * @private
-   * @param {string} string The string to trim.
-   * @returns {string} Returns the trimmed string.
-   */
-  function baseTrim(string) {
-    return string
-      ? string.slice(0, _trimmedEndIndex(string) + 1).replace(reTrimStart, '')
-      : string;
-  }
-
-  var _baseTrim = baseTrim;
-
-  /**
-   * Checks if `value` is the
-   * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
-   * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
-   *
-   * @static
-   * @memberOf _
-   * @since 0.1.0
-   * @category Lang
-   * @param {*} value The value to check.
-   * @returns {boolean} Returns `true` if `value` is an object, else `false`.
-   * @example
-   *
-   * _.isObject({});
-   * // => true
-   *
-   * _.isObject([1, 2, 3]);
-   * // => true
-   *
-   * _.isObject(_.noop);
-   * // => true
-   *
-   * _.isObject(null);
-   * // => false
-   */
-  function isObject(value) {
-    var type = typeof value;
-    return value != null && (type == 'object' || type == 'function');
-  }
-
-  var isObject_1 = isObject;
 
   /** Built-in value references. */
   var Symbol = _root.Symbol;
@@ -659,704 +244,359 @@
 
   var isSymbol_1 = isSymbol;
 
-  /** Used as references for various `Number` constants. */
-  var NAN = 0 / 0;
-
-  /** Used to detect bad signed hexadecimal string values. */
-  var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
-
-  /** Used to detect binary string values. */
-  var reIsBinary = /^0b[01]+$/i;
-
-  /** Used to detect octal string values. */
-  var reIsOctal = /^0o[0-7]+$/i;
-
-  /** Built-in method references without a dependency on `root`. */
-  var freeParseInt = parseInt;
+  /** Used to match property names within property paths. */
+  var reIsDeepProp = /\.|\[(?:[^[\]]*|(["'])(?:(?!\1)[^\\]|\\.)*?\1)\]/,
+      reIsPlainProp = /^\w*$/;
 
   /**
-   * Converts `value` to a number.
-   *
-   * @static
-   * @memberOf _
-   * @since 4.0.0
-   * @category Lang
-   * @param {*} value The value to process.
-   * @returns {number} Returns the number.
-   * @example
-   *
-   * _.toNumber(3.2);
-   * // => 3.2
-   *
-   * _.toNumber(Number.MIN_VALUE);
-   * // => 5e-324
-   *
-   * _.toNumber(Infinity);
-   * // => Infinity
-   *
-   * _.toNumber('3.2');
-   * // => 3.2
-   */
-  function toNumber(value) {
-    if (typeof value == 'number') {
-      return value;
-    }
-    if (isSymbol_1(value)) {
-      return NAN;
-    }
-    if (isObject_1(value)) {
-      var other = typeof value.valueOf == 'function' ? value.valueOf() : value;
-      value = isObject_1(other) ? (other + '') : other;
-    }
-    if (typeof value != 'string') {
-      return value === 0 ? value : +value;
-    }
-    value = _baseTrim(value);
-    var isBinary = reIsBinary.test(value);
-    return (isBinary || reIsOctal.test(value))
-      ? freeParseInt(value.slice(2), isBinary ? 2 : 8)
-      : (reIsBadHex.test(value) ? NAN : +value);
-  }
-
-  var toNumber_1 = toNumber;
-
-  /** Used as references for various `Number` constants. */
-  var INFINITY = 1 / 0,
-      MAX_INTEGER = 1.7976931348623157e+308;
-
-  /**
-   * Converts `value` to a finite number.
-   *
-   * @static
-   * @memberOf _
-   * @since 4.12.0
-   * @category Lang
-   * @param {*} value The value to convert.
-   * @returns {number} Returns the converted number.
-   * @example
-   *
-   * _.toFinite(3.2);
-   * // => 3.2
-   *
-   * _.toFinite(Number.MIN_VALUE);
-   * // => 5e-324
-   *
-   * _.toFinite(Infinity);
-   * // => 1.7976931348623157e+308
-   *
-   * _.toFinite('3.2');
-   * // => 3.2
-   */
-  function toFinite(value) {
-    if (!value) {
-      return value === 0 ? value : 0;
-    }
-    value = toNumber_1(value);
-    if (value === INFINITY || value === -INFINITY) {
-      var sign = (value < 0 ? -1 : 1);
-      return sign * MAX_INTEGER;
-    }
-    return value === value ? value : 0;
-  }
-
-  var toFinite_1 = toFinite;
-
-  /**
-   * Converts `value` to an integer.
-   *
-   * **Note:** This method is loosely based on
-   * [`ToInteger`](http://www.ecma-international.org/ecma-262/7.0/#sec-tointeger).
-   *
-   * @static
-   * @memberOf _
-   * @since 4.0.0
-   * @category Lang
-   * @param {*} value The value to convert.
-   * @returns {number} Returns the converted integer.
-   * @example
-   *
-   * _.toInteger(3.2);
-   * // => 3
-   *
-   * _.toInteger(Number.MIN_VALUE);
-   * // => 0
-   *
-   * _.toInteger(Infinity);
-   * // => 1.7976931348623157e+308
-   *
-   * _.toInteger('3.2');
-   * // => 3
-   */
-  function toInteger(value) {
-    var result = toFinite_1(value),
-        remainder = result % 1;
-
-    return result === result ? (remainder ? result - remainder : result) : 0;
-  }
-
-  var toInteger_1 = toInteger;
-
-  /**
-   * A specialized version of `_.map` for arrays without support for iteratee
-   * shorthands.
+   * Checks if `value` is a property name and not a property path.
    *
    * @private
-   * @param {Array} [array] The array to iterate over.
-   * @param {Function} iteratee The function invoked per iteration.
-   * @returns {Array} Returns the new mapped array.
+   * @param {*} value The value to check.
+   * @param {Object} [object] The object to query keys on.
+   * @returns {boolean} Returns `true` if `value` is a property name, else `false`.
    */
-  function arrayMap(array, iteratee) {
-    var index = -1,
-        length = array == null ? 0 : array.length,
-        result = Array(length);
-
-    while (++index < length) {
-      result[index] = iteratee(array[index], index, array);
+  function isKey(value, object) {
+    if (isArray_1(value)) {
+      return false;
     }
-    return result;
+    var type = typeof value;
+    if (type == 'number' || type == 'symbol' || type == 'boolean' ||
+        value == null || isSymbol_1(value)) {
+      return true;
+    }
+    return reIsPlainProp.test(value) || !reIsDeepProp.test(value) ||
+      (object != null && value in Object(object));
   }
 
-  var _arrayMap = arrayMap;
+  var _isKey = isKey;
 
   /**
-   * Checks if `value` is classified as an `Array` object.
+   * Checks if `value` is the
+   * [language type](http://www.ecma-international.org/ecma-262/7.0/#sec-ecmascript-language-types)
+   * of `Object`. (e.g. arrays, functions, objects, regexes, `new Number(0)`, and `new String('')`)
    *
    * @static
    * @memberOf _
    * @since 0.1.0
    * @category Lang
    * @param {*} value The value to check.
-   * @returns {boolean} Returns `true` if `value` is an array, else `false`.
+   * @returns {boolean} Returns `true` if `value` is an object, else `false`.
    * @example
    *
-   * _.isArray([1, 2, 3]);
+   * _.isObject({});
    * // => true
    *
-   * _.isArray(document.body.children);
-   * // => false
+   * _.isObject([1, 2, 3]);
+   * // => true
    *
-   * _.isArray('abc');
-   * // => false
+   * _.isObject(_.noop);
+   * // => true
    *
-   * _.isArray(_.noop);
+   * _.isObject(null);
    * // => false
    */
-  var isArray = Array.isArray;
-
-  var isArray_1 = isArray;
-
-  /** Used as references for various `Number` constants. */
-  var INFINITY$1 = 1 / 0;
-
-  /** Used to convert symbols to primitives and strings. */
-  var symbolProto = _Symbol ? _Symbol.prototype : undefined,
-      symbolToString = symbolProto ? symbolProto.toString : undefined;
-
-  /**
-   * The base implementation of `_.toString` which doesn't convert nullish
-   * values to empty strings.
-   *
-   * @private
-   * @param {*} value The value to process.
-   * @returns {string} Returns the string.
-   */
-  function baseToString(value) {
-    // Exit early for strings to avoid a performance hit in some environments.
-    if (typeof value == 'string') {
-      return value;
-    }
-    if (isArray_1(value)) {
-      // Recursively convert values (susceptible to call stack limits).
-      return _arrayMap(value, baseToString) + '';
-    }
-    if (isSymbol_1(value)) {
-      return symbolToString ? symbolToString.call(value) : '';
-    }
-    var result = (value + '');
-    return (result == '0' && (1 / value) == -INFINITY$1) ? '-0' : result;
+  function isObject(value) {
+    var type = typeof value;
+    return value != null && (type == 'object' || type == 'function');
   }
 
-  var _baseToString = baseToString;
+  var isObject_1 = isObject;
+
+  /** `Object#toString` result references. */
+  var asyncTag = '[object AsyncFunction]',
+      funcTag = '[object Function]',
+      genTag = '[object GeneratorFunction]',
+      proxyTag = '[object Proxy]';
 
   /**
-   * Converts `value` to a string. An empty string is returned for `null`
-   * and `undefined` values. The sign of `-0` is preserved.
+   * Checks if `value` is classified as a `Function` object.
    *
    * @static
    * @memberOf _
-   * @since 4.0.0
+   * @since 0.1.0
    * @category Lang
-   * @param {*} value The value to convert.
-   * @returns {string} Returns the converted string.
+   * @param {*} value The value to check.
+   * @returns {boolean} Returns `true` if `value` is a function, else `false`.
    * @example
    *
-   * _.toString(null);
-   * // => ''
+   * _.isFunction(_);
+   * // => true
    *
-   * _.toString(-0);
-   * // => '-0'
-   *
-   * _.toString([1, 2, 3]);
-   * // => '1,2,3'
+   * _.isFunction(/abc/);
+   * // => false
    */
-  function toString(value) {
-    return value == null ? '' : _baseToString(value);
+  function isFunction(value) {
+    if (!isObject_1(value)) {
+      return false;
+    }
+    // The use of `Object#toString` avoids issues with the `typeof` operator
+    // in Safari 9 which returns 'object' for typed arrays and other constructors.
+    var tag = _baseGetTag(value);
+    return tag == funcTag || tag == genTag || tag == asyncTag || tag == proxyTag;
   }
 
-  var toString_1 = toString;
+  var isFunction_1 = isFunction;
 
-  /* Built-in method references for those with the same name as other `lodash` methods. */
-  var nativeIsFinite = _root.isFinite,
-      nativeMin = Math.min;
+  /** Used to detect overreaching core-js shims. */
+  var coreJsData = _root['__core-js_shared__'];
+
+  var _coreJsData = coreJsData;
+
+  /** Used to detect methods masquerading as native. */
+  var maskSrcKey = (function() {
+    var uid = /[^.]+$/.exec(_coreJsData && _coreJsData.keys && _coreJsData.keys.IE_PROTO || '');
+    return uid ? ('Symbol(src)_1.' + uid) : '';
+  }());
 
   /**
-   * Creates a function like `_.round`.
+   * Checks if `func` has its source masked.
    *
    * @private
-   * @param {string} methodName The name of the `Math` method to use when rounding.
-   * @returns {Function} Returns the new round function.
+   * @param {Function} func The function to check.
+   * @returns {boolean} Returns `true` if `func` is masked, else `false`.
    */
-  function createRound(methodName) {
-    var func = Math[methodName];
-    return function(number, precision) {
-      number = toNumber_1(number);
-      precision = precision == null ? 0 : nativeMin(toInteger_1(precision), 292);
-      if (precision && nativeIsFinite(number)) {
-        // Shift with exponential notation to avoid floating-point issues.
-        // See [MDN](https://mdn.io/round#Examples) for more details.
-        var pair = (toString_1(number) + 'e').split('e'),
-            value = func(pair[0] + 'e' + (+pair[1] + precision));
-
-        pair = (toString_1(value) + 'e').split('e');
-        return +(pair[0] + 'e' + (+pair[1] - precision));
-      }
-      return func(number);
-    };
+  function isMasked(func) {
+    return !!maskSrcKey && (maskSrcKey in func);
   }
 
-  var _createRound = createRound;
+  var _isMasked = isMasked;
+
+  /** Used for built-in method references. */
+  var funcProto = Function.prototype;
+
+  /** Used to resolve the decompiled source of functions. */
+  var funcToString = funcProto.toString;
 
   /**
-   * Computes `number` rounded to `precision`.
+   * Converts `func` to its source code.
    *
-   * @static
-   * @memberOf _
-   * @since 3.10.0
-   * @category Math
-   * @param {number} number The number to round.
-   * @param {number} [precision=0] The precision to round to.
-   * @returns {number} Returns the rounded number.
-   * @example
-   *
-   * _.round(4.006);
-   * // => 4
-   *
-   * _.round(4.006, 2);
-   * // => 4.01
-   *
-   * _.round(4060, -2);
-   * // => 4100
+   * @private
+   * @param {Function} func The function to convert.
+   * @returns {string} Returns the source code.
    */
-  var round = _createRound('round');
-
-  var round_1 = round;
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  class GeoUtil {
-    constructor() {
-      throw new Error('GeoUtil is a static util class.');
+  function toSource(func) {
+    if (func != null) {
+      try {
+        return funcToString.call(func);
+      } catch (e) {}
+      try {
+        return (func + '');
+      } catch (e) {}
     }
-    /**
-     * 判断一个坐标点是否包含在图元内部。
-     * @param component
-     * @param point
-     * @returns
-     */
-
-
-    static containsPoint(component, point) {
-      return false;
-    }
-    /**
-     * 判断两个图元是否相交。
-     * @param a 第一个图元
-     * @param b 第二个图元
-     * @returns
-     */
-
-
-    static isIntersect(a, b) {
-      return false;
-    }
-    /**
-     * 已知两点坐标，求线段长度。
-     * @param x1
-     * @param y1
-     * @param x2
-     * @param y2
-     */
-
-
-    static getLength(x1, y1, x2, y2) {
-      return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
-    }
-    /**
-     *
-     * 已知向量原点和向量坐标值，求向量相对于 X 轴正向的旋转角度。
-     *
-     * 两个点需要处于同一个坐标系中。
-     *
-     * rotateAngle 的数值范围限定在 [0,360] 度之间，闭区间。
-     *
-     * @param x
-     * @param y
-     * @param originX
-     * @param originY
-     * @returns
-     */
-
-
-    static calcRotateAngle(x, y, originX, originY) {
-      let offsetX = x - originX;
-      let offsetY = y - originY;
-      let cos = offsetX / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-      let sin = offsetY / Math.sqrt(offsetX * offsetX + offsetY * offsetY); //Math.acos 的返回值处于 [0,PI] 之间，根据 sin 的正负号进行判断之后， rotateAngle 处于 [-180,180] 度之间
-      //先加 360 度，保证 rotateAngle 为正值，再对 360 取模，最终让 rotateAngle 的返回值始终处于 [0,360] 度之间
-
-      let sign = sin < 0 ? -1 : 1;
-      let rotateAngle = sign * Math.acos(cos) * 180 / Math.PI + 360;
-      rotateAngle = rotateAngle % 360;
-      return rotateAngle;
-    }
-    /**
-     * 2D 向量叉乘。
-     *
-     * 两个点需要处于同一个坐标系中。
-     *
-     * @param x1
-     * @param y1
-     * @param x2
-     * @param y2
-     * @returns
-     */
-
-
-    static crossProduct(x1, y1, x2, y2) {
-      //FIXME:需要确认计算公式是否正确
-      let result = x1 * y2 - x2 * y1;
-      return round_1(result, 2);
-    }
-    /**
-     * 2D 向量点乘。
-     *
-     * 两个点需要处于同一个坐标系中。
-     *
-     * @param x1
-     * @param y1
-     * @param x2
-     * @param y2
-     * @returns
-     */
-
-
-    static dotProduct(x1, y1, x2, y2) {
-      let result = x1 * x2 + y1 * y2;
-      return round_1(result, 2);
-    }
-
+    return '';
   }
 
+  var _toSource = toSource;
+
   /**
-   * @class ICEBoundingBox 用4点法描述的边界盒子。
-   *
-   * - 边界盒子一定是矩形。
-   * - 边界盒子总是绘制在全局坐标系中。
-   * - 边界盒子总是通过自身的坐标点进行变换，而不是变换 canvas.ctx 。
-   * - 边界盒子总是通过组件的参数计算出来的，直接修改边界盒子不影响组件本身的参数。
-   *
-   * TODO: Wrap up the original DOMPoint and DOMMatrix interfaces, add some util functions.
-   * @see https://developer.mozilla.org/en-US/docs/Web/API/DOMPoint
-   * @see https://developer.mozilla.org/en-US/docs/Web/API/DOMMatrix/DOMMatrix
-   * @author 大漠穷秋<damoqiongqiu@126.com>
+   * Used to match `RegExp`
+   * [syntax characters](http://ecma-international.org/ecma-262/7.0/#sec-patterns).
    */
+  var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
 
-  class ICEBoundingBox {
-    //top-left
-    //top-right
-    //bottom-left
-    //bottom-right
-    //center-point
-    //FIXME:不使用 tl/tr/bl/br 固定4个顶点，顶点不定位
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+  /** Used to detect host constructors (Safari). */
+  var reIsHostCtor = /^\[object .+?Constructor\]$/;
 
-      _defineProperty(this, "tl", new DOMPoint());
+  /** Used for built-in method references. */
+  var funcProto$1 = Function.prototype,
+      objectProto$2 = Object.prototype;
 
-      _defineProperty(this, "tr", new DOMPoint());
+  /** Used to resolve the decompiled source of functions. */
+  var funcToString$1 = funcProto$1.toString;
 
-      _defineProperty(this, "bl", new DOMPoint());
+  /** Used to check objects for own properties. */
+  var hasOwnProperty$1 = objectProto$2.hasOwnProperty;
 
-      _defineProperty(this, "br", new DOMPoint());
+  /** Used to detect if a method is native. */
+  var reIsNative = RegExp('^' +
+    funcToString$1.call(hasOwnProperty$1).replace(reRegExpChar, '\\$&')
+    .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
+  );
 
-      _defineProperty(this, "center", new DOMPoint());
-
-      this.tl = new DOMPoint(props[0], props[1]);
-      this.tr = new DOMPoint(props[2], props[3]);
-      this.bl = new DOMPoint(props[4], props[5]);
-      this.br = new DOMPoint(props[6], props[7]);
-      this.center = new DOMPoint(props[8], props[9]);
-    }
-    /**
-     * 从指定的 top/left/width/height 构建 ICEBoundingBox。
-     * @param left
-     * @param top
-     * @param width
-     * @param height
-     * @returns
-     */
-
-
-    static fromDimension(left, top, width, height) {
-      let tl = [left, top];
-      let tr = [left + width, top];
-      let bl = [left, top + height];
-      let br = [left + width, top + height];
-      let center = [left + width / 2, top + height / 2];
-      let paramArr = [...tl, ...tr, ...bl, ...br, ...center];
-      return new ICEBoundingBox(paramArr);
-    }
-
-    clone() {
-      const tl = DOMPoint.fromPoint(this.tl);
-      const tr = DOMPoint.fromPoint(this.tr);
-      const bl = DOMPoint.fromPoint(this.bl);
-      const br = DOMPoint.fromPoint(this.br);
-      const center = DOMPoint.fromPoint(this.center);
-      return new ICEBoundingBox([tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y, center.x, center.y]);
-    }
-    /**
-     * 判断指定的坐标点是否位于边界矩形内部，向右水平射线法。
-     * 这里参考了 fabricjs 的实现方式。
-     * @see http://fabricjs.com/
-     * @param point
-     * @returns
-     */
-
-
-    containsPoint(point) {
-      //只考虑凸包的情况：[x,y]有一个值位于最大最小值之外，则不可能包含在边界盒子内部。
-      const {
-        minX,
-        minY,
-        maxX,
-        maxY
-      } = this.getMinAndMaxPoint();
-
-      if (point.x < minX || point.x > maxX || point.y < minY || point.y > maxY) {
-        return false;
-      }
-
-      let xcount = 0; //交叉点个数
-
-      let xi; //交点的 x 坐标
-
-      const boudingLines = this.getBoundingLines();
-
-      for (let i = 0; i < boudingLines.length; i++) {
-        const line = boudingLines[i]; //特例1：点位于线段下方，水平射线不可能与线段交叉
-
-        if (point.y > line.o.y && point.y > line.d.y) {
-          continue;
-        } //特例2：点位于线段上方，水平射线不可能与线段交叉
-
-
-        if (point.y < line.o.y && point.y < line.d.y) {
-          continue;
-        }
-
-        if (line.o.x === line.d.x && line.o.x >= point.x) {
-          //特例3：处理垂直于 x 轴（平行于 y 轴）的特殊情况
-          xi = line.o.x;
-        } else {
-          //斜率法求向右的射线与线段的交点 x 坐标
-          const k = (line.d.y - line.o.y) / (line.d.x - line.o.x); //斜率
-
-          xi = line.o.x + (point.y - line.o.y) / k;
-        }
-
-        if (xi > point.x) {
-          //只处理向右侧的射线情况即可
-          xcount++;
-        }
-
-        if (xcount === 2) {
-          continue;
-        }
-      }
-
-      return xcount !== 0 && xcount % 2 === 1;
-    }
-    /**
-     * 获取边界盒子的边所构成的线段，由于边界盒子总是被定义成 4 边形，这里直接简化处理。
-     */
-
-
-    getBoundingLines() {
-      const line_1 = {
-        o: DOMPoint.fromPoint(this.tl),
-        d: DOMPoint.fromPoint(this.tr)
-      }; //o:origin, d:destination
-
-      const line_2 = {
-        o: DOMPoint.fromPoint(this.tr),
-        d: DOMPoint.fromPoint(this.br)
-      };
-      const line_3 = {
-        o: DOMPoint.fromPoint(this.br),
-        d: DOMPoint.fromPoint(this.bl)
-      };
-      const line_4 = {
-        o: DOMPoint.fromPoint(this.bl),
-        d: DOMPoint.fromPoint(this.tl)
-      };
-      return [line_1, line_2, line_3, line_4];
-    }
-    /**
-     * 获取边界盒子 x,y 的最大和最小值
-     * @returns
-     */
-
-
-    getMinAndMaxPoint() {
-      //取任意一个顶点坐标作为初始值，然后与其它3个顶点的坐标进行比较
-      let minX = this.tl.x;
-      let minY = this.tl.y;
-      let maxX = this.tl.x;
-      let maxY = this.tl.y;
-      const arr = [this.tr, this.bl, this.br];
-      arr.forEach(p => {
-        if (p.x < minX) {
-          minX = p.x;
-        }
-
-        if (p.x > maxX) {
-          maxX = p.x;
-        }
-
-        if (p.y < minY) {
-          minY = p.y;
-        }
-
-        if (p.y > maxY) {
-          maxY = p.y;
-        }
-      });
-      return {
-        minX,
-        minY,
-        maxX,
-        maxY
-      };
-    }
-    /**
-     * FIXME:需要实现
-     * 另一个边界盒子是否完全位于当前盒子内部。
-     * @param box
-     * @returns
-     */
-
-
-    containsBox(box) {
+  /**
+   * The base implementation of `_.isNative` without bad shim checks.
+   *
+   * @private
+   * @param {*} value The value to check.
+   * @returns {boolean} Returns `true` if `value` is a native function,
+   *  else `false`.
+   */
+  function baseIsNative(value) {
+    if (!isObject_1(value) || _isMasked(value)) {
       return false;
     }
-    /**
-     * 是否与另一个盒子存在相交的部分。
-     * @param box
-     * @returns
-     */
-
-
-    isIntersect(box) {
-      let left1 = this.tl.x;
-      let right1 = this.br.x;
-      let top1 = this.tl.y;
-      let bottom1 = this.br.y;
-      let left2 = box.tl.x;
-      let right2 = box.br.x;
-      let top2 = box.tl.y;
-      let bottom2 = box.br.y;
-      let isIntersect = !(left1 > right2 || top1 > bottom2 || right1 < left2 || bottom1 < top2);
-      return isIntersect;
-    }
-    /**
-     * @param matrix
-     * @returns A new ICEBoundingBox instance.
-     */
-
-
-    transform(matrix) {
-      const tl = DOMPoint.fromPoint(this.tl).matrixTransform(matrix);
-      const tr = DOMPoint.fromPoint(this.tr).matrixTransform(matrix);
-      const bl = DOMPoint.fromPoint(this.bl).matrixTransform(matrix);
-      const br = DOMPoint.fromPoint(this.br).matrixTransform(matrix);
-      const center = DOMPoint.fromPoint(this.center).matrixTransform(matrix);
-      return new ICEBoundingBox([tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y, center.x, center.y]);
-    }
-    /**
-     * @param box
-     * @returns A new ICEBoundingBox instance.
-     */
-
-
-    union(box) {
-      return null;
-    }
-
-    get width() {
-      return GeoUtil.getLength(this.br.x, this.br.y, this.bl.x, this.bl.y);
-    }
-
-    get height() {
-      return GeoUtil.getLength(this.br.x, this.br.y, this.tr.x, this.tr.y);
-    }
-
-    get left() {
-      return this.tl.x;
-    } //不允许设置 left 参数
-
-
-    set left(num) {
-      throw new Error('Can not set left to ICEBoundingBox directly.');
-    }
-
-    get top() {
-      return this.tl.y;
-    } //不允许设置 top 参数
-
-
-    set top(num) {
-      throw new Error('Can not set top to ICEBoundingBox directly.');
-    }
-
-    get centerX() {
-      return this.center.x;
-    }
-
-    get centerY() {
-      return this.center.y;
-    }
-
-    get centerPoint() {
-      return this.center;
-    }
-
+    var pattern = isFunction_1(value) ? reIsNative : reIsHostCtor;
+    return pattern.test(_toSource(value));
   }
+
+  var _baseIsNative = baseIsNative;
+
+  /**
+   * Gets the value at `key` of `object`.
+   *
+   * @private
+   * @param {Object} [object] The object to query.
+   * @param {string} key The key of the property to get.
+   * @returns {*} Returns the property value.
+   */
+  function getValue(object, key) {
+    return object == null ? undefined : object[key];
+  }
+
+  var _getValue = getValue;
+
+  /**
+   * Gets the native function at `key` of `object`.
+   *
+   * @private
+   * @param {Object} object The object to query.
+   * @param {string} key The key of the method to get.
+   * @returns {*} Returns the function if it's native, else `undefined`.
+   */
+  function getNative(object, key) {
+    var value = _getValue(object, key);
+    return _baseIsNative(value) ? value : undefined;
+  }
+
+  var _getNative = getNative;
+
+  /* Built-in method references that are verified to be native. */
+  var nativeCreate = _getNative(Object, 'create');
+
+  var _nativeCreate = nativeCreate;
+
+  /**
+   * Removes all key-value entries from the hash.
+   *
+   * @private
+   * @name clear
+   * @memberOf Hash
+   */
+  function hashClear() {
+    this.__data__ = _nativeCreate ? _nativeCreate(null) : {};
+    this.size = 0;
+  }
+
+  var _hashClear = hashClear;
+
+  /**
+   * Removes `key` and its value from the hash.
+   *
+   * @private
+   * @name delete
+   * @memberOf Hash
+   * @param {Object} hash The hash to modify.
+   * @param {string} key The key of the value to remove.
+   * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+   */
+  function hashDelete(key) {
+    var result = this.has(key) && delete this.__data__[key];
+    this.size -= result ? 1 : 0;
+    return result;
+  }
+
+  var _hashDelete = hashDelete;
+
+  /** Used to stand-in for `undefined` hash values. */
+  var HASH_UNDEFINED = '__lodash_hash_undefined__';
+
+  /** Used for built-in method references. */
+  var objectProto$3 = Object.prototype;
+
+  /** Used to check objects for own properties. */
+  var hasOwnProperty$2 = objectProto$3.hasOwnProperty;
+
+  /**
+   * Gets the hash value for `key`.
+   *
+   * @private
+   * @name get
+   * @memberOf Hash
+   * @param {string} key The key of the value to get.
+   * @returns {*} Returns the entry value.
+   */
+  function hashGet(key) {
+    var data = this.__data__;
+    if (_nativeCreate) {
+      var result = data[key];
+      return result === HASH_UNDEFINED ? undefined : result;
+    }
+    return hasOwnProperty$2.call(data, key) ? data[key] : undefined;
+  }
+
+  var _hashGet = hashGet;
+
+  /** Used for built-in method references. */
+  var objectProto$4 = Object.prototype;
+
+  /** Used to check objects for own properties. */
+  var hasOwnProperty$3 = objectProto$4.hasOwnProperty;
+
+  /**
+   * Checks if a hash value for `key` exists.
+   *
+   * @private
+   * @name has
+   * @memberOf Hash
+   * @param {string} key The key of the entry to check.
+   * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+   */
+  function hashHas(key) {
+    var data = this.__data__;
+    return _nativeCreate ? (data[key] !== undefined) : hasOwnProperty$3.call(data, key);
+  }
+
+  var _hashHas = hashHas;
+
+  /** Used to stand-in for `undefined` hash values. */
+  var HASH_UNDEFINED$1 = '__lodash_hash_undefined__';
+
+  /**
+   * Sets the hash `key` to `value`.
+   *
+   * @private
+   * @name set
+   * @memberOf Hash
+   * @param {string} key The key of the value to set.
+   * @param {*} value The value to set.
+   * @returns {Object} Returns the hash instance.
+   */
+  function hashSet(key, value) {
+    var data = this.__data__;
+    this.size += this.has(key) ? 0 : 1;
+    data[key] = (_nativeCreate && value === undefined) ? HASH_UNDEFINED$1 : value;
+    return this;
+  }
+
+  var _hashSet = hashSet;
+
+  /**
+   * Creates a hash object.
+   *
+   * @private
+   * @constructor
+   * @param {Array} [entries] The key-value pairs to cache.
+   */
+  function Hash(entries) {
+    var index = -1,
+        length = entries == null ? 0 : entries.length;
+
+    this.clear();
+    while (++index < length) {
+      var entry = entries[index];
+      this.set(entry[0], entry[1]);
+    }
+  }
+
+  // Add methods to `Hash`.
+  Hash.prototype.clear = _hashClear;
+  Hash.prototype['delete'] = _hashDelete;
+  Hash.prototype.get = _hashGet;
+  Hash.prototype.has = _hashHas;
+  Hash.prototype.set = _hashSet;
+
+  var _Hash = Hash;
 
   /**
    * Removes all key-value entries from the list cache.
@@ -1549,368 +789,10 @@
 
   var _ListCache = ListCache;
 
-  /**
-   * Removes all key-value entries from the stack.
-   *
-   * @private
-   * @name clear
-   * @memberOf Stack
-   */
-  function stackClear() {
-    this.__data__ = new _ListCache;
-    this.size = 0;
-  }
-
-  var _stackClear = stackClear;
-
-  /**
-   * Removes `key` and its value from the stack.
-   *
-   * @private
-   * @name delete
-   * @memberOf Stack
-   * @param {string} key The key of the value to remove.
-   * @returns {boolean} Returns `true` if the entry was removed, else `false`.
-   */
-  function stackDelete(key) {
-    var data = this.__data__,
-        result = data['delete'](key);
-
-    this.size = data.size;
-    return result;
-  }
-
-  var _stackDelete = stackDelete;
-
-  /**
-   * Gets the stack value for `key`.
-   *
-   * @private
-   * @name get
-   * @memberOf Stack
-   * @param {string} key The key of the value to get.
-   * @returns {*} Returns the entry value.
-   */
-  function stackGet(key) {
-    return this.__data__.get(key);
-  }
-
-  var _stackGet = stackGet;
-
-  /**
-   * Checks if a stack value for `key` exists.
-   *
-   * @private
-   * @name has
-   * @memberOf Stack
-   * @param {string} key The key of the entry to check.
-   * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
-   */
-  function stackHas(key) {
-    return this.__data__.has(key);
-  }
-
-  var _stackHas = stackHas;
-
-  /** `Object#toString` result references. */
-  var asyncTag = '[object AsyncFunction]',
-      funcTag = '[object Function]',
-      genTag = '[object GeneratorFunction]',
-      proxyTag = '[object Proxy]';
-
-  /**
-   * Checks if `value` is classified as a `Function` object.
-   *
-   * @static
-   * @memberOf _
-   * @since 0.1.0
-   * @category Lang
-   * @param {*} value The value to check.
-   * @returns {boolean} Returns `true` if `value` is a function, else `false`.
-   * @example
-   *
-   * _.isFunction(_);
-   * // => true
-   *
-   * _.isFunction(/abc/);
-   * // => false
-   */
-  function isFunction(value) {
-    if (!isObject_1(value)) {
-      return false;
-    }
-    // The use of `Object#toString` avoids issues with the `typeof` operator
-    // in Safari 9 which returns 'object' for typed arrays and other constructors.
-    var tag = _baseGetTag(value);
-    return tag == funcTag || tag == genTag || tag == asyncTag || tag == proxyTag;
-  }
-
-  var isFunction_1 = isFunction;
-
-  /** Used to detect overreaching core-js shims. */
-  var coreJsData = _root['__core-js_shared__'];
-
-  var _coreJsData = coreJsData;
-
-  /** Used to detect methods masquerading as native. */
-  var maskSrcKey = (function() {
-    var uid = /[^.]+$/.exec(_coreJsData && _coreJsData.keys && _coreJsData.keys.IE_PROTO || '');
-    return uid ? ('Symbol(src)_1.' + uid) : '';
-  }());
-
-  /**
-   * Checks if `func` has its source masked.
-   *
-   * @private
-   * @param {Function} func The function to check.
-   * @returns {boolean} Returns `true` if `func` is masked, else `false`.
-   */
-  function isMasked(func) {
-    return !!maskSrcKey && (maskSrcKey in func);
-  }
-
-  var _isMasked = isMasked;
-
-  /** Used for built-in method references. */
-  var funcProto = Function.prototype;
-
-  /** Used to resolve the decompiled source of functions. */
-  var funcToString = funcProto.toString;
-
-  /**
-   * Converts `func` to its source code.
-   *
-   * @private
-   * @param {Function} func The function to convert.
-   * @returns {string} Returns the source code.
-   */
-  function toSource(func) {
-    if (func != null) {
-      try {
-        return funcToString.call(func);
-      } catch (e) {}
-      try {
-        return (func + '');
-      } catch (e) {}
-    }
-    return '';
-  }
-
-  var _toSource = toSource;
-
-  /**
-   * Used to match `RegExp`
-   * [syntax characters](http://ecma-international.org/ecma-262/7.0/#sec-patterns).
-   */
-  var reRegExpChar = /[\\^$.*+?()[\]{}|]/g;
-
-  /** Used to detect host constructors (Safari). */
-  var reIsHostCtor = /^\[object .+?Constructor\]$/;
-
-  /** Used for built-in method references. */
-  var funcProto$1 = Function.prototype,
-      objectProto$2 = Object.prototype;
-
-  /** Used to resolve the decompiled source of functions. */
-  var funcToString$1 = funcProto$1.toString;
-
-  /** Used to check objects for own properties. */
-  var hasOwnProperty$1 = objectProto$2.hasOwnProperty;
-
-  /** Used to detect if a method is native. */
-  var reIsNative = RegExp('^' +
-    funcToString$1.call(hasOwnProperty$1).replace(reRegExpChar, '\\$&')
-    .replace(/hasOwnProperty|(function).*?(?=\\\()| for .+?(?=\\\])/g, '$1.*?') + '$'
-  );
-
-  /**
-   * The base implementation of `_.isNative` without bad shim checks.
-   *
-   * @private
-   * @param {*} value The value to check.
-   * @returns {boolean} Returns `true` if `value` is a native function,
-   *  else `false`.
-   */
-  function baseIsNative(value) {
-    if (!isObject_1(value) || _isMasked(value)) {
-      return false;
-    }
-    var pattern = isFunction_1(value) ? reIsNative : reIsHostCtor;
-    return pattern.test(_toSource(value));
-  }
-
-  var _baseIsNative = baseIsNative;
-
-  /**
-   * Gets the value at `key` of `object`.
-   *
-   * @private
-   * @param {Object} [object] The object to query.
-   * @param {string} key The key of the property to get.
-   * @returns {*} Returns the property value.
-   */
-  function getValue(object, key) {
-    return object == null ? undefined : object[key];
-  }
-
-  var _getValue = getValue;
-
-  /**
-   * Gets the native function at `key` of `object`.
-   *
-   * @private
-   * @param {Object} object The object to query.
-   * @param {string} key The key of the method to get.
-   * @returns {*} Returns the function if it's native, else `undefined`.
-   */
-  function getNative(object, key) {
-    var value = _getValue(object, key);
-    return _baseIsNative(value) ? value : undefined;
-  }
-
-  var _getNative = getNative;
-
   /* Built-in method references that are verified to be native. */
   var Map$1 = _getNative(_root, 'Map');
 
   var _Map = Map$1;
-
-  /* Built-in method references that are verified to be native. */
-  var nativeCreate = _getNative(Object, 'create');
-
-  var _nativeCreate = nativeCreate;
-
-  /**
-   * Removes all key-value entries from the hash.
-   *
-   * @private
-   * @name clear
-   * @memberOf Hash
-   */
-  function hashClear() {
-    this.__data__ = _nativeCreate ? _nativeCreate(null) : {};
-    this.size = 0;
-  }
-
-  var _hashClear = hashClear;
-
-  /**
-   * Removes `key` and its value from the hash.
-   *
-   * @private
-   * @name delete
-   * @memberOf Hash
-   * @param {Object} hash The hash to modify.
-   * @param {string} key The key of the value to remove.
-   * @returns {boolean} Returns `true` if the entry was removed, else `false`.
-   */
-  function hashDelete(key) {
-    var result = this.has(key) && delete this.__data__[key];
-    this.size -= result ? 1 : 0;
-    return result;
-  }
-
-  var _hashDelete = hashDelete;
-
-  /** Used to stand-in for `undefined` hash values. */
-  var HASH_UNDEFINED = '__lodash_hash_undefined__';
-
-  /** Used for built-in method references. */
-  var objectProto$3 = Object.prototype;
-
-  /** Used to check objects for own properties. */
-  var hasOwnProperty$2 = objectProto$3.hasOwnProperty;
-
-  /**
-   * Gets the hash value for `key`.
-   *
-   * @private
-   * @name get
-   * @memberOf Hash
-   * @param {string} key The key of the value to get.
-   * @returns {*} Returns the entry value.
-   */
-  function hashGet(key) {
-    var data = this.__data__;
-    if (_nativeCreate) {
-      var result = data[key];
-      return result === HASH_UNDEFINED ? undefined : result;
-    }
-    return hasOwnProperty$2.call(data, key) ? data[key] : undefined;
-  }
-
-  var _hashGet = hashGet;
-
-  /** Used for built-in method references. */
-  var objectProto$4 = Object.prototype;
-
-  /** Used to check objects for own properties. */
-  var hasOwnProperty$3 = objectProto$4.hasOwnProperty;
-
-  /**
-   * Checks if a hash value for `key` exists.
-   *
-   * @private
-   * @name has
-   * @memberOf Hash
-   * @param {string} key The key of the entry to check.
-   * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
-   */
-  function hashHas(key) {
-    var data = this.__data__;
-    return _nativeCreate ? (data[key] !== undefined) : hasOwnProperty$3.call(data, key);
-  }
-
-  var _hashHas = hashHas;
-
-  /** Used to stand-in for `undefined` hash values. */
-  var HASH_UNDEFINED$1 = '__lodash_hash_undefined__';
-
-  /**
-   * Sets the hash `key` to `value`.
-   *
-   * @private
-   * @name set
-   * @memberOf Hash
-   * @param {string} key The key of the value to set.
-   * @param {*} value The value to set.
-   * @returns {Object} Returns the hash instance.
-   */
-  function hashSet(key, value) {
-    var data = this.__data__;
-    this.size += this.has(key) ? 0 : 1;
-    data[key] = (_nativeCreate && value === undefined) ? HASH_UNDEFINED$1 : value;
-    return this;
-  }
-
-  var _hashSet = hashSet;
-
-  /**
-   * Creates a hash object.
-   *
-   * @private
-   * @constructor
-   * @param {Array} [entries] The key-value pairs to cache.
-   */
-  function Hash(entries) {
-    var index = -1,
-        length = entries == null ? 0 : entries.length;
-
-    this.clear();
-    while (++index < length) {
-      var entry = entries[index];
-      this.set(entry[0], entry[1]);
-    }
-  }
-
-  // Add methods to `Hash`.
-  Hash.prototype.clear = _hashClear;
-  Hash.prototype['delete'] = _hashDelete;
-  Hash.prototype.get = _hashGet;
-  Hash.prototype.has = _hashHas;
-  Hash.prototype.set = _hashSet;
-
-  var _Hash = Hash;
 
   /**
    * Removes all key-value entries from the map.
@@ -2057,6 +939,365 @@
   MapCache.prototype.set = _mapCacheSet;
 
   var _MapCache = MapCache;
+
+  /** Error message constants. */
+  var FUNC_ERROR_TEXT = 'Expected a function';
+
+  /**
+   * Creates a function that memoizes the result of `func`. If `resolver` is
+   * provided, it determines the cache key for storing the result based on the
+   * arguments provided to the memoized function. By default, the first argument
+   * provided to the memoized function is used as the map cache key. The `func`
+   * is invoked with the `this` binding of the memoized function.
+   *
+   * **Note:** The cache is exposed as the `cache` property on the memoized
+   * function. Its creation may be customized by replacing the `_.memoize.Cache`
+   * constructor with one whose instances implement the
+   * [`Map`](http://ecma-international.org/ecma-262/7.0/#sec-properties-of-the-map-prototype-object)
+   * method interface of `clear`, `delete`, `get`, `has`, and `set`.
+   *
+   * @static
+   * @memberOf _
+   * @since 0.1.0
+   * @category Function
+   * @param {Function} func The function to have its output memoized.
+   * @param {Function} [resolver] The function to resolve the cache key.
+   * @returns {Function} Returns the new memoized function.
+   * @example
+   *
+   * var object = { 'a': 1, 'b': 2 };
+   * var other = { 'c': 3, 'd': 4 };
+   *
+   * var values = _.memoize(_.values);
+   * values(object);
+   * // => [1, 2]
+   *
+   * values(other);
+   * // => [3, 4]
+   *
+   * object.a = 2;
+   * values(object);
+   * // => [1, 2]
+   *
+   * // Modify the result cache.
+   * values.cache.set(object, ['a', 'b']);
+   * values(object);
+   * // => ['a', 'b']
+   *
+   * // Replace `_.memoize.Cache`.
+   * _.memoize.Cache = WeakMap;
+   */
+  function memoize(func, resolver) {
+    if (typeof func != 'function' || (resolver != null && typeof resolver != 'function')) {
+      throw new TypeError(FUNC_ERROR_TEXT);
+    }
+    var memoized = function() {
+      var args = arguments,
+          key = resolver ? resolver.apply(this, args) : args[0],
+          cache = memoized.cache;
+
+      if (cache.has(key)) {
+        return cache.get(key);
+      }
+      var result = func.apply(this, args);
+      memoized.cache = cache.set(key, result) || cache;
+      return result;
+    };
+    memoized.cache = new (memoize.Cache || _MapCache);
+    return memoized;
+  }
+
+  // Expose `MapCache`.
+  memoize.Cache = _MapCache;
+
+  var memoize_1 = memoize;
+
+  /** Used as the maximum memoize cache size. */
+  var MAX_MEMOIZE_SIZE = 500;
+
+  /**
+   * A specialized version of `_.memoize` which clears the memoized function's
+   * cache when it exceeds `MAX_MEMOIZE_SIZE`.
+   *
+   * @private
+   * @param {Function} func The function to have its output memoized.
+   * @returns {Function} Returns the new memoized function.
+   */
+  function memoizeCapped(func) {
+    var result = memoize_1(func, function(key) {
+      if (cache.size === MAX_MEMOIZE_SIZE) {
+        cache.clear();
+      }
+      return key;
+    });
+
+    var cache = result.cache;
+    return result;
+  }
+
+  var _memoizeCapped = memoizeCapped;
+
+  /** Used to match property names within property paths. */
+  var rePropName = /[^.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(?:\.|\[\])(?:\.|\[\]|$))/g;
+
+  /** Used to match backslashes in property paths. */
+  var reEscapeChar = /\\(\\)?/g;
+
+  /**
+   * Converts `string` to a property path array.
+   *
+   * @private
+   * @param {string} string The string to convert.
+   * @returns {Array} Returns the property path array.
+   */
+  var stringToPath = _memoizeCapped(function(string) {
+    var result = [];
+    if (string.charCodeAt(0) === 46 /* . */) {
+      result.push('');
+    }
+    string.replace(rePropName, function(match, number, quote, subString) {
+      result.push(quote ? subString.replace(reEscapeChar, '$1') : (number || match));
+    });
+    return result;
+  });
+
+  var _stringToPath = stringToPath;
+
+  /**
+   * A specialized version of `_.map` for arrays without support for iteratee
+   * shorthands.
+   *
+   * @private
+   * @param {Array} [array] The array to iterate over.
+   * @param {Function} iteratee The function invoked per iteration.
+   * @returns {Array} Returns the new mapped array.
+   */
+  function arrayMap(array, iteratee) {
+    var index = -1,
+        length = array == null ? 0 : array.length,
+        result = Array(length);
+
+    while (++index < length) {
+      result[index] = iteratee(array[index], index, array);
+    }
+    return result;
+  }
+
+  var _arrayMap = arrayMap;
+
+  /** Used as references for various `Number` constants. */
+  var INFINITY = 1 / 0;
+
+  /** Used to convert symbols to primitives and strings. */
+  var symbolProto = _Symbol ? _Symbol.prototype : undefined,
+      symbolToString = symbolProto ? symbolProto.toString : undefined;
+
+  /**
+   * The base implementation of `_.toString` which doesn't convert nullish
+   * values to empty strings.
+   *
+   * @private
+   * @param {*} value The value to process.
+   * @returns {string} Returns the string.
+   */
+  function baseToString(value) {
+    // Exit early for strings to avoid a performance hit in some environments.
+    if (typeof value == 'string') {
+      return value;
+    }
+    if (isArray_1(value)) {
+      // Recursively convert values (susceptible to call stack limits).
+      return _arrayMap(value, baseToString) + '';
+    }
+    if (isSymbol_1(value)) {
+      return symbolToString ? symbolToString.call(value) : '';
+    }
+    var result = (value + '');
+    return (result == '0' && (1 / value) == -INFINITY) ? '-0' : result;
+  }
+
+  var _baseToString = baseToString;
+
+  /**
+   * Converts `value` to a string. An empty string is returned for `null`
+   * and `undefined` values. The sign of `-0` is preserved.
+   *
+   * @static
+   * @memberOf _
+   * @since 4.0.0
+   * @category Lang
+   * @param {*} value The value to convert.
+   * @returns {string} Returns the converted string.
+   * @example
+   *
+   * _.toString(null);
+   * // => ''
+   *
+   * _.toString(-0);
+   * // => '-0'
+   *
+   * _.toString([1, 2, 3]);
+   * // => '1,2,3'
+   */
+  function toString(value) {
+    return value == null ? '' : _baseToString(value);
+  }
+
+  var toString_1 = toString;
+
+  /**
+   * Casts `value` to a path array if it's not one.
+   *
+   * @private
+   * @param {*} value The value to inspect.
+   * @param {Object} [object] The object to query keys on.
+   * @returns {Array} Returns the cast property path array.
+   */
+  function castPath(value, object) {
+    if (isArray_1(value)) {
+      return value;
+    }
+    return _isKey(value, object) ? [value] : _stringToPath(toString_1(value));
+  }
+
+  var _castPath = castPath;
+
+  /** Used as references for various `Number` constants. */
+  var INFINITY$1 = 1 / 0;
+
+  /**
+   * Converts `value` to a string key if it's not a string or symbol.
+   *
+   * @private
+   * @param {*} value The value to inspect.
+   * @returns {string|symbol} Returns the key.
+   */
+  function toKey(value) {
+    if (typeof value == 'string' || isSymbol_1(value)) {
+      return value;
+    }
+    var result = (value + '');
+    return (result == '0' && (1 / value) == -INFINITY$1) ? '-0' : result;
+  }
+
+  var _toKey = toKey;
+
+  /**
+   * The base implementation of `_.get` without support for default values.
+   *
+   * @private
+   * @param {Object} object The object to query.
+   * @param {Array|string} path The path of the property to get.
+   * @returns {*} Returns the resolved value.
+   */
+  function baseGet(object, path) {
+    path = _castPath(path, object);
+
+    var index = 0,
+        length = path.length;
+
+    while (object != null && index < length) {
+      object = object[_toKey(path[index++])];
+    }
+    return (index && index == length) ? object : undefined;
+  }
+
+  var _baseGet = baseGet;
+
+  /**
+   * Gets the value at `path` of `object`. If the resolved value is
+   * `undefined`, the `defaultValue` is returned in its place.
+   *
+   * @static
+   * @memberOf _
+   * @since 3.7.0
+   * @category Object
+   * @param {Object} object The object to query.
+   * @param {Array|string} path The path of the property to get.
+   * @param {*} [defaultValue] The value returned for `undefined` resolved values.
+   * @returns {*} Returns the resolved value.
+   * @example
+   *
+   * var object = { 'a': [{ 'b': { 'c': 3 } }] };
+   *
+   * _.get(object, 'a[0].b.c');
+   * // => 3
+   *
+   * _.get(object, ['a', '0', 'b', 'c']);
+   * // => 3
+   *
+   * _.get(object, 'a.b.c', 'default');
+   * // => 'default'
+   */
+  function get(object, path, defaultValue) {
+    var result = object == null ? undefined : _baseGet(object, path);
+    return result === undefined ? defaultValue : result;
+  }
+
+  var get_1 = get;
+
+  /**
+   * Removes all key-value entries from the stack.
+   *
+   * @private
+   * @name clear
+   * @memberOf Stack
+   */
+  function stackClear() {
+    this.__data__ = new _ListCache;
+    this.size = 0;
+  }
+
+  var _stackClear = stackClear;
+
+  /**
+   * Removes `key` and its value from the stack.
+   *
+   * @private
+   * @name delete
+   * @memberOf Stack
+   * @param {string} key The key of the value to remove.
+   * @returns {boolean} Returns `true` if the entry was removed, else `false`.
+   */
+  function stackDelete(key) {
+    var data = this.__data__,
+        result = data['delete'](key);
+
+    this.size = data.size;
+    return result;
+  }
+
+  var _stackDelete = stackDelete;
+
+  /**
+   * Gets the stack value for `key`.
+   *
+   * @private
+   * @name get
+   * @memberOf Stack
+   * @param {string} key The key of the value to get.
+   * @returns {*} Returns the entry value.
+   */
+  function stackGet(key) {
+    return this.__data__.get(key);
+  }
+
+  var _stackGet = stackGet;
+
+  /**
+   * Checks if a stack value for `key` exists.
+   *
+   * @private
+   * @name has
+   * @memberOf Stack
+   * @param {string} key The key of the entry to check.
+   * @returns {boolean} Returns `true` if an entry for `key` exists, else `false`.
+   */
+  function stackHas(key) {
+    return this.__data__.has(key);
+  }
+
+  var _stackHas = stackHas;
 
   /** Used as the size to enable large array optimizations. */
   var LARGE_ARRAY_SIZE = 200;
@@ -3457,272 +2698,6 @@
 
   var merge_1 = merge;
 
-  var IDX=256, HEX=[], BUFFER;
-  while (IDX--) HEX[IDX] = (IDX + 256).toString(16).substring(1);
-
-  function v4() {
-  	var i=0, num, out='';
-
-  	if (!BUFFER || ((IDX + 16) > 256)) {
-  		BUFFER = Array(i=256);
-  		while (i--) BUFFER[i] = 256 * Math.random() | 0;
-  		i = IDX = 0;
-  	}
-
-  	for (; i < 16; i++) {
-  		num = BUFFER[IDX + i];
-  		if (i==6) out += HEX[num & 15 | 64];
-  		else if (i==8) out += HEX[num & 63 | 128];
-  		else out += HEX[num];
-
-  		if (i & 1 && i > 1 && i < 11) out += '-';
-  	}
-
-  	IDX++;
-  	return out;
-  }
-
-  /** Used to match property names within property paths. */
-  var reIsDeepProp = /\.|\[(?:[^[\]]*|(["'])(?:(?!\1)[^\\]|\\.)*?\1)\]/,
-      reIsPlainProp = /^\w*$/;
-
-  /**
-   * Checks if `value` is a property name and not a property path.
-   *
-   * @private
-   * @param {*} value The value to check.
-   * @param {Object} [object] The object to query keys on.
-   * @returns {boolean} Returns `true` if `value` is a property name, else `false`.
-   */
-  function isKey(value, object) {
-    if (isArray_1(value)) {
-      return false;
-    }
-    var type = typeof value;
-    if (type == 'number' || type == 'symbol' || type == 'boolean' ||
-        value == null || isSymbol_1(value)) {
-      return true;
-    }
-    return reIsPlainProp.test(value) || !reIsDeepProp.test(value) ||
-      (object != null && value in Object(object));
-  }
-
-  var _isKey = isKey;
-
-  /** Error message constants. */
-  var FUNC_ERROR_TEXT = 'Expected a function';
-
-  /**
-   * Creates a function that memoizes the result of `func`. If `resolver` is
-   * provided, it determines the cache key for storing the result based on the
-   * arguments provided to the memoized function. By default, the first argument
-   * provided to the memoized function is used as the map cache key. The `func`
-   * is invoked with the `this` binding of the memoized function.
-   *
-   * **Note:** The cache is exposed as the `cache` property on the memoized
-   * function. Its creation may be customized by replacing the `_.memoize.Cache`
-   * constructor with one whose instances implement the
-   * [`Map`](http://ecma-international.org/ecma-262/7.0/#sec-properties-of-the-map-prototype-object)
-   * method interface of `clear`, `delete`, `get`, `has`, and `set`.
-   *
-   * @static
-   * @memberOf _
-   * @since 0.1.0
-   * @category Function
-   * @param {Function} func The function to have its output memoized.
-   * @param {Function} [resolver] The function to resolve the cache key.
-   * @returns {Function} Returns the new memoized function.
-   * @example
-   *
-   * var object = { 'a': 1, 'b': 2 };
-   * var other = { 'c': 3, 'd': 4 };
-   *
-   * var values = _.memoize(_.values);
-   * values(object);
-   * // => [1, 2]
-   *
-   * values(other);
-   * // => [3, 4]
-   *
-   * object.a = 2;
-   * values(object);
-   * // => [1, 2]
-   *
-   * // Modify the result cache.
-   * values.cache.set(object, ['a', 'b']);
-   * values(object);
-   * // => ['a', 'b']
-   *
-   * // Replace `_.memoize.Cache`.
-   * _.memoize.Cache = WeakMap;
-   */
-  function memoize(func, resolver) {
-    if (typeof func != 'function' || (resolver != null && typeof resolver != 'function')) {
-      throw new TypeError(FUNC_ERROR_TEXT);
-    }
-    var memoized = function() {
-      var args = arguments,
-          key = resolver ? resolver.apply(this, args) : args[0],
-          cache = memoized.cache;
-
-      if (cache.has(key)) {
-        return cache.get(key);
-      }
-      var result = func.apply(this, args);
-      memoized.cache = cache.set(key, result) || cache;
-      return result;
-    };
-    memoized.cache = new (memoize.Cache || _MapCache);
-    return memoized;
-  }
-
-  // Expose `MapCache`.
-  memoize.Cache = _MapCache;
-
-  var memoize_1 = memoize;
-
-  /** Used as the maximum memoize cache size. */
-  var MAX_MEMOIZE_SIZE = 500;
-
-  /**
-   * A specialized version of `_.memoize` which clears the memoized function's
-   * cache when it exceeds `MAX_MEMOIZE_SIZE`.
-   *
-   * @private
-   * @param {Function} func The function to have its output memoized.
-   * @returns {Function} Returns the new memoized function.
-   */
-  function memoizeCapped(func) {
-    var result = memoize_1(func, function(key) {
-      if (cache.size === MAX_MEMOIZE_SIZE) {
-        cache.clear();
-      }
-      return key;
-    });
-
-    var cache = result.cache;
-    return result;
-  }
-
-  var _memoizeCapped = memoizeCapped;
-
-  /** Used to match property names within property paths. */
-  var rePropName = /[^.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(?:\.|\[\])(?:\.|\[\]|$))/g;
-
-  /** Used to match backslashes in property paths. */
-  var reEscapeChar = /\\(\\)?/g;
-
-  /**
-   * Converts `string` to a property path array.
-   *
-   * @private
-   * @param {string} string The string to convert.
-   * @returns {Array} Returns the property path array.
-   */
-  var stringToPath = _memoizeCapped(function(string) {
-    var result = [];
-    if (string.charCodeAt(0) === 46 /* . */) {
-      result.push('');
-    }
-    string.replace(rePropName, function(match, number, quote, subString) {
-      result.push(quote ? subString.replace(reEscapeChar, '$1') : (number || match));
-    });
-    return result;
-  });
-
-  var _stringToPath = stringToPath;
-
-  /**
-   * Casts `value` to a path array if it's not one.
-   *
-   * @private
-   * @param {*} value The value to inspect.
-   * @param {Object} [object] The object to query keys on.
-   * @returns {Array} Returns the cast property path array.
-   */
-  function castPath(value, object) {
-    if (isArray_1(value)) {
-      return value;
-    }
-    return _isKey(value, object) ? [value] : _stringToPath(toString_1(value));
-  }
-
-  var _castPath = castPath;
-
-  /** Used as references for various `Number` constants. */
-  var INFINITY$2 = 1 / 0;
-
-  /**
-   * Converts `value` to a string key if it's not a string or symbol.
-   *
-   * @private
-   * @param {*} value The value to inspect.
-   * @returns {string|symbol} Returns the key.
-   */
-  function toKey(value) {
-    if (typeof value == 'string' || isSymbol_1(value)) {
-      return value;
-    }
-    var result = (value + '');
-    return (result == '0' && (1 / value) == -INFINITY$2) ? '-0' : result;
-  }
-
-  var _toKey = toKey;
-
-  /**
-   * The base implementation of `_.get` without support for default values.
-   *
-   * @private
-   * @param {Object} object The object to query.
-   * @param {Array|string} path The path of the property to get.
-   * @returns {*} Returns the resolved value.
-   */
-  function baseGet(object, path) {
-    path = _castPath(path, object);
-
-    var index = 0,
-        length = path.length;
-
-    while (object != null && index < length) {
-      object = object[_toKey(path[index++])];
-    }
-    return (index && index == length) ? object : undefined;
-  }
-
-  var _baseGet = baseGet;
-
-  /**
-   * Gets the value at `path` of `object`. If the resolved value is
-   * `undefined`, the `defaultValue` is returned in its place.
-   *
-   * @static
-   * @memberOf _
-   * @since 3.7.0
-   * @category Object
-   * @param {Object} object The object to query.
-   * @param {Array|string} path The path of the property to get.
-   * @param {*} [defaultValue] The value returned for `undefined` resolved values.
-   * @returns {*} Returns the resolved value.
-   * @example
-   *
-   * var object = { 'a': [{ 'b': { 'c': 3 } }] };
-   *
-   * _.get(object, 'a[0].b.c');
-   * // => 3
-   *
-   * _.get(object, ['a', '0', 'b', 'c']);
-   * // => 3
-   *
-   * _.get(object, 'a.b.c', 'default');
-   * // => 'default'
-   */
-  function get(object, path, defaultValue) {
-    var result = object == null ? undefined : _baseGet(object, path);
-    return result === undefined ? defaultValue : result;
-  }
-
-  var get_1 = get;
-
   /**
    * Copyright (c) 2022 大漠穷秋.
    *
@@ -3946,6 +2921,634 @@
   ICEEventTarget.prototype.addEventListener = ICEEventTarget.prototype.on;
   ICEEventTarget.prototype.removeEventListener = ICEEventTarget.prototype.off;
   ICEEventTarget.prototype.dispatchEvent = ICEEventTarget.prototype.trigger;
+
+  /** Used to match a single whitespace character. */
+  var reWhitespace = /\s/;
+
+  /**
+   * Used by `_.trim` and `_.trimEnd` to get the index of the last non-whitespace
+   * character of `string`.
+   *
+   * @private
+   * @param {string} string The string to inspect.
+   * @returns {number} Returns the index of the last non-whitespace character.
+   */
+  function trimmedEndIndex(string) {
+    var index = string.length;
+
+    while (index-- && reWhitespace.test(string.charAt(index))) {}
+    return index;
+  }
+
+  var _trimmedEndIndex = trimmedEndIndex;
+
+  /** Used to match leading whitespace. */
+  var reTrimStart = /^\s+/;
+
+  /**
+   * The base implementation of `_.trim`.
+   *
+   * @private
+   * @param {string} string The string to trim.
+   * @returns {string} Returns the trimmed string.
+   */
+  function baseTrim(string) {
+    return string
+      ? string.slice(0, _trimmedEndIndex(string) + 1).replace(reTrimStart, '')
+      : string;
+  }
+
+  var _baseTrim = baseTrim;
+
+  /** Used as references for various `Number` constants. */
+  var NAN = 0 / 0;
+
+  /** Used to detect bad signed hexadecimal string values. */
+  var reIsBadHex = /^[-+]0x[0-9a-f]+$/i;
+
+  /** Used to detect binary string values. */
+  var reIsBinary = /^0b[01]+$/i;
+
+  /** Used to detect octal string values. */
+  var reIsOctal = /^0o[0-7]+$/i;
+
+  /** Built-in method references without a dependency on `root`. */
+  var freeParseInt = parseInt;
+
+  /**
+   * Converts `value` to a number.
+   *
+   * @static
+   * @memberOf _
+   * @since 4.0.0
+   * @category Lang
+   * @param {*} value The value to process.
+   * @returns {number} Returns the number.
+   * @example
+   *
+   * _.toNumber(3.2);
+   * // => 3.2
+   *
+   * _.toNumber(Number.MIN_VALUE);
+   * // => 5e-324
+   *
+   * _.toNumber(Infinity);
+   * // => Infinity
+   *
+   * _.toNumber('3.2');
+   * // => 3.2
+   */
+  function toNumber(value) {
+    if (typeof value == 'number') {
+      return value;
+    }
+    if (isSymbol_1(value)) {
+      return NAN;
+    }
+    if (isObject_1(value)) {
+      var other = typeof value.valueOf == 'function' ? value.valueOf() : value;
+      value = isObject_1(other) ? (other + '') : other;
+    }
+    if (typeof value != 'string') {
+      return value === 0 ? value : +value;
+    }
+    value = _baseTrim(value);
+    var isBinary = reIsBinary.test(value);
+    return (isBinary || reIsOctal.test(value))
+      ? freeParseInt(value.slice(2), isBinary ? 2 : 8)
+      : (reIsBadHex.test(value) ? NAN : +value);
+  }
+
+  var toNumber_1 = toNumber;
+
+  /** Used as references for various `Number` constants. */
+  var INFINITY$2 = 1 / 0,
+      MAX_INTEGER = 1.7976931348623157e+308;
+
+  /**
+   * Converts `value` to a finite number.
+   *
+   * @static
+   * @memberOf _
+   * @since 4.12.0
+   * @category Lang
+   * @param {*} value The value to convert.
+   * @returns {number} Returns the converted number.
+   * @example
+   *
+   * _.toFinite(3.2);
+   * // => 3.2
+   *
+   * _.toFinite(Number.MIN_VALUE);
+   * // => 5e-324
+   *
+   * _.toFinite(Infinity);
+   * // => 1.7976931348623157e+308
+   *
+   * _.toFinite('3.2');
+   * // => 3.2
+   */
+  function toFinite(value) {
+    if (!value) {
+      return value === 0 ? value : 0;
+    }
+    value = toNumber_1(value);
+    if (value === INFINITY$2 || value === -INFINITY$2) {
+      var sign = (value < 0 ? -1 : 1);
+      return sign * MAX_INTEGER;
+    }
+    return value === value ? value : 0;
+  }
+
+  var toFinite_1 = toFinite;
+
+  /**
+   * Converts `value` to an integer.
+   *
+   * **Note:** This method is loosely based on
+   * [`ToInteger`](http://www.ecma-international.org/ecma-262/7.0/#sec-tointeger).
+   *
+   * @static
+   * @memberOf _
+   * @since 4.0.0
+   * @category Lang
+   * @param {*} value The value to convert.
+   * @returns {number} Returns the converted integer.
+   * @example
+   *
+   * _.toInteger(3.2);
+   * // => 3
+   *
+   * _.toInteger(Number.MIN_VALUE);
+   * // => 0
+   *
+   * _.toInteger(Infinity);
+   * // => 1.7976931348623157e+308
+   *
+   * _.toInteger('3.2');
+   * // => 3
+   */
+  function toInteger(value) {
+    var result = toFinite_1(value),
+        remainder = result % 1;
+
+    return result === result ? (remainder ? result - remainder : result) : 0;
+  }
+
+  var toInteger_1 = toInteger;
+
+  /* Built-in method references for those with the same name as other `lodash` methods. */
+  var nativeIsFinite = _root.isFinite,
+      nativeMin = Math.min;
+
+  /**
+   * Creates a function like `_.round`.
+   *
+   * @private
+   * @param {string} methodName The name of the `Math` method to use when rounding.
+   * @returns {Function} Returns the new round function.
+   */
+  function createRound(methodName) {
+    var func = Math[methodName];
+    return function(number, precision) {
+      number = toNumber_1(number);
+      precision = precision == null ? 0 : nativeMin(toInteger_1(precision), 292);
+      if (precision && nativeIsFinite(number)) {
+        // Shift with exponential notation to avoid floating-point issues.
+        // See [MDN](https://mdn.io/round#Examples) for more details.
+        var pair = (toString_1(number) + 'e').split('e'),
+            value = func(pair[0] + 'e' + (+pair[1] + precision));
+
+        pair = (toString_1(value) + 'e').split('e');
+        return +(pair[0] + 'e' + (+pair[1] - precision));
+      }
+      return func(number);
+    };
+  }
+
+  var _createRound = createRound;
+
+  /**
+   * Computes `number` rounded to `precision`.
+   *
+   * @static
+   * @memberOf _
+   * @since 3.10.0
+   * @category Math
+   * @param {number} number The number to round.
+   * @param {number} [precision=0] The precision to round to.
+   * @returns {number} Returns the rounded number.
+   * @example
+   *
+   * _.round(4.006);
+   * // => 4
+   *
+   * _.round(4.006, 2);
+   * // => 4.01
+   *
+   * _.round(4060, -2);
+   * // => 4100
+   */
+  var round = _createRound('round');
+
+  var round_1 = round;
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  class GeoUtil {
+    constructor() {
+      throw new Error('GeoUtil is a static util class.');
+    }
+    /**
+     * 判断一个坐标点是否包含在图元内部。
+     * @param component
+     * @param point
+     * @returns
+     */
+
+
+    static containsPoint(component, point) {
+      return false;
+    }
+    /**
+     * 判断两个图元是否相交。
+     * @param a 第一个图元
+     * @param b 第二个图元
+     * @returns
+     */
+
+
+    static isIntersect(a, b) {
+      return false;
+    }
+    /**
+     * 已知两点坐标，求线段长度。
+     * @param x1
+     * @param y1
+     * @param x2
+     * @param y2
+     */
+
+
+    static getLength(x1, y1, x2, y2) {
+      return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+    }
+    /**
+     *
+     * 已知向量原点和向量坐标值，求向量相对于 X 轴正向的旋转角度。
+     *
+     * 两个点需要处于同一个坐标系中。
+     *
+     * rotateAngle 的数值范围限定在 [0,360] 度之间，闭区间。
+     *
+     * @param x
+     * @param y
+     * @param originX
+     * @param originY
+     * @returns
+     */
+
+
+    static calcRotateAngle(x, y, originX, originY) {
+      let offsetX = x - originX;
+      let offsetY = y - originY;
+      let cos = offsetX / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+      let sin = offsetY / Math.sqrt(offsetX * offsetX + offsetY * offsetY); //Math.acos 的返回值处于 [0,PI] 之间，根据 sin 的正负号进行判断之后， rotateAngle 处于 [-180,180] 度之间
+      //先加 360 度，保证 rotateAngle 为正值，再对 360 取模，最终让 rotateAngle 的返回值始终处于 [0,360] 度之间
+
+      let sign = sin < 0 ? -1 : 1;
+      let rotateAngle = sign * Math.acos(cos) * 180 / Math.PI + 360;
+      rotateAngle = rotateAngle % 360;
+      return rotateAngle;
+    }
+    /**
+     * 2D 向量叉乘。
+     *
+     * 两个点需要处于同一个坐标系中。
+     *
+     * @param x1
+     * @param y1
+     * @param x2
+     * @param y2
+     * @returns
+     */
+
+
+    static crossProduct(x1, y1, x2, y2) {
+      //FIXME:需要确认计算公式是否正确
+      let result = x1 * y2 - x2 * y1;
+      return round_1(result, 2);
+    }
+    /**
+     * 2D 向量点乘。
+     *
+     * 两个点需要处于同一个坐标系中。
+     *
+     * @param x1
+     * @param y1
+     * @param x2
+     * @param y2
+     * @returns
+     */
+
+
+    static dotProduct(x1, y1, x2, y2) {
+      let result = x1 * x2 + y1 * y2;
+      return round_1(result, 2);
+    }
+
+  }
+
+  /**
+   * @class ICEBoundingBox 用4点法描述的边界盒子。
+   *
+   * - 边界盒子一定是矩形。
+   * - 边界盒子总是绘制在全局坐标系中。
+   * - 边界盒子总是通过自身的坐标点进行变换，而不是变换 canvas.ctx 。
+   * - 边界盒子总是通过组件的参数计算出来的，直接修改边界盒子不影响组件本身的参数。
+   *
+   * TODO: Wrap up the original DOMPoint and DOMMatrix interfaces, add some util functions.
+   * @see https://developer.mozilla.org/en-US/docs/Web/API/DOMPoint
+   * @see https://developer.mozilla.org/en-US/docs/Web/API/DOMMatrix/DOMMatrix
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEBoundingBox {
+    //top-left
+    //top-right
+    //bottom-left
+    //bottom-right
+    //center-point
+    //FIXME:不使用 tl/tr/bl/br 固定4个顶点，顶点不定位
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+      _defineProperty(this, "tl", new DOMPoint());
+
+      _defineProperty(this, "tr", new DOMPoint());
+
+      _defineProperty(this, "bl", new DOMPoint());
+
+      _defineProperty(this, "br", new DOMPoint());
+
+      _defineProperty(this, "center", new DOMPoint());
+
+      this.tl = new DOMPoint(props[0], props[1]);
+      this.tr = new DOMPoint(props[2], props[3]);
+      this.bl = new DOMPoint(props[4], props[5]);
+      this.br = new DOMPoint(props[6], props[7]);
+      this.center = new DOMPoint(props[8], props[9]);
+    }
+    /**
+     * 从指定的 top/left/width/height 构建 ICEBoundingBox。
+     * @param left
+     * @param top
+     * @param width
+     * @param height
+     * @returns
+     */
+
+
+    static fromDimension(left, top, width, height) {
+      let tl = [left, top];
+      let tr = [left + width, top];
+      let bl = [left, top + height];
+      let br = [left + width, top + height];
+      let center = [left + width / 2, top + height / 2];
+      let paramArr = [...tl, ...tr, ...bl, ...br, ...center];
+      return new ICEBoundingBox(paramArr);
+    }
+
+    clone() {
+      const tl = DOMPoint.fromPoint(this.tl);
+      const tr = DOMPoint.fromPoint(this.tr);
+      const bl = DOMPoint.fromPoint(this.bl);
+      const br = DOMPoint.fromPoint(this.br);
+      const center = DOMPoint.fromPoint(this.center);
+      return new ICEBoundingBox([tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y, center.x, center.y]);
+    }
+    /**
+     * 判断指定的坐标点是否位于边界矩形内部，向右水平射线法。
+     * 这里参考了 fabricjs 的实现方式。
+     * @see http://fabricjs.com/
+     * @param point
+     * @returns
+     */
+
+
+    containsPoint(point) {
+      //只考虑凸包的情况：[x,y]有一个值位于最大最小值之外，则不可能包含在边界盒子内部。
+      const {
+        minX,
+        minY,
+        maxX,
+        maxY
+      } = this.getMinAndMaxPoint();
+
+      if (point.x < minX || point.x > maxX || point.y < minY || point.y > maxY) {
+        return false;
+      }
+
+      let xcount = 0; //交叉点个数
+
+      let xi; //交点的 x 坐标
+
+      const boudingLines = this.getBoundingLines();
+
+      for (let i = 0; i < boudingLines.length; i++) {
+        const line = boudingLines[i]; //特例1：点位于线段下方，水平射线不可能与线段交叉
+
+        if (point.y > line.o.y && point.y > line.d.y) {
+          continue;
+        } //特例2：点位于线段上方，水平射线不可能与线段交叉
+
+
+        if (point.y < line.o.y && point.y < line.d.y) {
+          continue;
+        }
+
+        if (line.o.x === line.d.x && line.o.x >= point.x) {
+          //特例3：处理垂直于 x 轴（平行于 y 轴）的特殊情况
+          xi = line.o.x;
+        } else {
+          //斜率法求向右的射线与线段的交点 x 坐标
+          const k = (line.d.y - line.o.y) / (line.d.x - line.o.x); //斜率
+
+          xi = line.o.x + (point.y - line.o.y) / k;
+        }
+
+        if (xi > point.x) {
+          //只处理向右侧的射线情况即可
+          xcount++;
+        }
+
+        if (xcount === 2) {
+          continue;
+        }
+      }
+
+      return xcount !== 0 && xcount % 2 === 1;
+    }
+    /**
+     * 获取边界盒子的边所构成的线段，由于边界盒子总是被定义成 4 边形，这里直接简化处理。
+     */
+
+
+    getBoundingLines() {
+      const line_1 = {
+        o: DOMPoint.fromPoint(this.tl),
+        d: DOMPoint.fromPoint(this.tr)
+      }; //o:origin, d:destination
+
+      const line_2 = {
+        o: DOMPoint.fromPoint(this.tr),
+        d: DOMPoint.fromPoint(this.br)
+      };
+      const line_3 = {
+        o: DOMPoint.fromPoint(this.br),
+        d: DOMPoint.fromPoint(this.bl)
+      };
+      const line_4 = {
+        o: DOMPoint.fromPoint(this.bl),
+        d: DOMPoint.fromPoint(this.tl)
+      };
+      return [line_1, line_2, line_3, line_4];
+    }
+    /**
+     * 获取边界盒子 x,y 的最大和最小值
+     * @returns
+     */
+
+
+    getMinAndMaxPoint() {
+      //取任意一个顶点坐标作为初始值，然后与其它3个顶点的坐标进行比较
+      let minX = this.tl.x;
+      let minY = this.tl.y;
+      let maxX = this.tl.x;
+      let maxY = this.tl.y;
+      const arr = [this.tr, this.bl, this.br];
+      arr.forEach(p => {
+        if (p.x < minX) {
+          minX = p.x;
+        }
+
+        if (p.x > maxX) {
+          maxX = p.x;
+        }
+
+        if (p.y < minY) {
+          minY = p.y;
+        }
+
+        if (p.y > maxY) {
+          maxY = p.y;
+        }
+      });
+      return {
+        minX,
+        minY,
+        maxX,
+        maxY
+      };
+    }
+    /**
+     * FIXME:需要实现
+     * 另一个边界盒子是否完全位于当前盒子内部。
+     * @param box
+     * @returns
+     */
+
+
+    containsBox(box) {
+      return false;
+    }
+    /**
+     * 是否与另一个盒子存在相交的部分。
+     * @param box
+     * @returns
+     */
+
+
+    isIntersect(box) {
+      let left1 = this.tl.x;
+      let right1 = this.br.x;
+      let top1 = this.tl.y;
+      let bottom1 = this.br.y;
+      let left2 = box.tl.x;
+      let right2 = box.br.x;
+      let top2 = box.tl.y;
+      let bottom2 = box.br.y;
+      let isIntersect = !(left1 > right2 || top1 > bottom2 || right1 < left2 || bottom1 < top2);
+      return isIntersect;
+    }
+    /**
+     * @param matrix
+     * @returns A new ICEBoundingBox instance.
+     */
+
+
+    transform(matrix) {
+      const tl = DOMPoint.fromPoint(this.tl).matrixTransform(matrix);
+      const tr = DOMPoint.fromPoint(this.tr).matrixTransform(matrix);
+      const bl = DOMPoint.fromPoint(this.bl).matrixTransform(matrix);
+      const br = DOMPoint.fromPoint(this.br).matrixTransform(matrix);
+      const center = DOMPoint.fromPoint(this.center).matrixTransform(matrix);
+      return new ICEBoundingBox([tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y, center.x, center.y]);
+    }
+    /**
+     * @param box
+     * @returns A new ICEBoundingBox instance.
+     */
+
+
+    union(box) {
+      return null;
+    }
+
+    get width() {
+      return GeoUtil.getLength(this.br.x, this.br.y, this.bl.x, this.bl.y);
+    }
+
+    get height() {
+      return GeoUtil.getLength(this.br.x, this.br.y, this.tr.x, this.tr.y);
+    }
+
+    get left() {
+      return this.tl.x;
+    } //不允许设置 left 参数
+
+
+    set left(num) {
+      throw new Error('Can not set left to ICEBoundingBox directly.');
+    }
+
+    get top() {
+      return this.tl.y;
+    } //不允许设置 top 参数
+
+
+    set top(num) {
+      throw new Error('Can not set top to ICEBoundingBox directly.');
+    }
+
+    get centerX() {
+      return this.center.x;
+    }
+
+    get centerY() {
+      return this.center.y;
+    }
+
+    get centerPoint() {
+      return this.center;
+    }
+
+  }
 
   /**
    * Copyright (c) 2022 大漠穷秋.
@@ -4701,15 +4304,7 @@
 
       for (let i = 0; i < this.state.dots.length; i++) {
         let dot = this.state.dots[i];
-
-        if (!dot.matrixTransform) {
-          console.log(dot);
-          console.log(this);
-          console.log(dot.matrixTransform);
-        } else {
-          dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -origin.x, -origin.y]));
-        }
-
+        dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -origin.x, -origin.y]));
         this.state.dots[i] = dot;
       }
 
@@ -4824,6 +4419,296 @@
     }
 
   }
+
+  /**
+   * @class ICERect 矩形
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICERect extends ICEDotPath {
+    /**
+     * @required
+     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        width: 10,
+        height: 10,
+        ...props
+      });
+    }
+    /**
+     * 计算路径上的关键点:
+     * - 默认的坐标原点是 (0,0) 位置。
+     * - 这些点没有经过 transform 矩阵变换。
+     * - this.calcOriginalDimension() 会依赖此方法，在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+     * @returns
+     */
+
+
+    calcDots() {
+      let point1 = new DOMPoint(0, 0); //top-left point
+
+      let point2 = new DOMPoint(this.state.width, 0); //top-right point
+
+      let point3 = new DOMPoint(this.state.width, this.state.height); //bottom-right point
+
+      let point4 = new DOMPoint(0, this.state.height); //bottom-left point
+
+      this.state.dots = [point1, point2, point3, point4];
+      return this.state.dots;
+    }
+    /**
+     * 把对象序列化成 JSON 字符串：
+     * - 容器型组件需要负责子节点的序列化操作
+     * - 如果组件不需要序列化，需要返回 null
+     * @returns JSONObject
+     */
+
+
+    toJSON() {
+      let result = { ...super.toJSON(),
+        type: ICERect.type
+      };
+      return result;
+    }
+
+  }
+
+  _defineProperty(ICERect, "type", 'ICERect');
+
+  /** `Object#toString` result references. */
+  var stringTag$1 = '[object String]';
+
+  /**
+   * Checks if `value` is classified as a `String` primitive or object.
+   *
+   * @static
+   * @since 0.1.0
+   * @memberOf _
+   * @category Lang
+   * @param {*} value The value to check.
+   * @returns {boolean} Returns `true` if `value` is a string, else `false`.
+   * @example
+   *
+   * _.isString('abc');
+   * // => true
+   *
+   * _.isString(1);
+   * // => false
+   */
+  function isString(value) {
+    return typeof value == 'string' ||
+      (!isArray_1(value) && isObjectLike_1(value) && _baseGetTag(value) == stringTag$1);
+  }
+
+  var isString_1 = isString;
+
+  var author = "大漠穷秋";
+  var name = "ice-render";
+  var version = "0.0.1";
+  var description = "A canvas engine for interactive graphics.";
+  var repository = "https://gitee.com/ice-render/ice-render";
+  var browser = "dist/index.umd.js";
+  var main = "dist/index.cjs.js";
+  var module = "dist/index.esm.js";
+  var types = "dist/types/index.d.ts";
+  var files = [
+  	"dist"
+  ];
+  var scripts = {
+  	build: "npm run build:types && npm run build:js",
+  	"build:js": "rollup -c --environment NODE_ENV:production",
+  	"build:types": "tsc --emitDeclarationOnly",
+  	clean: "rimraf dist",
+  	pretty: "prettier src/**/* --write",
+  	start: "rollup -c -w  --environment NODE_ENV:development",
+  	"types:check": "tsc --noEmit",
+  	"types:watch": "npm run types:check -- --watch"
+  };
+  var dependencies = {
+  	"@lukeed/uuid": "^2.0.0",
+  	lodash: "4.17.21"
+  };
+  var devDependencies = {
+  	"@babel/core": "7.9.0",
+  	"@babel/plugin-proposal-class-properties": "7.16.0",
+  	"@babel/preset-env": "7.9.5",
+  	"@babel/preset-typescript": "7.9.0",
+  	"@commitlint/cli": "8.3.5",
+  	"@commitlint/config-conventional": "8.3.4",
+  	"@rollup/plugin-commonjs": "11.1.0",
+  	"@rollup/plugin-json": "4.0.3",
+  	"@rollup/plugin-node-resolve": "7.1.3",
+  	"@types/jest": "25.2.1",
+  	"@types/lodash": "4.14.178",
+  	"@typescript-eslint/eslint-plugin": "2.29.0",
+  	"@typescript-eslint/parser": "2.29.0",
+  	eslint: "6.8.0",
+  	"eslint-config-prettier": "6.11.0",
+  	"eslint-plugin-jest": "23.8.2",
+  	"eslint-plugin-prettier": "3.1.3",
+  	husky: "4.2.5",
+  	jest: "25.4.0",
+  	"lint-staged": "10.1.7",
+  	rimraf: "3.0.2",
+  	rollup: "2.7.2",
+  	"rollup-plugin-babel": "4.4.0",
+  	"rollup-plugin-terser": "5.3.0",
+  	typescript: "3.8.3"
+  };
+  var commitlint = {
+  	"extends": [
+  		"@commitlint/config-conventional"
+  	]
+  };
+  var keywords = [
+  	"canvas",
+  	"graphic"
+  ];
+  var browserslist = {
+  	production: [
+  		">0.2%",
+  		"not dead",
+  		"not op_mini all"
+  	],
+  	development: [
+  		"last 1 chrome version",
+  		"last 1 firefox version",
+  		"last 1 safari version"
+  	]
+  };
+  var engines = {
+  	npm: ">=6.4.1",
+  	node: ">=10.13.0"
+  };
+  var license = "MIT";
+  var pkg = {
+  	author: author,
+  	name: name,
+  	version: version,
+  	description: description,
+  	repository: repository,
+  	browser: browser,
+  	main: main,
+  	module: module,
+  	types: types,
+  	files: files,
+  	scripts: scripts,
+  	dependencies: dependencies,
+  	devDependencies: devDependencies,
+  	commitlint: commitlint,
+  	"lint-staged": {
+  	"*.{js,jsx,ts,tsx}": [
+  		"eslint --fix",
+  		"git add"
+  	],
+  	"*.{json,md,yml}": [
+  		"prettier --write",
+  		"git add"
+  	]
+  },
+  	keywords: keywords,
+  	browserslist: browserslist,
+  	engines: engines,
+  	license: license
+  };
+
+  /**
+   * @class DDManager
+   *
+   *  拖拽管理器
+   *
+   * - ICE Render 中所有组件的拖动都由 DDManager 管理。
+   * - 拖拽管理器是纯逻辑组件，没有外观。
+   * - DDManager 只负责拖拽和移动位置，不进行其它操作。
+   * - 全局单例，一个 ICE 实例上只能有一个 DDManager 实例。
+   *
+   * @see ICE
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+  class DDManager {
+    //当前正在拖动的组件，FIXME:同时拖动多个组件？
+    constructor(ice) {
+      _defineProperty(this, "ice", void 0);
+
+      _defineProperty(this, "currentObj", void 0);
+
+      this.ice = ice;
+    }
+
+    start() {
+      this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
+      return this;
+    }
+
+    stop() {
+      this.ice.evtBus.off('mousedown', this.mouseDownHandler, this);
+      this.ice.evtBus.off('mousemove', this.mouseMoveHandler, this);
+      this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
+      return this;
+    }
+
+    mouseDownHandler(evt) {
+      let component = evt.target;
+
+      if (!(component instanceof ICEBaseComponent)) {
+        console.warn('DDManager: 点击在 canvas 画布上，没有点击任何图形。');
+        return;
+      }
+
+      if (!component.state.interactive || !component.state.draggable) {
+        return;
+      }
+
+      this.currentObj = component;
+      this.ice.evtBus.on('mousemove', this.mouseMoveHandler, this);
+      this.ice.evtBus.on('mouseup', this.mouseUpHandler, this);
+    }
+
+    mouseMoveHandler(evt) {
+      // console.log('window.devicePixelRatio>', window.devicePixelRatio);
+      // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+      // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+      let tx = evt.movementX;
+      let ty = evt.movementY;
+      this.currentObj.moveGlobalPosition(tx, ty, evt);
+      return true;
+    }
+
+    mouseUpHandler(evt) {
+      this.ice.evtBus.off('mousemove', this.mouseMoveHandler, this);
+      this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
+    }
+
+  }
+
+  /**
+   * Checks if `value` is `null` or `undefined`.
+   *
+   * @static
+   * @memberOf _
+   * @since 4.0.0
+   * @category Lang
+   * @param {*} value The value to check.
+   * @returns {boolean} Returns `true` if `value` is nullish, else `false`.
+   * @example
+   *
+   * _.isNil(null);
+   * // => true
+   *
+   * _.isNil(void 0);
+   * // => true
+   *
+   * _.isNil(NaN);
+   * // => false
+   */
+  function isNil(value) {
+    return value == null;
+  }
+
+  var isNil_1 = isNil;
 
   /**
    *
@@ -5265,758 +5150,70 @@
   _defineProperty(ICEPolyLine, "type", 'ICEPolyLine');
 
   /**
-   * @class ICEVisioLink
+   * @class ICEGroup
    *
-   * Visio 型的连接线
+   * 容器型组件
    *
-   * 模拟 Microsoft Visio 中的折线算法，此实现从 diagramo 改进而来：http://diagramo.com/ 。
-   *
-   * 基本特性：
-   *
-   * - ICEVisioLink 只有 2 个端点，起点和终点。
-   * - 除起始点和终点坐标之外，其它点会自动插值计算。
-   * - ICEVisioLink 只能连接 2 个非线条类的组件。
-   * - 线条互相之间不能连接，在 ICE 引擎中，不能用线条连接线条。
-   * - 每一个可以被连接的组件上都有 4 个插槽（Slot），4 个插槽分布在组件最小边界盒子 4 条边的几何中点位置上。
-   * - ICEVisioLink 的端点在移动时会判断是否与某个插槽发生碰撞，如果与某个插槽发生碰撞， ICEVisioLink 会连接到插槽所在的组件上。
-   * - 同一个插槽（Slot）上可以连 N 根线，Slot 与 ICEVisioLink 之间的关系是 1->N 。
+   * ICEGroup 可以包含自身，利用此组件可以构造出树形的对象结构。
    *
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
-  class ICEVisioLink extends ICEPolyLine {
+
+  class ICEGroup extends ICERect {
     /**
      * @required
      * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
      */
-    //FIXME:序列化时存组件 ID
-
-    /**
-     * FIXME:补全 props 配置项的描述
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-
-      if (isNil_1(props.startPoint)) {
-        props.startPoint = [0, 0];
-      }
-
-      if (isNil_1(props.endPoint)) {
-        props.endPoint = [10, 10];
-      }
-
-      props.points = [props.startPoint, props.endPoint]; //escapeDistance 疏散距离，是4个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
-      //escapeDistance 不是固定值，会根据 startSlot 和 endSlot 宿主组件的尺寸动态计算和调整，这样可以保证连接线不与相连接的组件产生重叠。
-
-      props = {
-        escapeDistance: 30,
-        ...props
-      };
+    constructor(props) {
       super(props);
 
-      _defineProperty(this, "startSlot", void 0);
+      _defineProperty(this, "parentNode", null);
 
-      _defineProperty(this, "endSlot", void 0);
+      _defineProperty(this, "childNodes", []);
     }
     /**
-     * ICEVisioLink 有自己特殊的计算方式。
-     *
-     * @overwrite
-     * @returns
+     * 注意，在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。
+     * 所以此时 child.root, child.ctx, child.evtBus 都可能为空。
+     * @param child
      */
 
 
-    calcDots() {
-      let solutions = this.interpolate();
-      let {
-        left,
-        top
-      } = this.state;
-      let arr = solutions[0][2];
-      this.state.points = [];
-      this.state.dots = [];
-      arr.forEach(item => {
-        this.state.points.push([item.x, item.y]);
-        this.state.dots.push(new DOMPoint(item.x - left, item.y - top));
+    addChild(child) {
+      child.trigger(ICE_CONSTS.BEFORE_ADD);
+      child.parentNode = this;
+      this.childNodes.push(child);
+      child.trigger(ICE_CONSTS.AFTER_ADD);
+    }
+
+    addChildren(arr) {
+      arr.forEach(child => {
+        this.addChild(child);
       });
-      return this.state.dots;
-    }
-    /**
-     * 在起点和终点之间插值。
-     *
-     * @returns
-     */
-
-
-    interpolate() {
-      let len = this.state.points.length;
-      let startX = this.state.points[0][0];
-      let startY = this.state.points[0][1];
-      let endX = this.state.points[len - 1][0];
-      let endY = this.state.points[len - 1][1];
-      let startPoint = new GeoPoint(startX, startY);
-      let endPoint = new GeoPoint(endX, endY);
-      let potentialExits = [];
-      let startExitPoint = null;
-      let endExitPoint = null;
-      let solutions = [];
-      let startBounding = new ICEBoundingBox();
-      let endBounding = new ICEBoundingBox(); //find start exit point
-
-      if (this.startSlot) {
-        startBounding = this.startSlot.hostComponent.getMinBoundingBox();
-        potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl.y - this.state.escapeDistance); //north
-
-        potentialExits[1] = new GeoPoint(startBounding.tr.x + this.state.escapeDistance, startPoint.y); //east
-
-        potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br.y + this.state.escapeDistance); //south
-
-        potentialExits[3] = new GeoPoint(startBounding.tl.x - this.state.escapeDistance, startPoint.y); //west
-        //pick closest exit point
-
-        startExitPoint = potentialExits[0];
-
-        for (let i = 1; i < potentialExits.length; i++) {
-          if (this.distance(startPoint, potentialExits[i]) < this.distance(startPoint, startExitPoint)) {
-            startExitPoint = potentialExits[i];
-          }
-        }
-      } //find end exit point
-
-
-      if (this.endSlot) {
-        endBounding = this.endSlot.hostComponent.getMinBoundingBox();
-        potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl.y - this.state.escapeDistance); //north
-
-        potentialExits[1] = new GeoPoint(endBounding.tr.x + this.state.escapeDistance, endPoint.y); //east
-
-        potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br.y + this.state.escapeDistance); //south
-
-        potentialExits[3] = new GeoPoint(endBounding.tl.x - this.state.escapeDistance, endPoint.y); //west
-        //pick closest exit point
-
-        endExitPoint = potentialExits[0];
-
-        for (let i = 1; i < potentialExits.length; i++) {
-          if (this.distance(endPoint, potentialExits[i]) < this.distance(endPoint, endExitPoint)) {
-            endExitPoint = potentialExits[i];
-          }
-        }
-      } //the index of the gap (where do we need to insert new points) DO NOT CHANGE IT
-
-
-      let gapIndex = 0; //Basic solution
-
-      let s = [startPoint];
-
-      if (startExitPoint) {
-        s.push(startExitPoint);
-        gapIndex = 1;
-      }
-
-      endExitPoint && s.push(endExitPoint);
-      s.push(endPoint); //SO - no additional points
-
-      let s0 = GeoPoint.cloneArray(s);
-      solutions.push(['s0', 's0', s0]); //S1
-
-      let s1 = GeoPoint.cloneArray(s); //first variant
-
-      let s1_1 = GeoPoint.cloneArray(s1);
-      s1_1.splice(gapIndex + 1, 0, new GeoPoint(s1_1[gapIndex].x, s1_1[gapIndex + 1].y));
-      solutions.push(['s1', 's1_1', s1_1]); //second variant
-
-      let s1_2 = GeoPoint.cloneArray(s1);
-      s1_2.splice(gapIndex + 1, 0, new GeoPoint(s1_2[gapIndex + 1].x, s1_2[gapIndex].y));
-      solutions.push(['s1', 's1_2', s1_2]); //S2
-      //Variant I
-
-      let s2_1 = GeoPoint.cloneArray(s1);
-      let s2_1_1 = new GeoPoint((s2_1[gapIndex].x + s2_1[gapIndex + 1].x) / 2, s2_1[gapIndex].y);
-      let s2_1_2 = new GeoPoint((s2_1[gapIndex].x + s2_1[gapIndex + 1].x) / 2, s2_1[gapIndex + 1].y);
-      s2_1.splice(gapIndex + 1, 0, s2_1_1, s2_1_2);
-      solutions.push(['s2', 's2_1', s2_1]); //Variant II
-
-      let s2_2 = GeoPoint.cloneArray(s1);
-      let s2_2_1 = new GeoPoint(s2_2[gapIndex].x, (s2_2[gapIndex].y + s2_2[gapIndex + 1].y) / 2);
-      let s2_2_2 = new GeoPoint(s2_2[gapIndex + 1].x, (s2_2[gapIndex].y + s2_2[gapIndex + 1].y) / 2);
-      s2_2.splice(gapIndex + 1, 0, s2_2_1, s2_2_2);
-      solutions.push(['s2', 's2_2', s2_2]); //Variant III
-
-      let s2_3 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move right so no intersection with a figure will be present
-      //add points X coordinates to be able to generate Variant III even in the absence of figures :p
-
-      let eastExits = [s2_3[gapIndex].x + 20, s2_3[gapIndex + 1].x + 20];
-
-      if (startBounding) {
-        eastExits.push(startBounding.br.x + 20);
-      }
-
-      if (endBounding) {
-        eastExits.push(endBounding.br.x + 20);
-      }
-
-      let eastExit = this.max(eastExits);
-      let s2_3_1 = new GeoPoint(eastExit, s2_3[gapIndex].y);
-      let s2_3_2 = new GeoPoint(eastExit, s2_3[gapIndex + 1].y);
-      s2_3.splice(gapIndex + 1, 0, s2_3_1, s2_3_2);
-      solutions.push(['s2', 's2_3', s2_3]); //Variant IV
-
-      let s2_4 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move up so no intersection with a figure will be present
-      //add points y coordinates to be able to generate Variant III even in the absence of figures :p
-
-      let northExits = [s2_4[gapIndex].y - 20, s2_4[gapIndex + 1].y - 20];
-
-      if (startBounding) {
-        northExits.push(startBounding.tl.y - 20);
-      }
-
-      if (endBounding) {
-        northExits.push(endBounding.tl.y - 20);
-      }
-
-      let northExit = this.min(northExits);
-      let s2_4_1 = new GeoPoint(s2_4[gapIndex].x, northExit);
-      let s2_4_2 = new GeoPoint(s2_4[gapIndex + 1].x, northExit);
-      s2_4.splice(gapIndex + 1, 0, s2_4_1, s2_4_2);
-      solutions.push(['s2', 's2_4', s2_4]); //Variant V
-
-      let s2_5 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move left so no intersection with a figure will be present
-      //add points x coordinates to be able to generate Variant III even in the absence of figures :p
-
-      let westExits = [s2_5[gapIndex].x - 20, s2_5[gapIndex + 1].x - 20];
-
-      if (startBounding) {
-        westExits.push(startBounding.tl.x - 20);
-      }
-
-      if (endBounding) {
-        westExits.push(endBounding.tl.x - 20);
-      }
-
-      let westExit = this.min(westExits);
-      let s2_5_1 = new GeoPoint(westExit, s2_5[gapIndex].y);
-      let s2_5_2 = new GeoPoint(westExit, s2_5[gapIndex + 1].y);
-      s2_5.splice(gapIndex + 1, 0, s2_5_1, s2_5_2);
-      solutions.push(['s2', 's2_5', s2_5]); //Variant VI
-
-      let s2_6 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move down so no intersection with a figure will be present
-      //add points y coordinates to be able to generate Variant III even in the absence of figures :p
-
-      let southExits = [s2_6[gapIndex].y + 20, s2_6[gapIndex + 1].y + 20];
-
-      if (startBounding) {
-        southExits.push(startBounding.tl.y + startBounding.height + 20);
-      }
-
-      if (endBounding) {
-        southExits.push(endBounding.tl.y + endBounding.height + 20);
-      }
-
-      let southExit = this.max(southExits);
-      let s2_6_1 = new GeoPoint(s2_6[gapIndex].x, southExit);
-      let s2_6_2 = new GeoPoint(s2_6[gapIndex + 1].x, southExit);
-      s2_6.splice(gapIndex + 1, 0, s2_6_1, s2_6_2);
-      solutions.push(['s2', 's2_6', s2_6]); //FILTER solutions
-
-      /*
-       * Algorithm
-       * 0. solutions are ordered from minimmun nr of points to maximum >:)
-       * 1. remove all solutions that are not orthogonal (mainly s0 solution)
-       * 2. remove all solutions that go backward (we will not need them ever)
-       * 3. remove all solutions with intersections
-       * 4. pick first class of solutions with same nr of points (ex: 2)
-       * 5. pick the first solution with 90 degree angles (less turnarounds)
-       * (not interesteted) sort by length :p
-       */
-      //1. filter non ortogonal solutions
-
-      let orthogonalSolution = [];
-
-      for (let i = 0; i < solutions.length; i++) {
-        let solution = solutions[i][2];
-
-        if (this.orthogonalPath(solution)) {
-          orthogonalSolution.push(solutions[i]);
-        }
-      }
-
-      solutions = orthogonalSolution; //2. filter backward solutions, do not allow start and end points to coincide - ignore them
-
-      if (!startPoint.equals(endPoint)) {
-        let forwardSolutions = [];
-
-        for (let i = 0; i < solutions.length; i++) {
-          let solution = solutions[i][2];
-
-          if (this.forwardPath(solution)) {
-            forwardSolutions.push(solutions[i]);
-          }
-        }
-
-        solutions = forwardSolutions;
-
-        if (solutions.length == 0) ;
-      } //3. Filter non intersecting solutions
-
-
-      let nonIntersectionSolutions = [];
-
-      for (let i = 0; i < solutions.length; i++) {
-        let solution = solutions[i][2];
-        let intersect = false;
-        let innerLines = solution.slice(); //just a shallow copy
-
-        /*
-         * If any bounds just trim the solution. So we avoid the strange case when a connection
-         * startes from a point on a figure and ends inside of the same figure, but not on a connection point.
-         */
-
-        if (endBounding || startBounding) {
-          //i0nnerLines = innerLines.slice(0, innerLines.length - 1);
-          innerLines = innerLines.slice(1, innerLines.length - 1);
-        } //now test for intersection
-
-
-        if (startBounding) {
-          intersect = intersect || this.polylineIntersectsRectangle(innerLines, startBounding);
-        }
-
-        if (endBounding) {
-          intersect = intersect || this.polylineIntersectsRectangle(innerLines, endBounding);
-        }
-
-        if (!intersect) {
-          nonIntersectionSolutions.push(solutions[i]);
-        }
-      } //If all solutions intersect than this is destiny  :) and just ignore the intersection filter
-
-
-      if (nonIntersectionSolutions.length != 0) {
-        //reasign to solutions
-        solutions = nonIntersectionSolutions;
-      } //4. get first class of solutions with same nr of points
-
-
-      if (solutions.length == 0) ;
-
-      let firstSolution = solutions[0][2]; //pick first solution
-
-      let nrOfPoints = firstSolution.length;
-      let sameNrPointsSolution = [];
-
-      for (let i = 0; i < solutions.length; i++) {
-        let solution = solutions[i][2];
-
-        if (solution.length == nrOfPoints) {
-          sameNrPointsSolution.push(solutions[i]);
-        }
-      }
-
-      solutions = sameNrPointsSolution;
-      /*
-       * 5.Pick the first solution with 90 degree angles (less turnarounds)
-       * in case we have more than one solution in our class.
-       */
-
-      let solIndex = 0;
-
-      for (let i = 0; i < solutions.length; i++) {
-        if (this.scorePath(solutions[solIndex][2]) < this.scorePath(solutions[i][2])) {
-          solIndex = i;
-        }
-      }
-
-      solutions = [solutions[solIndex]];
-      return solutions;
-    }
-    /**
-     * Tests if a vector of points is an orthogonal path (moving in multiples of 90 degrees).
-     *
-     *
-     * 正交判定。Visio 连接线上的每一段要么平行于 X 轴，要么平行于 Y 轴。
-     * @param {Array} v - an {Array} of {Point}s
-     * @return {Boolean} - true if path is valid, false otherwise
-     */
-
-
-    orthogonalPath(v) {
-      if (v.length <= 1) {
-        return true;
-      }
-
-      for (let i = 0; i < v.length - 1; i++) {
-        if (v[i].x != v[i + 1].x && v[i].y != v[i + 1].y) {
-          return false;
-        }
-      }
-
-      return true;
-    }
-    /**
-     * FIXME: 用更好的数学方法进行计算。
-     * Test to see if 2 {Line}s intersects. They are considered finite segments
-     * and not the infinite lines from geometry
-     * @param {Line} l1 - fist line/segment
-     * @param {Line} l2 - last line/segment
-     * @return {Boolean} true - if the lines intersect or false if not
-     */
-
-
-    lineIntersectsLine(l1, l2) {
-      // check for two vertical lines
-      if (l1.startPoint.x == l1.endPoint.x && l2.startPoint.x == l2.endPoint.x) {
-        return l1.startPoint.x == l2.startPoint.x // if 'infinite 'lines do coincide,
-        ? // then check segment bounds for overlapping
-        l1.contains(l2.startPoint.x, l2.startPoint.y) || l1.contains(l2.endPoint.x, l2.endPoint.y) : // lines are paralel
-        false;
-      } // if one line is vertical, and another line is not vertical
-      else if (l1.startPoint.x == l1.endPoint.x || l2.startPoint.x == l2.endPoint.x) {
-        // let assume l2 is vertical, otherwise exchange them
-        if (l1.startPoint.x == l1.endPoint.x) {
-          let l = l1;
-          l1 = l2;
-          l2 = l;
-        } // finding intersection of 'infinite' lines
-        // equation of the first line is y = ax + b, second: x = c
-
-
-        let a = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
-        let b = l1.startPoint.y - a * l1.startPoint.x;
-        let x0 = l2.startPoint.x;
-        let y0 = a * x0 + b;
-        return l1.contains(x0, y0) && l2.contains(x0, y0);
-      } // check normal case - both lines are not vertical
-      else {
-        //line equation is : y = a*x + b, b = y - a * x
-        let a1 = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
-        let b1 = l1.startPoint.y - a1 * l1.startPoint.x;
-        let a2 = (l2.endPoint.y - l2.startPoint.y) / (l2.endPoint.x - l2.startPoint.x);
-        let b2 = l2.startPoint.y - a2 * l2.startPoint.x;
-
-        if (a1 == a2) {
-          //paralel lines
-          return b1 == b2 ? // for coincide lines, check for segment bounds overlapping
-          l1.contains(l2.startPoint.x, l2.startPoint.y) || l1.contains(l2.endPoint.x, l2.endPoint.y) : // not coincide paralel lines have no chance to intersect
-          false;
-        } else {
-          //usual case - non paralel, the 'infinite' lines intersects...we only need to know if inside the segment
-
-          /*
-           * if one of the lines are vertical, then x0 is equal to their x,
-           * otherwise:
-           * y1 = a1 * x + b1
-           * y2 = a2 * x + b2
-           * => x0 = (b2 - b1) / (a1 - a2)
-           * => y0 = a1 * x0 + b1
-           */
-          let x0 = (b2 - b1) / (a1 - a2);
-          let y0 = a1 * x0 + b1;
-          return l1.contains(x0, y0) && l2.contains(x0, y0);
-        }
-      }
-    }
-    /**
-     * Tests if a a polyline defined by a set of points intersects a rectangle
-     * @param {Array} points - and {Array} of {Point}s
-     * @param {Array} boundingRect - the boundingRect
-     * @param {Boolean} closedPolyline - incase polyline is closed figure then true, else false
-     * @return true - if line intersects the rectangle, false - if not
-     */
-
-
-    polylineIntersectsRectangle(points, boundingRect) {
-      let closedPolyline = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
-      //get the 4 lines/segments represented by the boundingRect
-      let lines = [];
-      lines.push(new GeoLine(new GeoPoint(boundingRect.x1, boundingRect.y1), new GeoPoint(boundingRect.x2, boundingRect.y1)));
-      lines.push(new GeoLine(new GeoPoint(boundingRect.x2, boundingRect.y1), new GeoPoint(boundingRect.x2, boundingRect.y2)));
-      lines.push(new GeoLine(new GeoPoint(boundingRect.x2, boundingRect.y2), new GeoPoint(boundingRect.x1, boundingRect.y2)));
-      lines.push(new GeoLine(new GeoPoint(boundingRect.x1, boundingRect.y2), new GeoPoint(boundingRect.x1, boundingRect.y1)));
-
-      for (let k = 0; k < points.length - 1; k++) {
-        //create a line out of each 2 consecutive points
-        let tempLine = new GeoLine(points[k], points[k + 1]); //see if that line intersect any of the line on boundingRect border
-
-        for (let i = 0; i < lines.length; i++) {
-          if (this.lineIntersectsLine(tempLine, lines[i])) {
-            return true;
-          }
-        }
-      } //check the closed figure - that is last point connected to the first
-
-
-      if (closedPolyline) {
-        //create a line out of each 2 consecutive points
-        let tempLine1 = new GeoLine(points[points.length - 1], points[0]); //see if that line intersect any of the line on boundingRect border
-
-        for (let j = 0; j < lines.length; j++) {
-          if (this.lineIntersectsLine(tempLine1, lines[j])) {
-            return true;
-          }
-        }
-      }
-
-      return false;
-    }
-    /**
-     * Score a ortogonal path made out of Points
-     * Iterates over a set of points (minimum 3)
-     * For each 3 points (i, i+1, i+2) :
-     *  - if the 3rd one is after the 2nd on the same line we add +1
-     *  - if the 3rd is up or down related to the 2nd we do not do anything +0
-     *  - if the 3rd goes back we imediatelly return -1
-     * @param {Array} v - an array of {Point}s
-     * @return {Number} - -1 if the path is wrong (goes back) or something >= 0 if is fine.The bigger the number the smooth the path is.
-     */
-
-
-    scorePath(v) {
-      if (v.length <= 2) {
-        return -1;
-      }
-
-      let score = 0;
-
-      for (let i = 1; i < v.length - 1; i++) {
-        if (v[i - 1].x == v[i].x && v[i].x == v[i + 1].x) {
-          //on the same vertical
-          if (this.signum(v[i + 1].y - v[i].y) == this.signum(v[i].y - v[i - 1].y)) {
-            //same direction
-            score++;
-          } else {
-            //going back - no good
-            return -1;
-          }
-        } else if (v[i - 1].y == v[i].y && v[i].y == v[i + 1].y) {
-          //on the same horizontal
-          if (this.signum(v[i + 1].x - v[i].x) == this.signum(v[i].x - v[i - 1].x)) {
-            //same direction
-            score++;
-          } else {
-            //going back - no good
-            return -1;
-          }
-        } else {
-          //not on same vertical nor horizontal
-          score--;
-        }
-      }
-
-      return score;
-    }
-    /**
-     * Returns the sign of a number
-     * @param {Number} x - the number
-     * @returns {Number}
-     * @see <a href="http://en.wikipedia.org/wiki/Sign_function">http://en.wikipedia.org/wiki/Sign_function</a>
-     */
-
-
-    signum(x) {
-      if (x > 0) return 1;else if (x < 0) return -1;else return 0;
-    }
-    /**
-     * Tests if a vector of points is a valid path (not going back)
-     * There are a few problems here. If you have p1, p2, p3 and p4 and p2 = p3 you need to ignore that
-     * @param {Array} v - an {Array} of {Point}s
-     * @return {Boolean} - true if path is valid, false otherwise
-     */
-
-
-    forwardPath(v) {
-      if (v.length <= 2) {
-        return true;
-      }
-
-      for (let i = 0; i < v.length - 2; i++) {
-        if (v[i].x == v[i + 1].x && v[i + 1].x == v[i + 2].x) {
-          //on the same vertical
-          if (this.signum(v[i + 1].y - v[i].y) != 0) {
-            //test only we have a progressing path
-            if (this.signum(v[i + 1].y - v[i].y) == -1 * this.signum(v[i + 2].y - v[i + 1].y)) {
-              //going back (ignore zero)
-              return false;
-            }
-          }
-        } else if (v[i].y == v[i + 1].y && v[i + 1].y == v[i + 2].y) {
-          //on the same horizontal
-          if (this.signum(v[i + 1].x - v[i].x) != 0) {
-            //test only we have a progressing path
-            if (this.signum(v[i + 1].x - v[i].x) == -1 * this.signum(v[i + 2].x - v[i + 1].x)) {
-              //going back (ignore zero)
-              return false;
-            }
-          }
-        }
-      }
-
-      return true;
-    }
-    /**
-     * @method distance
-     * Calculate the distance between two points.
-     *
-     *
-     * 计算两点之间的距离。
-     * @param {Point} p1 - first {Point}
-     * @param {Point} p2 - second {Point}
-     * @return {Number} - the distance between those 2 points. It is always positive.
-     */
-
-
-    distance(p1, p2) {
-      return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
-    }
-    /**
-     * Returns the max of a vector
-     * @param {Array} v - vector of {Number}s
-     * @return {Number} - the maximum number from the vector or NaN if vector is empty
-     */
-
-
-    max(v) {
-      if (v.lenght == 0) {
-        return NaN;
-      } else {
-        var m = v[0];
-
-        for (var i = 0; i < v.length; i++) {
-          if (m < v[i]) {
-            m = v[i];
-          }
-        }
-
-        return m;
-      }
-    }
-    /**
-     * Returns the min of a vector
-     * @param {Array} v - vector of {Number}s
-     * @return {Number} - the minimum number from the vector or NaN if vector is empty
-     * @author alex@scriptoid.com
-     */
-
-
-    min(v) {
-      if (v.lenght == 0) {
-        return NaN;
-      } else {
-        var m = v[0];
-
-        for (var i = 0; i < v.length; i++) {
-          if (m > v[i]) {
-            m = v[i];
-          }
-        }
-
-        return m;
-      }
-    }
-    /**
-     * ICEVisioLink 中的点都是自动计算出来的，手动添加点没有意义。
-     * @overwrite
-     * @param point
-     * @param index
-     */
-
-
-    addDot(point, index) {
-      throw new Error('Can NOT add dot to ICEVisioLink mannually.');
-    }
-    /**
-     * ICEVisioLink 中的点都是自动计算出来的，手动删除点没有意义。
-     * @overwrite
-     * @param index
-     */
-
-
-    rmDot(index) {
-      throw new Error('Can NOT remove dot from ICEVisioLink mannually.');
-    }
-    /**
-     *
-     * 当连线两头的组件发生移动时，触发连线重新绘制自身。
-     *
-     * @param slot
-     * @param position
-     */
-
-
-    syncPosition(slot, position) {
-      let slotBounding = slot.getMinBoundingBox();
-      let {
-        x,
-        y
-      } = slotBounding.center;
-      let point = this.globalToLocal(x, y);
-      let {
-        left,
-        top
-      } = this.state;
-      point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, left, top]));
-
-      if (position === 'start') {
-        this.setState({
-          startPoint: [point.x, point.y]
-        });
-      } else if (position === 'end') {
-        this.setState({
-          endPoint: [point.x, point.y]
-        });
-      }
     }
 
-    followStartSlot(evt) {
-      this.syncPosition(this.startSlot, 'start');
+    removeChild(child) {
+      child.destory();
+      this.childNodes.splice(this.childNodes.indexOf(child), 1);
     }
 
-    followEndSlot(evt) {
-      this.syncPosition(this.endSlot, 'end');
-    } //FIXME:以下特性需要测试
-    // - 监听目标组件上的 after-move 事件，同步位置
-    // - 如果 slot 为 null ，清理事件和相关资源
-    // - 设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
-
-
-    setSlot(slot, position) {
-      if (!slot || !position) return; //总是先尝试解除连接关系，然后再重新尝试连接
-
-      this.deleteSlot(slot, position);
-      this.setState({
-        draggable: false
+    removeChildren(arr) {
+      arr.forEach(child => {
+        this.removeChild(child);
       });
-
-      if (position === 'start') {
-        this.startSlot = slot;
-        this.syncPosition(this.startSlot, 'start');
-        this.startSlot.hostComponent.on('after-move', this.followStartSlot, this);
-      } else if (position === 'end') {
-        this.endSlot = slot;
-        this.syncPosition(this.endSlot, 'end');
-        this.endSlot.hostComponent.on('after-move', this.followEndSlot, this);
-      }
     }
     /**
-     * 解除连线与组件之间的连接关系。
-     * @param slot
+     * @override
+     * @method destory
+     * 销毁组件
+     * - FIXME:立即停止组件上的所有动画效果
+     * - 需要清理绑定的事件
+     * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
      */
 
 
-    deleteSlot(slot, position) {
-      if (position === 'start' && this.startSlot === slot) {
-        this.startSlot.hostComponent.off('after-move', this.followStartSlot, this);
-        this.startSlot = null;
-      } else if (position === 'end' && this.endSlot === slot) {
-        this.endSlot.hostComponent.off('after-move', this.followEndSlot, this);
-        this.endSlot = null;
-      } //如果两端都没有连接的组件，连接线自身变成可拖动
-
-
-      if (!this.startSlot && !this.endSlot) {
-        this.setState({
-          draggable: true
-        });
-      }
+    destory() {
+      this.removeChildren(this.childNodes);
+      super.destory();
     }
     /**
      * 把对象序列化成 JSON 字符串：
@@ -6027,15 +5224,59 @@
 
 
     toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICEVisioLink.type
+      let result = {
+        type: ICEGroup.type,
+        props: this.props,
+        state: this.state,
+        childNodes: []
       };
+      this.childNodes.forEach(child => {
+        if (child.toJSON()) {
+          result.childNodes.push(child.toJSON());
+        }
+      });
       return result;
     }
 
   }
 
-  _defineProperty(ICEVisioLink, "type", 'ICEVisioLink');
+  _defineProperty(ICEGroup, "type", 'ICEGroup');
+
+  /**
+   * @class ICEControlPanel
+   *
+   * 控制面板
+   *
+   * FIXME:所有 ControlPanel 类型的组件都需要处理组件的 REMOVE 事件，当组件被删除时，清理关联关系。
+   *
+   * - ICEControlPanel 本身总是直接画在 canvas 上，不是任何组件的孩子。
+   *
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+  class ICEControlPanel extends ICEGroup {
+    constructor(props) {
+      super({
+        linkable: false,
+        ...props
+      });
+
+      _defineProperty(this, "_targetComponent", void 0);
+    }
+
+    doRender() {
+      super.doRender();
+      this.setControlPositions();
+    }
+
+    moveGlobalPosition(tx, ty, evt) {
+      super.moveGlobalPosition(tx, ty, evt);
+
+      if (this._targetComponent) {
+        this._targetComponent.moveGlobalPosition(tx, ty, evt);
+      }
+    }
+
+  }
 
   /**
    * @class ICEEllipse
@@ -6165,399 +5406,6 @@
   }
 
   _defineProperty(ICECircle, "type", 'ICECircle');
-
-  /**
-   * @class ICERect 矩形
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICERect extends ICEDotPath {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        width: 10,
-        height: 10,
-        ...props
-      });
-    }
-    /**
-     * 计算路径上的关键点:
-     * - 默认的坐标原点是 (0,0) 位置。
-     * - 这些点没有经过 transform 矩阵变换。
-     * - this.calcOriginalDimension() 会依赖此方法，在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
-     * @returns
-     */
-
-
-    calcDots() {
-      let point1 = new DOMPoint(0, 0); //top-left point
-
-      let point2 = new DOMPoint(this.state.width, 0); //top-right point
-
-      let point3 = new DOMPoint(this.state.width, this.state.height); //bottom-right point
-
-      let point4 = new DOMPoint(0, this.state.height); //bottom-left point
-
-      this.state.dots = [point1, point2, point3, point4];
-      return this.state.dots;
-    }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = { ...super.toJSON(),
-        type: ICERect.type
-      };
-      return result;
-    }
-
-  }
-
-  _defineProperty(ICERect, "type", 'ICERect');
-
-  /** `Object#toString` result references. */
-  var stringTag$1 = '[object String]';
-
-  /**
-   * Checks if `value` is classified as a `String` primitive or object.
-   *
-   * @static
-   * @since 0.1.0
-   * @memberOf _
-   * @category Lang
-   * @param {*} value The value to check.
-   * @returns {boolean} Returns `true` if `value` is a string, else `false`.
-   * @example
-   *
-   * _.isString('abc');
-   * // => true
-   *
-   * _.isString(1);
-   * // => false
-   */
-  function isString(value) {
-    return typeof value == 'string' ||
-      (!isArray_1(value) && isObjectLike_1(value) && _baseGetTag(value) == stringTag$1);
-  }
-
-  var isString_1 = isString;
-
-  var author = "大漠穷秋";
-  var name = "ice-render";
-  var version = "0.0.1";
-  var description = "A canvas engine for interactive graphics.";
-  var repository = "https://gitee.com/ice-render/ice-render";
-  var browser = "dist/index.umd.js";
-  var main = "dist/index.cjs.js";
-  var module = "dist/index.esm.js";
-  var types = "dist/types/index.d.ts";
-  var files = [
-  	"dist"
-  ];
-  var scripts = {
-  	build: "npm run build:types && npm run build:js",
-  	"build:js": "rollup -c --environment NODE_ENV:production",
-  	"build:types": "tsc --emitDeclarationOnly",
-  	clean: "rimraf dist",
-  	pretty: "prettier src/**/* --write",
-  	start: "rollup -c -w  --environment NODE_ENV:development",
-  	"types:check": "tsc --noEmit",
-  	"types:watch": "npm run types:check -- --watch"
-  };
-  var dependencies = {
-  	"@lukeed/uuid": "^2.0.0",
-  	lodash: "4.17.21"
-  };
-  var devDependencies = {
-  	"@babel/core": "7.9.0",
-  	"@babel/plugin-proposal-class-properties": "7.16.0",
-  	"@babel/preset-env": "7.9.5",
-  	"@babel/preset-typescript": "7.9.0",
-  	"@commitlint/cli": "8.3.5",
-  	"@commitlint/config-conventional": "8.3.4",
-  	"@rollup/plugin-commonjs": "11.1.0",
-  	"@rollup/plugin-json": "4.0.3",
-  	"@rollup/plugin-node-resolve": "7.1.3",
-  	"@types/jest": "25.2.1",
-  	"@types/lodash": "4.14.178",
-  	"@typescript-eslint/eslint-plugin": "2.29.0",
-  	"@typescript-eslint/parser": "2.29.0",
-  	eslint: "6.8.0",
-  	"eslint-config-prettier": "6.11.0",
-  	"eslint-plugin-jest": "23.8.2",
-  	"eslint-plugin-prettier": "3.1.3",
-  	husky: "4.2.5",
-  	jest: "25.4.0",
-  	"lint-staged": "10.1.7",
-  	rimraf: "3.0.2",
-  	rollup: "2.7.2",
-  	"rollup-plugin-babel": "4.4.0",
-  	"rollup-plugin-terser": "5.3.0",
-  	typescript: "3.8.3"
-  };
-  var commitlint = {
-  	"extends": [
-  		"@commitlint/config-conventional"
-  	]
-  };
-  var keywords = [
-  	"canvas",
-  	"graphic"
-  ];
-  var browserslist = {
-  	production: [
-  		">0.2%",
-  		"not dead",
-  		"not op_mini all"
-  	],
-  	development: [
-  		"last 1 chrome version",
-  		"last 1 firefox version",
-  		"last 1 safari version"
-  	]
-  };
-  var engines = {
-  	npm: ">=6.4.1",
-  	node: ">=10.13.0"
-  };
-  var license = "MIT";
-  var pkg = {
-  	author: author,
-  	name: name,
-  	version: version,
-  	description: description,
-  	repository: repository,
-  	browser: browser,
-  	main: main,
-  	module: module,
-  	types: types,
-  	files: files,
-  	scripts: scripts,
-  	dependencies: dependencies,
-  	devDependencies: devDependencies,
-  	commitlint: commitlint,
-  	"lint-staged": {
-  	"*.{js,jsx,ts,tsx}": [
-  		"eslint --fix",
-  		"git add"
-  	],
-  	"*.{json,md,yml}": [
-  		"prettier --write",
-  		"git add"
-  	]
-  },
-  	keywords: keywords,
-  	browserslist: browserslist,
-  	engines: engines,
-  	license: license
-  };
-
-  /**
-   * @class DDManager
-   *
-   *  拖拽管理器
-   *
-   * - ICE Render 中所有组件的拖动都由 DDManager 管理。
-   * - 拖拽管理器是纯逻辑组件，没有外观。
-   * - DDManager 只负责拖拽和移动位置，不进行其它操作。
-   * - 全局单例，一个 ICE 实例上只能有一个 DDManager 实例。
-   *
-   * @see ICE
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-  class DDManager {
-    //当前正在拖动的组件，FIXME:同时拖动多个组件？
-    constructor(ice) {
-      _defineProperty(this, "ice", void 0);
-
-      _defineProperty(this, "currentObj", void 0);
-
-      this.ice = ice;
-    }
-
-    start() {
-      this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
-      return this;
-    }
-
-    stop() {
-      this.ice.evtBus.off('mousedown', this.mouseDownHandler, this);
-      this.ice.evtBus.off('mousemove', this.mouseMoveHandler, this);
-      this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
-      return this;
-    }
-
-    mouseDownHandler(evt) {
-      let component = evt.target;
-
-      if (!(component instanceof ICEBaseComponent)) {
-        console.warn('DDManager: 点击在 canvas 画布上，没有点击任何图形。');
-        return;
-      }
-
-      if (!component.state.interactive || !component.state.draggable) {
-        return;
-      }
-
-      this.currentObj = component;
-      this.ice.evtBus.on('mousemove', this.mouseMoveHandler, this);
-      this.ice.evtBus.on('mouseup', this.mouseUpHandler, this);
-    }
-
-    mouseMoveHandler(evt) {
-      // console.log('window.devicePixelRatio>', window.devicePixelRatio);
-      // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-      // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-      let tx = evt.movementX;
-      let ty = evt.movementY;
-      this.currentObj.moveGlobalPosition(tx, ty, evt);
-      return true;
-    }
-
-    mouseUpHandler(evt) {
-      this.ice.evtBus.off('mousemove', this.mouseMoveHandler, this);
-      this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
-    }
-
-  }
-
-  /**
-   * @class ICEGroup
-   *
-   * 容器型组件
-   *
-   * ICEGroup 可以包含自身，利用此组件可以构造出树形的对象结构。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEGroup extends ICERect {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-    constructor(props) {
-      super(props);
-
-      _defineProperty(this, "parentNode", null);
-
-      _defineProperty(this, "childNodes", []);
-    }
-    /**
-     * 注意，在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。
-     * 所以此时 child.root, child.ctx, child.evtBus 都可能为空。
-     * @param child
-     */
-
-
-    addChild(child) {
-      child.trigger(ICE_CONSTS.BEFORE_ADD);
-      child.parentNode = this;
-      this.childNodes.push(child);
-      child.trigger(ICE_CONSTS.AFTER_ADD);
-    }
-
-    addChildren(arr) {
-      arr.forEach(child => {
-        this.addChild(child);
-      });
-    }
-
-    removeChild(child) {
-      child.destory();
-      this.childNodes.splice(this.childNodes.indexOf(child), 1);
-    }
-
-    removeChildren(arr) {
-      arr.forEach(child => {
-        this.removeChild(child);
-      });
-    }
-    /**
-     * @override
-     * @method destory
-     * 销毁组件
-     * - FIXME:立即停止组件上的所有动画效果
-     * - 需要清理绑定的事件
-     * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
-     */
-
-
-    destory() {
-      this.removeChildren(this.childNodes);
-      super.destory();
-    }
-    /**
-     * 把对象序列化成 JSON 字符串：
-     * - 容器型组件需要负责子节点的序列化操作
-     * - 如果组件不需要序列化，需要返回 null
-     * @returns JSONObject
-     */
-
-
-    toJSON() {
-      let result = {
-        type: ICEGroup.type,
-        props: this.props,
-        state: this.state,
-        childNodes: []
-      };
-      this.childNodes.forEach(child => {
-        if (child.toJSON()) {
-          result.childNodes.push(child.toJSON());
-        }
-      });
-      return result;
-    }
-
-  }
-
-  _defineProperty(ICEGroup, "type", 'ICEGroup');
-
-  /**
-   * @class ICEControlPanel
-   *
-   * 控制面板
-   *
-   * FIXME:所有 ControlPanel 类型的组件都需要处理组件的 REMOVE 事件，当组件被删除时，清理关联关系。
-   *
-   * - ICEControlPanel 本身总是直接画在 canvas 上，不是任何组件的孩子。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-  class ICEControlPanel extends ICEGroup {
-    constructor(props) {
-      super({
-        linkable: false,
-        ...props
-      });
-
-      _defineProperty(this, "_targetComponent", void 0);
-    }
-
-    doRender() {
-      super.doRender();
-      this.setControlPositions();
-    }
-
-    moveGlobalPosition(tx, ty, evt) {
-      super.moveGlobalPosition(tx, ty, evt);
-
-      if (this._targetComponent) {
-        this._targetComponent.moveGlobalPosition(tx, ty, evt);
-      }
-    }
-
-  }
 
   /**
    * Copyright (c) 2022 大漠穷秋.
@@ -7903,17 +6751,25 @@
    */
   const FrameManager = {
     evtBuses: [],
+    stopped: false,
     frameCallback: function () {
       FrameManager.evtBuses.forEach(evtBus => {
+        if (FrameManager.stopped) return;
         evtBus.trigger(ICE_CONSTS.ICE_FRAME_EVENT);
       });
-      root$2.requestAnimationFrame(FrameManager.frameCallback);
+
+      if (!FrameManager.stopped) {
+        root$2.requestAnimationFrame(FrameManager.frameCallback);
+      }
     },
     start: function () {
       //TODO:为 Node 平台自定义一个 requestAnimationFrame 函数，签名、参数、调用方式全部相同。
+      FrameManager.stopped = false;
       root$2.requestAnimationFrame(FrameManager.frameCallback);
     },
-    stop: function () {},
+    stop: function () {
+      FrameManager.stopped = true;
+    },
     pause: function () {},
     resume: function () {},
     regitserEvtBus: function (evtBus) {
@@ -8009,6 +6865,7 @@
 
 
     findTargetComponent(clientX, clientY) {
+      if (this._stopped) return null;
       let x = clientX - this.ice.canvasBoundingClientRect.left;
       let y = clientY - this.ice.canvasBoundingClientRect.top; // let components = Array.from(this.ice.childNodes);
 
@@ -8035,6 +6892,8 @@
 
 
     traverse(x, y, component) {
+      if (this._stopped) return;
+
       if (component.childNodes && component.childNodes.length) {
         component.childNodes.forEach(child => {
           this.traverse(x, y, child);
@@ -8511,6 +7370,1150 @@
   _defineProperty(ICEImage, "type", 'ICEImage');
 
   /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+
+  /**
+   * FIXME: 与 ICEPoint 合并。
+   *
+   * @class GeoPoint
+   * A geometrically point, invisible, no dimension, just used for mathematical operations.
+   * This implementation is improved from http://diagramo.com/ .
+   *
+   *
+   * 几何学意义上的点，它不可见，没有大小，用来进行数学运算。此实现从 diagramo 改进而来：http://diagramo.com/ 。
+   *
+   * @docauthor 大漠穷秋 <damoqiongqiu@126.com>
+   */
+  class GeoPoint {
+    /**
+     * @constructor GeoPoint
+     * @param {*} x
+     * @param {*} y
+     */
+    constructor() {
+      let x = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
+      let y = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+      this.x = x;
+      this.y = y;
+    }
+    /**
+     *
+     * @method load
+     * Creates a {GeoPoint} out of JSON parsed object.
+     *
+     *
+     * 从 JSON 对象创建 {GeoPoint} 实例。
+     * @param {JSONObject} o the JSON parsed object
+     * @return {GeoPoint} a newly constructed GeoPoint
+     */
+
+
+    static load(o) {
+      return new GeoPoint(Number(o.x), Number(o.y));
+    }
+    /**
+     *
+     * @method loadArray
+     * Creates an array of points from an array of {JSONObject}s.
+     *
+     *
+     * 从 {JSONObject} 数组创建实例。
+     * @param {Array} v the array of JSONObjects
+     * @return an {Array} of {GeoPoint}s
+     */
+
+
+    static loadArray(v) {
+      let newPoints = [];
+
+      for (let i = 0; i < v.length; i++) {
+        newPoints.push(GeoPoint.load(v[i]));
+      }
+
+      return newPoints;
+    }
+    /**
+     *
+     * @method cloneArray
+     * Clones an array of points.
+     *
+     *
+     * 克隆一组点。
+     * @param {Array} v - the array of {GeoPoint}s
+     * @return an {Array} of {GeoPoint}s
+     */
+
+
+    static cloneArray(v) {
+      let newPoints = [];
+
+      for (let i = 0; i < v.length; i++) {
+        newPoints.push(v[i].clone());
+      }
+
+      return newPoints;
+    }
+    /**
+     *
+     * @method pointsToArray
+     * @param {*} points
+     */
+
+
+    static pointsToArray(points) {
+      let result = [];
+
+      for (let i = 0; i < points.length; i++) {
+        result.push([points[i].x, points[i].y]);
+      }
+
+      return result;
+    }
+    /**
+     * @method toArray
+     */
+
+
+    toArray() {
+      return [this.x, this.y];
+    }
+    /**
+     * @method transform
+     * @param {*} matrix
+     */
+
+
+    transform(matrix) {
+      let oldX = this.x;
+      let oldY = this.y;
+      this.x = matrix[0][0] * oldX + matrix[0][1] * oldY + matrix[0][2];
+      this.y = matrix[1][0] * oldX + matrix[1][1] * oldY + matrix[1][2];
+    }
+    /**
+     * @method equals
+     * Tests if this point is equals to other point.
+     *
+     *
+     * 测试当前点是否与另一个点相等。
+     * @param {GeoPoint} anotherPoint - the other point
+     */
+
+
+    equals(anotherPoint) {
+      return this.x == anotherPoint.x && this.y == anotherPoint.y;
+    }
+    /**
+     * @method clone
+     * Clone current GeoPoint.
+     *
+     *
+     * 克隆当前点。
+     */
+
+
+    clone() {
+      let newPoint = new GeoPoint(this.x, this.y);
+      return newPoint;
+    }
+    /**
+     * @method add
+     * @param {*} point
+     */
+
+
+    add(point) {
+      this.x = this.x + point.x;
+      this.y = this.y + point.y;
+      return this;
+    }
+    /**
+     * @method near
+     * Tests to see if a point (x, y) is within a range of current GeoPoint.
+     *
+     *
+     * 测试某个点 (x,y) 是否处于当前 GeoPoint 的某个范围内。
+     * @param {Numeric} x - the x coordinate of tested point
+     * @param {Numeric} y - the x coordinate of tested point
+     * @param {Numeric} radius - the radius of the vicinity
+     */
+
+
+    near(x, y, radius) {
+      let distance = Math.sqrt(Math.pow(this.x - x, 2) + Math.pow(this.y - y, 2));
+      return distance <= radius;
+    }
+    /**
+     * @method toString
+     */
+
+
+    toString() {
+      return '[' + this.x + ',' + this.y + ']';
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
+   * @class GeoLine
+   * A geometrically line, invisible, no dimension, just used for mathematical operations.
+   * This implementation is improved from http://diagramo.com/ .
+   *
+   *
+   * 几何学意义上的直线，它不可见，没有宽度，用来进行数学运算。此实现从 diagramo 改进而来：http://diagramo.com/ 。
+   *
+   * @docauthor 大漠穷秋 <damoqiongqiu@126.com>
+   */
+
+  class GeoLine {
+    constructor(startPoint, endPoint) {
+      this.startPoint = startPoint;
+      this.endPoint = endPoint;
+    }
+    /**
+     *
+     * @method load
+     * Creates a {GeoLine} out of JSON parsed object.
+     *
+     *
+     * 从 JSON 对象创建直线。
+     * @param {JSONObject} o - the JSON parsed object
+     * @return {GeoLine} a newly constructed GeoLine
+     */
+
+
+    static load(o) {
+      let newLine = new GeoLine(GeoPoint.load(o.startPoint), GeoPoint.load(o.endPoint));
+      return newLine;
+    }
+    /**
+     * @method constants
+     * Tests to see if a point belongs to this line (not as infinite line but more like a segment)
+     * Algorithm: Compute line's equation and see if (x, y) verifies it.
+     *
+     * 测试某个点是否位于直线上（这里不是数学意义上的无线延长直线，而是线段）。
+     * 算法：计算斜率，看(x,y)点是否位于线段上。
+     *
+     * @see http://www.jeffreythompson.org/collision-detection/line-point.php
+     * @param {Number} x - the X coordinates
+     * @param {Number} y - the Y coordinates
+     */
+
+
+    contains(x, y) {
+      // if the point is inside rectangle bounds of the segment
+      if (Math.min(this.startPoint.x, this.endPoint.x) <= x && x <= Math.max(this.startPoint.x, this.endPoint.x) && Math.min(this.startPoint.y, this.endPoint.y) <= y && y <= Math.max(this.startPoint.y, this.endPoint.y)) {
+        // check for vertical line
+        if (this.startPoint.x == this.endPoint.x) {
+          return x == this.startPoint.x;
+        } else {
+          // usual (not vertical) line can be represented as y = a * x + b
+          let a = (this.endPoint.y - this.startPoint.y) / (this.endPoint.x - this.startPoint.x);
+          let b = this.startPoint.y - a * this.startPoint.x;
+          return y == a * x + b;
+        }
+      } else {
+        return false;
+      }
+    }
+    /**
+     * @method near
+     * See if we are near a {GeoLine} by a certain radius (also includes the extremities into computation).
+     *
+     *
+     * 测试某个点是否在某个角度上接近 {GeoLine} （断点也计算在内）。
+     *
+     * @param {Number} x - the x coordinates
+     * @param {Number} y - the y coordinates
+     * @param {Number} radius - the radius to search for
+     * @see http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+     * @see "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
+     */
+
+
+    near(x, y, radius) {
+      if (this.endPoint.x === this.startPoint.x) {
+        //Vertical line, so the vicinity area is a rectangle
+        return (this.startPoint.y - radius <= y && this.endPoint.y + radius >= y || this.endPoint.y - radius <= y && this.startPoint.y + radius >= y) && x > this.startPoint.x - radius && x < this.startPoint.x + radius;
+      }
+
+      if (this.startPoint.y === this.endPoint.y) {
+        //Horizontal line, so the vicinity area is a rectangle
+        return (this.startPoint.x - radius <= x && this.endPoint.x + radius >= x || this.endPoint.x - radius <= x && this.startPoint.x + radius >= x) && y > this.startPoint.y - radius && y < this.startPoint.y + radius;
+      }
+
+      let startX = Math.min(this.endPoint.x, this.startPoint.x);
+      let startY = Math.min(this.endPoint.y, this.startPoint.y);
+      let endX = Math.max(this.endPoint.x, this.startPoint.x);
+      let endY = Math.max(this.endPoint.y, this.startPoint.y);
+      /*We will compute the distance from point to the line
+       * by using the algorithm from
+       * http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+       * */
+      //First we need to find a,b,c of the line equation ax + by + c = 0
+
+      let a = this.endPoint.y - this.startPoint.y;
+      let b = this.startPoint.x - this.endPoint.x;
+      let c = -(this.startPoint.x * this.endPoint.y - this.endPoint.x * this.startPoint.y); //Secondly we get the distance "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
+
+      let d = Math.abs((a * x + b * y + c) / Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2))); //Thirdly we get coordinates of closest line's point to target point
+      //http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Cartesian_coordinates
+
+      let closestX = (b * (b * x - a * y) - a * c) / (Math.pow(a, 2) + Math.pow(b, 2));
+      let closestY = (a * (-b * x + a * y) - b * c) / (Math.pow(a, 2) + Math.pow(b, 2));
+      let r = d <= radius && endX >= closestX && closestX >= startX && endY >= closestY && closestY >= startY || //the projection of the point falls INSIDE of the segment
+      this.startPoint.near(x, y, radius) || this.endPoint.near(x, y, radius); //the projection of the point falls OUTSIDE of the segment
+
+      return r;
+    }
+    /**
+     * @method getPoints
+     * Get an arry composed by the start point and end point of the line.
+     *
+     *
+     * 获取端点构成的数组。
+     */
+
+
+    getPoints() {
+      let points = [];
+      points.push(this.startPoint);
+      points.push(this.endPoint);
+      return points;
+    }
+    /**
+     * @method getPoint
+     * Return the {GeoPoint} corresponding the t certain t value.
+     *
+     *
+     * 获取指定百分比上的点，参数 t 是百分比。
+     * @param {Number} t the value of parameter t, where t in [0,1], t is like a percent
+     */
+
+
+    getPoint(t) {
+      let xp = t * (this.endPoint.x - this.startPoint.x) + this.startPoint.x;
+      let yp = t * (this.endPoint.y - this.startPoint.y) + this.startPoint.y;
+      return new GeoPoint(xp, yp);
+    }
+    /**
+     * @method clone
+     */
+
+
+    clone() {
+      let ret = new GeoLine(this.startPoint.clone(), this.endPoint.clone());
+      return ret;
+    }
+    /**
+     * @equals
+     * @param {*} anotherLine
+     */
+
+
+    equals(anotherLine) {
+      if (!(anotherLine instanceof GeoLine)) {
+        return false;
+      }
+
+      return this.startPoint.equals(anotherLine.startPoint) && this.endPoint.equals(anotherLine.endPoint);
+    }
+    /**
+     * @method toString
+     */
+
+
+    toString() {
+      return 'line(' + this.startPoint + ',' + this.endPoint + ')';
+    }
+
+  }
+
+  /**
+   * @class ICEVisioLink
+   *
+   * Visio 型的连接线
+   *
+   * 模拟 Microsoft Visio 中的折线算法，此实现从 diagramo 改进而来：http://diagramo.com/ 。
+   *
+   * 基本特性：
+   *
+   * - ICEVisioLink 只有 2 个端点，起点和终点。
+   * - 除起始点和终点坐标之外，其它点会自动插值计算。
+   * - ICEVisioLink 只能连接 2 个非线条类的组件。
+   * - 线条互相之间不能连接，在 ICE 引擎中，不能用线条连接线条。
+   * - 每一个可以被连接的组件上都有 4 个插槽（Slot），4 个插槽分布在组件最小边界盒子 4 条边的几何中点位置上。
+   * - ICEVisioLink 的端点在移动时会判断是否与某个插槽发生碰撞，如果与某个插槽发生碰撞， ICEVisioLink 会连接到插槽所在的组件上。
+   * - 同一个插槽（Slot）上可以连 N 根线，Slot 与 ICEVisioLink 之间的关系是 1->N 。
+   *
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+  class ICEVisioLink extends ICEPolyLine {
+    /**
+     * @required
+     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
+     */
+    //FIXME:序列化时存组件 ID
+
+    /**
+     * FIXME:补全 props 配置项的描述
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+
+      if (isNil_1(props.startPoint)) {
+        props.startPoint = [0, 0];
+      }
+
+      if (isNil_1(props.endPoint)) {
+        props.endPoint = [10, 10];
+      }
+
+      props.points = [props.startPoint, props.endPoint]; //escapeDistance 疏散距离，是4个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
+      //escapeDistance 不是固定值，会根据 startSlot 和 endSlot 宿主组件的尺寸动态计算和调整，这样可以保证连接线不与相连接的组件产生重叠。
+
+      props = {
+        escapeDistance: 30,
+        ...props
+      };
+      super(props);
+
+      _defineProperty(this, "startSlot", void 0);
+
+      _defineProperty(this, "endSlot", void 0);
+    }
+    /**
+     * ICEVisioLink 有自己特殊的计算方式。
+     *
+     * @overwrite
+     * @returns
+     */
+
+
+    calcDots() {
+      let solutions = this.interpolate();
+      let {
+        left,
+        top
+      } = this.state;
+      let arr = solutions[0][2];
+      this.state.points = [];
+      this.state.dots = [];
+      arr.forEach(item => {
+        this.state.points.push([item.x, item.y]);
+        this.state.dots.push(new DOMPoint(item.x - left, item.y - top));
+      });
+      return this.state.dots;
+    }
+    /**
+     * 在起点和终点之间插值。
+     *
+     * @returns
+     */
+
+
+    interpolate() {
+      let len = this.state.points.length;
+      let startX = this.state.points[0][0];
+      let startY = this.state.points[0][1];
+      let endX = this.state.points[len - 1][0];
+      let endY = this.state.points[len - 1][1];
+      let startPoint = new GeoPoint(startX, startY);
+      let endPoint = new GeoPoint(endX, endY);
+      let potentialExits = [];
+      let startExitPoint = null;
+      let endExitPoint = null;
+      let solutions = [];
+      let startBounding = new ICEBoundingBox();
+      let endBounding = new ICEBoundingBox(); //find start exit point
+
+      if (this.startSlot) {
+        startBounding = this.startSlot.hostComponent.getMinBoundingBox();
+        potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl.y - this.state.escapeDistance); //north
+
+        potentialExits[1] = new GeoPoint(startBounding.tr.x + this.state.escapeDistance, startPoint.y); //east
+
+        potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br.y + this.state.escapeDistance); //south
+
+        potentialExits[3] = new GeoPoint(startBounding.tl.x - this.state.escapeDistance, startPoint.y); //west
+        //pick closest exit point
+
+        startExitPoint = potentialExits[0];
+
+        for (let i = 1; i < potentialExits.length; i++) {
+          if (this.distance(startPoint, potentialExits[i]) < this.distance(startPoint, startExitPoint)) {
+            startExitPoint = potentialExits[i];
+          }
+        }
+      } //find end exit point
+
+
+      if (this.endSlot) {
+        endBounding = this.endSlot.hostComponent.getMinBoundingBox();
+        potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl.y - this.state.escapeDistance); //north
+
+        potentialExits[1] = new GeoPoint(endBounding.tr.x + this.state.escapeDistance, endPoint.y); //east
+
+        potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br.y + this.state.escapeDistance); //south
+
+        potentialExits[3] = new GeoPoint(endBounding.tl.x - this.state.escapeDistance, endPoint.y); //west
+        //pick closest exit point
+
+        endExitPoint = potentialExits[0];
+
+        for (let i = 1; i < potentialExits.length; i++) {
+          if (this.distance(endPoint, potentialExits[i]) < this.distance(endPoint, endExitPoint)) {
+            endExitPoint = potentialExits[i];
+          }
+        }
+      } //the index of the gap (where do we need to insert new points) DO NOT CHANGE IT
+
+
+      let gapIndex = 0; //Basic solution
+
+      let s = [startPoint];
+
+      if (startExitPoint) {
+        s.push(startExitPoint);
+        gapIndex = 1;
+      }
+
+      endExitPoint && s.push(endExitPoint);
+      s.push(endPoint); //SO - no additional points
+
+      let s0 = GeoPoint.cloneArray(s);
+      solutions.push(['s0', 's0', s0]); //S1
+
+      let s1 = GeoPoint.cloneArray(s); //first variant
+
+      let s1_1 = GeoPoint.cloneArray(s1);
+      s1_1.splice(gapIndex + 1, 0, new GeoPoint(s1_1[gapIndex].x, s1_1[gapIndex + 1].y));
+      solutions.push(['s1', 's1_1', s1_1]); //second variant
+
+      let s1_2 = GeoPoint.cloneArray(s1);
+      s1_2.splice(gapIndex + 1, 0, new GeoPoint(s1_2[gapIndex + 1].x, s1_2[gapIndex].y));
+      solutions.push(['s1', 's1_2', s1_2]); //S2
+      //Variant I
+
+      let s2_1 = GeoPoint.cloneArray(s1);
+      let s2_1_1 = new GeoPoint((s2_1[gapIndex].x + s2_1[gapIndex + 1].x) / 2, s2_1[gapIndex].y);
+      let s2_1_2 = new GeoPoint((s2_1[gapIndex].x + s2_1[gapIndex + 1].x) / 2, s2_1[gapIndex + 1].y);
+      s2_1.splice(gapIndex + 1, 0, s2_1_1, s2_1_2);
+      solutions.push(['s2', 's2_1', s2_1]); //Variant II
+
+      let s2_2 = GeoPoint.cloneArray(s1);
+      let s2_2_1 = new GeoPoint(s2_2[gapIndex].x, (s2_2[gapIndex].y + s2_2[gapIndex + 1].y) / 2);
+      let s2_2_2 = new GeoPoint(s2_2[gapIndex + 1].x, (s2_2[gapIndex].y + s2_2[gapIndex + 1].y) / 2);
+      s2_2.splice(gapIndex + 1, 0, s2_2_1, s2_2_2);
+      solutions.push(['s2', 's2_2', s2_2]); //Variant III
+
+      let s2_3 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move right so no intersection with a figure will be present
+      //add points X coordinates to be able to generate Variant III even in the absence of figures :p
+
+      let eastExits = [s2_3[gapIndex].x + 20, s2_3[gapIndex + 1].x + 20];
+
+      if (startBounding) {
+        eastExits.push(startBounding.br.x + 20);
+      }
+
+      if (endBounding) {
+        eastExits.push(endBounding.br.x + 20);
+      }
+
+      let eastExit = this.max(eastExits);
+      let s2_3_1 = new GeoPoint(eastExit, s2_3[gapIndex].y);
+      let s2_3_2 = new GeoPoint(eastExit, s2_3[gapIndex + 1].y);
+      s2_3.splice(gapIndex + 1, 0, s2_3_1, s2_3_2);
+      solutions.push(['s2', 's2_3', s2_3]); //Variant IV
+
+      let s2_4 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move up so no intersection with a figure will be present
+      //add points y coordinates to be able to generate Variant III even in the absence of figures :p
+
+      let northExits = [s2_4[gapIndex].y - 20, s2_4[gapIndex + 1].y - 20];
+
+      if (startBounding) {
+        northExits.push(startBounding.tl.y - 20);
+      }
+
+      if (endBounding) {
+        northExits.push(endBounding.tl.y - 20);
+      }
+
+      let northExit = this.min(northExits);
+      let s2_4_1 = new GeoPoint(s2_4[gapIndex].x, northExit);
+      let s2_4_2 = new GeoPoint(s2_4[gapIndex + 1].x, northExit);
+      s2_4.splice(gapIndex + 1, 0, s2_4_1, s2_4_2);
+      solutions.push(['s2', 's2_4', s2_4]); //Variant V
+
+      let s2_5 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move left so no intersection with a figure will be present
+      //add points x coordinates to be able to generate Variant III even in the absence of figures :p
+
+      let westExits = [s2_5[gapIndex].x - 20, s2_5[gapIndex + 1].x - 20];
+
+      if (startBounding) {
+        westExits.push(startBounding.tl.x - 20);
+      }
+
+      if (endBounding) {
+        westExits.push(endBounding.tl.x - 20);
+      }
+
+      let westExit = this.min(westExits);
+      let s2_5_1 = new GeoPoint(westExit, s2_5[gapIndex].y);
+      let s2_5_2 = new GeoPoint(westExit, s2_5[gapIndex + 1].y);
+      s2_5.splice(gapIndex + 1, 0, s2_5_1, s2_5_2);
+      solutions.push(['s2', 's2_5', s2_5]); //Variant VI
+
+      let s2_6 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move down so no intersection with a figure will be present
+      //add points y coordinates to be able to generate Variant III even in the absence of figures :p
+
+      let southExits = [s2_6[gapIndex].y + 20, s2_6[gapIndex + 1].y + 20];
+
+      if (startBounding) {
+        southExits.push(startBounding.tl.y + startBounding.height + 20);
+      }
+
+      if (endBounding) {
+        southExits.push(endBounding.tl.y + endBounding.height + 20);
+      }
+
+      let southExit = this.max(southExits);
+      let s2_6_1 = new GeoPoint(s2_6[gapIndex].x, southExit);
+      let s2_6_2 = new GeoPoint(s2_6[gapIndex + 1].x, southExit);
+      s2_6.splice(gapIndex + 1, 0, s2_6_1, s2_6_2);
+      solutions.push(['s2', 's2_6', s2_6]); //FILTER solutions
+
+      /*
+       * Algorithm
+       * 0. solutions are ordered from minimmun nr of points to maximum >:)
+       * 1. remove all solutions that are not orthogonal (mainly s0 solution)
+       * 2. remove all solutions that go backward (we will not need them ever)
+       * 3. remove all solutions with intersections
+       * 4. pick first class of solutions with same nr of points (ex: 2)
+       * 5. pick the first solution with 90 degree angles (less turnarounds)
+       * (not interesteted) sort by length :p
+       */
+      //1. filter non ortogonal solutions
+
+      let orthogonalSolution = [];
+
+      for (let i = 0; i < solutions.length; i++) {
+        let solution = solutions[i][2];
+
+        if (this.orthogonalPath(solution)) {
+          orthogonalSolution.push(solutions[i]);
+        }
+      }
+
+      solutions = orthogonalSolution; //2. filter backward solutions, do not allow start and end points to coincide - ignore them
+
+      if (!startPoint.equals(endPoint)) {
+        let forwardSolutions = [];
+
+        for (let i = 0; i < solutions.length; i++) {
+          let solution = solutions[i][2];
+
+          if (this.forwardPath(solution)) {
+            forwardSolutions.push(solutions[i]);
+          }
+        }
+
+        solutions = forwardSolutions;
+
+        if (solutions.length == 0) ;
+      } //3. Filter non intersecting solutions
+
+
+      let nonIntersectionSolutions = [];
+
+      for (let i = 0; i < solutions.length; i++) {
+        let solution = solutions[i][2];
+        let intersect = false;
+        let innerLines = solution.slice(); //just a shallow copy
+
+        /*
+         * If any bounds just trim the solution. So we avoid the strange case when a connection
+         * startes from a point on a figure and ends inside of the same figure, but not on a connection point.
+         */
+
+        if (endBounding || startBounding) {
+          //i0nnerLines = innerLines.slice(0, innerLines.length - 1);
+          innerLines = innerLines.slice(1, innerLines.length - 1);
+        } //now test for intersection
+
+
+        if (startBounding) {
+          intersect = intersect || this.polylineIntersectsRectangle(innerLines, startBounding);
+        }
+
+        if (endBounding) {
+          intersect = intersect || this.polylineIntersectsRectangle(innerLines, endBounding);
+        }
+
+        if (!intersect) {
+          nonIntersectionSolutions.push(solutions[i]);
+        }
+      } //If all solutions intersect than this is destiny  :) and just ignore the intersection filter
+
+
+      if (nonIntersectionSolutions.length != 0) {
+        //reasign to solutions
+        solutions = nonIntersectionSolutions;
+      } //4. get first class of solutions with same nr of points
+
+
+      if (solutions.length == 0) ;
+
+      let firstSolution = solutions[0][2]; //pick first solution
+
+      let nrOfPoints = firstSolution.length;
+      let sameNrPointsSolution = [];
+
+      for (let i = 0; i < solutions.length; i++) {
+        let solution = solutions[i][2];
+
+        if (solution.length == nrOfPoints) {
+          sameNrPointsSolution.push(solutions[i]);
+        }
+      }
+
+      solutions = sameNrPointsSolution;
+      /*
+       * 5.Pick the first solution with 90 degree angles (less turnarounds)
+       * in case we have more than one solution in our class.
+       */
+
+      let solIndex = 0;
+
+      for (let i = 0; i < solutions.length; i++) {
+        if (this.scorePath(solutions[solIndex][2]) < this.scorePath(solutions[i][2])) {
+          solIndex = i;
+        }
+      }
+
+      solutions = [solutions[solIndex]];
+      return solutions;
+    }
+    /**
+     * Tests if a vector of points is an orthogonal path (moving in multiples of 90 degrees).
+     *
+     *
+     * 正交判定。Visio 连接线上的每一段要么平行于 X 轴，要么平行于 Y 轴。
+     * @param {Array} v - an {Array} of {Point}s
+     * @return {Boolean} - true if path is valid, false otherwise
+     */
+
+
+    orthogonalPath(v) {
+      if (v.length <= 1) {
+        return true;
+      }
+
+      for (let i = 0; i < v.length - 1; i++) {
+        if (v[i].x != v[i + 1].x && v[i].y != v[i + 1].y) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+    /**
+     * FIXME: 用更好的数学方法进行计算。
+     * Test to see if 2 {Line}s intersects. They are considered finite segments
+     * and not the infinite lines from geometry
+     * @param {Line} l1 - fist line/segment
+     * @param {Line} l2 - last line/segment
+     * @return {Boolean} true - if the lines intersect or false if not
+     */
+
+
+    lineIntersectsLine(l1, l2) {
+      // check for two vertical lines
+      if (l1.startPoint.x == l1.endPoint.x && l2.startPoint.x == l2.endPoint.x) {
+        return l1.startPoint.x == l2.startPoint.x // if 'infinite 'lines do coincide,
+        ? // then check segment bounds for overlapping
+        l1.contains(l2.startPoint.x, l2.startPoint.y) || l1.contains(l2.endPoint.x, l2.endPoint.y) : // lines are paralel
+        false;
+      } // if one line is vertical, and another line is not vertical
+      else if (l1.startPoint.x == l1.endPoint.x || l2.startPoint.x == l2.endPoint.x) {
+        // let assume l2 is vertical, otherwise exchange them
+        if (l1.startPoint.x == l1.endPoint.x) {
+          let l = l1;
+          l1 = l2;
+          l2 = l;
+        } // finding intersection of 'infinite' lines
+        // equation of the first line is y = ax + b, second: x = c
+
+
+        let a = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
+        let b = l1.startPoint.y - a * l1.startPoint.x;
+        let x0 = l2.startPoint.x;
+        let y0 = a * x0 + b;
+        return l1.contains(x0, y0) && l2.contains(x0, y0);
+      } // check normal case - both lines are not vertical
+      else {
+        //line equation is : y = a*x + b, b = y - a * x
+        let a1 = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
+        let b1 = l1.startPoint.y - a1 * l1.startPoint.x;
+        let a2 = (l2.endPoint.y - l2.startPoint.y) / (l2.endPoint.x - l2.startPoint.x);
+        let b2 = l2.startPoint.y - a2 * l2.startPoint.x;
+
+        if (a1 == a2) {
+          //paralel lines
+          return b1 == b2 ? // for coincide lines, check for segment bounds overlapping
+          l1.contains(l2.startPoint.x, l2.startPoint.y) || l1.contains(l2.endPoint.x, l2.endPoint.y) : // not coincide paralel lines have no chance to intersect
+          false;
+        } else {
+          //usual case - non paralel, the 'infinite' lines intersects...we only need to know if inside the segment
+
+          /*
+           * if one of the lines are vertical, then x0 is equal to their x,
+           * otherwise:
+           * y1 = a1 * x + b1
+           * y2 = a2 * x + b2
+           * => x0 = (b2 - b1) / (a1 - a2)
+           * => y0 = a1 * x0 + b1
+           */
+          let x0 = (b2 - b1) / (a1 - a2);
+          let y0 = a1 * x0 + b1;
+          return l1.contains(x0, y0) && l2.contains(x0, y0);
+        }
+      }
+    }
+    /**
+     * Tests if a a polyline defined by a set of points intersects a rectangle
+     * @param {Array} points - and {Array} of {Point}s
+     * @param {Array} boundingRect - the boundingRect
+     * @param {Boolean} closedPolyline - incase polyline is closed figure then true, else false
+     * @return true - if line intersects the rectangle, false - if not
+     */
+
+
+    polylineIntersectsRectangle(points, boundingRect) {
+      let closedPolyline = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+      //get the 4 lines/segments represented by the boundingRect
+      let lines = [];
+      lines.push(new GeoLine(new GeoPoint(boundingRect.x1, boundingRect.y1), new GeoPoint(boundingRect.x2, boundingRect.y1)));
+      lines.push(new GeoLine(new GeoPoint(boundingRect.x2, boundingRect.y1), new GeoPoint(boundingRect.x2, boundingRect.y2)));
+      lines.push(new GeoLine(new GeoPoint(boundingRect.x2, boundingRect.y2), new GeoPoint(boundingRect.x1, boundingRect.y2)));
+      lines.push(new GeoLine(new GeoPoint(boundingRect.x1, boundingRect.y2), new GeoPoint(boundingRect.x1, boundingRect.y1)));
+
+      for (let k = 0; k < points.length - 1; k++) {
+        //create a line out of each 2 consecutive points
+        let tempLine = new GeoLine(points[k], points[k + 1]); //see if that line intersect any of the line on boundingRect border
+
+        for (let i = 0; i < lines.length; i++) {
+          if (this.lineIntersectsLine(tempLine, lines[i])) {
+            return true;
+          }
+        }
+      } //check the closed figure - that is last point connected to the first
+
+
+      if (closedPolyline) {
+        //create a line out of each 2 consecutive points
+        let tempLine1 = new GeoLine(points[points.length - 1], points[0]); //see if that line intersect any of the line on boundingRect border
+
+        for (let j = 0; j < lines.length; j++) {
+          if (this.lineIntersectsLine(tempLine1, lines[j])) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+    /**
+     * Score a ortogonal path made out of Points
+     * Iterates over a set of points (minimum 3)
+     * For each 3 points (i, i+1, i+2) :
+     *  - if the 3rd one is after the 2nd on the same line we add +1
+     *  - if the 3rd is up or down related to the 2nd we do not do anything +0
+     *  - if the 3rd goes back we imediatelly return -1
+     * @param {Array} v - an array of {Point}s
+     * @return {Number} - -1 if the path is wrong (goes back) or something >= 0 if is fine.The bigger the number the smooth the path is.
+     */
+
+
+    scorePath(v) {
+      if (v.length <= 2) {
+        return -1;
+      }
+
+      let score = 0;
+
+      for (let i = 1; i < v.length - 1; i++) {
+        if (v[i - 1].x == v[i].x && v[i].x == v[i + 1].x) {
+          //on the same vertical
+          if (this.signum(v[i + 1].y - v[i].y) == this.signum(v[i].y - v[i - 1].y)) {
+            //same direction
+            score++;
+          } else {
+            //going back - no good
+            return -1;
+          }
+        } else if (v[i - 1].y == v[i].y && v[i].y == v[i + 1].y) {
+          //on the same horizontal
+          if (this.signum(v[i + 1].x - v[i].x) == this.signum(v[i].x - v[i - 1].x)) {
+            //same direction
+            score++;
+          } else {
+            //going back - no good
+            return -1;
+          }
+        } else {
+          //not on same vertical nor horizontal
+          score--;
+        }
+      }
+
+      return score;
+    }
+    /**
+     * Returns the sign of a number
+     * @param {Number} x - the number
+     * @returns {Number}
+     * @see <a href="http://en.wikipedia.org/wiki/Sign_function">http://en.wikipedia.org/wiki/Sign_function</a>
+     */
+
+
+    signum(x) {
+      if (x > 0) return 1;else if (x < 0) return -1;else return 0;
+    }
+    /**
+     * Tests if a vector of points is a valid path (not going back)
+     * There are a few problems here. If you have p1, p2, p3 and p4 and p2 = p3 you need to ignore that
+     * @param {Array} v - an {Array} of {Point}s
+     * @return {Boolean} - true if path is valid, false otherwise
+     */
+
+
+    forwardPath(v) {
+      if (v.length <= 2) {
+        return true;
+      }
+
+      for (let i = 0; i < v.length - 2; i++) {
+        if (v[i].x == v[i + 1].x && v[i + 1].x == v[i + 2].x) {
+          //on the same vertical
+          if (this.signum(v[i + 1].y - v[i].y) != 0) {
+            //test only we have a progressing path
+            if (this.signum(v[i + 1].y - v[i].y) == -1 * this.signum(v[i + 2].y - v[i + 1].y)) {
+              //going back (ignore zero)
+              return false;
+            }
+          }
+        } else if (v[i].y == v[i + 1].y && v[i + 1].y == v[i + 2].y) {
+          //on the same horizontal
+          if (this.signum(v[i + 1].x - v[i].x) != 0) {
+            //test only we have a progressing path
+            if (this.signum(v[i + 1].x - v[i].x) == -1 * this.signum(v[i + 2].x - v[i + 1].x)) {
+              //going back (ignore zero)
+              return false;
+            }
+          }
+        }
+      }
+
+      return true;
+    }
+    /**
+     * @method distance
+     * Calculate the distance between two points.
+     *
+     *
+     * 计算两点之间的距离。
+     * @param {Point} p1 - first {Point}
+     * @param {Point} p2 - second {Point}
+     * @return {Number} - the distance between those 2 points. It is always positive.
+     */
+
+
+    distance(p1, p2) {
+      return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+    }
+    /**
+     * Returns the max of a vector
+     * @param {Array} v - vector of {Number}s
+     * @return {Number} - the maximum number from the vector or NaN if vector is empty
+     */
+
+
+    max(v) {
+      if (v.lenght == 0) {
+        return NaN;
+      } else {
+        var m = v[0];
+
+        for (var i = 0; i < v.length; i++) {
+          if (m < v[i]) {
+            m = v[i];
+          }
+        }
+
+        return m;
+      }
+    }
+    /**
+     * Returns the min of a vector
+     * @param {Array} v - vector of {Number}s
+     * @return {Number} - the minimum number from the vector or NaN if vector is empty
+     * @author alex@scriptoid.com
+     */
+
+
+    min(v) {
+      if (v.lenght == 0) {
+        return NaN;
+      } else {
+        var m = v[0];
+
+        for (var i = 0; i < v.length; i++) {
+          if (m > v[i]) {
+            m = v[i];
+          }
+        }
+
+        return m;
+      }
+    }
+    /**
+     * ICEVisioLink 中的点都是自动计算出来的，手动添加点没有意义。
+     * @overwrite
+     * @param point
+     * @param index
+     */
+
+
+    addDot(point, index) {
+      throw new Error('Can NOT add dot to ICEVisioLink mannually.');
+    }
+    /**
+     * ICEVisioLink 中的点都是自动计算出来的，手动删除点没有意义。
+     * @overwrite
+     * @param index
+     */
+
+
+    rmDot(index) {
+      throw new Error('Can NOT remove dot from ICEVisioLink mannually.');
+    }
+    /**
+     *
+     * 当连线两头的组件发生移动时，触发连线重新绘制自身。
+     *
+     * @param slot
+     * @param position
+     */
+
+
+    syncPosition(slot, position) {
+      let slotBounding = slot.getMinBoundingBox();
+      let {
+        x,
+        y
+      } = slotBounding.center;
+      let point = this.globalToLocal(x, y);
+      let {
+        left,
+        top
+      } = this.state;
+      point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, left, top]));
+
+      if (position === 'start') {
+        this.setState({
+          startPoint: [point.x, point.y]
+        });
+      } else if (position === 'end') {
+        this.setState({
+          endPoint: [point.x, point.y]
+        });
+      }
+    }
+
+    followStartSlot(evt) {
+      this.syncPosition(this.startSlot, 'start');
+    }
+
+    followEndSlot(evt) {
+      this.syncPosition(this.endSlot, 'end');
+    } //FIXME:以下特性需要测试
+    // - 监听目标组件上的 after-move 事件，同步位置
+    // - 如果 slot 为 null ，清理事件和相关资源
+    // - 设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
+
+
+    setSlot(slot, position) {
+      if (!slot || !position) return; //总是先尝试解除连接关系，然后再重新尝试连接
+
+      this.deleteSlot(slot, position);
+      this.setState({
+        draggable: false
+      });
+
+      if (position === 'start') {
+        this.startSlot = slot;
+        this.syncPosition(this.startSlot, 'start');
+        this.startSlot.hostComponent.on('after-move', this.followStartSlot, this);
+      } else if (position === 'end') {
+        this.endSlot = slot;
+        this.syncPosition(this.endSlot, 'end');
+        this.endSlot.hostComponent.on('after-move', this.followEndSlot, this);
+      }
+    }
+    /**
+     * 解除连线与组件之间的连接关系。
+     * @param slot
+     */
+
+
+    deleteSlot(slot, position) {
+      if (position === 'start' && this.startSlot === slot) {
+        this.startSlot.hostComponent.off('after-move', this.followStartSlot, this);
+        this.startSlot = null;
+      } else if (position === 'end' && this.endSlot === slot) {
+        this.endSlot.hostComponent.off('after-move', this.followEndSlot, this);
+        this.endSlot = null;
+      } //如果两端都没有连接的组件，连接线自身变成可拖动
+
+
+      if (!this.startSlot && !this.endSlot) {
+        this.setState({
+          draggable: true
+        });
+      }
+    }
+    /**
+     * 把对象序列化成 JSON 字符串：
+     * - 容器型组件需要负责子节点的序列化操作
+     * - 如果组件不需要序列化，需要返回 null
+     * @returns JSONObject
+     */
+
+
+    toJSON() {
+      let result = { ...super.toJSON(),
+        type: ICEVisioLink.type
+      };
+      return result;
+    }
+
+  }
+
+  _defineProperty(ICEVisioLink, "type", 'ICEVisioLink');
+
+  /**
    *
    * FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
    *
@@ -8804,7 +8807,6 @@
     }
 
     fromJSON(jsonStr) {
-      this.ice.clearRenderMap();
       const jsonObj = JSON.parse(jsonStr);
       const childNodes = jsonObj.childNodes;
 
@@ -8879,22 +8881,28 @@
 
       _defineProperty(this, "ice", void 0);
 
+      _defineProperty(this, "stopped", false);
+
       this.ice = ice;
     }
 
     start() {
+      this.stopped = false;
       this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
       return this;
     }
 
     stop() {
+      this.stopped = true;
       this.ice.evtBus.off(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
       return this;
-    }
+    } //FIXME:fix this when using increamental rendering
+    //FIXME:动画有闪烁
+
 
     frameEvtHandler(evt) {
-      //FIXME:fix this when using increamental rendering
-      //FIXME:动画有闪烁
+      if (this.stopped) return;
+      console.log('CanvasRenderer...');
       this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
       if (!this.ice.childNodes || !this.ice.childNodes.length) return; //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
 
@@ -8908,6 +8916,7 @@
     }
 
     renderRecursively(component) {
+      if (this.stopped) return;
       this.trigger(ICE_CONSTS.BEFORE_RENDER, null, {
         component: component
       });
@@ -9093,6 +9102,7 @@
     }
 
     clearRenderMap() {
+      //FIXME:不删除编辑工具类型的实例。
       this.removeChildren(this.childNodes);
     }
     /**
@@ -9109,19 +9119,26 @@
 
     fromJSON(jsonStr) {
       //先停止关键的管理器
+      FrameManager.stop();
+      this.renderer.stop();
       this.eventBridge.stopped = true;
       this.animationManager.stop();
       this.ddManager.stop();
       this.controlPanelManager.stop();
-      this.linkSlotManager.stop(); //反序列化，创建组件实例
+      this.linkSlotManager.stop();
+      this.clearRenderMap(); //反序列化，创建组件实例
 
       this.deserializer.fromJSON(jsonStr); //重新启动关键管理器
 
-      this.eventBridge.stopped = false;
+      FrameManager.start();
+      this.renderer.start();
       this.animationManager.start();
       this.ddManager.start();
       this.controlPanelManager.start();
       this.linkSlotManager.start();
+      setTimeout(() => {
+        this.eventBridge.stopped = false;
+      }, 0);
     }
 
   }
@@ -9237,38 +9254,38 @@
   // });
   // ice.addChild(polyLine2);
 
-  let visioLink = new ICEVisioLink({
-    left: 0,
-    top: 0,
-    startPoint: [500, 500],
-    endPoint: [600, 600],
-    style: {
-      strokeStyle: '#08ee00',
-      fillStyle: '#008000',
-      lineWidth: 5,
-    },
-  });
-  ice.addChild(visioLink);
+  // let visioLink = new ICEVisioLink({
+  //   left: 0,
+  //   top: 0,
+  //   startPoint: [500, 500],
+  //   endPoint: [600, 600],
+  //   style: {
+  //     strokeStyle: '#08ee00',
+  //     fillStyle: '#008000',
+  //     lineWidth: 5,
+  //   },
+  // });
+  // ice.addChild(visioLink);
 
-  let visioLink2 = new ICEVisioLink({
-    left: 0,
-    top: 0,
-    startPoint: [300, 300],
-    endPoint: [400, 400],
-    style: {
-      strokeStyle: '#08ee00',
-      fillStyle: '#008000',
-      lineWidth: 5,
-    },
-  });
-  ice.addChild(visioLink2);
+  // let visioLink2 = new ICEVisioLink({
+  //   left: 0,
+  //   top: 0,
+  //   startPoint: [300, 300],
+  //   endPoint: [400, 400],
+  //   style: {
+  //     strokeStyle: '#08ee00',
+  //     fillStyle: '#008000',
+  //     lineWidth: 5,
+  //   },
+  // });
+  // ice.addChild(visioLink2);
 
-  let linkCircle3 = new ICECircle({
-    left: 100,
-    top: 500,
-    radius: 50,
-  });
-  ice.addChild(linkCircle3);
+  // let linkCircle3 = new ICECircle({
+  //   left: 100,
+  //   top: 500,
+  //   radius: 50,
+  // });
+  // ice.addChild(linkCircle3);
   // console.log(linkCircle3 instanceof ICECircle);
 
   // //正三角形

@@ -18,6 +18,7 @@ import { ICE_CONSTS } from '../ICE_CONSTS';
  */
 class CanvasRenderer extends ICEEventTarget {
   private ice: ICE;
+  private stopped: boolean = false;
 
   constructor(ice: ICE) {
     super();
@@ -25,18 +26,22 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   public start() {
+    this.stopped = false;
     this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
     return this;
   }
 
   public stop() {
+    this.stopped = true;
     this.ice.evtBus.off(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
     return this;
   }
 
+  //FIXME:fix this when using increamental rendering
+  //FIXME:动画有闪烁
   private frameEvtHandler(evt: ICEEvent) {
-    //FIXME:fix this when using increamental rendering
-    //FIXME:动画有闪烁
+    if (this.stopped) return;
+    console.log('CanvasRenderer...');
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
     if (!this.ice.childNodes || !this.ice.childNodes.length) return;
 
@@ -51,6 +56,7 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   private renderRecursively(component: ICEBaseComponent) {
+    if (this.stopped) return;
     this.trigger(ICE_CONSTS.BEFORE_RENDER, null, { component: component });
     component.trigger(ICE_CONSTS.BEFORE_RENDER);
 

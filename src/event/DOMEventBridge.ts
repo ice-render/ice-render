@@ -66,6 +66,8 @@ class DOMEventBridge {
    * @returns
    */
   private findTargetComponent(clientX, clientY) {
+    if (this._stopped) return null;
+
     let x = clientX - this.ice.canvasBoundingClientRect.left;
     let y = clientY - this.ice.canvasBoundingClientRect.top;
 
@@ -92,6 +94,8 @@ class DOMEventBridge {
    * @param component
    */
   private traverse(x, y, component): void {
+    if (this._stopped) return;
+
     if (component.childNodes && component.childNodes.length) {
       component.childNodes.forEach((child) => {
         this.traverse(x, y, child);
