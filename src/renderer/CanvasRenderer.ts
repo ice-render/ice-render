@@ -19,6 +19,7 @@ import { ICE_CONSTS } from '../ICE_CONSTS';
 class CanvasRenderer extends ICEEventTarget {
   private ice: ICE;
   private stopped: boolean = false;
+  private cacheArr = [];
 
   constructor(ice: ICE) {
     super();
@@ -40,30 +41,35 @@ class CanvasRenderer extends ICEEventTarget {
   //FIXME:fix this when using increamental rendering
   //FIXME:动画有闪烁
   private frameEvtHandler(evt: ICEEvent) {
-    if (this.stopped) return;
-    console.log('CanvasRenderer...');
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
+
+    if (this.stopped) {
+      this.cacheArr = [];
+      return;
+    }
+
     if (!this.ice.childNodes || !this.ice.childNodes.length) return;
 
     //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
-    let arr = Array.from(this.ice.childNodes);
-    arr.sort((firstEl, secondEl) => {
+    this.cacheArr = Array.from(this.ice.childNodes);
+    this.cacheArr.sort((firstEl, secondEl) => {
       return firstEl.state.zIndex - secondEl.state.zIndex;
     });
-    arr.forEach((component: ICEBaseComponent) => {
+    this.cacheArr.forEach((component: ICEBaseComponent) => {
       this.renderRecursively(component);
     });
   }
 
   private renderRecursively(component: ICEBaseComponent) {
-    if (this.stopped) return;
+    if (this.stopped) {
+      this.cacheArr = [];
+      return;
+    }
+
     this.trigger(ICE_CONSTS.BEFORE_RENDER, null, { component: component });
     component.trigger(ICE_CONSTS.BEFORE_RENDER);
 
-    if (component.state.isRendering) {
-      return;
-    }
-    if (!component.state.display) {
+    if (component.state.isRendering || !component.state.display) {
       return;
     }
 
@@ -72,7 +78,7 @@ class CanvasRenderer extends ICEEventTarget {
 
     //如果有子节点，递归
     if (component.childNodes && component.childNodes.length) {
-      component.childNodes.forEach((child: ICEBaseComponent) => {
+      component.childNodes.forEach((child) => {
         //子组件的 root/ctx/evtBus/ice 这4个属性总是和父组件保持一致
         child.root = component.root;
         child.ctx = component.ctx;

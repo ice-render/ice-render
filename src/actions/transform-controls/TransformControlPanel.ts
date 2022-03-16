@@ -28,7 +28,13 @@ export default class TransformControlPanel extends ICEControlPanel {
   private resizeControlSize: number = 16; //TODO:改成可配置参数
 
   constructor(props) {
-    super({ ...props, zIndex: Number.MAX_VALUE });
+    super({
+      ...props,
+      zIndex: Number.MAX_VALUE,
+      linkable: false,
+      showMinBoundingBox: false,
+      showMaxBoundingBox: false,
+    });
     this.initControls();
   }
 

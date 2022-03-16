@@ -10,6 +10,7 @@ import ICEEvent from '../../event/ICEEvent';
 import GeoLine from '../../geometry/GeoLine';
 import GeoPoint from '../../geometry/GeoPoint';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
+import { ICE_CONSTS } from '../../ICE_CONSTS';
 import ICEPolyLine from '../line/ICEPolyLine';
 import ICELinkSlot from './ICELinkSlot';
 
@@ -33,13 +34,6 @@ import ICELinkSlot from './ICELinkSlot';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default class ICEVisioLink extends ICEPolyLine {
-  /**
-   * @required
-   * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-   */
-  public static type: string = 'ICEVisioLink';
-
-  //FIXME:序列化时存组件 ID
   private startSlot: ICELinkSlot;
   private endSlot: ICELinkSlot;
 
@@ -675,16 +669,24 @@ export default class ICEVisioLink extends ICEPolyLine {
     this.syncPosition(this.endSlot, 'end');
   }
 
-  //FIXME:以下特性需要测试
-  // - 监听目标组件上的 after-move 事件，同步位置
-  // - 如果 slot 为 null ，清理事件和相关资源
-  // - 设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
+  //当 Slot 被删除时，清理它与连接线、宿主组件之间的关联关系。
+  private slotBeforeRemoveHandler(evt: ICEEvent): void {
+    const slot = evt.param.component;
+    if (!slot) return;
+    if (this.startSlot === slot) {
+      this.deleteSlot(slot, 'start');
+    } else if (this.endSlot === slot) {
+      this.deleteSlot(slot, 'end');
+    }
+  }
+
   public setSlot(slot, position) {
     if (!slot || !position) return;
 
     //总是先尝试解除连接关系，然后再重新尝试连接
     this.deleteSlot(slot, position);
 
+    //设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
     this.setState({
       draggable: false,
     });
@@ -693,10 +695,12 @@ export default class ICEVisioLink extends ICEPolyLine {
       this.startSlot = slot;
       this.syncPosition(this.startSlot, 'start');
       this.startSlot.hostComponent.on('after-move', this.followStartSlot, this);
+      this.startSlot.once(ICE_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
     } else if (position === 'end') {
       this.endSlot = slot;
       this.syncPosition(this.endSlot, 'end');
       this.endSlot.hostComponent.on('after-move', this.followEndSlot, this);
+      this.endSlot.once(ICE_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
     }
   }
 
@@ -719,16 +723,5 @@ export default class ICEVisioLink extends ICEPolyLine {
         draggable: true,
       });
     }
-  }
-
-  /**
-   * 把对象序列化成 JSON 字符串：
-   * - 容器型组件需要负责子节点的序列化操作
-   * - 如果组件不需要序列化，需要返回 null
-   * @returns JSONObject
-   */
-  public toJSON(): object {
-    let result = { ...super.toJSON(), type: ICEVisioLink.type };
-    return result;
   }
 }

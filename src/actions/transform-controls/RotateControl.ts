@@ -21,7 +21,7 @@ import ICECircle from '../../graphic/shape/ICECircle';
  */
 export default class RotateControl extends ICECircle {
   constructor(props) {
-    super({ linkable: false, props });
+    super({ props, linkable: false });
     this.on('after-move', this.rotateEvtHandler, this);
   }
 

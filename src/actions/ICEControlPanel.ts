@@ -23,7 +23,7 @@ export default abstract class ICEControlPanel extends ICEGroup {
   protected _targetComponent: ICEBaseComponent;
 
   constructor(props: any) {
-    super({ linkable: false, ...props });
+    super({ ...props, linkable: false });
   }
 
   protected abstract initControls(): void;

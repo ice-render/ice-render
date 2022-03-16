@@ -63,6 +63,7 @@
 - FIXME:ICEVisioLink 会出现闪烁的情况。（先跳过，后面补）
 - 
 - TODO:添加快捷键支持，实现删除功能
+- FIXME:连续快速点击两次加载，会被重复反序列化
 - TODO:重构 addChild() 机制，全部从 ICE 入口走，重构整体数据结构 <------------
 - TODO:序列化和反序列化（可能需要整理一下整体的数据结构） 
 - TODO:清理 TransformControlPanel， LinkHook， LinkSlot 相关的机制，点击之后才展示出来，并且不能影响序列化和反序列化。

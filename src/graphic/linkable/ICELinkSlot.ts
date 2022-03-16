@@ -17,6 +17,7 @@ import ICELinkHook from './ICELinkHook';
  * 连接插槽
  *
  * - ICELinkSlot 与 ICELinkHook 是一对组件，用来把两个组件连接起来。
+ * - 一个插槽上面可以连多个钩子，ICELinkSlot 与 ICELinkHook 之间是一对多的关系。
  * - ICELinkSlot 不能独立存在，它必须附属在某个宿主组件上。逻辑附属，非真实的外观附属。
  * - ICELinkSlot 总是绘制在全局 canvas 中，它不是任何组件的子节点。
  * - ICELinkSlot 自身不进行任何 transform 。
@@ -63,6 +64,7 @@ class ICELinkSlot extends ICECircle {
     this.evtBus.off('hook-mousedown', this.hookMouseDownHandler, this);
     this.evtBus.off('hook-mousemove', this.hookMouseMoveHandler, this);
     this.evtBus.off('hook-mouseup', this.hookMouseUpHandler, this);
+    this._hostComponent = null;
   }
 
   /**
@@ -160,16 +162,6 @@ class ICELinkSlot extends ICECircle {
 
   public get hostComponent() {
     return this._hostComponent;
-  }
-
-  /**
-   * 把对象序列化成 JSON 字符串：
-   * - 容器型组件需要负责子节点的序列化操作
-   * - 如果组件不需要序列化，需要返回 null
-   * @returns JSONObject
-   */
-  public toJSON(): object {
-    return null;
   }
 }
 

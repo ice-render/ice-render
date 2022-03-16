@@ -7,6 +7,8 @@
  */
 import ICEControlPanel from '../actions/ICEControlPanel';
 import ICEBaseComponent from '../graphic/ICEBaseComponent';
+import ICELinkHook from '../graphic/linkable/ICELinkHook';
+import ICELinkSlot from '../graphic/linkable/ICELinkSlot';
 import ICE from '../ICE';
 
 /**
@@ -36,15 +38,35 @@ export default class Serializer {
       childNodes: [],
     };
     this.ice.childNodes.forEach((child: ICEBaseComponent) => {
-      if (child instanceof ICEControlPanel) {
+      if (
+        child instanceof ICEControlPanel ||
+        child.parentNode instanceof ICEControlPanel ||
+        child instanceof ICELinkSlot ||
+        child instanceof ICELinkHook
+      ) {
         console.warn('控制手柄类型的组件不需要存储...', child);
         return;
       }
-      if (child.toJSON()) {
-        result.childNodes.push(child.toJSON());
-      }
+      this.encodeRecursively(child, result);
     });
     console.log(result);
     return JSON.stringify(result);
+  }
+
+  //递归序列化
+  private encodeRecursively(component, parentData) {
+    let currentData = {
+      state: component.state,
+      type: component.constructor.name,
+      childNodes: [],
+    };
+
+    parentData.childNodes.push(currentData);
+
+    if (component.childNodes && component.childNodes.length) {
+      for (let i = 0; i < component.childNodes.length; i++) {
+        this.encodeRecursively(component.childNodes[i], currentData);
+      }
+    }
   }
 }
