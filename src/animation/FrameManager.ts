@@ -33,20 +33,27 @@ const DEFAULT_FRAME_RATE = 24;
 
 const FrameManager = {
   evtBuses: [],
+  stopped: false,
 
   frameCallback: function (): void {
     FrameManager.evtBuses.forEach((evtBus) => {
+      if (FrameManager.stopped) return;
       evtBus.trigger(ICE_CONSTS.ICE_FRAME_EVENT);
     });
-    root.requestAnimationFrame(FrameManager.frameCallback);
+    if (!FrameManager.stopped) {
+      root.requestAnimationFrame(FrameManager.frameCallback);
+    }
   },
 
   start: function (): void {
     //TODO:为 Node 平台自定义一个 requestAnimationFrame 函数，签名、参数、调用方式全部相同。
+    FrameManager.stopped = false;
     root.requestAnimationFrame(FrameManager.frameCallback);
   },
 
-  stop: function (): void {},
+  stop: function (): void {
+    FrameManager.stopped = true;
+  },
 
   pause: function (): void {},
 
