@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import { v4 as uuid } from '@lukeed/uuid';
 import ICE from '../../ICE';
 import { ICE_CONSTS } from '../../ICE_CONSTS';
 import ICELinkSlot from './ICELinkSlot';
@@ -55,9 +56,13 @@ export default class ICELinkSlotManager {
 
   /**
    * 创建连接插槽，插槽默认分布在组件最小边界盒子的4条边几何中点位置。
+   * 有顺序，按照 TRBL 上右下左 创建，插槽的 ID 会被序列化。
    */
   protected createLinkSlots(component) {
+    const slotIds = component.props.slotIds ? component.props.slotIds : [];
+
     let slot_1 = new ICELinkSlot({
+      id: slotIds[0] ? slotIds[0] : 'ICE_' + uuid(),
       display: false,
       transformable: false,
       radius: this.slotRadius,
@@ -72,6 +77,7 @@ export default class ICELinkSlotManager {
     this.ice.addChild(slot_1);
 
     let slot_2 = new ICELinkSlot({
+      id: slotIds[1] ? slotIds[1] : 'ICE_' + uuid(),
       display: false,
       transformable: false,
       radius: this.slotRadius,
@@ -86,6 +92,7 @@ export default class ICELinkSlotManager {
     this.ice.addChild(slot_2);
 
     let slot_3 = new ICELinkSlot({
+      id: slotIds[2] ? slotIds[2] : 'ICE_' + uuid(),
       display: false,
       transformable: false,
       radius: this.slotRadius,
@@ -100,6 +107,7 @@ export default class ICELinkSlotManager {
     this.ice.addChild(slot_3);
 
     let slot_4 = new ICELinkSlot({
+      id: slotIds[3] ? slotIds[3] : 'ICE_' + uuid(),
       display: false,
       transformable: false,
       radius: this.slotRadius,
@@ -114,6 +122,7 @@ export default class ICELinkSlotManager {
     this.ice.addChild(slot_4);
 
     component.linkSlots = [slot_1, slot_2, slot_3, slot_4];
+    component.state.slotIds = [slot_1.props.id, slot_2.props.id, slot_3.props.id, slot_4.props.id];
   }
 
   //FIXME:这里需要采用 TransformControlPanel 中的算法来计算插槽位置。

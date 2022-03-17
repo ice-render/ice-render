@@ -51,7 +51,7 @@ abstract class ICEEventTarget {
 
   constructor() {}
 
-  on(eventName: string, fn: Function, scope: any = root) {
+  public on(eventName: string, fn: Function, scope: any = root) {
     if (!this.listeners[eventName]) {
       this.listeners[eventName] = [];
     }
@@ -59,9 +59,10 @@ abstract class ICEEventTarget {
     this.listeners[eventName].push({ callback: fn, scope: scope });
   }
 
-  off(eventName: string, fn: Function, scope: any = root) {
+  public off(eventName: string, fn: Function, scope: any = root) {
     let arr = this.listeners[eventName];
     if (!arr) return;
+    arr = [...arr];
     for (let i = 0; i < arr.length; i++) {
       let item = arr[i];
       if (item.callback === fn && item.scope === scope) {
@@ -77,16 +78,18 @@ abstract class ICEEventTarget {
    * @param eventName
    * @param fn
    */
-  once(eventName: string, fn: Function, scope: any = root) {
+  public once(eventName: string, fn: Function, scope: any = root) {
+    const that = this;
+
     function callback(evt: ICEEvent) {
-      this.off(eventName, callback, scope);
+      that.off(eventName, callback, scope);
       fn.call(scope, evt);
     }
 
-    this.on(eventName, callback, scope);
+    that.on(eventName, callback, scope);
   }
 
-  trigger(eventName: string, originalEvent: any = null, param = {}) {
+  public trigger(eventName: string, originalEvent: any = null, param = {}) {
     if (!this.listeners[eventName]) return false;
     if (this.suspendedEventNames.includes(eventName)) return false;
 
@@ -113,25 +116,25 @@ abstract class ICEEventTarget {
     return true;
   }
 
-  suspend(eventName: string) {
+  public suspend(eventName: string) {
     if (eventName && !this.suspendedEventNames.includes(eventName)) {
       this.suspendedEventNames.push(eventName);
     }
   }
 
-  resume(eventName: string) {
+  public resume(eventName: string) {
     this.suspendedEventNames.splice(
       this.suspendedEventNames.findIndex((el) => el === eventName),
       1
     );
   }
 
-  purgeEvents() {
+  public purgeEvents() {
     this.listeners = {};
     this.suspendedEventNames = [];
   }
 
-  hasListener(eventName: string, fn: Function, scope: any = root): boolean {
+  public hasListener(eventName: string, fn: Function, scope: any = root): boolean {
     if (!this.listeners[eventName]) {
       return false;
     }
