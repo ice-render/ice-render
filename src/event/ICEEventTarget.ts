@@ -51,6 +51,12 @@ abstract class ICEEventTarget {
 
   constructor() {}
 
+  /**
+   * 添加事件监听
+   * @param eventName
+   * @param fn
+   * @param scope
+   */
   public on(eventName: string, fn: Function, scope: any = root) {
     if (!this.listeners[eventName]) {
       this.listeners[eventName] = [];
@@ -59,6 +65,13 @@ abstract class ICEEventTarget {
     this.listeners[eventName].push({ callback: fn, scope: scope });
   }
 
+  /**
+   * 删除事件监听
+   * @param eventName
+   * @param fn
+   * @param scope
+   * @returns
+   */
   public off(eventName: string, fn: Function, scope: any = root) {
     let arr = this.listeners[eventName];
     if (!arr) return;
@@ -73,8 +86,7 @@ abstract class ICEEventTarget {
   }
 
   /**
-   * FIXME:有 bug ，需要重新实现
-   * 一次性回调，调用一次就自动删除。
+   * 一次性事件，触发一次就自动删除自己。
    * @param eventName
    * @param fn
    */
@@ -89,6 +101,13 @@ abstract class ICEEventTarget {
     that.on(eventName, callback, scope);
   }
 
+  /**
+   * 触发事件。
+   * @param eventName
+   * @param originalEvent
+   * @param param
+   * @returns
+   */
   public trigger(eventName: string, originalEvent: any = null, param = {}) {
     if (!this.listeners[eventName]) return false;
     if (this.suspendedEventNames.includes(eventName)) return false;
@@ -116,12 +135,20 @@ abstract class ICEEventTarget {
     return true;
   }
 
+  /**
+   * 挂起事件。
+   * @param eventName
+   */
   public suspend(eventName: string) {
     if (eventName && !this.suspendedEventNames.includes(eventName)) {
       this.suspendedEventNames.push(eventName);
     }
   }
 
+  /**
+   * 恢复事件。
+   * @param eventName
+   */
   public resume(eventName: string) {
     this.suspendedEventNames.splice(
       this.suspendedEventNames.findIndex((el) => el === eventName),
@@ -129,11 +156,21 @@ abstract class ICEEventTarget {
     );
   }
 
+  /**
+   * 清除所有事件。
+   */
   public purgeEvents() {
     this.listeners = {};
     this.suspendedEventNames = [];
   }
 
+  /**
+   * 查询是否带有某个事件监听器。
+   * @param eventName
+   * @param fn
+   * @param scope
+   * @returns
+   */
   public hasListener(eventName: string, fn: Function, scope: any = root): boolean {
     if (!this.listeners[eventName]) {
       return false;
