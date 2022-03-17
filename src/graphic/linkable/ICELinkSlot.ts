@@ -55,15 +55,15 @@ class ICELinkSlot extends ICECircle {
   }
 
   protected afterAddHandler(evt: ICEEvent) {
-    this.evtBus.on('hook-mousedown', this.hookMouseDownHandler, this);
-    this.evtBus.on('hook-mousemove', this.hookMouseMoveHandler, this);
-    this.evtBus.on('hook-mouseup', this.hookMouseUpHandler, this);
+    this.evtBus.on(ICE_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
+    this.evtBus.on(ICE_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
+    this.evtBus.on(ICE_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
   }
 
   protected beforeRemoveHandler(evt: ICEEvent) {
-    this.evtBus.off('hook-mousedown', this.hookMouseDownHandler, this);
-    this.evtBus.off('hook-mousemove', this.hookMouseMoveHandler, this);
-    this.evtBus.off('hook-mouseup', this.hookMouseUpHandler, this);
+    this.evtBus.off(ICE_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
+    this.evtBus.off(ICE_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
+    this.evtBus.off(ICE_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
     this._hostComponent = null;
   }
 
