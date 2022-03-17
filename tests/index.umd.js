@@ -43,7 +43,11 @@
     //当渲染器完成一轮渲染时，会触发此事件
     HOOK_MOUSEDOWN: 'HOOK_MOUSEDOWN',
     HOOK_MOUSEMOVE: 'HOOK_MOUSEMOVE',
-    HOOK_MOUSEUP: 'HOOK_MOUSEUP'
+    HOOK_MOUSEUP: 'HOOK_MOUSEUP',
+    BEFORE_RESIZE: 'BEFORE_RESIZE',
+    AFTER_RESIZE: 'AFTER_RESIZE',
+    BEFORE_ROTATE: 'BEFORE_ROTATE',
+    AFTER_ROTATE: 'AFTER_ROTATE'
   };
 
   var IDX=256, HEX=[], BUFFER;
@@ -6618,10 +6622,10 @@
       }
 
       let position = this.props.position;
-      this.parentNode.trigger('before-resize', new ICEEvent(evt, {
+      this.parentNode.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RESIZE, new ICEEvent(evt, {
         position
       }));
-      this.parentNode.trigger('after-resize', new ICEEvent(evt, {
+      this.parentNode.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, new ICEEvent(evt, {
         position
       }));
     }
@@ -6706,14 +6710,14 @@
     }
 
     initEvents() {
-      this.on('after-resize', this.resizeEvtHandler, this);
+      this.on(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.resizeEvtHandler, this);
     }
 
     enable() {
       this.setState({
         display: true
       });
-      this.resume('after-resize');
+      this.resume(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
       this.showHooks();
     }
 
@@ -6721,7 +6725,7 @@
       this.setState({
         display: false
       });
-      this.suspend('after-resize');
+      this.suspend(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
       this.hideHooks();
     }
     /**
@@ -6957,11 +6961,11 @@
         width: Math.abs(newWidth),
         height: Math.abs(newHeight)
       };
-      this.parentNode.trigger('before-resize', new ICEEvent(evt, {
+      this.parentNode.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RESIZE, new ICEEvent(evt, {
         quadrant
       }));
       this.parentNode.setState(param);
-      this.parentNode.trigger('after-resize', new ICEEvent(evt, {
+      this.parentNode.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, new ICEEvent(evt, {
         quadrant
       }));
     }
@@ -7134,9 +7138,9 @@
 
         }
       };
-      this.parentNode.trigger('before-rotate', new ICEEvent(param));
+      this.parentNode.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ROTATE, new ICEEvent(param));
       this.parentNode.setState(param);
-      this.parentNode.trigger('after-rotate', new ICEEvent(param));
+      this.parentNode.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, new ICEEvent(param));
     }
 
   }
@@ -7281,8 +7285,8 @@
     }
 
     initEvents() {
-      this.on('after-resize', this.resizeEvtHandler, this);
-      this.on('after-rotate', this.rotateEvtHandler, this);
+      this.on(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.resizeEvtHandler, this);
+      this.on(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, this.rotateEvtHandler, this);
     }
 
     enable() {
@@ -7297,8 +7301,8 @@
       this.setState({
         display: true
       });
-      this.resume('after-resize');
-      this.resume('after-rotate');
+      this.resume(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
+      this.resume(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE);
     }
 
     disable() {
@@ -7313,8 +7317,8 @@
       this.setState({
         display: false
       });
-      this.suspend('after-resize');
-      this.suspend('after-rotate');
+      this.suspend(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
+      this.suspend(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE);
     }
 
     setControlPositions() {

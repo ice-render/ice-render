@@ -8,6 +8,7 @@
 import ICEEvent from '../../event/ICEEvent';
 import GeometryUtil from '../../geometry/GeoUtil';
 import ICECircle from '../../graphic/shape/ICECircle';
+import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
 
 /**
  * @class RotateControl 旋转操作手柄
@@ -42,8 +43,8 @@ export default class RotateControl extends ICECircle {
       },
     };
 
-    this.parentNode.trigger('before-rotate', new ICEEvent(param));
+    this.parentNode.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ROTATE, new ICEEvent(param));
     this.parentNode.setState(param);
-    this.parentNode.trigger('after-rotate', new ICEEvent(param));
+    this.parentNode.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, new ICEEvent(param));
   }
 }

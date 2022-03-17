@@ -6,6 +6,7 @@
  *
  */
 import ICEBaseComponent from '../../graphic/ICEBaseComponent';
+import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
 import ICEControlPanel from '../ICEControlPanel';
 import ResizeControl from './ResizeControl';
 import RotateControl from './RotateControl';
@@ -151,8 +152,8 @@ export default class TransformControlPanel extends ICEControlPanel {
   }
 
   protected initEvents(): void {
-    this.on('after-resize', this.resizeEvtHandler, this);
-    this.on('after-rotate', this.rotateEvtHandler, this);
+    this.on(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.resizeEvtHandler, this);
+    this.on(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, this.rotateEvtHandler, this);
   }
 
   public enable() {
@@ -161,8 +162,8 @@ export default class TransformControlPanel extends ICEControlPanel {
       item.setState({ display: true });
     });
     this.setState({ display: true });
-    this.resume('after-resize');
-    this.resume('after-rotate');
+    this.resume(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
+    this.resume(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE);
   }
 
   public disable() {
@@ -171,8 +172,8 @@ export default class TransformControlPanel extends ICEControlPanel {
       item.setState({ display: false });
     });
     this.setState({ display: false });
-    this.suspend('after-resize');
-    this.suspend('after-rotate');
+    this.suspend(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
+    this.suspend(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE);
   }
 
   protected setControlPositions() {
