@@ -61,7 +61,6 @@ abstract class ICEBaseComponent extends ICEEventTarget {
    *   localOrigin: new DOMPoint(0, 0),             //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
    *   absoluteOrigin: new DOMPoint(0, 0),          //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
    *   zIndex: ICEBaseComponent.instanceCounter++,  //类似于 CSS 中的 zIndex
-   *   isRendering:false,                           //标志位， Renderer 在渲染过程中会检查此标志位
    *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
    *   draggable:true,                              //是否可以拖动
    *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
@@ -93,7 +92,6 @@ abstract class ICEBaseComponent extends ICEEventTarget {
     localOrigin: new DOMPoint(0, 0),
     absoluteOrigin: new DOMPoint(0, 0),
     zIndex: ICEBaseComponent.instanceCounter++,
-    isRendering: false,
     display: true,
     draggable: true,
     transformable: true,
@@ -128,16 +126,13 @@ abstract class ICEBaseComponent extends ICEEventTarget {
    * !Important: 这些方法调用有顺序
    */
   public render(): void {
-    this.state.isRendering = true;
-
     this.calcOriginalDimension();
-
     this.applyStyle();
     this.applyTransformToCtx();
     this.doRender();
     this.ctx.setTransform(new DOMMatrix());
 
-    this.state.isRendering = false;
+    this.state._dirty = false;
   }
 
   protected applyStyle(): void {
@@ -364,7 +359,7 @@ abstract class ICEBaseComponent extends ICEEventTarget {
    * @param newState
    */
   public setState(newState: any) {
-    merge(this.state, newState);
+    merge(this.state, newState, { _dirty: true });
   }
 
   /**
@@ -374,9 +369,9 @@ abstract class ICEBaseComponent extends ICEEventTarget {
    * @param evt
    */
   public setPosition(left: number, top: number, evt: any = new ICEEvent()): void {
-    this.trigger('before-move', { ...evt, left, top });
+    this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_MOVE, { ...evt, left, top });
     this.setState({ left, top });
-    this.trigger('after-move', { ...evt, left, top });
+    this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, { ...evt, left, top });
   }
 
   /**

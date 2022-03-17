@@ -326,9 +326,9 @@ export default class TransformControlPanel extends ICEControlPanel {
     this._targetComponent = component;
     if (component) {
       this.updatePosition();
-      component.on('after-move', this.updatePosition, this);
+      component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
     } else {
-      component.off('after-move', this.updatePosition, this);
+      component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
     }
   }
 

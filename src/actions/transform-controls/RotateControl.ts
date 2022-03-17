@@ -23,7 +23,7 @@ import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
 export default class RotateControl extends ICECircle {
   constructor(props) {
     super({ props, linkable: false });
-    this.on('after-move', this.rotateEvtHandler, this);
+    this.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.rotateEvtHandler, this);
   }
 
   private rotateEvtHandler(evt) {

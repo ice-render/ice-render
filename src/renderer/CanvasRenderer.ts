@@ -13,13 +13,17 @@ import { ICE_EVENT_NAME_CONSTS } from '../ICE_EVENT_NAME_CONSTS';
 
 /**
  * @class CanvasRenderer
- * Canvas 渲染器，全局单例。
+ *
+ * Canvas 渲染器
+ *
+ * - 一个 ICE 实例上，只能有一个渲染器实例。
+ *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class CanvasRenderer extends ICEEventTarget {
   private ice: ICE;
   private stopped: boolean = false;
-  private cacheArr = [];
+  private renderQueue = [];
 
   constructor(ice: ICE) {
     super();
@@ -42,21 +46,24 @@ class CanvasRenderer extends ICEEventTarget {
   //FIXME:动画有闪烁
   //FIXME:当对象很多时，在一帧的时间内（最短16.67ms)渲染不完，这里需要进行处理。
   private frameEvtHandler(evt: ICEEvent) {
-    this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
+    this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight); //FIXME:如何不清理所有区域？？？
 
     if (this.stopped) {
-      this.cacheArr = [];
+      this.renderQueue = [];
       return;
     }
 
     if (!this.ice.childNodes || !this.ice.childNodes.length) return;
 
+    //FIXME:控制哪些组件能够进入 cache ，从而优化渲染效率
+    this.renderQueue = Array.from(this.ice.childNodes);
+    // console.warn('Render Queue size>', this.renderQueue.length);
+
     //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
-    this.cacheArr = Array.from(this.ice.childNodes);
-    this.cacheArr.sort((firstEl, secondEl) => {
+    this.renderQueue.sort((firstEl, secondEl) => {
       return firstEl.state.zIndex - secondEl.state.zIndex;
     });
-    this.cacheArr.forEach((component: ICEBaseComponent) => {
+    this.renderQueue.forEach((component: ICEBaseComponent) => {
       this.renderRecursively(component);
     });
 
@@ -66,14 +73,14 @@ class CanvasRenderer extends ICEEventTarget {
 
   private renderRecursively(component: ICEBaseComponent) {
     if (this.stopped) {
-      this.cacheArr = [];
+      this.renderQueue = [];
       return;
     }
 
     this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER);
 
-    if (component.state.isRendering || !component.state.display) {
+    if (!component.state.display) {
       return;
     }
 

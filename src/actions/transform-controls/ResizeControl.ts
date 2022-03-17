@@ -25,7 +25,7 @@ import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
 export default class ResizeControl extends ICERect {
   constructor(props) {
     super({ position: 'l', direction: 'x', quadrant: 1, ...props, linkable: false });
-    this.on('after-move', this.resizeEvtHandler, this);
+    this.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.resizeEvtHandler, this);
   }
 
   /**
