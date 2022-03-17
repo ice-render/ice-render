@@ -10,7 +10,7 @@ import ICEBaseComponent from '../graphic/ICEBaseComponent';
 import ICEPolyLine from '../graphic/line/ICEPolyLine';
 import ICE from '../ICE';
 import ICEControlPanel from './ICEControlPanel';
-import LineControlPanel from './line-controls/LineControlPanel';
+import LineControlPanel from './link-controls/LineControlPanel';
 import TransformControlPanel from './transform-controls/TransformControlPanel';
 
 /**
