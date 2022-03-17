@@ -47,6 +47,7 @@ class CanvasRenderer extends ICEEventTarget {
   //FIXME:当对象很多时，在一帧的时间内（最短16.67ms)渲染不完，这里需要进行处理。
   private frameEvtHandler(evt: ICEEvent) {
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight); //FIXME:如何不清理所有区域？？？
+    // this.ice.ctx.clearRect(0, 0, 200, 200); //FIXME:如何不清理所有区域？？？
 
     if (this.stopped) {
       this.renderQueue = [];
@@ -56,7 +57,7 @@ class CanvasRenderer extends ICEEventTarget {
     if (!this.ice.childNodes || !this.ice.childNodes.length) return;
 
     //FIXME:控制哪些组件能够进入 cache ，从而优化渲染效率
-    this.renderQueue = Array.from(this.ice.childNodes);
+    this.renderQueue = Array.from(this.ice.childNodes); //FIXME:遍历整个组件 tree ，把 state._dirty 为 true 的组件取出来。
     // console.warn('Render Queue size>', this.renderQueue.length);
 
     //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。

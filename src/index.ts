@@ -5,9 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-export * from './actions/ICEControlPanel';
-export * from './actions/ICEControlPanelManager';
-export * from './actions/transform-controls/TransformControlPanel';
+export * from './control-panel/ICEControlPanel';
+export * from './control-panel/ICEControlPanelManager';
+export * from './control-panel/transform-controls/TransformControlPanel';
 export * from './animation/AnimationManager';
 export * from './event/DOMEventBridge';
 export * from './event/EventBus';
@@ -21,9 +21,9 @@ export * from './graphic/ICEImage';
 export * from './graphic/ICEPath';
 export * from './graphic/line/ICEBezier';
 export * from './graphic/line/ICEPolyLine';
-export * from './graphic/linkable/ICELinkHook';
-export * from './graphic/linkable/ICELinkSlot';
-export * from './graphic/linkable/ICEVisioLink';
+export * from './graphic/link/ICELinkHook';
+export * from './graphic/link/ICELinkSlot';
+export * from './graphic/link/ICEVisioLink';
 export * from './graphic/shape/ICECircle';
 export * from './graphic/shape/ICEEllipse';
 export * from './graphic/shape/ICEIsogon';

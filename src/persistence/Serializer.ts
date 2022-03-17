@@ -5,10 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICEControlPanel from '../actions/ICEControlPanel';
+import ICEControlPanel from '../control-panel/ICEControlPanel';
 import ICEBaseComponent from '../graphic/ICEBaseComponent';
-import ICELinkHook from '../graphic/linkable/ICELinkHook';
-import ICELinkSlot from '../graphic/linkable/ICELinkSlot';
+import ICELinkHook from '../graphic/link/ICELinkHook';
+import ICELinkSlot from '../graphic/link/ICELinkSlot';
 import ICE from '../ICE';
 
 /**

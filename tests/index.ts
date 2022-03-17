@@ -2,7 +2,7 @@
 import ICEGroup from '../src/graphic/container/ICEGroup';
 // import ICEImage from '../src/graphic/ICEImage';
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
-import ICEVisioLink from '../src/graphic/linkable/ICEVisioLink';
+import ICEVisioLink from '../src/graphic/link/ICEVisioLink';
 import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEHeart from '../src/graphic/shape/ICEHeart';
 // import ICEIsogon from '../src/graphic/shape/ICEIsogon';
