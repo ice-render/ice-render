@@ -171,7 +171,6 @@ class ICE {
     console.log('after clear>', this.childNodes);
   }
 
-  //FIXME:用 store 重构之后，对数据的操作全部移到 store 中去。
   public findComponent(id: string) {
     return this.childNodes.filter((item) => item.props.id === id)[0];
   }

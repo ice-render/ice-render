@@ -9053,8 +9053,7 @@
       console.log('before clear>', this.childNodes);
       this.removeChildren([...this.childNodes]);
       console.log('after clear>', this.childNodes);
-    } //FIXME:用 store 重构之后，对数据的操作全部移到 store 中去。
-
+    }
 
     findComponent(id) {
       return this.childNodes.filter(item => item.props.id === id)[0];
