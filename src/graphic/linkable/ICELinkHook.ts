@@ -72,7 +72,7 @@ export default class ICELinkHook extends ICECircle {
       return;
     }
     let position = this.props.position;
-    this.parentNode.trigger('before-resize', new ICEEvent(evt, { position }));
-    this.parentNode.trigger('after-resize', new ICEEvent(evt, { position }));
+    this.parentNode.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RESIZE, new ICEEvent(evt, { position }));
+    this.parentNode.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, new ICEEvent(evt, { position }));
   }
 }

@@ -8,6 +8,7 @@
 import round from 'lodash/round';
 import ICEEvent from '../../event/ICEEvent';
 import ICERect from '../../graphic/shape/ICERect';
+import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
 
 /**
  * @class ResizeControl 调整尺寸的操作手柄
@@ -104,9 +105,9 @@ export default class ResizeControl extends ICERect {
       width: Math.abs(newWidth),
       height: Math.abs(newHeight),
     };
-    this.parentNode.trigger('before-resize', new ICEEvent(evt, { quadrant }));
+    this.parentNode.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RESIZE, new ICEEvent(evt, { quadrant }));
     this.parentNode.setState(param);
-    this.parentNode.trigger('after-resize', new ICEEvent(evt, { quadrant }));
+    this.parentNode.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, new ICEEvent(evt, { quadrant }));
   }
 
   /**

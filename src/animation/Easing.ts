@@ -39,8 +39,8 @@ const Easing = {
   easeInOutQuad: function (from: number, to: number, duration: number, startTime: number) {
     let deltaT = Date.now() - startTime;
     let deltaValue = to - from;
-    if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT + from;
-    return -deltaValue / 2 * ((--deltaT) * (deltaT - 2) - 1) + from;
+    if ((deltaT /= duration / 2) < 1) return (deltaValue / 2) * deltaT * deltaT + from;
+    return (-deltaValue / 2) * (--deltaT * (deltaT - 2) - 1) + from;
   },
 
   easeInQuart: function (from: number, to: number, duration: number, startTime: number) {
@@ -58,8 +58,8 @@ const Easing = {
   easeInOutQuart: function (from: number, to: number, duration: number, startTime: number) {
     let deltaT = Date.now() - startTime;
     let deltaValue = to - from;
-    if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT * deltaT * deltaT + from;
-    return -deltaValue / 2 * ((deltaT -= 2) * deltaT * deltaT * deltaT - 2) + from;
+    if ((deltaT /= duration / 2) < 1) return (deltaValue / 2) * deltaT * deltaT * deltaT * deltaT + from;
+    return (-deltaValue / 2) * ((deltaT -= 2) * deltaT * deltaT * deltaT - 2) + from;
   },
 
   easeInCubic: function (from: number, to: number, duration: number, startTime: number) {
@@ -77,8 +77,8 @@ const Easing = {
   easeInOutCubic: function (from: number, to: number, duration: number, startTime: number) {
     let deltaT = Date.now() - startTime;
     let deltaValue = to - from;
-    if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT * deltaT + from;
-    return deltaValue / 2 * ((deltaT -= 2) * deltaT * deltaT + 2) + from;
+    if ((deltaT /= duration / 2) < 1) return (deltaValue / 2) * deltaT * deltaT * deltaT + from;
+    return (deltaValue / 2) * ((deltaT -= 2) * deltaT * deltaT + 2) + from;
   },
 
   //TODO:增加更多缓动算法

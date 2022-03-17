@@ -7,6 +7,7 @@
  */
 import ICEBaseComponent from '../../graphic/ICEBaseComponent';
 import ICELinkHook from '../../graphic/linkable/ICELinkHook';
+import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
 import ICEControlPanel from '../ICEControlPanel';
 
 /**
@@ -85,18 +86,18 @@ export default class LineControlPanel extends ICEControlPanel {
   }
 
   protected initEvents(): void {
-    this.on('after-resize', this.resizeEvtHandler, this);
+    this.on(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.resizeEvtHandler, this);
   }
 
   public enable() {
     this.setState({ display: true });
-    this.resume('after-resize');
+    this.resume(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
     this.showHooks();
   }
 
   public disable() {
     this.setState({ display: false });
-    this.suspend('after-resize');
+    this.suspend(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
     this.hideHooks();
   }
 
