@@ -9,7 +9,7 @@ import ICEEvent from '../event/ICEEvent';
 import ICEEventTarget from '../event/ICEEventTarget';
 import ICEBaseComponent from '../graphic/ICEBaseComponent';
 import ICE from '../ICE';
-import { ICE_CONSTS } from '../ICE_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../ICE_EVENT_NAME_CONSTS';
 
 /**
  * @class CanvasRenderer
@@ -28,13 +28,13 @@ class CanvasRenderer extends ICEEventTarget {
 
   public start() {
     this.stopped = false;
-    this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
+    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
     return this;
   }
 
   public stop() {
     this.stopped = true;
-    this.ice.evtBus.off(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
+    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
     return this;
   }
 
@@ -61,7 +61,7 @@ class CanvasRenderer extends ICEEventTarget {
     });
 
     //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
-    this.ice.evtBus.trigger(ICE_CONSTS.ROUND_FINISH);
+    this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
   }
 
   private renderRecursively(component: ICEBaseComponent) {
@@ -70,8 +70,8 @@ class CanvasRenderer extends ICEEventTarget {
       return;
     }
 
-    this.trigger(ICE_CONSTS.BEFORE_RENDER, null, { component: component });
-    component.trigger(ICE_CONSTS.BEFORE_RENDER);
+    this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER, null, { component: component });
+    component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER);
 
     if (component.state.isRendering || !component.state.display) {
       return;
@@ -93,8 +93,8 @@ class CanvasRenderer extends ICEEventTarget {
       });
     }
 
-    component.trigger(ICE_CONSTS.AFTER_RENDER);
-    this.trigger(ICE_CONSTS.AFTER_RENDER, null, { component: component });
+    component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER);
+    this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, null, { component: component });
   }
 }
 

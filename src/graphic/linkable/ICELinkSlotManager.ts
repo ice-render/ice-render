@@ -7,7 +7,7 @@
  */
 import { v4 as uuid } from '@lukeed/uuid';
 import ICE from '../../ICE';
-import { ICE_CONSTS } from '../../ICE_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
 import ICELinkSlot from './ICELinkSlot';
 
 /**
@@ -31,12 +31,12 @@ export default class ICELinkSlotManager {
   }
 
   start() {
-    this.ice.renderer.on(ICE_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
+    this.ice.renderer.on(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
     return this;
   }
 
   stop() {
-    this.ice.renderer.off(ICE_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
+    this.ice.renderer.off(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
     return this;
   }
 

@@ -10,7 +10,7 @@ import ICEEvent from '../../event/ICEEvent';
 import GeoLine from '../../geometry/GeoLine';
 import GeoPoint from '../../geometry/GeoPoint';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
-import { ICE_CONSTS } from '../../ICE_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
 import ICEPolyLine from '../line/ICEPolyLine';
 import ICELinkSlot from './ICELinkSlot';
 
@@ -66,11 +66,11 @@ export default class ICEVisioLink extends ICEPolyLine {
     super.initEvents();
 
     //如果 props 里面的 startSlotId 和 endSlotId 不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
-    this.once(ICE_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
+    this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
   }
 
   protected afterAddHandler(evt: ICEEvent) {
-    this.evtBus.once(ICE_CONSTS.ROUND_FINISH, this.makeConnection, this);
+    this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
   }
 
   private makeConnection() {
@@ -727,7 +727,7 @@ export default class ICEVisioLink extends ICEPolyLine {
       this.startSlot.hostComponent.on('after-move', this.followStartSlot, this);
 
       //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
-      this.startSlot.once(ICE_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
+      this.startSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
     } else if (position === 'end') {
       this.endSlot = slot;
       this.state.endSlotId = slot.props.id;
@@ -735,7 +735,7 @@ export default class ICEVisioLink extends ICEPolyLine {
       this.endSlot.hostComponent.on('after-move', this.followEndSlot, this);
 
       //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
-      this.endSlot.once(ICE_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
+      this.endSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
     }
   }
 

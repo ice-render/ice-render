@@ -5,7 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-export const ICE_CONSTS = {
+
+//ICE 自定的事件名称常量，原生 DOM 事件的名称不变。
+export const ICE_EVENT_NAME_CONSTS = {
   ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
   BEFORE_RENDER: 'BEFORE_RENDER',
   AFTER_RENDER: 'AFTER_RENDER',

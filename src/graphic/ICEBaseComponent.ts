@@ -14,7 +14,7 @@ import ICEEventTarget from '../event/ICEEventTarget';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICEMatrix from '../geometry/ICEMatrix';
 import ICE from '../ICE';
-import { ICE_CONSTS } from '../ICE_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../ICE_EVENT_NAME_CONSTS';
 
 /**
  * @class ICEBaseComponent
@@ -492,7 +492,7 @@ abstract class ICEBaseComponent extends ICEEventTarget {
    * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
    */
   public destory(): void {
-    this.trigger(ICE_CONSTS.BEFORE_REMOVE, null, { component: this });
+    this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: this });
 
     this.purgeEvents();
 

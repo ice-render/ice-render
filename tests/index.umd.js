@@ -25,7 +25,8 @@
    * LICENSE file in the root directory of this source tree.
    *
    */
-  const ICE_CONSTS = {
+  //ICE 自定的事件名称常量，原生 DOM 事件的名称不变。
+  const ICE_EVENT_NAME_CONSTS = {
     ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
     BEFORE_RENDER: 'BEFORE_RENDER',
     AFTER_RENDER: 'AFTER_RENDER',
@@ -4202,7 +4203,7 @@
 
 
     destory() {
-      this.trigger(ICE_CONSTS.BEFORE_REMOVE, null, {
+      this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, {
         component: this
       });
       this.purgeEvents();
@@ -4528,9 +4529,9 @@
 
 
     addChild(child) {
-      child.trigger(ICE_CONSTS.BEFORE_ADD);
+      child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
       this.childNodes.push(child);
-      child.trigger(ICE_CONSTS.AFTER_ADD);
+      child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
     }
 
     addChildren(arr) {
@@ -5446,11 +5447,11 @@
     initEvents() {
       super.initEvents(); //如果 props 里面的 startSlotId 和 endSlotId 不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
 
-      this.once(ICE_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
+      this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
     }
 
     afterAddHandler(evt) {
-      this.evtBus.once(ICE_CONSTS.ROUND_FINISH, this.makeConnection, this);
+      this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
     }
 
     makeConnection() {
@@ -6151,14 +6152,14 @@
         this.syncPosition(this.startSlot, 'start');
         this.startSlot.hostComponent.on('after-move', this.followStartSlot, this); //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
 
-        this.startSlot.once(ICE_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
+        this.startSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
       } else if (position === 'end') {
         this.endSlot = slot;
         this.state.endSlotId = slot.props.id;
         this.syncPosition(this.endSlot, 'end');
         this.endSlot.hostComponent.on('after-move', this.followEndSlot, this); //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
 
-        this.endSlot.once(ICE_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
+        this.endSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
       }
     }
     /**
@@ -6571,42 +6572,42 @@
     /**
      *
      * 在 mousedown 事件处理器里面可以直接访问 this.evtBus ，因为能接收到 mousedown 事件说明组件已经渲染出来了。
-     * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_CONSTS.HOOK_MOUSEDOWN 事件的组件都会收到消息。
+     * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN 事件的组件都会收到消息。
      *
      * @param evt
      */
 
 
     mosueDownHandler(evt) {
-      this.evtBus.trigger(ICE_CONSTS.HOOK_MOUSEDOWN, new ICEEvent({
+      this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, new ICEEvent({
         target: this
       }));
     }
     /**
      *
      * 在 mousemove 事件处理器里面可以直接访问 this.evtBus ，因为能接收到 mousemove 事件说明组件已经渲染出来了。
-     * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_CONSTS.HOOK_MOUSEMOVE 事件的组件都会收到消息。
+     * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE 事件的组件都会收到消息。
      *
      * @param evt
      */
 
 
     mosueMoveHandler(evt) {
-      this.evtBus.trigger(ICE_CONSTS.HOOK_MOUSEMOVE, new ICEEvent({
+      this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, new ICEEvent({
         target: this
       }));
     }
     /**
      *
      * 在 mouseup 事件处理器里面可以直接访问 this.evtBus ，因为能接收到 mouseup 事件说明组件已经渲染出来了。
-     * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_CONSTS.HOOK_MOUSEUP 事件的组件都会收到消息。
+     * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP 事件的组件都会收到消息。
      *
      * @param evt
      */
 
 
     mosueUpHandler(evt) {
-      this.evtBus.trigger(ICE_CONSTS.HOOK_MOUSEUP, new ICEEvent({
+      this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, new ICEEvent({
         target: this
       }));
     }
@@ -7780,12 +7781,12 @@
     }
 
     start() {
-      this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
+      this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
       return this;
     }
 
     stop() {
-      this.ice.evtBus.off(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
+      this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
       return this;
     }
 
@@ -7873,7 +7874,7 @@
     frameCallback: function () {
       FrameManager.evtBuses.forEach(evtBus => {
         if (FrameManager.stopped) return;
-        evtBus.trigger(ICE_CONSTS.ICE_FRAME_EVENT);
+        evtBus.trigger(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT);
       });
 
       if (!FrameManager.stopped) {
@@ -8155,20 +8156,20 @@
       super.initEvents(); //由于 ICELinkSlot 默认不可见，实例的 display 为 false ，所以不会触发 AFTER_RENDER 事件，这里只能监听 BEFORE_RENDER
       //这里不能直接访问 this.evtBus ，因为对象在进入到渲染阶段时才会被设置 evtBus 实例，在 initEvents() 被调用时 this.evtBus 为空。 @see ICE.evtBus
 
-      this.once(ICE_CONSTS.BEFORE_RENDER, this.afterAddHandler, this);
-      this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
+      this.once(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER, this.afterAddHandler, this);
+      this.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
     }
 
     afterAddHandler(evt) {
-      this.evtBus.on(ICE_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
-      this.evtBus.on(ICE_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
-      this.evtBus.on(ICE_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
+      this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
+      this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
+      this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
     }
 
     beforeRemoveHandler(evt) {
-      this.evtBus.off(ICE_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
-      this.evtBus.off(ICE_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
-      this.evtBus.off(ICE_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
+      this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
+      this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
+      this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
       this._hostComponent = null;
     }
     /**
@@ -8298,12 +8299,12 @@
     }
 
     start() {
-      this.ice.renderer.on(ICE_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
+      this.ice.renderer.on(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
       return this;
     }
 
     stop() {
-      this.ice.renderer.off(ICE_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
+      this.ice.renderer.off(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
       return this;
     }
 
@@ -8817,13 +8818,13 @@
 
     start() {
       this.stopped = false;
-      this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
+      this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
       return this;
     }
 
     stop() {
       this.stopped = true;
-      this.ice.evtBus.off(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
+      this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
       return this;
     } //FIXME:fix this when using increamental rendering
     //FIXME:动画有闪烁
@@ -8848,7 +8849,7 @@
         this.renderRecursively(component);
       }); //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
 
-      this.ice.evtBus.trigger(ICE_CONSTS.ROUND_FINISH);
+      this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
     }
 
     renderRecursively(component) {
@@ -8857,10 +8858,10 @@
         return;
       }
 
-      this.trigger(ICE_CONSTS.BEFORE_RENDER, null, {
+      this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER, null, {
         component: component
       });
-      component.trigger(ICE_CONSTS.BEFORE_RENDER);
+      component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER);
 
       if (component.state.isRendering || !component.state.display) {
         return;
@@ -8881,8 +8882,8 @@
         });
       }
 
-      component.trigger(ICE_CONSTS.AFTER_RENDER);
-      this.trigger(ICE_CONSTS.AFTER_RENDER, null, {
+      component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER);
+      this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, null, {
         component: component
       });
     }
@@ -9006,7 +9007,7 @@
 
     addChild(component) {
       if (this.childNodes.indexOf(component) !== -1) return;
-      component.trigger(ICE_CONSTS.BEFORE_ADD);
+      component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
       component.ice = this;
       component.root = this.root;
       component.ctx = this.ctx;
@@ -9018,7 +9019,7 @@
         this.animationManager.add(component);
       }
 
-      component.trigger(ICE_CONSTS.AFTER_ADD);
+      component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
     }
 
     addChildren(arr) {
