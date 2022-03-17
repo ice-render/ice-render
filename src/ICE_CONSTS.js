@@ -14,4 +14,5 @@ export const ICE_CONSTS = {
   AFTER_ADD: 'AFTER_ADD', //在 addChild() 方法返回之前执行
   BEFORE_REMOVE: 'BEFORE_REMOVE', //在 removeChild() 方法中的第一行执行
   AFTER_REMOVE: 'AFTER_REMOVE', //在 removeChild() 方法返回之前执行
+  ROUND_FINISH: 'ROUND_FINISH', //当渲染器完成一轮渲染时，会触发此事件
 };

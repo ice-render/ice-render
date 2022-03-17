@@ -41,6 +41,11 @@ export default class ICEVisioLink extends ICEPolyLine {
    * FIXME:补全 props 配置项的描述
    */
   constructor(props: any = {}) {
+    props = ICEVisioLink.arrangeParam(props);
+    super(props);
+  }
+
+  public static arrangeParam(props) {
     if (isNil(props.startPoint)) {
       props.startPoint = [0, 0];
     }
@@ -49,10 +54,31 @@ export default class ICEVisioLink extends ICEPolyLine {
     }
     props.points = [props.startPoint, props.endPoint];
 
-    //escapeDistance 疏散距离，是4个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
-    //escapeDistance 不是固定值，会根据 startSlot 和 endSlot 宿主组件的尺寸动态计算和调整，这样可以保证连接线不与相连接的组件产生重叠。
+    //escapeDistance 疏散距离，是 4 个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
     props = { escapeDistance: 30, ...props };
-    super(props);
+    return props;
+  }
+
+  /**
+   * @override
+   */
+  protected initEvents() {
+    super.initEvents();
+
+    //如果 props 里面的 startSlotId 和 endSlotId 不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
+    this.once(ICE_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
+  }
+
+  protected afterAddHandler(evt: ICEEvent) {
+    this.evtBus.once(ICE_CONSTS.ROUND_FINISH, this.makeConnection, this);
+  }
+
+  private makeConnection() {
+    const { startSlotId, endSlotId } = this.props;
+    const startSlot = this.ice.findComponent(startSlotId);
+    const endSlot = this.ice.findComponent(endSlotId);
+    startSlot && this.setSlot(startSlot, 'start');
+    endSlot && this.setSlot(endSlot, 'end');
   }
 
   /**
@@ -680,6 +706,9 @@ export default class ICEVisioLink extends ICEPolyLine {
     }
   }
 
+  /**
+   * 设置连线与组件之间的逻辑关系
+   */
   public setSlot(slot, position) {
     if (!slot || !position) return;
 
@@ -693,13 +722,19 @@ export default class ICEVisioLink extends ICEPolyLine {
 
     if (position === 'start') {
       this.startSlot = slot;
+      this.state.startSlotId = slot.props.id;
       this.syncPosition(this.startSlot, 'start');
       this.startSlot.hostComponent.on('after-move', this.followStartSlot, this);
+
+      //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
       this.startSlot.once(ICE_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
     } else if (position === 'end') {
       this.endSlot = slot;
+      this.state.endSlotId = slot.props.id;
       this.syncPosition(this.endSlot, 'end');
       this.endSlot.hostComponent.on('after-move', this.followEndSlot, this);
+
+      //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
       this.endSlot.once(ICE_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
     }
   }
@@ -712,9 +747,11 @@ export default class ICEVisioLink extends ICEPolyLine {
     if (position === 'start' && this.startSlot === slot) {
       this.startSlot.hostComponent.off('after-move', this.followStartSlot, this);
       this.startSlot = null;
+      this.state.startSlotId = '';
     } else if (position === 'end' && this.endSlot === slot) {
       this.endSlot.hostComponent.off('after-move', this.followEndSlot, this);
       this.endSlot = null;
+      this.state.endSlotId = '';
     }
 
     //如果两端都没有连接的组件，连接线自身变成可拖动

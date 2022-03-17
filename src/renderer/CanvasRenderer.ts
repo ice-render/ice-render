@@ -40,6 +40,7 @@ class CanvasRenderer extends ICEEventTarget {
 
   //FIXME:fix this when using increamental rendering
   //FIXME:动画有闪烁
+  //FIXME:当对象很多时，在一帧的时间内（最短16.67ms)渲染不完，这里需要进行处理。
   private frameEvtHandler(evt: ICEEvent) {
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
 
@@ -58,6 +59,9 @@ class CanvasRenderer extends ICEEventTarget {
     this.cacheArr.forEach((component: ICEBaseComponent) => {
       this.renderRecursively(component);
     });
+
+    //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
+    this.ice.evtBus.trigger(ICE_CONSTS.ROUND_FINISH);
   }
 
   private renderRecursively(component: ICEBaseComponent) {
@@ -79,7 +83,7 @@ class CanvasRenderer extends ICEEventTarget {
     //如果有子节点，递归
     if (component.childNodes && component.childNodes.length) {
       component.childNodes.forEach((child) => {
-        //子组件的 root/ctx/evtBus/ice 这4个属性总是和父组件保持一致
+        //子组件的 root/ctx/evtBus/ice/renderer 总是和父组件保持一致
         child.root = component.root;
         child.ctx = component.ctx;
         child.evtBus = component.evtBus;

@@ -118,7 +118,10 @@ abstract class ICEBaseComponent extends ICEEventTarget {
     this.initEvents();
   }
 
-  protected abstract initEvents();
+  /**
+   * 子类需要提供自己的实现。
+   */
+  protected initEvents() {}
 
   /**
    * !Important: 核心方法，FrameManager 会调度此方法进行实际的渲染操作。

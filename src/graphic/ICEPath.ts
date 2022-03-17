@@ -30,14 +30,6 @@ abstract class ICEPath extends ICEBaseComponent {
   }
 
   /**
-   * 空实现。
-   *
-   * @see ICEBaseComponent.initEvents
-   * @overwrite
-   */
-  protected initEvents() {}
-
-  /**
    * @method doRender
    * @overwrite
    */

@@ -59,30 +59,33 @@
 - FIXME:LinkHook 会出现无法拖动的现象，LinkHook 有时候没有跟随移动。【已解决】
 - FIXME:连接钩子离开之后，LinkSlot 没有恢复默认的外观。【已解决】
 - FIXME:需要测试多条连接线连接在同一个插槽上的情况，是否有 bug 【已测试OK】。
+- TODO:线条型的组件点击判断需要特殊处理，不能用边界盒子计算，需要用 isPointInPath() 进行判断。 【已解决】
+- FIXME:连续快速点击两次加载，会被重复反序列化【已解决】
+- TODO:重构 addChild() 机制，全部从 ICE 入口走，重构整体数据结构【已解决】
+- 
 - FIXME:连接插槽的位置计算有错误，不在 minBoundingBox 上面。（先跳过，后面补）
 - FIXME:ICEVisioLink 会出现闪烁的情况。（先跳过，后面补）
 - 
+- TODO:增加一个 Store ，用来对 ICE 中的所有组件实例进行操作。
+- FIXME:连接线的序列化和反序列化  <---------
 - TODO:添加快捷键支持，实现删除功能
-- FIXME:连续快速点击两次加载，会被重复反序列化
-- TODO:重构 addChild() 机制，全部从 ICE 入口走，重构整体数据结构 <------------
 - TODO:序列化和反序列化（可能需要整理一下整体的数据结构） 
 - TODO:清理 TransformControlPanel， LinkHook， LinkSlot 相关的机制，点击之后才展示出来，并且不能影响序列化和反序列化。
 - 
 - TODO:整理现有图形类的代码，扩展缺失的图形类型。
 - TODO:线条的两端需要绘制箭头或者其它形状。
-- TODO:线条型的组件点击判断需要特殊处理，不能用边界盒子计算，需要用 isPointInPath() 进行判断。 
 - TODO:ICEText 需要进一步精确的计算。
 - TODO:实现 GuideLine ， 增加磁吸效果
 - TODO:优化编译和测试环境参数配置
 - TODO:ICE 全局单例重构
 - TODO:补用例，跑测试。
 - 
+- TODO:增量渲染机制
+- TODO:碰撞检测和局部渲染机制
+- 
 - TODO:Entity Designer 与 TypeORM 整合案例。
 - TODO:BPMN Designer 与流程引擎对接。
 - TODO:PageFlow 案例。
-- 
-- TODO:增量渲染机制
-- TODO:碰撞检测和局部渲染机制
 
 ## Shape
 矩形 x/y/width/height

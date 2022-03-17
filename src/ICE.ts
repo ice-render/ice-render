@@ -8,6 +8,7 @@
 import isString from 'lodash/isString';
 import pkg from '../package.json';
 import DDManager from './actions/DDManager';
+import ICEControlPanel from './actions/ICEControlPanel';
 import ICEControlPanelManager from './actions/ICEControlPanelManager';
 import AnimationManager from './animation/AnimationManager';
 import FrameManager from './animation/FrameManager';
@@ -16,6 +17,7 @@ import DOMEventBridge from './event/DOMEventBridge';
 import EventBus from './event/EventBus';
 import MouseEventInterceptor from './event/MouseEventInterceptor.js';
 import ICEBaseComponent from './graphic/ICEBaseComponent';
+import ICELinkHook from './graphic/linkable/ICELinkHook';
 import ICELinkSlotManager from './graphic/linkable/ICELinkSlotManager';
 import { ICE_CONSTS } from './ICE_CONSTS';
 import Deserializer from './persistence/Deserializer';
@@ -126,6 +128,8 @@ class ICE {
     component.root = this.root;
     component.ctx = this.ctx;
     component.evtBus = this.evtBus;
+    component.renderer = this.renderer;
+
     this.childNodes.push(component);
     if (Object.keys(component.props.animations).length) {
       this.animationManager.add(component);
@@ -141,6 +145,16 @@ class ICE {
   }
 
   public removeChild(component: ICEBaseComponent) {
+    if (
+      component instanceof ICEControlPanel ||
+      component.parentNode instanceof ICEControlPanel ||
+      // component instanceof ICELinkSlot ||
+      component instanceof ICELinkHook
+    ) {
+      console.warn('控制手柄类型的组件不能删除...', component);
+      return;
+    }
+
     component.destory();
     this.childNodes.splice(this.childNodes.indexOf(component), 1);
   }
@@ -155,6 +169,11 @@ class ICE {
     console.log('before clear>', this.childNodes);
     this.removeChildren([...this.childNodes]);
     console.log('after clear>', this.childNodes);
+  }
+
+  //FIXME:用 store 重构之后，对数据的操作全部移到 store 中去。
+  public findComponent(id: string) {
+    return this.childNodes.filter((item) => item.props.id === id)[0];
   }
 
   /**
