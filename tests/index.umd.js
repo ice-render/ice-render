@@ -47,7 +47,9 @@
     BEFORE_RESIZE: 'BEFORE_RESIZE',
     AFTER_RESIZE: 'AFTER_RESIZE',
     BEFORE_ROTATE: 'BEFORE_ROTATE',
-    AFTER_ROTATE: 'AFTER_ROTATE'
+    AFTER_ROTATE: 'AFTER_ROTATE',
+    BEFORE_MOVE: 'BEFORE_MOVE',
+    AFTER_MOVE: 'AFTER_MOVE'
   };
 
   var IDX=256, HEX=[], BUFFER;
@@ -3718,7 +3720,6 @@
      *   localOrigin: new DOMPoint(0, 0),             //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
      *   absoluteOrigin: new DOMPoint(0, 0),          //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
      *   zIndex: ICEBaseComponent.instanceCounter++,  //类似于 CSS 中的 zIndex
-     *   isRendering:false,                           //标志位， Renderer 在渲染过程中会检查此标志位
      *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
      *   draggable:true,                              //是否可以拖动
      *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
@@ -3775,7 +3776,6 @@
         localOrigin: new DOMPoint(0, 0),
         absoluteOrigin: new DOMPoint(0, 0),
         zIndex: ICEBaseComponent.instanceCounter++,
-        isRendering: false,
         display: true,
         draggable: true,
         transformable: true,
@@ -3805,13 +3805,12 @@
 
 
     render() {
-      this.state.isRendering = true;
       this.calcOriginalDimension();
       this.applyStyle();
       this.applyTransformToCtx();
       this.doRender();
       this.ctx.setTransform(new DOMMatrix());
-      this.state.isRendering = false;
+      this.state._dirty = false;
     }
 
     applyStyle() {
@@ -4043,7 +4042,9 @@
 
 
     setState(newState) {
-      merge_1(this.state, newState);
+      merge_1(this.state, newState, {
+        _dirty: true
+      });
     }
     /**
      * 相对于父组件的坐标系和原点。
@@ -4055,7 +4056,7 @@
 
     setPosition(left, top) {
       let evt = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : new ICEEvent();
-      this.trigger('before-move', { ...evt,
+      this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_MOVE, { ...evt,
         left,
         top
       });
@@ -4063,7 +4064,7 @@
         left,
         top
       });
-      this.trigger('after-move', { ...evt,
+      this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, { ...evt,
         left,
         top
       });
@@ -6154,14 +6155,14 @@
         this.startSlot = slot;
         this.state.startSlotId = slot.props.id;
         this.syncPosition(this.startSlot, 'start');
-        this.startSlot.hostComponent.on('after-move', this.followStartSlot, this); //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
+        this.startSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this); //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
 
         this.startSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
       } else if (position === 'end') {
         this.endSlot = slot;
         this.state.endSlotId = slot.props.id;
         this.syncPosition(this.endSlot, 'end');
-        this.endSlot.hostComponent.on('after-move', this.followEndSlot, this); //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
+        this.endSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this); //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
 
         this.endSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
       }
@@ -6174,11 +6175,11 @@
 
     deleteSlot(slot, position) {
       if (position === 'start' && this.startSlot === slot) {
-        this.startSlot.hostComponent.off('after-move', this.followStartSlot, this);
+        this.startSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this);
         this.startSlot = null;
         this.state.startSlotId = '';
       } else if (position === 'end' && this.endSlot === slot) {
-        this.endSlot.hostComponent.off('after-move', this.followEndSlot, this);
+        this.endSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this);
         this.endSlot = null;
         this.state.endSlotId = '';
       } //如果两端都没有连接的组件，连接线自身变成可拖动
@@ -6571,7 +6572,7 @@
       this.on('mousedown', this.mosueDownHandler, this);
       this.on('mousemove', this.mosueMoveHandler, this);
       this.on('mouseup', this.mosueUpHandler, this);
-      this.on('after-move', this.resizeEvtHandler, this);
+      this.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.resizeEvtHandler, this);
     }
     /**
      *
@@ -6815,9 +6816,9 @@
 
       if (component) {
         this.updatePosition();
-        component.on('after-move', this.updatePosition, this);
+        component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
       } else {
-        component.off('after-move', this.updatePosition, this);
+        component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
       }
     }
 
@@ -6874,7 +6875,7 @@
         ...props,
         linkable: false
       });
-      this.on('after-move', this.resizeEvtHandler, this);
+      this.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.resizeEvtHandler, this);
     }
     /**
      * 围绕几何中心点调整宽高。
@@ -7119,7 +7120,7 @@
         props,
         linkable: false
       });
-      this.on('after-move', this.rotateEvtHandler, this);
+      this.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.rotateEvtHandler, this);
     }
 
     rotateEvtHandler(evt) {
@@ -7495,9 +7496,9 @@
 
       if (component) {
         this.updatePosition();
-        component.on('after-move', this.updatePosition, this);
+        component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
       } else {
-        component.off('after-move', this.updatePosition, this);
+        component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
       }
     }
 
@@ -8803,7 +8804,11 @@
 
   /**
    * @class CanvasRenderer
-   * Canvas 渲染器，全局单例。
+   *
+   * Canvas 渲染器
+   *
+   * - 一个 ICE 实例上，只能有一个渲染器实例。
+   *
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
 
@@ -8815,7 +8820,7 @@
 
       _defineProperty(this, "stopped", false);
 
-      _defineProperty(this, "cacheArr", []);
+      _defineProperty(this, "renderQueue", []);
 
       this.ice = ice;
     }
@@ -8836,20 +8841,22 @@
 
 
     frameEvtHandler(evt) {
-      this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
+      this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight); //FIXME:如何不清理所有区域？？？
 
       if (this.stopped) {
-        this.cacheArr = [];
+        this.renderQueue = [];
         return;
       }
 
-      if (!this.ice.childNodes || !this.ice.childNodes.length) return; //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
+      if (!this.ice.childNodes || !this.ice.childNodes.length) return; //FIXME:控制哪些组件能够进入 cache ，从而优化渲染效率
 
-      this.cacheArr = Array.from(this.ice.childNodes);
-      this.cacheArr.sort((firstEl, secondEl) => {
+      this.renderQueue = Array.from(this.ice.childNodes); // console.warn('Render Queue size>', this.renderQueue.length);
+      //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
+
+      this.renderQueue.sort((firstEl, secondEl) => {
         return firstEl.state.zIndex - secondEl.state.zIndex;
       });
-      this.cacheArr.forEach(component => {
+      this.renderQueue.forEach(component => {
         this.renderRecursively(component);
       }); //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
 
@@ -8858,7 +8865,7 @@
 
     renderRecursively(component) {
       if (this.stopped) {
-        this.cacheArr = [];
+        this.renderQueue = [];
         return;
       }
 
@@ -8867,7 +8874,7 @@
       });
       component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER);
 
-      if (component.state.isRendering || !component.state.display) {
+      if (!component.state.display) {
         return;
       } //先渲染自己
 
@@ -9353,7 +9360,7 @@
   ice.addChild(g);
   g.setState({
     transform: {
-      scale: [1.2, 1.2],
+      scale: [1.3, 1.3],
     },
   });
 

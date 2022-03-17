@@ -66,7 +66,8 @@
 - FIXME:连接插槽的位置计算有错误，不在 minBoundingBox 上面。（先跳过，后面补）
 - FIXME:ICEVisioLink 会出现闪烁的情况。（先跳过，后面补）
 - 
-- FIXME:连接线的序列化和反序列化  <---------
+- TODO:增量渲染机制，碰撞检测和局部渲染机制 <---------
+- FIXME:连接线的序列化和反序列化  
 - TODO:添加快捷键支持，实现删除功能
 - TODO:序列化和反序列化（可能需要整理一下整体的数据结构） 
 - TODO:清理 TransformControlPanel， LinkHook， LinkSlot 相关的机制，点击之后才展示出来，并且不能影响序列化和反序列化。
@@ -78,9 +79,6 @@
 - TODO:优化编译和测试环境参数配置
 - TODO:ICE 全局单例重构
 - TODO:补用例，跑测试。
-- 
-- TODO:增量渲染机制
-- TODO:碰撞检测和局部渲染机制
 - 
 - TODO:Entity Designer 与 TypeORM 整合案例。
 - TODO:BPMN Designer 与流程引擎对接。

@@ -260,7 +260,7 @@ let g = new ICEGroup({
 ice.addChild(g);
 g.setState({
   transform: {
-    scale: [1.2, 1.2],
+    scale: [1.3, 1.3],
   },
 });
 

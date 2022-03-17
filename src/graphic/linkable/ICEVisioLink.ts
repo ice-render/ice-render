@@ -724,7 +724,7 @@ export default class ICEVisioLink extends ICEPolyLine {
       this.startSlot = slot;
       this.state.startSlotId = slot.props.id;
       this.syncPosition(this.startSlot, 'start');
-      this.startSlot.hostComponent.on('after-move', this.followStartSlot, this);
+      this.startSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this);
 
       //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
       this.startSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
@@ -732,7 +732,7 @@ export default class ICEVisioLink extends ICEPolyLine {
       this.endSlot = slot;
       this.state.endSlotId = slot.props.id;
       this.syncPosition(this.endSlot, 'end');
-      this.endSlot.hostComponent.on('after-move', this.followEndSlot, this);
+      this.endSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this);
 
       //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
       this.endSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
@@ -745,11 +745,11 @@ export default class ICEVisioLink extends ICEPolyLine {
    */
   public deleteSlot(slot, position) {
     if (position === 'start' && this.startSlot === slot) {
-      this.startSlot.hostComponent.off('after-move', this.followStartSlot, this);
+      this.startSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this);
       this.startSlot = null;
       this.state.startSlotId = '';
     } else if (position === 'end' && this.endSlot === slot) {
-      this.endSlot.hostComponent.off('after-move', this.followEndSlot, this);
+      this.endSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this);
       this.endSlot = null;
       this.state.endSlotId = '';
     }

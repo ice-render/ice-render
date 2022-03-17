@@ -32,7 +32,7 @@ export default class ICELinkHook extends ICECircle {
     this.on('mousedown', this.mosueDownHandler, this);
     this.on('mousemove', this.mosueMoveHandler, this);
     this.on('mouseup', this.mosueUpHandler, this);
-    this.on('after-move', this.resizeEvtHandler, this);
+    this.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.resizeEvtHandler, this);
   }
 
   /**
