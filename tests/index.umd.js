@@ -2824,6 +2824,13 @@
 
       _defineProperty(this, "suspendedEventNames", []);
     }
+    /**
+     * 添加事件监听
+     * @param eventName
+     * @param fn
+     * @param scope
+     */
+
 
     on(eventName, fn) {
       let scope = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : root$2;
@@ -2838,6 +2845,14 @@
         scope: scope
       });
     }
+    /**
+     * 删除事件监听
+     * @param eventName
+     * @param fn
+     * @param scope
+     * @returns
+     */
+
 
     off(eventName, fn) {
       let scope = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : root$2;
@@ -2855,8 +2870,7 @@
       }
     }
     /**
-     * FIXME:有 bug ，需要重新实现
-     * 一次性回调，调用一次就自动删除。
+     * 一次性事件，触发一次就自动删除自己。
      * @param eventName
      * @param fn
      */
@@ -2873,6 +2887,14 @@
 
       that.on(eventName, callback, scope);
     }
+    /**
+     * 触发事件。
+     * @param eventName
+     * @param originalEvent
+     * @param param
+     * @returns
+     */
+
 
     trigger(eventName) {
       let originalEvent = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
@@ -2904,21 +2926,43 @@
       });
       return true;
     }
+    /**
+     * 挂起事件。
+     * @param eventName
+     */
+
 
     suspend(eventName) {
       if (eventName && !this.suspendedEventNames.includes(eventName)) {
         this.suspendedEventNames.push(eventName);
       }
     }
+    /**
+     * 恢复事件。
+     * @param eventName
+     */
+
 
     resume(eventName) {
       this.suspendedEventNames.splice(this.suspendedEventNames.findIndex(el => el === eventName), 1);
     }
+    /**
+     * 清除所有事件。
+     */
+
 
     purgeEvents() {
       this.listeners = {};
       this.suspendedEventNames = [];
     }
+    /**
+     * 查询是否带有某个事件监听器。
+     * @param eventName
+     * @param fn
+     * @param scope
+     * @returns
+     */
+
 
     hasListener(eventName, fn) {
       let scope = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : root$2;
