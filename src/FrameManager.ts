@@ -5,8 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import root from '../cross-platform/root';
-import { ICE_EVENT_NAME_CONSTS } from '../ICE_EVENT_NAME_CONSTS';
+import root from './cross-platform/root';
+import { ICE_EVENT_NAME_CONSTS } from './ICE_EVENT_NAME_CONSTS';
 
 /**
  * @class FrameManager

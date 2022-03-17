@@ -6,23 +6,23 @@
  *
  */
 import isString from 'lodash/isString';
-import pkg from '../package.json';
-import DDManager from './control-panel/DDManager';
-import ICEControlPanel from './control-panel/ICEControlPanel';
-import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
-import AnimationManager from './animation/AnimationManager';
-import FrameManager from './FrameManager';
-import root from './cross-platform/root.js';
-import DOMEventBridge from './event/DOMEventBridge';
-import EventBus from './event/EventBus';
-import MouseEventInterceptor from './event/MouseEventInterceptor.js';
-import ICEBaseComponent from './graphic/ICEBaseComponent';
-import ICELinkHook from './graphic/link/ICELinkHook';
-import ICELinkSlotManager from './graphic/link/ICELinkSlotManager';
+import pkg from '../../package.json';
+import AnimationManager from '../animation/AnimationManager';
+import FrameManager from '../FrameManager';
+import DDManager from '../control-panel/DDManager';
+import ICEControlPanel from '../control-panel/ICEControlPanel';
+import ICEControlPanelManager from '../control-panel/ICEControlPanelManager';
+import root from '../cross-platform/root.js';
+import DOMEventBridge from '../event/DOMEventBridge';
+import EventBus from '../event/EventBus';
+import MouseEventInterceptor from '../event/MouseEventInterceptor.js';
+import ICEBaseComponent from '../graphic/ICEBaseComponent';
+import ICELinkHook from '../graphic/link/ICELinkHook';
+import ICELinkSlotManager from '../graphic/link/ICELinkSlotManager';
+import Deserializer from '../persistence/Deserializer';
+import Serializer from '../persistence/Serializer';
+import CanvasRenderer from '../renderer/CanvasRenderer';
 import { ICE_EVENT_NAME_CONSTS } from './ICE_EVENT_NAME_CONSTS';
-import Deserializer from './persistence/Deserializer';
-import Serializer from './persistence/Serializer';
-import CanvasRenderer from './renderer/CanvasRenderer';
 
 /**
  * @class ICE
