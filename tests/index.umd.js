@@ -38,8 +38,11 @@
     //在 removeChild() 方法中的第一行执行
     AFTER_REMOVE: 'AFTER_REMOVE',
     //在 removeChild() 方法返回之前执行
-    ROUND_FINISH: 'ROUND_FINISH' //当渲染器完成一轮渲染时，会触发此事件
-
+    ROUND_FINISH: 'ROUND_FINISH',
+    //当渲染器完成一轮渲染时，会触发此事件
+    HOOK_MOUSEDOWN: 'HOOK_MOUSEDOWN',
+    HOOK_MOUSEMOVE: 'HOOK_MOUSEMOVE',
+    HOOK_MOUSEUP: 'HOOK_MOUSEUP'
   };
 
   var IDX=256, HEX=[], BUFFER;
@@ -6568,42 +6571,42 @@
     /**
      *
      * 在 mousedown 事件处理器里面可以直接访问 this.evtBus ，因为能接收到 mousedown 事件说明组件已经渲染出来了。
-     * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 hook-mousedown 事件的组件都会收到消息。
+     * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_CONSTS.HOOK_MOUSEDOWN 事件的组件都会收到消息。
      *
      * @param evt
      */
 
 
     mosueDownHandler(evt) {
-      this.evtBus.trigger('hook-mousedown', new ICEEvent({
+      this.evtBus.trigger(ICE_CONSTS.HOOK_MOUSEDOWN, new ICEEvent({
         target: this
       }));
     }
     /**
      *
      * 在 mousemove 事件处理器里面可以直接访问 this.evtBus ，因为能接收到 mousemove 事件说明组件已经渲染出来了。
-     * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 hook-mousemove 事件的组件都会收到消息。
+     * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_CONSTS.HOOK_MOUSEMOVE 事件的组件都会收到消息。
      *
      * @param evt
      */
 
 
     mosueMoveHandler(evt) {
-      this.evtBus.trigger('hook-mousemove', new ICEEvent({
+      this.evtBus.trigger(ICE_CONSTS.HOOK_MOUSEMOVE, new ICEEvent({
         target: this
       }));
     }
     /**
      *
      * 在 mouseup 事件处理器里面可以直接访问 this.evtBus ，因为能接收到 mouseup 事件说明组件已经渲染出来了。
-     * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 hook-mouseup 事件的组件都会收到消息。
+     * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_CONSTS.HOOK_MOUSEUP 事件的组件都会收到消息。
      *
      * @param evt
      */
 
 
     mosueUpHandler(evt) {
-      this.evtBus.trigger('hook-mouseup', new ICEEvent({
+      this.evtBus.trigger(ICE_CONSTS.HOOK_MOUSEUP, new ICEEvent({
         target: this
       }));
     }
@@ -8157,15 +8160,15 @@
     }
 
     afterAddHandler(evt) {
-      this.evtBus.on('hook-mousedown', this.hookMouseDownHandler, this);
-      this.evtBus.on('hook-mousemove', this.hookMouseMoveHandler, this);
-      this.evtBus.on('hook-mouseup', this.hookMouseUpHandler, this);
+      this.evtBus.on(ICE_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
+      this.evtBus.on(ICE_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
+      this.evtBus.on(ICE_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
     }
 
     beforeRemoveHandler(evt) {
-      this.evtBus.off('hook-mousedown', this.hookMouseDownHandler, this);
-      this.evtBus.off('hook-mousemove', this.hookMouseMoveHandler, this);
-      this.evtBus.off('hook-mouseup', this.hookMouseUpHandler, this);
+      this.evtBus.off(ICE_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
+      this.evtBus.off(ICE_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
+      this.evtBus.off(ICE_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
       this._hostComponent = null;
     }
     /**

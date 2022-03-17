@@ -6,6 +6,7 @@
  *
  */
 import ICEEvent from '../../event/ICEEvent';
+import { ICE_CONSTS } from '../../ICE_CONSTS';
 import ICECircle from '../shape/ICECircle';
 
 /**
@@ -37,33 +38,33 @@ export default class ICELinkHook extends ICECircle {
   /**
    *
    * 在 mousedown 事件处理器里面可以直接访问 this.evtBus ，因为能接收到 mousedown 事件说明组件已经渲染出来了。
-   * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 hook-mousedown 事件的组件都会收到消息。
+   * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_CONSTS.HOOK_MOUSEDOWN 事件的组件都会收到消息。
    *
    * @param evt
    */
   protected mosueDownHandler(evt: ICEEvent) {
-    this.evtBus.trigger('hook-mousedown', new ICEEvent({ target: this }));
+    this.evtBus.trigger(ICE_CONSTS.HOOK_MOUSEDOWN, new ICEEvent({ target: this }));
   }
 
   /**
    *
    * 在 mousemove 事件处理器里面可以直接访问 this.evtBus ，因为能接收到 mousemove 事件说明组件已经渲染出来了。
-   * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 hook-mousemove 事件的组件都会收到消息。
+   * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_CONSTS.HOOK_MOUSEMOVE 事件的组件都会收到消息。
    *
    * @param evt
    */
   protected mosueMoveHandler(evt: ICEEvent) {
-    this.evtBus.trigger('hook-mousemove', new ICEEvent({ target: this }));
+    this.evtBus.trigger(ICE_CONSTS.HOOK_MOUSEMOVE, new ICEEvent({ target: this }));
   }
   /**
    *
    * 在 mouseup 事件处理器里面可以直接访问 this.evtBus ，因为能接收到 mouseup 事件说明组件已经渲染出来了。
-   * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 hook-mouseup 事件的组件都会收到消息。
+   * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_CONSTS.HOOK_MOUSEUP 事件的组件都会收到消息。
    *
    * @param evt
    */
   protected mosueUpHandler(evt: ICEEvent) {
-    this.evtBus.trigger('hook-mouseup', new ICEEvent({ target: this }));
+    this.evtBus.trigger(ICE_CONSTS.HOOK_MOUSEUP, new ICEEvent({ target: this }));
   }
 
   protected resizeEvtHandler(evt) {
