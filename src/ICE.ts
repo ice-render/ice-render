@@ -19,7 +19,7 @@ import MouseEventInterceptor from './event/MouseEventInterceptor.js';
 import ICEBaseComponent from './graphic/ICEBaseComponent';
 import ICELinkHook from './graphic/linkable/ICELinkHook';
 import ICELinkSlotManager from './graphic/linkable/ICELinkSlotManager';
-import { ICE_CONSTS } from './ICE_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from './ICE_EVENT_NAME_CONSTS';
 import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
 import CanvasRenderer from './renderer/CanvasRenderer';
@@ -122,7 +122,7 @@ class ICE {
   public addChild(component) {
     if (this.childNodes.indexOf(component) !== -1) return;
 
-    component.trigger(ICE_CONSTS.BEFORE_ADD);
+    component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
 
     component.ice = this;
     component.root = this.root;
@@ -135,7 +135,7 @@ class ICE {
       this.animationManager.add(component);
     }
 
-    component.trigger(ICE_CONSTS.AFTER_ADD);
+    component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
   }
 
   public addChildren(arr: Array<ICEBaseComponent>): void {

@@ -10,7 +10,7 @@ import isUndefined from 'lodash/isUndefined';
 import ICEEvent from '../event/ICEEvent';
 import ICEBaseComponent from '../graphic/ICEBaseComponent';
 import ICE from '../ICE';
-import { ICE_CONSTS } from '../ICE_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../ICE_EVENT_NAME_CONSTS';
 import Easing from './Easing';
 
 /**
@@ -33,12 +33,12 @@ class AnimationManager {
   }
 
   public start() {
-    this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
+    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
     return this;
   }
 
   public stop() {
-    this.ice.evtBus.off(ICE_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
+    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
     return this;
   }
 

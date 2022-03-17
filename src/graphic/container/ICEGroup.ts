@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { ICE_CONSTS } from '../../ICE_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
 import ICEBaseComponent from '../ICEBaseComponent';
 import ICERect from '../shape/ICERect';
 
@@ -32,9 +32,9 @@ class ICEGroup extends ICERect {
    * @param child
    */
   public addChild(child: ICEBaseComponent): void {
-    child.trigger(ICE_CONSTS.BEFORE_ADD);
+    child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
     this.childNodes.push(child);
-    child.trigger(ICE_CONSTS.AFTER_ADD);
+    child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
   }
 
   public addChildren(arr: Array<ICEBaseComponent>): void {

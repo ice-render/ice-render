@@ -7,7 +7,7 @@
  */
 import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
-import { ICE_CONSTS } from '../../ICE_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
 import ICECircle from '../shape/ICECircle';
 import ICELinkHook from './ICELinkHook';
 
@@ -50,20 +50,20 @@ class ICELinkSlot extends ICECircle {
 
     //由于 ICELinkSlot 默认不可见，实例的 display 为 false ，所以不会触发 AFTER_RENDER 事件，这里只能监听 BEFORE_RENDER
     //这里不能直接访问 this.evtBus ，因为对象在进入到渲染阶段时才会被设置 evtBus 实例，在 initEvents() 被调用时 this.evtBus 为空。 @see ICE.evtBus
-    this.once(ICE_CONSTS.BEFORE_RENDER, this.afterAddHandler, this);
-    this.once(ICE_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
+    this.once(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER, this.afterAddHandler, this);
+    this.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
   }
 
   protected afterAddHandler(evt: ICEEvent) {
-    this.evtBus.on(ICE_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
-    this.evtBus.on(ICE_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
-    this.evtBus.on(ICE_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
+    this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
+    this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
+    this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
   }
 
   protected beforeRemoveHandler(evt: ICEEvent) {
-    this.evtBus.off(ICE_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
-    this.evtBus.off(ICE_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
-    this.evtBus.off(ICE_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
+    this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
+    this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
+    this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
     this._hostComponent = null;
   }
 

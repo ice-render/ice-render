@@ -6,14 +6,14 @@
  *
  */
 import root from '../cross-platform/root';
-import { ICE_CONSTS } from '../ICE_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../ICE_EVENT_NAME_CONSTS';
 
 /**
  * @class FrameManager
  *
  * 帧频控制器，全局单例，请勿创建多个实例。
  * 在同一个 window/global 中，只有一个 FrameManager ，也就是说 FrameManager 是跨 ICE 实例共享的。
- * FrameManager 只负责把 window/global 上的 requestAnimationFrame 回调函数转换成 ICE_CONSTS.ICE_FRAME_EVENT 事件，然后在所有事件总线上进行触发。
+ * FrameManager 只负责把 window/global 上的 requestAnimationFrame 回调函数转换成 ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT 事件，然后在所有事件总线上进行触发。
  * FrameManager 只触发事件，不进行渲染，渲染操作由对应的 Render 完成。
  *
  * @singleton
@@ -38,7 +38,7 @@ const FrameManager = {
   frameCallback: function (): void {
     FrameManager.evtBuses.forEach((evtBus) => {
       if (FrameManager.stopped) return;
-      evtBus.trigger(ICE_CONSTS.ICE_FRAME_EVENT);
+      evtBus.trigger(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT);
     });
     if (!FrameManager.stopped) {
       root.requestAnimationFrame(FrameManager.frameCallback);
