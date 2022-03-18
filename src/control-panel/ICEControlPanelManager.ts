@@ -6,7 +6,7 @@
  *
  */
 import ICEEvent from '../event/ICEEvent';
-import ICEBaseComponent from '../graphic/ICEBaseComponent';
+import ICEComponent from '../graphic/ICEComponent';
 import ICEPolyLine from '../graphic/line/ICEPolyLine';
 import ICE from '../ICE';
 import ICEControlPanel from './ICEControlPanel';
@@ -82,7 +82,7 @@ class ICEControlPanelManager {
   private mouseDownHandler(evt: ICEEvent) {
     let component = evt.target;
 
-    if (!(component instanceof ICEBaseComponent) || !component.state.interactive || !component.state.transformable) {
+    if (!(component instanceof ICEComponent) || !component.state.interactive || !component.state.transformable) {
       this.lineControlPanel.disable();
       this.transformControlPanel.disable();
       return;

@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICEBaseComponent from '../../graphic/ICEBaseComponent';
+import ICEComponent from '../../graphic/ICEComponent';
 import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
 import ICEControlPanel from '../ICEControlPanel';
 import ResizeControl from './ResizeControl';
@@ -322,7 +322,7 @@ export default class TransformControlPanel extends ICEControlPanel {
     }
   }
 
-  public set targetComponent(component: ICEBaseComponent) {
+  public set targetComponent(component: ICEComponent) {
     this._targetComponent = component;
     if (component) {
       this.updatePosition();
@@ -332,7 +332,7 @@ export default class TransformControlPanel extends ICEControlPanel {
     }
   }
 
-  public get targetComponent(): ICEBaseComponent {
+  public get targetComponent(): ICEComponent {
     return this._targetComponent;
   }
 

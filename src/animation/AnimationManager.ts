@@ -8,7 +8,7 @@
 import isString from 'lodash/isString';
 import isUndefined from 'lodash/isUndefined';
 import ICEEvent from '../event/ICEEvent';
-import ICEBaseComponent from '../graphic/ICEBaseComponent';
+import ICEComponent from '../graphic/ICEComponent';
 import ICE from '../ICE';
 import { ICE_EVENT_NAME_CONSTS } from '../ICE_EVENT_NAME_CONSTS';
 import Easing from './Easing';
@@ -43,7 +43,7 @@ class AnimationManager {
   }
 
   private frameEventHandler(evt: ICEEvent) {
-    this.animationMap.forEach((el: ICEBaseComponent) => {
+    this.animationMap.forEach((el: ICEComponent) => {
       //在动画过程中，对象不响应鼠标或者触摸交互，防止影响属性值的计算。
       el.state.interactive = false;
       this.tween(el);
@@ -53,7 +53,7 @@ class AnimationManager {
 
   //TODO:处理无限循环播放的情况，处理播放次数的情况
   //TODO:每一个属性变化的持续时间不同，需要做同步处理，所有动画都执行完毕之后，需要把对象从动画列表中删除
-  private tween(el: ICEBaseComponent) {
+  private tween(el: ICEComponent) {
     let newState: any = {};
     let animations = el.props.animations;
     let finishCounter = 1;
@@ -90,7 +90,7 @@ class AnimationManager {
     return el;
   }
 
-  public add(component: ICEBaseComponent) {
+  public add(component: ICEComponent) {
     this.animationMap.set(component.props.id, component);
   }
 

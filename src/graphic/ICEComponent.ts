@@ -17,14 +17,14 @@ import ICE from '../ICE';
 import { ICE_EVENT_NAME_CONSTS } from '../ICE_EVENT_NAME_CONSTS';
 
 /**
- * @class ICEBaseComponent
+ * @class ICEComponent
  *
  * 最顶级的抽象类，Canvas 内部所有可见的组件都是它的子类。
  *
  * @abstract
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-abstract class ICEBaseComponent extends ICEEventTarget {
+abstract class ICEComponent extends ICEEventTarget {
   //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
   public ice: ICE;
   //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
@@ -60,7 +60,7 @@ abstract class ICEBaseComponent extends ICEEventTarget {
    *   origin:'localCenter',
    *   localOrigin: new DOMPoint(0, 0),             //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
    *   absoluteOrigin: new DOMPoint(0, 0),          //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
-   *   zIndex: ICEBaseComponent.instanceCounter++,  //类似于 CSS 中的 zIndex
+   *   zIndex: ICEComponent.instanceCounter++,  //类似于 CSS 中的 zIndex
    *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
    *   draggable:true,                              //是否可以拖动
    *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
@@ -91,7 +91,7 @@ abstract class ICEBaseComponent extends ICEEventTarget {
     origin: 'localCenter',
     localOrigin: new DOMPoint(0, 0),
     absoluteOrigin: new DOMPoint(0, 0),
-    zIndex: ICEBaseComponent.instanceCounter++,
+    zIndex: ICEComponent.instanceCounter++,
     display: true,
     draggable: true,
     transformable: true,
@@ -110,7 +110,7 @@ abstract class ICEBaseComponent extends ICEEventTarget {
 
   constructor(props: any = {}) {
     super();
-    this.props = merge(this.props, props);
+    this.props = merge(this.props, props, { _dirty: true }); //组件刚创建时，还没有被渲染， _dirty 标志默认为 true
     this.state = JSON.parse(JSON.stringify(this.props));
 
     this.initEvents();
@@ -499,4 +499,4 @@ abstract class ICEBaseComponent extends ICEEventTarget {
   }
 }
 
-export default ICEBaseComponent;
+export default ICEComponent;

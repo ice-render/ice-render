@@ -5,17 +5,17 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+export * from './animation/AnimationManager';
 export * from './control-panel/ICEControlPanel';
 export * from './control-panel/ICEControlPanelManager';
 export * from './control-panel/transform-controls/TransformControlPanel';
-export * from './animation/AnimationManager';
 export * from './event/DOMEventBridge';
 export * from './event/EventBus';
 export * from './geometry/GeoLine';
 export * from './geometry/GeoPoint';
 export * from './geometry/ICEBoundingBox';
 export * from './graphic/container/ICEGroup';
-export * from './graphic/ICEBaseComponent';
+export * from './graphic/ICEComponent';
 export * from './graphic/ICEDotPath';
 export * from './graphic/ICEImage';
 export * from './graphic/ICEPath';

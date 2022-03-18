@@ -5,14 +5,14 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICEBaseComponent from '../ICEBaseComponent';
+import ICEComponent from '../ICEComponent';
 
 /**
  * TODO:draw text along Path2D
  * @see https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-class ICEText extends ICEBaseComponent {
+class ICEText extends ICEComponent {
   /**
    * @cfg
    * {

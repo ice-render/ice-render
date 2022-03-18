@@ -6,7 +6,7 @@
  *
  */
 import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
-import ICEBaseComponent from '../ICEBaseComponent';
+import ICEComponent from '../ICEComponent';
 import ICERect from '../shape/ICERect';
 
 /**
@@ -31,24 +31,24 @@ class ICEGroup extends ICERect {
    * 所以此时 child.root, child.ctx, child.evtBus 都可能为空。
    * @param child
    */
-  public addChild(child: ICEBaseComponent): void {
+  public addChild(child: ICEComponent): void {
     child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
     this.childNodes.push(child);
     child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
   }
 
-  public addChildren(arr: Array<ICEBaseComponent>): void {
+  public addChildren(arr: Array<ICEComponent>): void {
     arr.forEach((child) => {
       this.addChild(child);
     });
   }
 
-  public removeChild(child: ICEBaseComponent) {
+  public removeChild(child: ICEComponent) {
     child.destory();
     this.childNodes.splice(this.childNodes.indexOf(child), 1);
   }
 
-  public removeChildren(arr: Array<ICEBaseComponent>): void {
+  public removeChildren(arr: Array<ICEComponent>): void {
     arr.forEach((child) => {
       this.removeChild(child);
     });

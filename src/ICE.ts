@@ -7,16 +7,16 @@
  */
 import isString from 'lodash/isString';
 import pkg from '../package.json';
+import AnimationManager from './animation/AnimationManager';
 import DDManager from './control-panel/DDManager';
 import ICEControlPanel from './control-panel/ICEControlPanel';
 import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
-import AnimationManager from './animation/AnimationManager';
-import FrameManager from './FrameManager';
 import root from './cross-platform/root.js';
 import DOMEventBridge from './event/DOMEventBridge';
 import EventBus from './event/EventBus';
 import MouseEventInterceptor from './event/MouseEventInterceptor.js';
-import ICEBaseComponent from './graphic/ICEBaseComponent';
+import FrameManager from './FrameManager';
+import ICEComponent from './graphic/ICEComponent';
 import ICELinkHook from './graphic/link/ICELinkHook';
 import ICELinkSlotManager from './graphic/link/ICELinkSlotManager';
 import { ICE_EVENT_NAME_CONSTS } from './ICE_EVENT_NAME_CONSTS';
@@ -138,13 +138,13 @@ class ICE {
     component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
   }
 
-  public addChildren(arr: Array<ICEBaseComponent>): void {
+  public addChildren(arr: Array<ICEComponent>): void {
     arr.forEach((child) => {
       this.addChild(child);
     });
   }
 
-  public removeChild(component: ICEBaseComponent) {
+  public removeChild(component: ICEComponent) {
     if (
       component instanceof ICEControlPanel ||
       component.parentNode instanceof ICEControlPanel ||
@@ -159,16 +159,14 @@ class ICE {
     this.childNodes.splice(this.childNodes.indexOf(component), 1);
   }
 
-  public removeChildren(arr: Array<ICEBaseComponent>): void {
+  public removeChildren(arr: Array<ICEComponent>): void {
     arr.forEach((child) => {
       this.removeChild(child);
     });
   }
 
   public clearAll() {
-    console.log('before clear>', this.childNodes);
     this.removeChildren([...this.childNodes]);
-    console.log('after clear>', this.childNodes);
   }
 
   public findComponent(id: string) {
