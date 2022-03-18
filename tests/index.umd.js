@@ -6577,116 +6577,6 @@
 
   var isString_1 = isString;
 
-  var author = "大漠穷秋";
-  var name = "ice-render";
-  var version = "0.0.1";
-  var description = "A canvas engine for interactive graphics.";
-  var repository = "https://gitee.com/ice-render/ice-render";
-  var browser = "dist/index.umd.js";
-  var main = "dist/index.cjs.js";
-  var module = "dist/index.esm.js";
-  var types = "dist/types/index.d.ts";
-  var files = [
-  	"dist"
-  ];
-  var scripts = {
-  	build: "npm run build:types && npm run build:js",
-  	"build:js": "rollup -c --environment NODE_ENV:production",
-  	"build:types": "tsc --emitDeclarationOnly",
-  	clean: "rimraf dist",
-  	pretty: "prettier src/**/* --write",
-  	start: "rollup -c -w  --environment NODE_ENV:development",
-  	"types:check": "tsc --noEmit",
-  	"types:watch": "npm run types:check -- --watch"
-  };
-  var dependencies = {
-  	"@lukeed/uuid": "^2.0.0",
-  	lodash: "4.17.21"
-  };
-  var devDependencies = {
-  	"@babel/core": "7.9.0",
-  	"@babel/plugin-proposal-class-properties": "7.16.0",
-  	"@babel/preset-env": "7.9.5",
-  	"@babel/preset-typescript": "7.9.0",
-  	"@commitlint/cli": "8.3.5",
-  	"@commitlint/config-conventional": "8.3.4",
-  	"@rollup/plugin-commonjs": "11.1.0",
-  	"@rollup/plugin-json": "4.0.3",
-  	"@rollup/plugin-node-resolve": "7.1.3",
-  	"@types/jest": "25.2.1",
-  	"@types/lodash": "4.14.178",
-  	"@typescript-eslint/eslint-plugin": "2.29.0",
-  	"@typescript-eslint/parser": "2.29.0",
-  	eslint: "6.8.0",
-  	"eslint-config-prettier": "6.11.0",
-  	"eslint-plugin-jest": "23.8.2",
-  	"eslint-plugin-prettier": "3.1.3",
-  	husky: "4.2.5",
-  	jest: "25.4.0",
-  	"lint-staged": "10.1.7",
-  	rimraf: "3.0.2",
-  	rollup: "2.7.2",
-  	"rollup-plugin-babel": "4.4.0",
-  	"rollup-plugin-terser": "5.3.0",
-  	typescript: "3.8.3"
-  };
-  var commitlint = {
-  	"extends": [
-  		"@commitlint/config-conventional"
-  	]
-  };
-  var keywords = [
-  	"canvas",
-  	"graphic"
-  ];
-  var browserslist = {
-  	production: [
-  		">0.2%",
-  		"not dead",
-  		"not op_mini all"
-  	],
-  	development: [
-  		"last 1 chrome version",
-  		"last 1 firefox version",
-  		"last 1 safari version"
-  	]
-  };
-  var engines = {
-  	npm: ">=6.4.1",
-  	node: ">=10.13.0"
-  };
-  var license = "MIT";
-  var pkg = {
-  	author: author,
-  	name: name,
-  	version: version,
-  	description: description,
-  	repository: repository,
-  	browser: browser,
-  	main: main,
-  	module: module,
-  	types: types,
-  	files: files,
-  	scripts: scripts,
-  	dependencies: dependencies,
-  	devDependencies: devDependencies,
-  	commitlint: commitlint,
-  	"lint-staged": {
-  	"*.{js,jsx,ts,tsx}": [
-  		"eslint --fix",
-  		"git add"
-  	],
-  	"*.{json,md,yml}": [
-  		"prettier --write",
-  		"git add"
-  	]
-  },
-  	keywords: keywords,
-  	browserslist: browserslist,
-  	engines: engines,
-  	license: license
-  };
-
   /**
    * Checks if `value` is `undefined`.
    *
@@ -8936,12 +8826,11 @@
     //所有直接添加到 canvas 的对象都在此结构中
     //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
     //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
-    //&lt;canvas&gt; tag
+    // canvas 标签元素
     //CanvasRenderingContext2D, @see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D
     //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
+    //如果此标志位为 true ，所有组件都会全部被重新绘制
     constructor() {
-      _defineProperty(this, "version", pkg.version);
-
       _defineProperty(this, "childNodes", []);
 
       _defineProperty(this, "evtBus", void 0);
