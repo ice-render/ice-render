@@ -8824,6 +8824,8 @@
 
       _defineProperty(this, "renderQueue", []);
 
+      _defineProperty(this, "_roundCounter", 0);
+
       this.ice = ice;
     }
 
@@ -8837,17 +8839,36 @@
       this.stopped = true;
       this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
       return this;
+    }
+    /**
+     * 判断是否需要刷新
+     * @returns
+     */
+
+
+    needUpdate() {
+      if (this.stopped) {
+        this.renderQueue = [];
+        return false;
+      }
+
+      if (!this.ice.childNodes || !this.ice.childNodes.length) return false;
+      return true;
     } //FIXME:动画有闪烁
 
 
     frameEvtHandler(evt) {
-      if (this.stopped) {
-        this.renderQueue = [];
+      console.log('render>', this._roundCounter);
+
+      if (!this.needUpdate()) {
         return;
       }
 
-      if (!this.ice.childNodes || !this.ice.childNodes.length) return; //FIXME:控制哪些组件能够进入 cache ，从而优化渲染效率
+      this.doRender();
+    }
 
+    doRender() {
+      //FIXME:控制哪些组件能够进入 cache ，从而优化渲染效率
       this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
       this.renderQueue = Array.from(this.ice.childNodes);
       this.renderQueue.sort((firstEl, secondEl) => {
@@ -8858,6 +8879,7 @@
         this.renderRecursively(component);
       }); //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
 
+      this._roundCounter++;
       this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
     }
     /**
