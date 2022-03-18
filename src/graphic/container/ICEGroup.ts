@@ -27,8 +27,7 @@ class ICEGroup extends ICERect {
   }
 
   /**
-   * 注意，在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。
-   * 所以此时 child.root, child.ctx, child.evtBus 都可能为空。
+   * !注意：在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。所以此时 child.root, child.ctx, child.evtBus 都可能为空。
    * @param child
    */
   public addChild(child: ICEComponent): void {

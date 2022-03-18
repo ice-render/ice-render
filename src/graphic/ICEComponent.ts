@@ -8,13 +8,13 @@
 import { v4 as uuid } from '@lukeed/uuid';
 import get from 'lodash/get';
 import merge from 'lodash/merge';
+import { ICE_EVENT_NAME_CONSTS } from '../consts/ICE_EVENT_NAME_CONSTS';
 import EventBus from '../event/EventBus';
 import ICEEvent from '../event/ICEEvent';
 import ICEEventTarget from '../event/ICEEventTarget';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICEMatrix from '../geometry/ICEMatrix';
 import ICE from '../ICE';
-import { ICE_EVENT_NAME_CONSTS } from '../consts/ICE_EVENT_NAME_CONSTS';
 
 /**
  * @class ICEComponent
@@ -110,7 +110,7 @@ abstract class ICEComponent extends ICEEventTarget {
 
   constructor(props: any = {}) {
     super();
-    this.props = merge(this.props, props, { _dirty: true }); //组件刚创建时，还没有被渲染， _dirty 标志默认为 true
+    this.props = merge(this.props, props);
     this.state = JSON.parse(JSON.stringify(this.props));
 
     this.initEvents();
@@ -131,8 +131,6 @@ abstract class ICEComponent extends ICEEventTarget {
     this.applyTransformToCtx();
     this.doRender();
     this.ctx.setTransform(new DOMMatrix());
-
-    this.state._dirty = false;
   }
 
   protected applyStyle(): void {
@@ -359,7 +357,10 @@ abstract class ICEComponent extends ICEEventTarget {
    * @param newState
    */
   public setState(newState: any) {
-    merge(this.state, newState, { _dirty: true });
+    merge(this.state, newState);
+    if (this.ice) {
+      this.ice._dirty = true;
+    }
   }
 
   /**

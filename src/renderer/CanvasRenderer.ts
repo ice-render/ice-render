@@ -53,17 +53,15 @@ class CanvasRenderer extends ICEEventTarget {
       return false;
     }
     if (!this.ice.childNodes || !this.ice.childNodes.length) return false;
-
-    return true;
+    return this.ice._dirty;
   }
 
   //FIXME:动画有闪烁
   private frameEvtHandler(evt: ICEEvent) {
-    console.log('render>', this._roundCounter);
-    if (!this.needUpdate()) {
-      return;
+    if (this.needUpdate()) {
+      console.log('render>', this._roundCounter);
+      this.doRender();
     }
-    this.doRender();
   }
 
   private doRender() {
@@ -80,6 +78,7 @@ class CanvasRenderer extends ICEEventTarget {
 
     //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
     this._roundCounter++;
+    this.ice._dirty = false;
     this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
   }
 
