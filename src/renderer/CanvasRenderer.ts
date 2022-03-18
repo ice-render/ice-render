@@ -9,7 +9,7 @@ import ICEEvent from '../event/ICEEvent';
 import ICEEventTarget from '../event/ICEEventTarget';
 import ICEComponent from '../graphic/ICEComponent';
 import ICE from '../ICE';
-import { ICE_EVENT_NAME_CONSTS } from '../ICE_EVENT_NAME_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../consts/ICE_EVENT_NAME_CONSTS';
 
 /**
  * @class CanvasRenderer

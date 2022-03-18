@@ -7,7 +7,7 @@
  */
 import { v4 as uuid } from '@lukeed/uuid';
 import ICE from '../../ICE';
-import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICELinkSlot from './ICELinkSlot';
 
 /**

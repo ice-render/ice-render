@@ -7,7 +7,7 @@
  */
 import ICE from '../ICE';
 import ICEEvent from './ICEEvent';
-import mouseEvents from './MOUSE_EVENT_MAPPING_CONSTS';
+import mouseEvents from '../consts/MOUSE_EVENT_MAPPING_CONSTS';
 
 /**
  * @class DOMEventBridge

@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import componentTypeMap from '../COMPONENT_TYPE_MAPPING';
+import componentTypeMap from '../consts/COMPONENT_TYPE_MAPPING';
 import ICE from '../ICE';
 
 /**
