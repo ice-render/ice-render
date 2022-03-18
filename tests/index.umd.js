@@ -8814,7 +8814,6 @@
    *
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
-
   class CanvasRenderer extends ICEEventTarget {
     constructor(ice) {
       super();
@@ -8842,8 +8841,6 @@
 
 
     frameEvtHandler(evt) {
-      this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
-
       if (this.stopped) {
         this.renderQueue = [];
         return;
@@ -8851,9 +8848,10 @@
 
       if (!this.ice.childNodes || !this.ice.childNodes.length) return; //FIXME:控制哪些组件能够进入 cache ，从而优化渲染效率
 
-      this.renderQueue = Array.from(this.ice.childNodes); //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
-
+      this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
+      this.renderQueue = Array.from(this.ice.childNodes);
       this.renderQueue.sort((firstEl, secondEl) => {
+        //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
         return firstEl.state.zIndex - secondEl.state.zIndex;
       });
       this.renderQueue.forEach(component => {
