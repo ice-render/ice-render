@@ -4576,6 +4576,45 @@
   }
 
   /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
+   * @class ICEImage
+   * TODO:支持以下几种图片类型：jpg/jpeg/png/gif
+   * TODO:ICEImage 来源的几种方式
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEImage extends ICEComponent {
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        width: 100,
+        height: 100,
+        ...props
+      });
+    }
+    /**
+     * 空实现。
+     */
+
+
+    initEvents() {}
+
+    doRender() {
+      let img = new Image();
+      img.src = 'data:image/png;base64,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';
+      this.ctx.drawImage(img, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y, this.state.width, this.state.height);
+      super.doRender();
+    }
+
+  }
+
+  /**
    * Checks if `value` is `null` or `undefined`.
    *
    * @static
@@ -6296,6 +6335,221 @@
       param.radiusX = param.radius;
       param.radiusY = param.radius;
       super(param);
+    }
+
+  }
+
+  /**
+   *
+   * FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
+   *
+   * @class ICEIsogon
+   *
+   * 正多边形
+   *
+   * 用宽高描述法描述正多边形，方便传参。
+   *
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEIsogon extends ICEDotPath {
+    //外接圆的半径
+    //边数 N ，正整数
+
+    /**
+     * radius, edges 会暴露给 AnimationManager ，可能会动态变化。
+     * @param props
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      let param = {
+        radius: 10,
+        edges: 3,
+        ...props
+      };
+      param.width = param.radius * 2;
+      param.height = param.radius * 2;
+      super(param);
+
+      _defineProperty(this, "radius", 10);
+
+      _defineProperty(this, "edges", 3);
+
+      this.radius = this.props.radius; //FIXME:delete?
+
+      this.edges = this.props.edges; //FIXME:delete?
+    }
+    /**
+     * 计算路径上的关键点:
+     * - 默认的坐标原点是 (0,0) 位置。
+     * - 这些点没有经过 transform 矩阵变换。
+     * @returns
+     */
+
+
+    calcDots() {
+      //求正 N 边形的顶点坐标，极坐标法。
+      this.state.dots = [];
+      let avgAngle = 2 * Math.PI / this.state.edges; //FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
+      //FIXME:这里需要重新设置起始角度
+      //FIXME:当边数为奇数时，把一个顶点放在正上方90度位置，当边数为偶数时，把一条边与 X 轴平行
+
+      for (let i = 0; i < this.state.edges; i++) {
+        let currentAngel = avgAngle * i;
+        let radius = this.state.radius;
+        let x = Math.floor(radius * Math.cos(currentAngel) + radius);
+        let y = Math.floor(radius * Math.sin(currentAngel) + radius);
+        this.state.dots.push(new DOMPoint(x, y));
+      }
+
+      return this.state.dots;
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
+   * @class ICEStar 五角星
+   * TODO:实现正 N 角星
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEStar extends ICEIsogon {
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        radius: 10,
+        edges: 5,
+        ...props
+      });
+    }
+
+    doCreatePath() {
+      this.path2D = new Path2D();
+      let counter = 0;
+      let i = 0;
+
+      while (counter < this.state.edges) {
+        let j = (i + 2) % this.state.edges;
+        let v1 = this.state.dots[i];
+        let v2 = this.state.dots[j];
+
+        if (counter == 0) {
+          this.path2D.moveTo(v1.x, v1.y);
+          this.path2D.lineTo(v2.x, v2.y);
+        } else {
+          this.path2D.lineTo(v2.x, v2.y);
+        }
+
+        i = j;
+        counter++;
+      }
+
+      this.path2D.closePath();
+      return this.path2D;
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
+   * TODO:draw text along Path2D
+   * @see https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEText extends ICEComponent {
+    /**
+     * @cfg
+     * {
+     *   text:'文本内容',
+     *   left:0,
+     *   top:0,
+     *   fontSize:48,
+     *   fontFamily:'Arial',
+     *   fontWeight:24,
+     * }
+     * FIXME: fontSize/fontFamily/fontWeight 移动到 style 配置项中一起处理。
+     * @param props
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        text: '',
+        left: 0,
+        top: 0,
+        fontSize: 48,
+        fontFamily: 'Arial',
+        fontWeight: 24,
+        ...props
+      });
+    }
+    /**
+     * 空实现。
+     */
+
+
+    initEvents() {}
+    /**
+     * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
+     * 文本尺寸的计算需要使用特殊的方法。
+     * 这里使用的方法来自 https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
+     *
+     * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+     *
+     * FIXME:某些运行时环境可能不支持动态插入 HTML 标签，以上测量文本宽高的方法可能存在兼容性问题。
+     * FIXME:边界盒子的高度与字体高度之间存在误差。
+     * @returns
+     */
+
+
+    calcOriginalDimension() {
+      const div = this.root.document.createElement('div');
+      div.contenteditable = false;
+      div.innerHTML = this.state.text;
+      div.style.position = 'absolute';
+      div.style.top = '200px';
+      div.style.left = '0';
+      div.style.fontFamily = this.state.fontFamily;
+      div.style.fontWeight = this.state.fontWeight;
+      div.style.fontSize = this.state.fontSize + 'px';
+      this.root.document.body.appendChild(div);
+      let cssSize = {
+        width: div.offsetWidth,
+        height: div.offsetHeight
+      };
+      this.root.document.body.removeChild(div); //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
+
+      this.props.width = cssSize.width;
+      this.props.height = cssSize.height;
+      this.state.width = cssSize.width;
+      this.state.height = cssSize.height;
+      return {
+        width: this.state.width,
+        height: this.state.height
+      };
+    }
+    /**
+     * 文本是基于 baseline 绘制的，文本是从 y 坐标向屏幕上方绘制的，48 是文本高度，这里需要补偿文本高度。
+     * 同时把移动坐标轴原点的偏移量计算进去。
+     */
+
+
+    doRender() {
+      this.ctx.strokeText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
+      this.ctx.fillText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
     }
 
   }
@@ -8444,260 +8698,6 @@
    *
    */
   /**
-   * @class ICEImage
-   * TODO:支持以下几种图片类型：jpg/jpeg/png/gif
-   * TODO:ICEImage 来源的几种方式
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEImage extends ICEComponent {
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        width: 100,
-        height: 100,
-        ...props
-      });
-    }
-    /**
-     * 空实现。
-     */
-
-
-    initEvents() {}
-
-    doRender() {
-      let img = new Image();
-      img.src = 'data:image/png;base64,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';
-      this.ctx.drawImage(img, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y, this.state.width, this.state.height);
-      super.doRender();
-    }
-
-  }
-
-  /**
-   *
-   * FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
-   *
-   * @class ICEIsogon
-   *
-   * 正多边形
-   *
-   * 用宽高描述法描述正多边形，方便传参。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEIsogon extends ICEDotPath {
-    //外接圆的半径
-    //边数 N ，正整数
-
-    /**
-     * radius, edges 会暴露给 AnimationManager ，可能会动态变化。
-     * @param props
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      let param = {
-        radius: 10,
-        edges: 3,
-        ...props
-      };
-      param.width = param.radius * 2;
-      param.height = param.radius * 2;
-      super(param);
-
-      _defineProperty(this, "radius", 10);
-
-      _defineProperty(this, "edges", 3);
-
-      this.radius = this.props.radius; //FIXME:delete?
-
-      this.edges = this.props.edges; //FIXME:delete?
-    }
-    /**
-     * 计算路径上的关键点:
-     * - 默认的坐标原点是 (0,0) 位置。
-     * - 这些点没有经过 transform 矩阵变换。
-     * @returns
-     */
-
-
-    calcDots() {
-      //求正 N 边形的顶点坐标，极坐标法。
-      this.state.dots = [];
-      let avgAngle = 2 * Math.PI / this.state.edges; //FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
-      //FIXME:这里需要重新设置起始角度
-      //FIXME:当边数为奇数时，把一个顶点放在正上方90度位置，当边数为偶数时，把一条边与 X 轴平行
-
-      for (let i = 0; i < this.state.edges; i++) {
-        let currentAngel = avgAngle * i;
-        let radius = this.state.radius;
-        let x = Math.floor(radius * Math.cos(currentAngel) + radius);
-        let y = Math.floor(radius * Math.sin(currentAngel) + radius);
-        this.state.dots.push(new DOMPoint(x, y));
-      }
-
-      return this.state.dots;
-    }
-
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  /**
-   * @class ICEStar 五角星
-   * TODO:实现正 N 角星
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEStar extends ICEIsogon {
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        radius: 10,
-        edges: 5,
-        ...props
-      });
-    }
-
-    doCreatePath() {
-      this.path2D = new Path2D();
-      let counter = 0;
-      let i = 0;
-
-      while (counter < this.state.edges) {
-        let j = (i + 2) % this.state.edges;
-        let v1 = this.state.dots[i];
-        let v2 = this.state.dots[j];
-
-        if (counter == 0) {
-          this.path2D.moveTo(v1.x, v1.y);
-          this.path2D.lineTo(v2.x, v2.y);
-        } else {
-          this.path2D.lineTo(v2.x, v2.y);
-        }
-
-        i = j;
-        counter++;
-      }
-
-      this.path2D.closePath();
-      return this.path2D;
-    }
-
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  /**
-   * TODO:draw text along Path2D
-   * @see https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEText extends ICEComponent {
-    /**
-     * @cfg
-     * {
-     *   text:'文本内容',
-     *   left:0,
-     *   top:0,
-     *   fontSize:48,
-     *   fontFamily:'Arial',
-     *   fontWeight:24,
-     * }
-     * FIXME: fontSize/fontFamily/fontWeight 移动到 style 配置项中一起处理。
-     * @param props
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        text: '',
-        left: 0,
-        top: 0,
-        fontSize: 48,
-        fontFamily: 'Arial',
-        fontWeight: 24,
-        ...props
-      });
-    }
-    /**
-     * 空实现。
-     */
-
-
-    initEvents() {}
-    /**
-     * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
-     * 文本尺寸的计算需要使用特殊的方法。
-     * 这里使用的方法来自 https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
-     *
-     * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
-     *
-     * FIXME:某些运行时环境可能不支持动态插入 HTML 标签，以上测量文本宽高的方法可能存在兼容性问题。
-     * FIXME:边界盒子的高度与字体高度之间存在误差。
-     * @returns
-     */
-
-
-    calcOriginalDimension() {
-      const div = this.root.document.createElement('div');
-      div.contenteditable = false;
-      div.innerHTML = this.state.text;
-      div.style.position = 'absolute';
-      div.style.top = '200px';
-      div.style.left = '0';
-      div.style.fontFamily = this.state.fontFamily;
-      div.style.fontWeight = this.state.fontWeight;
-      div.style.fontSize = this.state.fontSize + 'px';
-      this.root.document.body.appendChild(div);
-      let cssSize = {
-        width: div.offsetWidth,
-        height: div.offsetHeight
-      };
-      this.root.document.body.removeChild(div); //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
-
-      this.props.width = cssSize.width;
-      this.props.height = cssSize.height;
-      this.state.width = cssSize.width;
-      this.state.height = cssSize.height;
-      return {
-        width: this.state.width,
-        height: this.state.height
-      };
-    }
-    /**
-     * 文本是基于 baseline 绘制的，文本是从 y 坐标向屏幕上方绘制的，48 是文本高度，这里需要补偿文本高度。
-     * 同时把移动坐标轴原点的偏移量计算进去。
-     */
-
-
-    doRender() {
-      this.ctx.strokeText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
-      this.ctx.fillText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
-    }
-
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  /**
    * 组件名称和构造函数引用之间的映射关系，把序列化之后的 JSON 字符串重新解析成图形时需要用到此映射关系。
    *
    * @author 大漠穷秋<damoqiongqiu@126.com>
@@ -9112,8 +9112,6 @@
 
   }
 
-  // import ICEStar from '../src/graphic/shape/ICEStar';
-
   let ice = new ICE().init('canvas-1');
 
   document.querySelector('#btn-1').addEventListener('click', (evt) => {
@@ -9127,6 +9125,12 @@
   document.querySelector('#btn-3').addEventListener('click', (evt) => {
     ice.clearAll();
   });
+
+  let img = new ICEImage({
+    left: 500,
+    top: 300,
+  });
+  ice.addChild(img);
 
   // let heart = new ICEHeart();
   // ice.addChild(heart);
@@ -9252,28 +9256,27 @@
   });
   ice.addChild(visioLink2);
 
-  // let linkCircle3 = new ICECircle({
-  //   left: 100,
-  //   top: 500,
-  //   radius: 50,
-  // });
-  // ice.addChild(linkCircle3);
-  // console.log(linkCircle3 instanceof ICECircle);
+  let linkCircle3 = new ICECircle({
+    left: 100,
+    top: 500,
+    radius: 50,
+  });
+  ice.addChild(linkCircle3);
 
   // //正三角形
-  // let isogon3 = new ICEIsogon({
-  //   left: 600,
-  //   top: 300,
-  //   radius: 50,
-  //   edges: 3,
-  //   transform: {
-  //     // translate: [10, -10],
-  //     // scale: [1.5, 1.5],
-  //     // skew: [50, 0],
-  //     // rotate: 45,
-  //   },
-  // });
-  // ice.addChild(isogon3);
+  let isogon3 = new ICEIsogon({
+    left: 600,
+    top: 300,
+    radius: 50,
+    edges: 3,
+    transform: {
+      // translate: [10, -10],
+      // scale: [1.5, 1.5],
+      // skew: [50, 0],
+      // rotate: 45,
+    },
+  });
+  ice.addChild(isogon3);
 
   // //正五边形
   // let isogon5 = new ICEIsogon({
@@ -9308,34 +9311,33 @@
   // ice.addChild(isogon15);
 
   // //正N边形
-  // let star1 = new ICEStar({
-  //   left: 10,
-  //   top: 10,
-  //   radius: 50,
-  //   edges: 6,
-  //   // transform: {
-  //   //   translate: [10, -10],
-  //   //   scale: [0.3, 0.5],
-  //   //   skew: [0.2, 0],
-  //   //   rotate: 30,
-  //   // },
-  // });
-  // star1.on('click', (evt) => {
-  // });
-  // ice.addChild(star1);
+  let star1 = new ICEStar({
+    left: 10,
+    top: 10,
+    radius: 50,
+    edges: 5,
+    // transform: {
+    //   translate: [10, -10],
+    //   scale: [0.3, 0.5],
+    //   skew: [0.2, 0],
+    //   rotate: 30,
+    // },
+  });
+  star1.on('click', (evt) => {});
+  ice.addChild(star1);
 
-  // let text = new ICEText({
-  //   left: 0,
-  //   top: 400,
-  //   text: 'Test long long long text...',
-  //   style: {
-  //     lineWidth: 5,
-  //     font: '48px serif',
-  //     strokeStyle: '#ff3300',
-  //     fillStyle: '#00ff00',
-  //   },
-  // });
-  // ice.addChild(text);
+  let text = new ICEText({
+    left: 0,
+    top: 400,
+    text: 'Test long long long text...',
+    style: {
+      lineWidth: 5,
+      font: '48px serif',
+      strokeStyle: '#ff3300',
+      fillStyle: '#00ff00',
+    },
+  });
+  ice.addChild(text);
 
   // let p1 = new DOMPoint(0, 100);
   // let p2 = new DOMPoint(150, 100);
@@ -9468,13 +9470,13 @@
   // });
   // ice.addChild(rect6);
 
-  // let ellipse = new ICEEllipse({
-  //   left: 100,
-  //   top: 600,
-  //   radiusX: 50,
-  //   radiusY: 30,
-  // });
-  // ice.addChild(ellipse);
+  let ellipse = new ICEEllipse({
+    left: 100,
+    top: 600,
+    radiusX: 50,
+    radiusY: 30,
+  });
+  ice.addChild(ellipse);
 
   // let circle2 = new ICECircle({
   //   left: 100,
