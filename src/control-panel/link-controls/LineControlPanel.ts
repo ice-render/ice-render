@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICEBaseComponent from '../../graphic/ICEBaseComponent';
+import ICEComponent from '../../graphic/ICEComponent';
 import ICELinkHook from '../../graphic/link/ICELinkHook';
 import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
 import ICEControlPanel from '../ICEControlPanel';
@@ -183,7 +183,7 @@ export default class LineControlPanel extends ICEControlPanel {
     }
   }
 
-  public set targetComponent(component: ICEBaseComponent) {
+  public set targetComponent(component: ICEComponent) {
     this._targetComponent = component;
     if (component) {
       this.updatePosition();
@@ -193,7 +193,7 @@ export default class LineControlPanel extends ICEControlPanel {
     }
   }
 
-  public get targetComponent(): ICEBaseComponent {
+  public get targetComponent(): ICEComponent {
     return this._targetComponent;
   }
 

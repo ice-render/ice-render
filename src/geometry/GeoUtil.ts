@@ -6,7 +6,7 @@
  *
  */
 import round from 'lodash/round';
-import ICEBaseComponent from '../graphic/ICEBaseComponent';
+import ICEComponent from '../graphic/ICEComponent';
 
 export default class GeoUtil {
   constructor() {
@@ -19,7 +19,7 @@ export default class GeoUtil {
    * @param point
    * @returns
    */
-  public static containsPoint(component: ICEBaseComponent, point: any): boolean {
+  public static containsPoint(component: ICEComponent, point: any): boolean {
     return false;
   }
 
@@ -29,7 +29,7 @@ export default class GeoUtil {
    * @param b 第二个图元
    * @returns
    */
-  public static isIntersect(a: ICEBaseComponent, b: ICEBaseComponent): boolean {
+  public static isIntersect(a: ICEComponent, b: ICEComponent): boolean {
     return false;
   }
 

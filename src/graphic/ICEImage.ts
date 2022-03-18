@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICEBaseComponent from './ICEBaseComponent';
+import ICEComponent from './ICEComponent';
 
 /**
  * @class ICEImage
@@ -13,7 +13,7 @@ import ICEBaseComponent from './ICEBaseComponent';
  * TODO:ICEImage 来源的几种方式
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-class ICEImage extends ICEBaseComponent {
+class ICEImage extends ICEComponent {
   constructor(props: any = {}) {
     super({ width: 100, height: 100, ...props });
   }

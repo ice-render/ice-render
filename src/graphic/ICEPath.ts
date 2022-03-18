@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICEBaseComponent from './ICEBaseComponent';
+import ICEComponent from './ICEComponent';
 
 /**
  * @class ICEPath
@@ -15,7 +15,7 @@ import ICEBaseComponent from './ICEBaseComponent';
  * @abstract
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-abstract class ICEPath extends ICEBaseComponent {
+abstract class ICEPath extends ICEComponent {
   public path2D: Path2D = new Path2D();
 
   /**

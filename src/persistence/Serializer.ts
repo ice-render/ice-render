@@ -6,7 +6,7 @@
  *
  */
 import ICEControlPanel from '../control-panel/ICEControlPanel';
-import ICEBaseComponent from '../graphic/ICEBaseComponent';
+import ICEComponent from '../graphic/ICEComponent';
 import ICELinkHook from '../graphic/link/ICELinkHook';
 import ICELinkSlot from '../graphic/link/ICELinkSlot';
 import ICE from '../ICE';
@@ -37,7 +37,7 @@ export default class Serializer {
       lastModifyTime: new Date().toLocaleString(),
       childNodes: [],
     };
-    this.ice.childNodes.forEach((child: ICEBaseComponent) => {
+    this.ice.childNodes.forEach((child: ICEComponent) => {
       if (
         child instanceof ICEControlPanel ||
         child.parentNode instanceof ICEControlPanel ||

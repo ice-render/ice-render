@@ -3681,7 +3681,7 @@
   }
 
   /**
-   * @class ICEBaseComponent
+   * @class ICEComponent
    *
    * 最顶级的抽象类，Canvas 内部所有可见的组件都是它的子类。
    *
@@ -3689,7 +3689,7 @@
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
 
-  class ICEBaseComponent extends ICEEventTarget {
+  class ICEComponent extends ICEEventTarget {
     //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
     //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
     //当对象被添加到 canvas 中时，ICE 会自动设置 ctx 的值，没有被添加到 canvas 中的对象 ctx 为 null 。
@@ -3719,7 +3719,7 @@
      *   origin:'localCenter',
      *   localOrigin: new DOMPoint(0, 0),             //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
      *   absoluteOrigin: new DOMPoint(0, 0),          //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
-     *   zIndex: ICEBaseComponent.instanceCounter++,  //类似于 CSS 中的 zIndex
+     *   zIndex: ICEComponent.instanceCounter++,  //类似于 CSS 中的 zIndex
      *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
      *   draggable:true,                              //是否可以拖动
      *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
@@ -3775,7 +3775,7 @@
         origin: 'localCenter',
         localOrigin: new DOMPoint(0, 0),
         absoluteOrigin: new DOMPoint(0, 0),
-        zIndex: ICEBaseComponent.instanceCounter++,
+        zIndex: ICEComponent.instanceCounter++,
         display: true,
         draggable: true,
         transformable: true,
@@ -3788,7 +3788,10 @@
       _defineProperty(this, "state", { ...this.props
       });
 
-      this.props = merge_1(this.props, props);
+      this.props = merge_1(this.props, props, {
+        _dirty: true
+      }); //组件刚创建时，还没有被渲染， _dirty 标志默认为 true
+
       this.state = JSON.parse(JSON.stringify(this.props));
       this.initEvents();
     }
@@ -4221,7 +4224,7 @@
 
   }
 
-  _defineProperty(ICEBaseComponent, "instanceCounter", 0);
+  _defineProperty(ICEComponent, "instanceCounter", 0);
 
   /**
    * @class ICEPath
@@ -4232,7 +4235,7 @@
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
 
-  class ICEPath extends ICEBaseComponent {
+  class ICEPath extends ICEComponent {
     /**
      * @cfg
      * {
@@ -6435,6 +6438,209 @@
   };
 
   /**
+   * Checks if `value` is `undefined`.
+   *
+   * @static
+   * @since 0.1.0
+   * @memberOf _
+   * @category Lang
+   * @param {*} value The value to check.
+   * @returns {boolean} Returns `true` if `value` is `undefined`, else `false`.
+   * @example
+   *
+   * _.isUndefined(void 0);
+   * // => true
+   *
+   * _.isUndefined(null);
+   * // => false
+   */
+  function isUndefined(value) {
+    return value === undefined;
+  }
+
+  var isUndefined_1 = isUndefined;
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+
+  /**
+   * 来源：https://github.com/AndrewRayCode/easing-utils/blob/master/src/easing.js
+   * 一组缓动工具函数
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+  const Easing = {
+    /**
+     * 线性变化
+     * @param from 起始值
+     * @param to  终止值
+     * @param duration 持续时间，ms
+     * @param startTime 动画开始时间
+     */
+    linear: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return from + deltaValue / duration * deltaT;
+    },
+    easeInQuad: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return from + deltaValue / duration * (deltaT / duration) * deltaT;
+    },
+    easeOutQuad: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return -deltaValue * (deltaT /= duration) * (deltaT - 2) + from;
+    },
+    easeInOutQuad: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT + from;
+      return -deltaValue / 2 * (--deltaT * (deltaT - 2) - 1) + from;
+    },
+    easeInQuart: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return deltaValue * (deltaT /= duration) * deltaT * deltaT * deltaT + from;
+    },
+    easeOutQuart: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return -deltaValue * ((deltaT = deltaT / duration - 1) * deltaT * deltaT * deltaT - 1) + from;
+    },
+    easeInOutQuart: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT * deltaT * deltaT + from;
+      return -deltaValue / 2 * ((deltaT -= 2) * deltaT * deltaT * deltaT - 2) + from;
+    },
+    easeInCubic: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return deltaValue * (deltaT /= duration) * deltaT * deltaT + from;
+    },
+    easeOutCubic: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return deltaValue * ((deltaT = deltaT / duration - 1) * deltaT * deltaT + 1) + from;
+    },
+    easeInOutCubic: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT * deltaT + from;
+      return deltaValue / 2 * ((deltaT -= 2) * deltaT * deltaT + 2) + from;
+    } //TODO:增加更多缓动算法
+
+  };
+
+  /**
+   * @class AnimationManager
+   *
+   * 动画管理器
+   *
+   * - 全局单例，一个 ICE 实例上只能有一个 AnimationManager 的实例。
+   *
+   * @singleton
+   * @see ICE
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class AnimationManager {
+    //所有需要执行动画的元素都会被自动存入此列表中
+    constructor(ice) {
+      _defineProperty(this, "animationMap", new Map());
+
+      _defineProperty(this, "ice", void 0);
+
+      this.ice = ice;
+    }
+
+    start() {
+      this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
+      return this;
+    }
+
+    stop() {
+      this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
+      return this;
+    }
+
+    frameEventHandler(evt) {
+      this.animationMap.forEach(el => {
+        //在动画过程中，对象不响应鼠标或者触摸交互，防止影响属性值的计算。
+        el.state.interactive = false;
+        this.tween(el);
+        el.state.interactive = true;
+      });
+    } //TODO:处理无限循环播放的情况，处理播放次数的情况
+    //TODO:每一个属性变化的持续时间不同，需要做同步处理，所有动画都执行完毕之后，需要把对象从动画列表中删除
+
+
+    tween(el) {
+      let newState = {};
+      let animations = el.props.animations;
+      let finishCounter = 1;
+
+      for (let key in animations) {
+        let animation = animations[key];
+
+        if (animation.finished) {
+          finishCounter++; //元素上的所有动画效果都已经执行完毕，从动画列表中删除， FIXME: 处理无限循环动画的问题
+
+          if (finishCounter === Object.keys(animations).length) {
+            this.remove(el);
+            break;
+          }
+
+          continue;
+        }
+
+        let from = animation.from;
+        let to = animation.to;
+        let duration = animation.duration;
+
+        if (isUndefined_1(animation.startTime)) {
+          animation.startTime = Date.now();
+        }
+
+        if (isUndefined_1(animation.easing)) {
+          animation.easing = 'linear';
+        }
+
+        let newValue = Easing[animation.easing](from, to, duration, animation.startTime);
+
+        if (newValue > to) {
+          newValue = to;
+          animation.finished = true;
+        }
+
+        newState[key] = Math.floor(newValue); //使用整数个像素点
+      }
+
+      el.setState({ ...newState
+      });
+      return el;
+    }
+
+    add(component) {
+      this.animationMap.set(component.props.id, component);
+    }
+
+    remove(el) {
+      if (isString_1(el)) {
+        this.animationMap.delete(el);
+      } else {
+        this.animationMap.delete(el.props.id);
+      }
+    }
+
+  }
+
+  /**
    * @class DDManager
    *
    *  拖拽管理器
@@ -6472,7 +6678,7 @@
     mouseDownHandler(evt) {
       let component = evt.target;
 
-      if (!(component instanceof ICEBaseComponent)) {
+      if (!(component instanceof ICEComponent)) {
         console.warn('DDManager: 点击在 canvas 画布上，没有点击任何图形。');
         return;
       }
@@ -7635,7 +7841,7 @@
     mouseDownHandler(evt) {
       let component = evt.target;
 
-      if (!(component instanceof ICEBaseComponent) || !component.state.interactive || !component.state.transformable) {
+      if (!(component instanceof ICEComponent) || !component.state.interactive || !component.state.transformable) {
         this.lineControlPanel.disable();
         this.transformControlPanel.disable();
         return;
@@ -7662,255 +7868,6 @@
     }
 
   }
-
-  /**
-   * Checks if `value` is `undefined`.
-   *
-   * @static
-   * @since 0.1.0
-   * @memberOf _
-   * @category Lang
-   * @param {*} value The value to check.
-   * @returns {boolean} Returns `true` if `value` is `undefined`, else `false`.
-   * @example
-   *
-   * _.isUndefined(void 0);
-   * // => true
-   *
-   * _.isUndefined(null);
-   * // => false
-   */
-  function isUndefined(value) {
-    return value === undefined;
-  }
-
-  var isUndefined_1 = isUndefined;
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-
-  /**
-   * 来源：https://github.com/AndrewRayCode/easing-utils/blob/master/src/easing.js
-   * 一组缓动工具函数
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-  const Easing = {
-    /**
-     * 线性变化
-     * @param from 起始值
-     * @param to  终止值
-     * @param duration 持续时间，ms
-     * @param startTime 动画开始时间
-     */
-    linear: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return from + deltaValue / duration * deltaT;
-    },
-    easeInQuad: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return from + deltaValue / duration * (deltaT / duration) * deltaT;
-    },
-    easeOutQuad: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return -deltaValue * (deltaT /= duration) * (deltaT - 2) + from;
-    },
-    easeInOutQuad: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT + from;
-      return -deltaValue / 2 * (--deltaT * (deltaT - 2) - 1) + from;
-    },
-    easeInQuart: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return deltaValue * (deltaT /= duration) * deltaT * deltaT * deltaT + from;
-    },
-    easeOutQuart: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return -deltaValue * ((deltaT = deltaT / duration - 1) * deltaT * deltaT * deltaT - 1) + from;
-    },
-    easeInOutQuart: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT * deltaT * deltaT + from;
-      return -deltaValue / 2 * ((deltaT -= 2) * deltaT * deltaT * deltaT - 2) + from;
-    },
-    easeInCubic: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return deltaValue * (deltaT /= duration) * deltaT * deltaT + from;
-    },
-    easeOutCubic: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return deltaValue * ((deltaT = deltaT / duration - 1) * deltaT * deltaT + 1) + from;
-    },
-    easeInOutCubic: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT * deltaT + from;
-      return deltaValue / 2 * ((deltaT -= 2) * deltaT * deltaT + 2) + from;
-    } //TODO:增加更多缓动算法
-
-  };
-
-  /**
-   * @class AnimationManager
-   *
-   * 动画管理器
-   *
-   * - 全局单例，一个 ICE 实例上只能有一个 AnimationManager 的实例。
-   *
-   * @singleton
-   * @see ICE
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class AnimationManager {
-    //所有需要执行动画的元素都会被自动存入此列表中
-    constructor(ice) {
-      _defineProperty(this, "animationMap", new Map());
-
-      _defineProperty(this, "ice", void 0);
-
-      this.ice = ice;
-    }
-
-    start() {
-      this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
-      return this;
-    }
-
-    stop() {
-      this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
-      return this;
-    }
-
-    frameEventHandler(evt) {
-      this.animationMap.forEach(el => {
-        //在动画过程中，对象不响应鼠标或者触摸交互，防止影响属性值的计算。
-        el.state.interactive = false;
-        this.tween(el);
-        el.state.interactive = true;
-      });
-    } //TODO:处理无限循环播放的情况，处理播放次数的情况
-    //TODO:每一个属性变化的持续时间不同，需要做同步处理，所有动画都执行完毕之后，需要把对象从动画列表中删除
-
-
-    tween(el) {
-      let newState = {};
-      let animations = el.props.animations;
-      let finishCounter = 1;
-
-      for (let key in animations) {
-        let animation = animations[key];
-
-        if (animation.finished) {
-          finishCounter++; //元素上的所有动画效果都已经执行完毕，从动画列表中删除， FIXME: 处理无限循环动画的问题
-
-          if (finishCounter === Object.keys(animations).length) {
-            this.remove(el);
-            break;
-          }
-
-          continue;
-        }
-
-        let from = animation.from;
-        let to = animation.to;
-        let duration = animation.duration;
-
-        if (isUndefined_1(animation.startTime)) {
-          animation.startTime = Date.now();
-        }
-
-        if (isUndefined_1(animation.easing)) {
-          animation.easing = 'linear';
-        }
-
-        let newValue = Easing[animation.easing](from, to, duration, animation.startTime);
-
-        if (newValue > to) {
-          newValue = to;
-          animation.finished = true;
-        }
-
-        newState[key] = Math.floor(newValue); //使用整数个像素点
-      }
-
-      el.setState({ ...newState
-      });
-      return el;
-    }
-
-    add(component) {
-      this.animationMap.set(component.props.id, component);
-    }
-
-    remove(el) {
-      if (isString_1(el)) {
-        this.animationMap.delete(el);
-      } else {
-        this.animationMap.delete(el.props.id);
-      }
-    }
-
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  const FrameManager = {
-    evtBuses: [],
-    stopped: false,
-    frameCallback: function () {
-      FrameManager.evtBuses.forEach(evtBus => {
-        if (FrameManager.stopped) return;
-        evtBus.trigger(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT);
-      });
-
-      if (!FrameManager.stopped) {
-        root$2.requestAnimationFrame(FrameManager.frameCallback);
-      }
-    },
-    start: function () {
-      //TODO:为 Node 平台自定义一个 requestAnimationFrame 函数，签名、参数、调用方式全部相同。
-      FrameManager.stopped = false;
-      root$2.requestAnimationFrame(FrameManager.frameCallback);
-    },
-    stop: function () {
-      FrameManager.stopped = true;
-    },
-    pause: function () {},
-    resume: function () {},
-    regitserEvtBus: function (evtBus) {
-      if (FrameManager.evtBuses.includes(evtBus)) {
-        return;
-      }
-
-      FrameManager.evtBuses.push(evtBus);
-    },
-    delEvtBus: function (evtBus) {
-      if (!FrameManager.evtBuses.includes(evtBus)) {
-        return;
-      }
-
-      FrameManager.evtBuses.splice(FrameManager.evtBuses.indexOf(evtBus), 1);
-    }
-  };
 
   /**
    * Copyright (c) 2022 大漠穷秋.
@@ -8113,6 +8070,52 @@
       }
 
       MouseEventInterceptor.evtBuses.splice(MouseEventInterceptor.evtBuses.indexOf(evtBus), 1);
+    }
+  };
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  const FrameManager = {
+    evtBuses: [],
+    stopped: false,
+    frameCallback: function () {
+      FrameManager.evtBuses.forEach(evtBus => {
+        if (FrameManager.stopped) return;
+        evtBus.trigger(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT);
+      });
+
+      if (!FrameManager.stopped) {
+        root$2.requestAnimationFrame(FrameManager.frameCallback);
+      }
+    },
+    start: function () {
+      //TODO:为 Node 平台自定义一个 requestAnimationFrame 函数，签名、参数、调用方式全部相同。
+      FrameManager.stopped = false;
+      root$2.requestAnimationFrame(FrameManager.frameCallback);
+    },
+    stop: function () {
+      FrameManager.stopped = true;
+    },
+    pause: function () {},
+    resume: function () {},
+    regitserEvtBus: function (evtBus) {
+      if (FrameManager.evtBuses.includes(evtBus)) {
+        return;
+      }
+
+      FrameManager.evtBuses.push(evtBus);
+    },
+    delEvtBus: function (evtBus) {
+      if (!FrameManager.evtBuses.includes(evtBus)) {
+        return;
+      }
+
+      FrameManager.evtBuses.splice(FrameManager.evtBuses.indexOf(evtBus), 1);
     }
   };
 
@@ -8447,7 +8450,7 @@
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
 
-  class ICEImage extends ICEBaseComponent {
+  class ICEImage extends ICEComponent {
     constructor() {
       let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
       super({
@@ -8603,7 +8606,7 @@
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
 
-  class ICEText extends ICEBaseComponent {
+  class ICEText extends ICEComponent {
     /**
      * @cfg
      * {
@@ -8835,14 +8838,11 @@
       this.stopped = true;
       this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
       return this;
-    } //FIXME:fix this when using increamental rendering
-    //FIXME:动画有闪烁
-    //FIXME:当对象很多时，在一帧的时间内（最短16.67ms)渲染不完，这里需要进行处理。
+    } //FIXME:动画有闪烁
 
 
     frameEvtHandler(evt) {
-      this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight); //FIXME:如何不清理所有区域？？？
-      // this.ice.ctx.clearRect(0, 0, 200, 200); //FIXME:如何不清理所有区域？？？
+      this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
 
       if (this.stopped) {
         this.renderQueue = [];
@@ -8851,9 +8851,7 @@
 
       if (!this.ice.childNodes || !this.ice.childNodes.length) return; //FIXME:控制哪些组件能够进入 cache ，从而优化渲染效率
 
-      this.renderQueue = Array.from(this.ice.childNodes); //FIXME:遍历整个组件 tree ，把 state._dirty 为 true 的组件取出来。
-      // console.warn('Render Queue size>', this.renderQueue.length);
-      //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
+      this.renderQueue = Array.from(this.ice.childNodes); //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
 
       this.renderQueue.sort((firstEl, secondEl) => {
         return firstEl.state.zIndex - secondEl.state.zIndex;
@@ -8864,6 +8862,12 @@
 
       this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
     }
+    /**
+     * 如果有子组件，递归渲染。
+     * @param component
+     * @returns
+     */
+
 
     renderRecursively(component) {
       if (this.stopped) {
@@ -9059,9 +9063,7 @@
     }
 
     clearAll() {
-      console.log('before clear>', this.childNodes);
       this.removeChildren([...this.childNodes]);
-      console.log('after clear>', this.childNodes);
     }
 
     findComponent(id) {
