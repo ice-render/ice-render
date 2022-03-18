@@ -1,13 +1,15 @@
-// import ICEStar from '../src/graphic/shape/ICEStar';
 import ICEGroup from '../src/graphic/container/ICEGroup';
-// import ICEImage from '../src/graphic/ICEImage';
+import ICEImage from '../src/graphic/ICEImage';
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
 import ICEVisioLink from '../src/graphic/link/ICEVisioLink';
 import ICECircle from '../src/graphic/shape/ICECircle';
+import ICEEllipse from '../src/graphic/shape/ICEEllipse';
 // import ICEHeart from '../src/graphic/shape/ICEHeart';
-// import ICEIsogon from '../src/graphic/shape/ICEIsogon';
+import ICEIsogon from '../src/graphic/shape/ICEIsogon';
 // import ICERose from '../src/graphic/shape/ICERose';
 import ICERect from '../src/graphic/shape/ICERect';
+import ICEStar from '../src/graphic/shape/ICEStar';
+import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
 
 let ice = new ICE().init('canvas-1');
@@ -23,6 +25,12 @@ document.querySelector('#btn-2').addEventListener('click', (evt) => {
 document.querySelector('#btn-3').addEventListener('click', (evt) => {
   ice.clearAll();
 });
+
+let img = new ICEImage({
+  left: 500,
+  top: 300,
+});
+ice.addChild(img);
 
 // let heart = new ICEHeart();
 // ice.addChild(heart);
@@ -148,28 +156,27 @@ let visioLink2 = new ICEVisioLink({
 });
 ice.addChild(visioLink2);
 
-// let linkCircle3 = new ICECircle({
-//   left: 100,
-//   top: 500,
-//   radius: 50,
-// });
-// ice.addChild(linkCircle3);
-// console.log(linkCircle3 instanceof ICECircle);
+let linkCircle3 = new ICECircle({
+  left: 100,
+  top: 500,
+  radius: 50,
+});
+ice.addChild(linkCircle3);
 
 // //正三角形
-// let isogon3 = new ICEIsogon({
-//   left: 600,
-//   top: 300,
-//   radius: 50,
-//   edges: 3,
-//   transform: {
-//     // translate: [10, -10],
-//     // scale: [1.5, 1.5],
-//     // skew: [50, 0],
-//     // rotate: 45,
-//   },
-// });
-// ice.addChild(isogon3);
+let isogon3 = new ICEIsogon({
+  left: 600,
+  top: 300,
+  radius: 50,
+  edges: 3,
+  transform: {
+    // translate: [10, -10],
+    // scale: [1.5, 1.5],
+    // skew: [50, 0],
+    // rotate: 45,
+  },
+});
+ice.addChild(isogon3);
 
 // //正五边形
 // let isogon5 = new ICEIsogon({
@@ -204,34 +211,33 @@ ice.addChild(visioLink2);
 // ice.addChild(isogon15);
 
 // //正N边形
-// let star1 = new ICEStar({
-//   left: 10,
-//   top: 10,
-//   radius: 50,
-//   edges: 6,
-//   // transform: {
-//   //   translate: [10, -10],
-//   //   scale: [0.3, 0.5],
-//   //   skew: [0.2, 0],
-//   //   rotate: 30,
-//   // },
-// });
-// star1.on('click', (evt) => {
-// });
-// ice.addChild(star1);
+let star1 = new ICEStar({
+  left: 10,
+  top: 10,
+  radius: 50,
+  edges: 5,
+  // transform: {
+  //   translate: [10, -10],
+  //   scale: [0.3, 0.5],
+  //   skew: [0.2, 0],
+  //   rotate: 30,
+  // },
+});
+star1.on('click', (evt) => {});
+ice.addChild(star1);
 
-// let text = new ICEText({
-//   left: 0,
-//   top: 400,
-//   text: 'Test long long long text...',
-//   style: {
-//     lineWidth: 5,
-//     font: '48px serif',
-//     strokeStyle: '#ff3300',
-//     fillStyle: '#00ff00',
-//   },
-// });
-// ice.addChild(text);
+let text = new ICEText({
+  left: 0,
+  top: 400,
+  text: 'Test long long long text...',
+  style: {
+    lineWidth: 5,
+    font: '48px serif',
+    strokeStyle: '#ff3300',
+    fillStyle: '#00ff00',
+  },
+});
+ice.addChild(text);
 
 // let p1 = new DOMPoint(0, 100);
 // let p2 = new DOMPoint(150, 100);
@@ -364,13 +370,13 @@ group2.addChild(
 // });
 // ice.addChild(rect6);
 
-// let ellipse = new ICEEllipse({
-//   left: 100,
-//   top: 600,
-//   radiusX: 50,
-//   radiusY: 30,
-// });
-// ice.addChild(ellipse);
+let ellipse = new ICEEllipse({
+  left: 100,
+  top: 600,
+  radiusX: 50,
+  radiusY: 30,
+});
+ice.addChild(ellipse);
 
 // let circle2 = new ICECircle({
 //   left: 100,
