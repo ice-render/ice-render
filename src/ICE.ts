@@ -6,7 +6,6 @@
  *
  */
 import isString from 'lodash/isString';
-import pkg from '../package.json';
 import AnimationManager from './animation/AnimationManager';
 import { ICE_EVENT_NAME_CONSTS } from './consts/ICE_EVENT_NAME_CONSTS';
 import DDManager from './control-panel/DDManager';
@@ -35,22 +34,15 @@ import CanvasRenderer from './renderer/CanvasRenderer';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICE {
-  public version = pkg.version;
-  //所有直接添加到 canvas 的对象都在此结构中
-  public childNodes = [];
-  //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
-  public evtBus: EventBus;
-  //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
-  public root;
-  //&lt;canvas&gt; tag
-  public canvasEl;
-  //CanvasRenderingContext2D, @see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D
-  public ctx;
+  public childNodes = []; //所有直接添加到 canvas 的对象都在此结构中
+  public evtBus: EventBus; //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
+  public root; //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
+  public canvasEl; // canvas 标签元素
+  public ctx; //CanvasRenderingContext2D, @see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D
   public canvasWidth: number = 0;
   public canvasHeight: number = 0;
   public canvasBoundingClientRect;
-  //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
-  public selectionList: Array<any> = [];
+  public selectionList: Array<any> = []; //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
 
   public renderer: any;
   public animationManager: AnimationManager;
@@ -61,7 +53,7 @@ class ICE {
   public serializer: Serializer;
   public deserializer: Deserializer;
 
-  public _dirty: boolean = true;
+  public _dirty: boolean = true; //如果此标志位为 true ，所有组件都会全部被重新绘制
 
   constructor() {}
 
