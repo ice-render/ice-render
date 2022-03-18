@@ -8,6 +8,7 @@
 import isString from 'lodash/isString';
 import pkg from '../package.json';
 import AnimationManager from './animation/AnimationManager';
+import { ICE_EVENT_NAME_CONSTS } from './consts/ICE_EVENT_NAME_CONSTS';
 import DDManager from './control-panel/DDManager';
 import ICEControlPanel from './control-panel/ICEControlPanel';
 import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
@@ -19,7 +20,6 @@ import FrameManager from './FrameManager';
 import ICEComponent from './graphic/ICEComponent';
 import ICELinkHook from './graphic/link/ICELinkHook';
 import ICELinkSlotManager from './graphic/link/ICELinkSlotManager';
-import { ICE_EVENT_NAME_CONSTS } from './consts/ICE_EVENT_NAME_CONSTS';
 import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
 import CanvasRenderer from './renderer/CanvasRenderer';
@@ -60,6 +60,8 @@ class ICE {
   public linkSlotManager: ICELinkSlotManager;
   public serializer: Serializer;
   public deserializer: Deserializer;
+
+  public _dirty: boolean = true;
 
   constructor() {}
 

@@ -3688,7 +3688,6 @@
    * @abstract
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
-
   class ICEComponent extends ICEEventTarget {
     //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
     //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
@@ -3788,10 +3787,7 @@
       _defineProperty(this, "state", { ...this.props
       });
 
-      this.props = merge_1(this.props, props, {
-        _dirty: true
-      }); //组件刚创建时，还没有被渲染， _dirty 标志默认为 true
-
+      this.props = merge_1(this.props, props);
       this.state = JSON.parse(JSON.stringify(this.props));
       this.initEvents();
     }
@@ -3813,7 +3809,6 @@
       this.applyTransformToCtx();
       this.doRender();
       this.ctx.setTransform(new DOMMatrix());
-      this.state._dirty = false;
     }
 
     applyStyle() {
@@ -4045,9 +4040,11 @@
 
 
     setState(newState) {
-      merge_1(this.state, newState, {
-        _dirty: true
-      });
+      merge_1(this.state, newState);
+
+      if (this.ice) {
+        this.ice._dirty = true;
+      }
     }
     /**
      * 相对于父组件的坐标系和原点。
@@ -4530,8 +4527,7 @@
       _defineProperty(this, "childNodes", []);
     }
     /**
-     * 注意，在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。
-     * 所以此时 child.root, child.ctx, child.evtBus 都可能为空。
+     * !注意：在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。所以此时 child.root, child.ctx, child.evtBus 都可能为空。
      * @param child
      */
 
@@ -8853,18 +8849,15 @@
       }
 
       if (!this.ice.childNodes || !this.ice.childNodes.length) return false;
-      return true;
+      return this.ice._dirty;
     } //FIXME:动画有闪烁
 
 
     frameEvtHandler(evt) {
-      console.log('render>', this._roundCounter);
-
-      if (!this.needUpdate()) {
-        return;
+      if (this.needUpdate()) {
+        console.log('render>', this._roundCounter);
+        this.doRender();
       }
-
-      this.doRender();
     }
 
     doRender() {
@@ -8880,6 +8873,7 @@
       }); //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
 
       this._roundCounter++;
+      this.ice._dirty = false;
       this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
     }
     /**
@@ -8981,6 +8975,8 @@
       _defineProperty(this, "serializer", void 0);
 
       _defineProperty(this, "deserializer", void 0);
+
+      _defineProperty(this, "_dirty", true);
     }
     /**
      * @param ctx DOM id or CanvasContext
