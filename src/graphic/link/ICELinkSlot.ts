@@ -7,7 +7,7 @@
  */
 import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
-import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICECircle from '../shape/ICECircle';
 import ICELinkHook from './ICELinkHook';
 

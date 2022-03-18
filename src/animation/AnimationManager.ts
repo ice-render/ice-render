@@ -10,7 +10,7 @@ import isUndefined from 'lodash/isUndefined';
 import ICEEvent from '../event/ICEEvent';
 import ICEComponent from '../graphic/ICEComponent';
 import ICE from '../ICE';
-import { ICE_EVENT_NAME_CONSTS } from '../ICE_EVENT_NAME_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../consts/ICE_EVENT_NAME_CONSTS';
 import Easing from './Easing';
 
 /**

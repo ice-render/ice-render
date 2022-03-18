@@ -6,7 +6,7 @@
  *
  */
 import root from '../cross-platform/root';
-import mouseEvents from './MOUSE_EVENT_MAPPING_CONSTS';
+import mouseEvents from '../consts/MOUSE_EVENT_MAPPING_CONSTS';
 
 /**
  * @class MouseEventInterceptor

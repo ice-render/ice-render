@@ -8,7 +8,7 @@
 import ICEEvent from '../../event/ICEEvent';
 import GeometryUtil from '../../geometry/GeoUtil';
 import ICECircle from '../../graphic/shape/ICECircle';
-import { ICE_EVENT_NAME_CONSTS } from '../../ICE_EVENT_NAME_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from '../../consts/ICE_EVENT_NAME_CONSTS';
 
 /**
  * @class RotateControl 旋转操作手柄

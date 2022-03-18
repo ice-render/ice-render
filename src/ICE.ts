@@ -19,7 +19,7 @@ import FrameManager from './FrameManager';
 import ICEComponent from './graphic/ICEComponent';
 import ICELinkHook from './graphic/link/ICELinkHook';
 import ICELinkSlotManager from './graphic/link/ICELinkSlotManager';
-import { ICE_EVENT_NAME_CONSTS } from './ICE_EVENT_NAME_CONSTS';
+import { ICE_EVENT_NAME_CONSTS } from './consts/ICE_EVENT_NAME_CONSTS';
 import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
 import CanvasRenderer from './renderer/CanvasRenderer';
