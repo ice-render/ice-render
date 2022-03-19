@@ -69,6 +69,7 @@
 - FIXME:连接插槽的位置计算有错误，不在 minBoundingBox 上面。（先跳过，后面补）
 - FIXME:ICEVisioLink 会出现闪烁的情况。（先跳过，后面补）
 - 
+- FIXME:解决渲染性能问题（跳帧、网格渲染、多 Layer 机制、webworker?webassembly?）                  <---------------------------
 - TODO:增量渲染机制，碰撞检测和局部渲染机制（先跳过，后面补）
 - TODO:添加快捷键支持，实现删除功能
 - 

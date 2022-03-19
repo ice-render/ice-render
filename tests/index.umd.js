@@ -8701,6 +8701,9 @@
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
   class CanvasRenderer extends ICEEventTarget {
+    //等待渲染的组件队列，FIFO
+    //队列最大长度，超长忽略，不能进入队列。
+    //每帧最大用时 16ms ，超过此时间放到下一帧继续渲染。
     constructor(ice) {
       super();
 
@@ -8733,11 +8736,6 @@
 
 
     needUpdate() {
-      if (this.stopped) {
-        this.renderQueue = [];
-        return false;
-      }
-
       if (!this.ice.childNodes || !this.ice.childNodes.length) return false;
       return this.ice._dirty;
     } //FIXME:动画有闪烁
@@ -8751,7 +8749,9 @@
     }
 
     doRender() {
-      //FIXME:控制哪些组件能够进入 cache ，从而优化渲染效率
+      const startTime = Date.now(); //FIXME:控制哪些组件能够进入 cache ，从而优化渲染效率
+      //FIXME:限制最大渲染时间为 16ms ，超过渲染时间则跳帧。
+
       this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
       this.renderQueue = Array.from(this.ice.childNodes);
       this.renderQueue.sort((firstEl, secondEl) => {
@@ -8765,6 +8765,8 @@
       this._roundCounter++;
       this.ice._dirty = false;
       this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
+      const endTime = Date.now();
+      console.log(` Render time ${endTime - startTime} ms.`);
     }
     /**
      * 如果有子组件，递归渲染。
@@ -8774,11 +8776,6 @@
 
 
     renderRecursively(component) {
-      if (this.stopped) {
-        this.renderQueue = [];
-        return;
-      }
-
       this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER, null, {
         component: component
       });
@@ -8810,6 +8807,10 @@
     }
 
   }
+
+  _defineProperty(CanvasRenderer, "MAX_QUE_LENGTH", 5000000);
+
+  _defineProperty(CanvasRenderer, "FRAME_TIME", 16);
 
   /**
    * @class ICE

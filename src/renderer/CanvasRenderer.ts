@@ -23,8 +23,11 @@ import ICE from '../ICE';
 class CanvasRenderer extends ICEEventTarget {
   private ice: ICE;
   private stopped: boolean = false;
-  private renderQueue = [];
+  private renderQueue = []; //等待渲染的组件队列，FIFO
   private _roundCounter = 0;
+
+  static readonly MAX_QUE_LENGTH = 5000000; //队列最大长度，超长忽略，不能进入队列。
+  static readonly FRAME_TIME = 16; //每帧最大用时 16ms ，超过此时间放到下一帧继续渲染。
 
   constructor(ice: ICE) {
     super();
@@ -48,10 +51,6 @@ class CanvasRenderer extends ICEEventTarget {
    * @returns
    */
   private needUpdate(): boolean {
-    if (this.stopped) {
-      this.renderQueue = [];
-      return false;
-    }
     if (!this.ice.childNodes || !this.ice.childNodes.length) return false;
     return this.ice._dirty;
   }
@@ -65,7 +64,10 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   private doRender() {
+    const startTime = Date.now();
+
     //FIXME:控制哪些组件能够进入 cache ，从而优化渲染效率
+    //FIXME:限制最大渲染时间为 16ms ，超过渲染时间则跳帧。
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
     this.renderQueue = Array.from(this.ice.childNodes);
     this.renderQueue.sort((firstEl, secondEl) => {
@@ -80,6 +82,9 @@ class CanvasRenderer extends ICEEventTarget {
     this._roundCounter++;
     this.ice._dirty = false;
     this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
+
+    const endTime = Date.now();
+    console.log(` Render time ${endTime - startTime} ms.`);
   }
 
   /**
@@ -88,11 +93,6 @@ class CanvasRenderer extends ICEEventTarget {
    * @returns
    */
   private renderRecursively(component: ICEComponent) {
-    if (this.stopped) {
-      this.renderQueue = [];
-      return;
-    }
-
     this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER);
 
