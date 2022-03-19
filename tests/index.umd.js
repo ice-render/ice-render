@@ -2778,14 +2778,14 @@
    * LICENSE file in the root directory of this source tree.
    *
    */
-
-  /**
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
   let root$1 = null;
 
   (() => {
     root$1 = window || global || {};
+    root$1.requestFrame = root$1.requestAnimationFrame || root$1.webkitRequestAnimationFrame || root$1.mozRequestAnimationFrame || root$1.oRequestAnimationFrame || root$1.msRequestAnimationFrame; // ||
+    // function (callback) {
+    //   root.setTimeout(callback, 1000 / FPS);
+    // };
   })();
 
   var root$2 = root$1;
@@ -8220,6 +8220,19 @@
    * LICENSE file in the root directory of this source tree.
    *
    */
+  /**
+   * @class FrameManager
+   *
+   * 帧频控制器，全局单例，请勿创建多个实例。
+   * 在同一个 window/global 中，只有一个 FrameManager ，也就是说 FrameManager 是跨 ICE 实例共享的。
+   * FrameManager 只负责把 window/global 上的 requestAnimationFrame 回调函数转换成 ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT 事件，然后在所有事件总线上进行触发。
+   * FrameManager 只触发事件，不进行渲染，渲染操作由对应的 Render 完成。
+   *
+   * @singleton
+   * @see ICE
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
   const FrameManager = {
     evtBuses: [],
     stopped: false,
@@ -8230,13 +8243,12 @@
       });
 
       if (!FrameManager.stopped) {
-        root$2.requestAnimationFrame(FrameManager.frameCallback);
+        root$2.requestFrame(FrameManager.frameCallback);
       }
     },
     start: function () {
-      //TODO:为 Node 平台自定义一个 requestAnimationFrame 函数，签名、参数、调用方式全部相同。
       FrameManager.stopped = false;
-      root$2.requestAnimationFrame(FrameManager.frameCallback);
+      root$2.requestFrame(FrameManager.frameCallback);
     },
     stop: function () {
       FrameManager.stopped = true;
@@ -8713,8 +8725,6 @@
 
       _defineProperty(this, "renderQueue", []);
 
-      _defineProperty(this, "_roundCounter", 0);
-
       this.ice = ice;
     }
 
@@ -8738,20 +8748,16 @@
     needUpdate() {
       if (!this.ice.childNodes || !this.ice.childNodes.length) return false;
       return this.ice._dirty;
-    } //FIXME:动画有闪烁
-
+    }
 
     frameEvtHandler(evt) {
       if (this.needUpdate()) {
-        console.log('render>', this._roundCounter);
         this.doRender();
       }
     }
 
     doRender() {
-      const startTime = Date.now(); //FIXME:控制哪些组件能够进入 cache ，从而优化渲染效率
-      //FIXME:限制最大渲染时间为 16ms ，超过渲染时间则跳帧。
-
+      const startTime = Date.now();
       this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
       this.renderQueue = Array.from(this.ice.childNodes);
       this.renderQueue.sort((firstEl, secondEl) => {
@@ -8762,7 +8768,6 @@
         this.renderRecursively(component);
       }); //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
 
-      this._roundCounter++;
       this.ice._dirty = false;
       this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
       const endTime = Date.now();
