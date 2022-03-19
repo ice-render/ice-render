@@ -5,8 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import root from './cross-platform/root';
 import { ICE_EVENT_NAME_CONSTS } from './consts/ICE_EVENT_NAME_CONSTS';
+import root from './cross-platform/root';
 
 /**
  * @class FrameManager
@@ -20,17 +20,6 @@ import { ICE_EVENT_NAME_CONSTS } from './consts/ICE_EVENT_NAME_CONSTS';
  * @see ICE
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-
-//FIXME:Move these to global config.
-//FIXME:当帧率小于12时，自动跳帧
-//FIXME:控制帧率
-//FIXME:增量渲染
-//FIXME:当动画帧频过高时，会导致 CPU 使用率飙升，页面会卡顿。
-
-const MAX_FRAME_RATE = 60;
-const MIN_FRAME_RATE = 12;
-const DEFAULT_FRAME_RATE = 24;
-
 const FrameManager = {
   evtBuses: [],
   stopped: false,
@@ -41,14 +30,13 @@ const FrameManager = {
       evtBus.trigger(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT);
     });
     if (!FrameManager.stopped) {
-      root.requestAnimationFrame(FrameManager.frameCallback);
+      root.requestFrame(FrameManager.frameCallback);
     }
   },
 
   start: function (): void {
-    //TODO:为 Node 平台自定义一个 requestAnimationFrame 函数，签名、参数、调用方式全部相同。
     FrameManager.stopped = false;
-    root.requestAnimationFrame(FrameManager.frameCallback);
+    root.requestFrame(FrameManager.frameCallback);
   },
 
   stop: function (): void {

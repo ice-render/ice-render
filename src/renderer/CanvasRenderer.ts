@@ -24,7 +24,6 @@ class CanvasRenderer extends ICEEventTarget {
   private ice: ICE;
   private stopped: boolean = false;
   private renderQueue = []; //等待渲染的组件队列，FIFO
-  private _roundCounter = 0;
 
   static readonly MAX_QUE_LENGTH = 5000000; //队列最大长度，超长忽略，不能进入队列。
   static readonly FRAME_TIME = 16; //每帧最大用时 16ms ，超过此时间放到下一帧继续渲染。
@@ -55,10 +54,8 @@ class CanvasRenderer extends ICEEventTarget {
     return this.ice._dirty;
   }
 
-  //FIXME:动画有闪烁
   private frameEvtHandler(evt: ICEEvent) {
     if (this.needUpdate()) {
-      console.log('render>', this._roundCounter);
       this.doRender();
     }
   }
@@ -66,8 +63,6 @@ class CanvasRenderer extends ICEEventTarget {
   private doRender() {
     const startTime = Date.now();
 
-    //FIXME:控制哪些组件能够进入 cache ，从而优化渲染效率
-    //FIXME:限制最大渲染时间为 16ms ，超过渲染时间则跳帧。
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
     this.renderQueue = Array.from(this.ice.childNodes);
     this.renderQueue.sort((firstEl, secondEl) => {
@@ -79,7 +74,6 @@ class CanvasRenderer extends ICEEventTarget {
     });
 
     //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
-    this._roundCounter++;
     this.ice._dirty = false;
     this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
 
