@@ -8,7 +8,7 @@
 import { v4 as uuid } from '@lukeed/uuid';
 import get from 'lodash/get';
 import merge from 'lodash/merge';
-import { ICE_EVENT_NAME_CONSTS } from '../consts/ICE_EVENT_NAME_CONSTS';
+import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import EventBus from '../event/EventBus';
 import ICEEvent from '../event/ICEEvent';
 import ICEEventTarget from '../event/ICEEventTarget';

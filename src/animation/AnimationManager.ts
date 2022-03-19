@@ -7,10 +7,10 @@
  */
 import isString from 'lodash/isString';
 import isUndefined from 'lodash/isUndefined';
+import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../event/ICEEvent';
 import ICEComponent from '../graphic/ICEComponent';
 import ICE from '../ICE';
-import { ICE_EVENT_NAME_CONSTS } from '../consts/ICE_EVENT_NAME_CONSTS';
 import Easing from './Easing';
 
 /**

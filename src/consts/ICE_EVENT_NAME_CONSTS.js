@@ -7,7 +7,7 @@
  */
 
 //ICE 自定的事件名称常量，原生 DOM 事件的名称不变。
-export const ICE_EVENT_NAME_CONSTS = {
+const ICE_EVENT_NAME_CONSTS = {
   ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
   BEFORE_RENDER: 'BEFORE_RENDER',
   AFTER_RENDER: 'AFTER_RENDER',
@@ -27,3 +27,5 @@ export const ICE_EVENT_NAME_CONSTS = {
   BEFORE_MOVE: 'BEFORE_MOVE',
   AFTER_MOVE: 'AFTER_MOVE',
 };
+
+export default ICE_EVENT_NAME_CONSTS;

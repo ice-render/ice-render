@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import GeometryUtil from './GeoUtil';
+import GeoUtil from './GeoUtil';
 
 /**
  * @class ICEBoundingBox 用4点法描述的边界盒子。
@@ -214,11 +214,11 @@ class ICEBoundingBox {
   }
 
   public get width(): number {
-    return GeometryUtil.getLength(this.br.x, this.br.y, this.bl.x, this.bl.y);
+    return GeoUtil.getLength(this.br.x, this.br.y, this.bl.x, this.bl.y);
   }
 
   public get height(): number {
-    return GeometryUtil.getLength(this.br.x, this.br.y, this.tr.x, this.tr.y);
+    return GeoUtil.getLength(this.br.x, this.br.y, this.tr.x, this.tr.y);
   }
 
   public get left(): number {

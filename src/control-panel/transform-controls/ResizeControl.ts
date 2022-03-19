@@ -6,9 +6,9 @@
  *
  */
 import round from 'lodash/round';
+import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
 import ICERect from '../../graphic/shape/ICERect';
-import { ICE_EVENT_NAME_CONSTS } from '../../consts/ICE_EVENT_NAME_CONSTS';
 
 /**
  * @class ResizeControl 调整尺寸的操作手柄

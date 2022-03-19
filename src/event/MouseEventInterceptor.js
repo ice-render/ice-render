@@ -5,8 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import root from '../cross-platform/root';
 import mouseEvents from '../consts/MOUSE_EVENT_MAPPING_CONSTS';
+import root from '../cross-platform/root';
 
 /**
  * @class MouseEventInterceptor
