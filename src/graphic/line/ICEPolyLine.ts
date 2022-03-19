@@ -8,7 +8,7 @@
 import isNil from 'lodash/isNil';
 import merge from 'lodash/merge';
 import round from 'lodash/round';
-import { default as GeometryUtil, default as GeoUtil } from '../../geometry/GeoUtil';
+import GeoUtil from '../../geometry/GeoUtil';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICEDotPath from '../ICEDotPath';
 
@@ -199,7 +199,7 @@ class ICEPolyLine extends ICEDotPath {
     for (let i = 0; i < len; i++) {
       let p = this.state.points[i];
       let vector2 = [p[0] - startX, p[1] - startY];
-      let crossProduct = GeometryUtil.crossProduct(vector1[0], vector1[1], vector2[0], vector2[1]);
+      let crossProduct = GeoUtil.crossProduct(vector1[0], vector1[1], vector2[0], vector2[1]);
       if (crossProduct === 0) {
         counter++;
       }
@@ -352,7 +352,7 @@ class ICEPolyLine extends ICEDotPath {
       let endY = this.state.points[len - 1][1] - this.state.points[0][1];
 
       //计算直线的旋转角
-      let angle = GeometryUtil.calcRotateAngle(endX, endY, startX, startY);
+      let angle = GeoUtil.calcRotateAngle(endX, endY, startX, startY);
       angle += 90; //加90度，法向
 
       return angle;

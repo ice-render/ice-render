@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { ICE_EVENT_NAME_CONSTS } from '../../consts/ICE_EVENT_NAME_CONSTS';
+import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEComponent from '../ICEComponent';
 import ICERect from '../shape/ICERect';
 

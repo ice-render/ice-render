@@ -5,10 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
-import GeometryUtil from '../../geometry/GeoUtil';
+import GeoUtil from '../../geometry/GeoUtil';
 import ICECircle from '../../graphic/shape/ICECircle';
-import { ICE_EVENT_NAME_CONSTS } from '../../consts/ICE_EVENT_NAME_CONSTS';
 
 /**
  * @class RotateControl 旋转操作手柄
@@ -34,7 +34,7 @@ export default class RotateControl extends ICECircle {
 
     //计算手柄旋转角
     let parentOrigin = this.parentNode.state.absoluteOrigin;
-    let rotateAngle = GeometryUtil.calcRotateAngle(evt.offsetX, evt.offsetY, parentOrigin.x, parentOrigin.y);
+    let rotateAngle = GeoUtil.calcRotateAngle(evt.offsetX, evt.offsetY, parentOrigin.x, parentOrigin.y);
 
     //parentNode 旋转角与手柄旋转角同步
     const param = {

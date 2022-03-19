@@ -8030,7 +8030,6 @@
    *
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
-
   class DOMEventBridge {
     constructor(ice) {
       _defineProperty(this, "selectionCandidates", []);

@@ -5,9 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import mouseEvents from '../consts/MOUSE_EVENT_MAPPING_CONSTS';
 import ICE from '../ICE';
 import ICEEvent from './ICEEvent';
-import mouseEvents from '../consts/MOUSE_EVENT_MAPPING_CONSTS';
 
 /**
  * @class DOMEventBridge

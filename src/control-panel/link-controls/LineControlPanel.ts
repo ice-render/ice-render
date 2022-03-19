@@ -5,9 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEComponent from '../../graphic/ICEComponent';
 import ICELinkHook from '../../graphic/link/ICELinkHook';
-import { ICE_EVENT_NAME_CONSTS } from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEControlPanel from '../ICEControlPanel';
 
 /**

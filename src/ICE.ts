@@ -7,7 +7,7 @@
  */
 import isString from 'lodash/isString';
 import AnimationManager from './animation/AnimationManager';
-import { ICE_EVENT_NAME_CONSTS } from './consts/ICE_EVENT_NAME_CONSTS';
+import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';
 import DDManager from './control-panel/DDManager';
 import ICEControlPanel from './control-panel/ICEControlPanel';
 import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
