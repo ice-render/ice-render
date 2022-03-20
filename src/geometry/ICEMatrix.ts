@@ -6,6 +6,7 @@
  *
  */
 //FIXME:包装 DOMMatrix，进行兼容处理。
+//! W3C 原生的 DOMPoint, DOMMatrix 存在严重的兼容性问题和性能问题
 //https://developer.mozilla.org/en-US/docs/Web/API/DOMMatrix
 //DOMMatrix 类的浏览器兼容性：https://caniuse.com/?search=dommatrix
 export default class ICEMatrix {

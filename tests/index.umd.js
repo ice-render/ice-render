@@ -3638,6 +3638,7 @@
    *
    */
   //FIXME:包装 DOMMatrix，进行兼容处理。
+  //! W3C 原生的 DOMPoint, DOMMatrix 存在严重的兼容性问题和性能问题
   //https://developer.mozilla.org/en-US/docs/Web/API/DOMMatrix
   //DOMMatrix 类的浏览器兼容性：https://caniuse.com/?search=dommatrix
   class ICEMatrix {
@@ -8021,7 +8022,7 @@
    * 原生 DOM 事件与 ICE 内部转发事件之间的对应关系
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
-  const mouseEvents = [['click', 'ICE_CLICK'], ['dbclick', 'ICE_DBCLICK'], ['mousedown', 'ICE_MOUSEDOWN'], ['mouseup', 'ICE_MOUSEUP'], ['mousemove', 'ICE_MOUSEMOVE'], ['mouseenter', 'ICE_MOUSEENTER'], ['mouseleave', 'ICE_MOUSELEAVE'], ['mouseout', 'ICE_MOUSEOUT'], ['mouseover', 'ICE_MOUSEOVER'], ['contextmenu', 'ICE_CONTEXTMENU'], ['mousewheel', 'ICE_MOUSEWHEEL']];
+  const mouseEvents = [['mousedown', 'ICE_MOUSEDOWN'], ['mouseup', 'ICE_MOUSEUP'], ['mousemove', 'ICE_MOUSEMOVE'], ['click', 'ICE_CLICK'], ['dbclick', 'ICE_DBCLICK'], ['contextmenu', 'ICE_CONTEXTMENU']];
 
   /**
    * @class DOMEventBridge
