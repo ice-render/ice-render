@@ -10,17 +10,12 @@
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 const mouseEvents = [
-  ['click', 'ICE_CLICK'],
-  ['dbclick', 'ICE_DBCLICK'],
   ['mousedown', 'ICE_MOUSEDOWN'],
   ['mouseup', 'ICE_MOUSEUP'],
   ['mousemove', 'ICE_MOUSEMOVE'],
-  ['mouseenter', 'ICE_MOUSEENTER'],
-  ['mouseleave', 'ICE_MOUSELEAVE'],
-  ['mouseout', 'ICE_MOUSEOUT'],
-  ['mouseover', 'ICE_MOUSEOVER'],
+  ['click', 'ICE_CLICK'],
+  ['dbclick', 'ICE_DBCLICK'],
   ['contextmenu', 'ICE_CONTEXTMENU'],
-  ['mousewheel', 'ICE_MOUSEWHEEL'],
 ];
 
 export default mouseEvents;
