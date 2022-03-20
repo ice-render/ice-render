@@ -23,7 +23,6 @@ const MouseEventInterceptor = {
     if (root && root && root.addEventListener) {
       //所有原生 DOM 事件全部通过 EventBus 转发到 canvas 内部的对象上去
       //TODO:不同浏览器版本，以及 NodeJS 环境兼容性测试
-      //FIXME:全部转发是否有性能问题？
       MouseEventInterceptor.evtBuses.forEach((evtBus) => {
         mouseEvents.forEach((item) => {
           root.addEventListener(item[0], (evt) => {

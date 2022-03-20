@@ -8045,22 +8045,24 @@
     }
 
     start() {
-      //FIXME:这里触发事件的频率太高，所有所有鼠标事件都会被触发出来。
-      //FIXME:这里需要增加节流机制，防止触发事件的频率过高导致 CPU 飙升。
+      let componentCache = null; //缓存上次位于鼠标位置的组件
+
       mouseEvents.forEach(evtMapping => {
         const iceEvtName = evtMapping[1];
         const originEvtName = evtMapping[0];
         this.ice.evtBus.on(iceEvtName, evt => {
-          //在一些场景下，需要整体禁用事件系统。
           if (this._stopped) {
             return;
+          } //! mousemove 事件的触发频率非常高，对于 mousemove 事件不执行 findTargetComponent() 操作
+
+
+          if (iceEvtName !== 'ICE_MOUSEMOVE') {
+            componentCache = this.findTargetComponent(evt.clientX, evt.clientY); //FIXME:需要把 clientX/clientY 转换成 canvas 内部的坐标
           }
 
-          const component = this.findTargetComponent(evt.clientX, evt.clientY); //FIXME:需要把 clientX/clientY 转换成 canvas 内部的坐标
-
-          if (component) {
-            evt.target = component;
-            component.trigger(originEvtName, evt);
+          if (componentCache) {
+            evt.target = componentCache;
+            componentCache.trigger(originEvtName, evt);
           }
 
           this.ice.evtBus.trigger(originEvtName, evt); //this.ice.evtBus 本身一定会触发一次事件。
@@ -8079,7 +8081,6 @@
     /**
      * 找到被点击的对象，用代码触发 click 事件。
      * 在点击状态下，每次只能点击一个对象，当前不支持 DOM 冒泡特性。
-     * FIXME:这里需要进行优化，当存在大量对象时，每一个对象都进行比较会有性能问题。
      *
      * @param clientX
      * @param clientY
@@ -8189,7 +8190,6 @@
       if (root$2 && root$2 && root$2.addEventListener) {
         //所有原生 DOM 事件全部通过 EventBus 转发到 canvas 内部的对象上去
         //TODO:不同浏览器版本，以及 NodeJS 环境兼容性测试
-        //FIXME:全部转发是否有性能问题？
         MouseEventInterceptor.evtBuses.forEach(evtBus => {
           mouseEvents.forEach(item => {
             root$2.addEventListener(item[0], evt => {
