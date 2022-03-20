@@ -44,10 +44,18 @@ ctx.rect(100, 100, 100, 100);
 ctx.stroke();
 ctx.fill();
 
-//测试 10000 次矩阵运算
-const startTime = Date.now();
-for (let i = 0; i < 10000; i++) {
-  console.log(glMatrix.mat2d.mul([], mat3, mat4));
+//测试矩阵运算时间
+let startTime = Date.now();
+for (let i = 0; i < 50000; i++) {
+  glMatrix.mat2d.mul([], mat3, mat4);
 }
-const endTime = Date.now();
-console.log(`Time>${endTime - startTime}`);
+let endTime = Date.now();
+console.log(`gl-matrix time> ${endTime - startTime} ms.`);
+
+startTime = Date.now();
+for (let i = 0; i < 50000; i++) {
+  let matrix = new DOMMatrix([1, 0, 0, 1, 0, 0]);
+  matrix.multiply(matrix);
+}
+endTime = Date.now();
+console.log(`DOMMatrix time> ${endTime - startTime} ms.`);
