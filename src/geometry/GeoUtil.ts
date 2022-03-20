@@ -41,7 +41,7 @@ export default class GeoUtil {
    * @param y2
    */
   public static getLength(x1, y1, x2, y2): number {
-    return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+    return Math.hypot(x2 - x1, y2 - y1);
   }
 
   /**
@@ -61,8 +61,9 @@ export default class GeoUtil {
   public static calcRotateAngle(x, y, originX, originY): number {
     let offsetX = x - originX;
     let offsetY = y - originY;
-    let cos = offsetX / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-    let sin = offsetY / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+    const temp = Math.hypot(offsetX, offsetY);
+    let cos = offsetX / temp;
+    let sin = offsetY / temp;
 
     //Math.acos 的返回值处于 [0,PI] 之间，根据 sin 的正负号进行判断之后， rotateAngle 处于 [-180,180] 度之间
     //先加 360 度，保证 rotateAngle 为正值，再对 360 取模，最终让 rotateAngle 的返回值始终处于 [0,360] 度之间
