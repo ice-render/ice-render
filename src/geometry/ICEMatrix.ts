@@ -20,8 +20,9 @@ export default class ICEMatrix {
   public static calcRotateAngleFromMatrix(matrix: DOMMatrix): number {
     let radians = 0;
     let { a, b } = matrix;
-    let sin = b / Math.sqrt(a * a + b * b);
-    let cos = a / Math.sqrt(a * a + b * b);
+    const temp = Math.hypot(a, b);
+    let sin = b / temp;
+    let cos = a / temp;
     radians = Math.acos(cos);
     if (sin < 0) {
       radians += Math.PI / 2;
@@ -35,8 +36,8 @@ export default class ICEMatrix {
    * @returns 缩放数组
    */
   public static calcScaleFromMatrix(matrix: DOMMatrix): Array<number> {
-    const scaleX = Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b) / matrix.a;
-    const scaleY = Math.sqrt(matrix.c * matrix.c + matrix.d * matrix.d) / matrix.d;
+    const scaleX = Math.hypot(matrix.a, matrix.b) / matrix.a;
+    const scaleY = Math.hypot(matrix.c, matrix.d) / matrix.d;
     return [scaleX, scaleY];
   }
 }

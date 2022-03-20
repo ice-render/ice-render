@@ -154,7 +154,7 @@ export default class GeoPoint {
    * @param {Numeric} radius - the radius of the vicinity
    */
   near(x, y, radius) {
-    let distance = Math.sqrt(Math.pow(this.x - x, 2) + Math.pow(this.y - y, 2));
+    let distance = Math.hypot(this.x - x, this.y - y);
     return distance <= radius;
   }
 

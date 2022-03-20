@@ -22,7 +22,8 @@
     "types:watch": "npm run types:check -- --watch"
   },
   "dependencies": {
-    "@lukeed/uuid": "^2.0.0",
+    "@lukeed/uuid": "2.0.0",
+    "gl-matrix": "3.4.3",
     "lodash": "4.17.21"
   },
   "devDependencies": {

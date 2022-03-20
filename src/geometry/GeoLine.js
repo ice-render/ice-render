@@ -122,7 +122,7 @@ export default class GeoLine {
     let c = -(this.startPoint.x * this.endPoint.y - this.endPoint.x * this.startPoint.y);
 
     //Secondly we get the distance "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
-    let d = Math.abs((a * x + b * y + c) / Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2)));
+    let d = Math.abs((a * x + b * y + c) / Math.hypot(a, b));
 
     //Thirdly we get coordinates of closest line's point to target point
     //http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Cartesian_coordinates

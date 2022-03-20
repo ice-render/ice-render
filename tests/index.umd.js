@@ -3276,7 +3276,7 @@
 
 
     static getLength(x1, y1, x2, y2) {
-      return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+      return Math.hypot(x2 - x1, y2 - y1);
     }
     /**
      *
@@ -3297,8 +3297,9 @@
     static calcRotateAngle(x, y, originX, originY) {
       let offsetX = x - originX;
       let offsetY = y - originY;
-      let cos = offsetX / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-      let sin = offsetY / Math.sqrt(offsetX * offsetX + offsetY * offsetY); //Math.acos 的返回值处于 [0,PI] 之间，根据 sin 的正负号进行判断之后， rotateAngle 处于 [-180,180] 度之间
+      const temp = Math.hypot(offsetX, offsetY);
+      let cos = offsetX / temp;
+      let sin = offsetY / temp; //Math.acos 的返回值处于 [0,PI] 之间，根据 sin 的正负号进行判断之后， rotateAngle 处于 [-180,180] 度之间
       //先加 360 度，保证 rotateAngle 为正值，再对 360 取模，最终让 rotateAngle 的返回值始终处于 [0,360] 度之间
 
       let sign = sin < 0 ? -1 : 1;
@@ -3656,8 +3657,9 @@
         a,
         b
       } = matrix;
-      let sin = b / Math.sqrt(a * a + b * b);
-      let cos = a / Math.sqrt(a * a + b * b);
+      const temp = Math.hypot(a, b);
+      let sin = b / temp;
+      let cos = a / temp;
       radians = Math.acos(cos);
 
       if (sin < 0) {
@@ -3674,8 +3676,8 @@
 
 
     static calcScaleFromMatrix(matrix) {
-      const scaleX = Math.sqrt(matrix.a * matrix.a + matrix.b * matrix.b) / matrix.a;
-      const scaleY = Math.sqrt(matrix.c * matrix.c + matrix.d * matrix.d) / matrix.d;
+      const scaleX = Math.hypot(matrix.a, matrix.b) / matrix.a;
+      const scaleY = Math.hypot(matrix.c, matrix.d) / matrix.d;
       return [scaleX, scaleY];
     }
 
@@ -4812,7 +4814,7 @@
 
 
     near(x, y, radius) {
-      let distance = Math.sqrt(Math.pow(this.x - x, 2) + Math.pow(this.y - y, 2));
+      let distance = Math.hypot(this.x - x, this.y - y);
       return distance <= radius;
     }
     /**
@@ -4935,7 +4937,7 @@
       let b = this.startPoint.x - this.endPoint.x;
       let c = -(this.startPoint.x * this.endPoint.y - this.endPoint.x * this.startPoint.y); //Secondly we get the distance "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
 
-      let d = Math.abs((a * x + b * y + c) / Math.sqrt(Math.pow(a, 2) + Math.pow(b, 2))); //Thirdly we get coordinates of closest line's point to target point
+      let d = Math.abs((a * x + b * y + c) / Math.hypot(a, b)); //Thirdly we get coordinates of closest line's point to target point
       //http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Cartesian_coordinates
 
       let closestX = (b * (b * x - a * y) - a * c) / (Math.pow(a, 2) + Math.pow(b, 2));
@@ -6056,7 +6058,7 @@
 
 
     distance(p1, p2) {
-      return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+      return Math.hypot(p2.x - p1.x, p2.y - p1.y);
     }
     /**
      * Returns the max of a vector
