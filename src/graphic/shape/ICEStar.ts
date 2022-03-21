@@ -26,10 +26,10 @@ class ICEStar extends ICEIsogon {
       let v1 = this.state.dots[i];
       let v2 = this.state.dots[j];
       if (counter == 0) {
-        this.path2D.moveTo(v1.x, v1.y);
-        this.path2D.lineTo(v2.x, v2.y);
+        this.path2D.moveTo(v1[0], v1[1]);
+        this.path2D.lineTo(v2[0], v2[1]);
       } else {
-        this.path2D.lineTo(v2.x, v2.y);
+        this.path2D.lineTo(v2[0], v2[1]);
       }
       i = j;
       counter++;

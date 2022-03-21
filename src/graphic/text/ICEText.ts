@@ -76,14 +76,14 @@ class ICEText extends ICEComponent {
   protected doRender() {
     this.ctx.strokeText(
       this.state.text,
-      0 - this.state.localOrigin.x,
-      0 - this.state.localOrigin.y + this.state.height,
+      0 - this.state.localOrigin[0],
+      0 - this.state.localOrigin[1] + this.state.height,
       this.state.width
     );
     this.ctx.fillText(
       this.state.text,
-      0 - this.state.localOrigin.x,
-      0 - this.state.localOrigin.y + this.state.height,
+      0 - this.state.localOrigin[0],
+      0 - this.state.localOrigin[1] + this.state.height,
       this.state.width
     );
   }

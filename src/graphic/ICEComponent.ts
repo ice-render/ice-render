@@ -6,6 +6,7 @@
  *
  */
 import { v4 as uuid } from '@lukeed/uuid';
+import { glMatrix, mat2d, vec2 } from 'gl-matrix';
 import get from 'lodash/get';
 import merge from 'lodash/merge';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
@@ -54,13 +55,12 @@ abstract class ICEComponent extends ICEEventTarget {
    *     skew: [0, 0],
    *     rotate: 0,     //角度
    *   },
-   *   translationMatrix: new DOMMatrix(),          //平移变换矩阵
-   *   linearMatrix: new DOMMatrix(),               //线性变换矩阵，不含平移
-   *   composedMatrix: new DOMMatrix(),             //复合变换矩阵，包含所有祖先节点的平移、原点移动、线性变换计算，composedMatrix 不会实时更新，如果需要获取当前最新的变换矩阵，需要调用 composeMatrix() 方法。
+   *   linearMatrix: [],                            //线性变换矩阵，不含平移，按照 gl-matrix 的格式定义
+   *   composedMatrix: [],                          //复合变换矩阵，包含所有祖先节点的平移、原点移动、线性变换计算，composedMatrix 不会实时更新，如果需要获取当前最新的变换矩阵，需要调用 composeMatrix() 方法。按照 gl-matrix 的格式定义
    *   origin:'localCenter',
-   *   localOrigin: new DOMPoint(0, 0),             //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
-   *   absoluteOrigin: new DOMPoint(0, 0),          //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
-   *   zIndex: ICEComponent.instanceCounter++,  //类似于 CSS 中的 zIndex
+   *   localOrigin: [0,0],                          //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
+   *   absoluteOrigin: [0,0],                       //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
+   *   zIndex: ICEComponent.instanceCounter++,      //类似于 CSS 中的 zIndex
    *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
    *   draggable:true,                              //是否可以拖动
    *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
@@ -85,12 +85,11 @@ abstract class ICEComponent extends ICEEventTarget {
       skew: [0, 0],
       rotate: 0, //degree
     },
-    translationMatrix: new DOMMatrix(),
-    linearMatrix: new DOMMatrix(),
-    composedMatrix: new DOMMatrix(),
+    linearMatrix: [],
+    composedMatrix: [],
     origin: 'localCenter',
-    localOrigin: new DOMPoint(0, 0),
-    absoluteOrigin: new DOMPoint(0, 0),
+    localOrigin: [0, 0],
+    absoluteOrigin: [0, 0],
     zIndex: ICEComponent.instanceCounter++,
     display: true,
     draggable: true,
@@ -130,7 +129,7 @@ abstract class ICEComponent extends ICEEventTarget {
     this.applyStyle();
     this.applyTransformToCtx();
     this.doRender();
-    this.ctx.setTransform(new DOMMatrix());
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
   protected applyStyle(): void {
@@ -152,14 +151,14 @@ abstract class ICEComponent extends ICEEventTarget {
    * 此方法依赖于 width/height ，需要先计算组件的尺寸，然后才能调用此方法。
    * @returns
    */
-  protected calcLocalOrigin(): DOMPoint {
-    let point = new DOMPoint(0, 0);
+  protected calcLocalOrigin() {
+    let point = [0, 0];
     let position = this.state.origin;
     if (!position || position === 'localCenter') {
       let halfWidth = this.state.width / 2;
       let halfHeight = this.state.height / 2;
-      point.x = halfWidth;
-      point.y = halfHeight;
+      point[0] = halfWidth;
+      point[1] = halfHeight;
     }
     //FIXME:计算原点位于其它位置的情况
     this.state.localOrigin = point;
@@ -172,21 +171,21 @@ abstract class ICEComponent extends ICEEventTarget {
    * 计算出的原点数值已经包含了所有父层的移位和变换。
    * @method calcAbsoluteOrigin
    */
-  public calcAbsoluteOrigin(): DOMPoint {
+  public calcAbsoluteOrigin() {
     let tx = get(this, 'state.transform.translate.0') + this.state.left;
     let ty = get(this, 'state.transform.translate.1') + this.state.top;
 
-    let point = DOMPoint.fromPoint(this.calcLocalOrigin());
-    point.x += tx;
-    point.y += ty;
+    let point = [...this.calcLocalOrigin()];
+    point[0] += tx;
+    point[1] += ty;
 
     if (this.parentNode) {
-      let pLocalX = this.parentNode.state.localOrigin.x;
-      let pLocalY = this.parentNode.state.localOrigin.y;
-      point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, -pLocalX, -pLocalY]));
+      let pLocalX = this.parentNode.state.localOrigin[0];
+      let pLocalY = this.parentNode.state.localOrigin[1];
+      point = vec2.transformMat2d([], point, [1, 0, 0, 1, -pLocalX, -pLocalY]);
 
       let pcm = this.parentNode.state.composedMatrix;
-      point = point.matrixTransform(pcm);
+      point = vec2.transformMat2d([], point, pcm);
     }
 
     this.state.absoluteOrigin = point;
@@ -198,26 +197,26 @@ abstract class ICEComponent extends ICEEventTarget {
    * 线性变换顺序：旋转->错切->缩放
    * 由于矩阵变换有顺序，这里采用符合自然理解的顺序进行。
    * @method calcLinearMatrix
-   * @returns DOMMatrix
+   * @returns
    */
-  protected calcLinearMatrix(): DOMMatrix {
-    let matrix = new DOMMatrix();
+  protected calcLinearMatrix() {
+    let matrix = mat2d.create();
 
     //step1: skew
-    //DOMMatrix.skeXSelf 方法的参数是角度值，不是百分比。 @see https://drafts.fxtf.org/geometry/#DOMMatrix
-    const skewX = get(this, 'state.transform.skew.0');
-    const skewY = get(this, 'state.transform.skew.1');
-    matrix.skewXSelf(skewX);
-    matrix.skewYSelf(skewY);
+    //!gl-matrix 的当前版本中没有提供 skew 函数，需要手动合 https://github.com/toji/gl-matrix/pull/293
+    // const skewX = get(this, 'state.transform.skew.0');
+    // const skewY = get(this, 'state.transform.skew.1');
+    // matrix.skewXSelf(skewX);
+    // matrix.skewYSelf(skewY);
 
     //step2: rotate
     let angle = get(this, 'state.transform.rotate');
-    matrix.rotateSelf(angle);
+    matrix = mat2d.rotate([], matrix, glMatrix.toRadian(angle));
 
     //step3: scale
     const scaleX = get(this, 'state.transform.scale.0');
     const scaleY = get(this, 'state.transform.scale.1');
-    matrix.scaleSelf(scaleX, scaleY);
+    matrix = mat2d.scale([], matrix, [scaleX, scaleY]);
 
     this.state.linearMatrix = matrix;
     return matrix;
@@ -229,12 +228,12 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   protected calcAbsoluteLinearMatrix() {
     let component = this;
-    let matrix = DOMMatrix.fromMatrix(component.calcLinearMatrix());
+    let matrix = component.calcLinearMatrix();
     while (component.parentNode) {
-      matrix.multiplySelf(component.parentNode.state.linearMatrix);
+      matrix = mat2d.multiply([], component.parentNode.state.linearMatrix, matrix);
       component = component.parentNode;
     }
-    this.state.absoluteLinearMatrix = DOMMatrix.fromMatrix(matrix);
+    this.state.absoluteLinearMatrix = matrix;
     return matrix;
   }
 
@@ -248,19 +247,19 @@ abstract class ICEComponent extends ICEEventTarget {
    * - Canvas 在做仿射变换时，变换的是 ctx 本身，而不是组件对象，相当于画布本身是具有弹性的可变形对象。
    *
    * @method composeMatrix
-   * @returns DOMMatrix
+   * @returns
    */
-  protected composeMatrix(): DOMMatrix {
+  protected composeMatrix() {
     //step-1: 移动到指定原点（全局坐标系）。
     let origin = this.calcAbsoluteOrigin();
-    let translationMatrix = new DOMMatrix([1, 0, 0, 1, origin.x, origin.y]);
+    let translationMatrix = [1, 0, 0, 1, origin[0], origin[1]];
 
     //step-2: 计算线性变换矩阵，包含了所有祖先节点的线性变换。
     let linearMatrix = this.calcAbsoluteLinearMatrix();
 
     //step-3: 计算综合变换矩阵，相当于先在 canvas 默认原点（左上角位置）进行变换，然后在平移到计算出的原点位置。
-    let composedMatrix = translationMatrix.multiplySelf(linearMatrix);
-    this.state.composedMatrix = DOMMatrix.fromMatrix(composedMatrix);
+    let composedMatrix = mat2d.multiply([], translationMatrix, linearMatrix);
+    this.state.composedMatrix = composedMatrix;
     return composedMatrix;
   }
 
@@ -268,7 +267,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * 把变换矩阵应用到 this.ctx 上
    */
   protected applyTransformToCtx(): void {
-    this.ctx.setTransform(this.composeMatrix());
+    this.ctx.setTransform(...this.composeMatrix());
   }
 
   /**
@@ -278,15 +277,15 @@ abstract class ICEComponent extends ICEEventTarget {
   protected doRender(): void {
     if (this.state.showMinBoundingBox) {
       let minBox = this.getMinBoundingBox();
-      this.ctx.setTransform(new DOMMatrix());
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.lineWidth = 1;
       this.ctx.strokeStyle = '#ff0000';
       this.ctx.fillStyle = 'rgba(0,0,0,0)';
       this.ctx.beginPath();
-      this.ctx.moveTo(minBox.tl.x, minBox.tl.y);
-      this.ctx.lineTo(minBox.tr.x, minBox.tr.y);
-      this.ctx.lineTo(minBox.br.x, minBox.br.y);
-      this.ctx.lineTo(minBox.bl.x, minBox.bl.y);
+      this.ctx.moveTo(minBox.tl[0], minBox.tl[1]);
+      this.ctx.lineTo(minBox.tr[0], minBox.tr[1]);
+      this.ctx.lineTo(minBox.br[0], minBox.br[1]);
+      this.ctx.lineTo(minBox.bl[0], minBox.bl[1]);
       this.ctx.closePath();
       this.ctx.stroke();
       this.ctx.fill();
@@ -294,15 +293,15 @@ abstract class ICEComponent extends ICEEventTarget {
 
     if (this.state.showMaxBoundingBox) {
       let maxBox = this.getMaxBoundingBox();
-      this.ctx.setTransform(new DOMMatrix());
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
       this.ctx.lineWidth = 1;
       this.ctx.strokeStyle = '#0000ff';
       this.ctx.fillStyle = 'rgba(0,0,0,0)';
       this.ctx.beginPath();
-      this.ctx.moveTo(maxBox.tl.x, maxBox.tl.y);
-      this.ctx.lineTo(maxBox.tr.x, maxBox.tr.y);
-      this.ctx.lineTo(maxBox.br.x, maxBox.br.y);
-      this.ctx.lineTo(maxBox.bl.x, maxBox.bl.y);
+      this.ctx.moveTo(maxBox.tl[0], maxBox.tl[1]);
+      this.ctx.lineTo(maxBox.tr[0], maxBox.tr[1]);
+      this.ctx.lineTo(maxBox.br[0], maxBox.br[1]);
+      this.ctx.lineTo(maxBox.bl[0], maxBox.bl[1]);
       this.ctx.closePath();
       this.ctx.stroke();
       this.ctx.fill();
@@ -316,8 +315,8 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   public getMinBoundingBox(): ICEBoundingBox {
     //先基于组件本地坐标系进行计算
-    let originX = this.state.localOrigin.x;
-    let originY = this.state.localOrigin.y;
+    let originX = this.state.localOrigin[0];
+    let originY = this.state.localOrigin[1];
     let width = this.state.width;
     let height = this.state.height;
     let boundingBox = new ICEBoundingBox([
@@ -348,7 +347,7 @@ abstract class ICEComponent extends ICEEventTarget {
     let boundingBox = this.getMinBoundingBox();
     let { minX, minY, maxX, maxY } = boundingBox.getMinAndMaxPoint();
     let center = boundingBox.centerPoint;
-    boundingBox = new ICEBoundingBox([minX, minY, maxX, minY, minX, maxY, maxX, maxY, center.x, center.y]);
+    boundingBox = new ICEBoundingBox([minX, minY, maxX, minY, minX, maxY, maxX, maxY, center[0], center[1]]);
     return boundingBox;
   }
 
@@ -385,11 +384,11 @@ abstract class ICEComponent extends ICEEventTarget {
   public moveGlobalPosition(tx: number, ty: number, evt: any = new ICEEvent()): void {
     //如果组件存在嵌套，需要先用逆矩阵抵消所有祖先节点 transform 导致的坐标偏移。
     if (this.parentNode) {
-      let point = new DOMPoint(tx, ty);
-      let matrix = this.parentNode.state.absoluteLinearMatrix.inverse();
-      point = point.matrixTransform(matrix);
-      tx = point.x;
-      ty = point.y;
+      let point = [tx, ty];
+      let matrix = mat2d.invert([], this.parentNode.state.absoluteLinearMatrix);
+      point = vec2.transformMat2d([], point, matrix);
+      tx = point[0];
+      ty = point[1];
     }
     this.setPosition(this.state.left + tx, this.state.top + ty, { ...evt, tx, ty });
   }
@@ -404,11 +403,11 @@ abstract class ICEComponent extends ICEEventTarget {
   public setGlobalPosition(left: number, top: number, evt: any = new ICEEvent()): void {
     //如果组件存在嵌套，需要先用逆矩阵抵消所有祖先节点 transform 导致的坐标偏移。
     if (this.parentNode) {
-      let point = new DOMPoint(left, top);
-      let matrix = this.parentNode.state.absoluteLinearMatrix.inverse();
-      point = point.matrixTransform(matrix);
-      left = point.x;
-      top = point.y;
+      let point = [left, top];
+      let matrix = mat2d.invert([], this.parentNode.state.absoluteLinearMatrix);
+      point = vec2.transformMat2d([], point, matrix);
+      left = point[0];
+      top = point[1];
     }
     this.setPosition(left, top, { ...evt, left, top });
   }
@@ -438,10 +437,10 @@ abstract class ICEComponent extends ICEEventTarget {
    * @param localY
    * @returns
    */
-  public localToGlobal(localX: number, localY: number): DOMPoint {
-    let point = new DOMPoint(localX, localY);
+  public localToGlobal(localX: number, localY: number) {
+    let point = [localX, localY];
     let matrix = this.state.composedMatrix;
-    point = point.matrixTransform(matrix);
+    point = vec2.transformMat2d([], point, matrix);
     return point;
   }
 
@@ -451,10 +450,10 @@ abstract class ICEComponent extends ICEEventTarget {
    * @param globalY
    * @returns
    */
-  public globalToLocal(globalX: number, globalY: number): DOMPoint {
-    let point = new DOMPoint(globalX, globalY);
-    let matrix = this.state.composedMatrix.inverse();
-    point = point.matrixTransform(matrix);
+  public globalToLocal(globalX: number, globalY: number) {
+    let point = [globalX, globalY];
+    let matrix = mat2d.invert([], this.state.composedMatrix);
+    point = vec2.transformMat2d([], point, matrix);
     return point;
   }
 
@@ -477,7 +476,7 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   public containsPoint(x: number, y: number): boolean {
-    return this.getMinBoundingBox().containsPoint(new DOMPoint(x, y));
+    return this.getMinBoundingBox().containsPoint([x, y]);
   }
 
   /**

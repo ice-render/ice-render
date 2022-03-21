@@ -70,7 +70,6 @@
 - FIXME:ICEVisioLink 会出现闪烁的情况。（先跳过，后面补）
 - 
 - FIXME:解决渲染性能问题（跳帧、网格渲染、多 Layer 机制、webworker?webassembly?）                  <---------------------------
-- FIXME:寻找 DOMPoint 和 DOMMatrix 的替代品或者自己重新实现，这两个原生类存在严重的性能问题。
 - FIXME:引入打包分析工具
 - TODO:增量渲染机制，碰撞检测和局部渲染机制（先跳过，后面补）
 - TODO:添加快捷键支持，实现删除功能

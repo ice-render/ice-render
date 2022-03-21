@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import { mat2d, vec2 } from 'gl-matrix';
 import round from 'lodash/round';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
@@ -25,6 +26,10 @@ import ICERect from '../../graphic/shape/ICERect';
 export default class ResizeControl extends ICERect {
   constructor(props) {
     super({ position: 'l', direction: 'x', quadrant: 1, ...props, linkable: false });
+  }
+
+  protected initEvents(): void {
+    super.initEvents();
     this.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.resizeEvtHandler, this);
   }
 
@@ -49,10 +54,10 @@ export default class ResizeControl extends ICERect {
 
     //用 parentNode 的逆矩阵把全局坐标系中的移动量转换为组件本地的移动量。
     //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
-    let matrix = parentState.absoluteLinearMatrix.inverse();
-    let point = new DOMPoint(movementX, movementY).matrixTransform(matrix);
-    movementX = point.x;
-    movementY = point.y;
+    let matrix = mat2d.invert([], parentState.absoluteLinearMatrix);
+    let point = vec2.transformMat2d([], [movementX, movementY], matrix);
+    movementX = point[0];
+    movementY = point[1];
 
     switch (quadrant) {
       case 1:
@@ -129,10 +134,10 @@ export default class ResizeControl extends ICERect {
     let parentLocalOrigin = parentState.localOrigin;
     let parentWidth = parentState.width;
     let parentHeight = parentState.height;
-    let matrix = parentState.absoluteLinearMatrix.inverse();
-    let point = new DOMPoint(tx, ty).matrixTransform(matrix);
-    tx = point.x;
-    ty = point.y;
+    let matrix = mat2d.invert([], parentState.absoluteLinearMatrix);
+    let point = vec2.transformMat2d([], [tx, ty], matrix);
+    tx = point[0];
+    ty = point[1];
 
     let { left, top, quadrant } = this.state;
     let halfandleSize = this.state.width / 2;
@@ -146,7 +151,7 @@ export default class ResizeControl extends ICERect {
       }
 
       //手柄发生移动之后，重新计算当前位于哪个象限或者坐标轴上
-      if (left + halfandleSize - parentLocalOrigin.x > 0) {
+      if (left + halfandleSize - parentLocalOrigin[0] > 0) {
         newQuadrant = 8;
       } else {
         newQuadrant = 7;
@@ -159,7 +164,7 @@ export default class ResizeControl extends ICERect {
       }
 
       //手柄发生移动之后，重新计算当前位于哪个象限或者坐标轴上
-      if (top + halfandleSize - parentLocalOrigin.y > 0) {
+      if (top + halfandleSize - parentLocalOrigin[1] > 0) {
         newQuadrant = 6;
       } else {
         newQuadrant = 5;
@@ -183,27 +188,27 @@ export default class ResizeControl extends ICERect {
       let k2 = y2 / x2;
 
       //子组件的 left/top 是相对于父组件的左上角位置的数值，而不是父组件移动原点之后的数值，换基到本地原点，然后基于斜率计算。
-      //k=(top+halfandleSize-parentLocalOrigin.y+ty)/(left+halfandleSize-parentLocalOrigin.x+tx)
-      //ty=k(left+halfandleSize-parentLocalOrigin.x+tx)-(top+halfandleSize-parentLocalOrigin.y)
+      //k=(top+halfandleSize-parentLocalOrigin[1]+ty)/(left+halfandleSize-parentLocalOrigin[0]+tx)
+      //ty=k(left+halfandleSize-parentLocalOrigin[0]+tx)-(top+halfandleSize-parentLocalOrigin[1])
 
       if (quadrant === 2 || quadrant == 4) {
-        ty = k1 * (left + halfandleSize - parentLocalOrigin.x + tx) - (top + halfandleSize - parentLocalOrigin.y);
+        ty = k1 * (left + halfandleSize - parentLocalOrigin[0] + tx) - (top + halfandleSize - parentLocalOrigin[1]);
       } else {
-        ty = k2 * (left + halfandleSize - parentLocalOrigin.x + tx) - (top + halfandleSize - parentLocalOrigin.y);
+        ty = k2 * (left + halfandleSize - parentLocalOrigin[0] + tx) - (top + halfandleSize - parentLocalOrigin[1]);
       }
 
       left += tx;
       top += ty;
 
       //手柄发生移动之后，重新计算当前位于哪个象限或者坐标轴上
-      if (left + halfandleSize - parentLocalOrigin.x > 0) {
-        if (top + halfandleSize - parentLocalOrigin.y > 0) {
+      if (left + halfandleSize - parentLocalOrigin[0] > 0) {
+        if (top + halfandleSize - parentLocalOrigin[1] > 0) {
           newQuadrant = 4;
         } else {
           newQuadrant = 1;
         }
       } else {
-        if (top + halfandleSize - parentLocalOrigin.y > 0) {
+        if (top + halfandleSize - parentLocalOrigin[1] > 0) {
           newQuadrant = 3;
         } else {
           newQuadrant = 2;

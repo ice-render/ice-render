@@ -25,7 +25,7 @@ class ICEHeart extends ICEDotPath {
     super(param);
   }
 
-  protected calcDots(): Array<DOMPoint> {
+  protected calcDots() {
     this.state.dots = [];
     for (let i = 0; i < 2 * Math.PI; i += 0.01) {
       let scale = this.state.scale;
@@ -33,7 +33,7 @@ class ICEHeart extends ICEDotPath {
       let y =
         -scale * (13 * Math.cos(i) - 5 * Math.cos(2 * i) - 2 * Math.cos(3 * i) - Math.cos(4 * i)) +
         this.state.height / 2;
-      this.state.dots.push(new DOMPoint(x, y));
+      this.state.dots.push([x, y]);
     }
     return this.state.dots;
   }

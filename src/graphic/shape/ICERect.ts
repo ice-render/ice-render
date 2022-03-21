@@ -23,11 +23,11 @@ class ICERect extends ICEDotPath {
    * - this.calcOriginalDimension() 会依赖此方法，在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    * @returns
    */
-  protected calcDots(): Array<DOMPoint> {
-    let point1 = new DOMPoint(0, 0); //top-left point
-    let point2 = new DOMPoint(this.state.width, 0); //top-right point
-    let point3 = new DOMPoint(this.state.width, this.state.height); //bottom-right point
-    let point4 = new DOMPoint(0, this.state.height); //bottom-left point
+  protected calcDots() {
+    let point1 = [0, 0]; //top-left point
+    let point2 = [this.state.width, 0]; //top-right point
+    let point3 = [this.state.width, this.state.height]; //bottom-right point
+    let point4 = [0, this.state.height]; //bottom-left point
     this.state.dots = [point1, point2, point3, point4];
     return this.state.dots;
   }

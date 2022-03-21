@@ -1,13 +1,13 @@
 import ICEGroup from '../src/graphic/container/ICEGroup';
 import ICEImage from '../src/graphic/ICEImage';
-// import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
+import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
 import ICEVisioLink from '../src/graphic/link/ICEVisioLink';
 import ICECircle from '../src/graphic/shape/ICECircle';
 import ICEEllipse from '../src/graphic/shape/ICEEllipse';
-// import ICEHeart from '../src/graphic/shape/ICEHeart';
+import ICEHeart from '../src/graphic/shape/ICEHeart';
 import ICEIsogon from '../src/graphic/shape/ICEIsogon';
-// import ICERose from '../src/graphic/shape/ICERose';
 import ICERect from '../src/graphic/shape/ICERect';
+import ICERose from '../src/graphic/shape/ICERose';
 import ICEStar from '../src/graphic/shape/ICEStar';
 import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
@@ -32,58 +32,62 @@ let img = new ICEImage({
 });
 ice.addChild(img);
 
-// let heart = new ICEHeart();
-// ice.addChild(heart);
-// let rose = new ICERose({
-//   left: 10,
-//   top: 10,
-//   width: 100,
-//   height: 100,
-//   style: {
-//     strokeStyle: '#0c09d4',
-//     fillStyle: '#f5d106',
-//     lineWidth: 5,
-//   },
-// });
-// ice.addChild(rose);
-
-// let baseRect1 = new ICERect({
-//   left: 100,
-//   top: 100,
-//   width: 300,
-//   height: 200,
-//   style: {
-//     strokeStyle: '#0c09d4',
-//     fillStyle: '#f5d106',
-//     lineWidth: 5,
-//   },
-//   animations: {
-//     left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
-//     top: { from: 0, to: 200, duration: 3000 },
-//     width: { from: 100, to: 200, duration: 5000 },
-//     height: { from: 100, to: 200, duration: 5000 },
-//   },
-//   transform: {
-//     // translate: [10, 10],
-//     rotate: 45,
-//     // skew: [20, 0],
-//     // scale: [1, 1],
-//   },
-// });
-// baseRect1.on('click', (evt) => {
-//   console.log('baseRect1');
-// });
-// ice.addChild(baseRect1);
-
-let rect1 = new ICERect({
-  left: 100,
-  top: 20,
+let heart = new ICEHeart();
+ice.addChild(heart);
+let rose = new ICERose({
+  left: 10,
+  top: 10,
   width: 100,
   height: 100,
   style: {
     strokeStyle: '#0c09d4',
     fillStyle: '#f5d106',
     lineWidth: 5,
+  },
+});
+ice.addChild(rose);
+
+let baseRect1 = new ICERect({
+  left: 100,
+  top: 100,
+  width: 300,
+  height: 200,
+  style: {
+    strokeStyle: '#0c09d4',
+    fillStyle: '#f5d106',
+    lineWidth: 5,
+  },
+  animations: {
+    left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+    top: { from: 0, to: 200, duration: 3000 },
+    width: { from: 100, to: 200, duration: 5000 },
+    height: { from: 100, to: 200, duration: 5000 },
+  },
+  transform: {
+    // translate: [10, 10],
+    rotate: 30,
+    // skew: [20, 0],
+    // scale: [1, 1],
+  },
+});
+baseRect1.on('click', (evt) => {
+  console.log('baseRect1');
+});
+ice.addChild(baseRect1);
+
+let rect1 = new ICERect({
+  left: 100,
+  top: 100,
+  width: 100,
+  height: 100,
+  style: {
+    strokeStyle: '#0c09d4',
+    fillStyle: '#f5d106',
+    lineWidth: 1,
+  },
+  transform: {
+    rotate: 45,
+    scale: [1, 1],
   },
   // animations: {
   //   left: { from: 0, to: 100, duration: 2000, easing: 'easeOutQuart' },
@@ -94,25 +98,25 @@ let rect1 = new ICERect({
 });
 ice.addChild(rect1);
 
-// let polyLine = new ICEPolyLine({
-//   left: 0,
-//   top: 0,
-//   points: [
-//     [300, 300],
-//     [100, 100],
-//   ],
-//   style: {
-//     strokeStyle: '#7803e6',
-//     fillStyle: '#008000',
-//     lineWidth: 10,
-//   },
-//   transform: {
-//     // translate: [10, -10],
-//     // scale: [1, 1],
-//     // rotate: 20,
-//   },
-// });
-// ice.addChild(polyLine);
+let polyLine = new ICEPolyLine({
+  left: 0,
+  top: 0,
+  points: [
+    [300, 300],
+    [100, 100],
+  ],
+  style: {
+    strokeStyle: '#7803e6',
+    fillStyle: '#008000',
+    lineWidth: 10,
+  },
+  transform: {
+    // translate: [10, -10],
+    // scale: [1, 1],
+    // rotate: 20,
+  },
+});
+ice.addChild(polyLine);
 
 // let polyLine2 = new ICEPolyLine({
 //   left: 0,
@@ -163,7 +167,7 @@ let linkCircle3 = new ICECircle({
 });
 ice.addChild(linkCircle3);
 
-// //正三角形
+// // //正三角形
 let isogon3 = new ICEIsogon({
   left: 600,
   top: 300,
@@ -179,22 +183,22 @@ let isogon3 = new ICEIsogon({
 ice.addChild(isogon3);
 
 // //正五边形
-// let isogon5 = new ICEIsogon({
-//   left: 500,
-//   top: 400,
-//   radius: 50,
-//   edges: 5,
-// });
-// ice.addChild(isogon5);
+let isogon5 = new ICEIsogon({
+  left: 500,
+  top: 400,
+  radius: 50,
+  edges: 5,
+});
+ice.addChild(isogon5);
 
 // //正6边形
-// let isogon6 = new ICEIsogon({
-//   left: 650,
-//   top: 400,
-//   radius: 50,
-//   edges: 6,
-// });
-// ice.addChild(isogon6);
+let isogon6 = new ICEIsogon({
+  left: 650,
+  top: 400,
+  radius: 50,
+  edges: 6,
+});
+ice.addChild(isogon6);
 
 // // 正十五边形
 // let isogon15 = new ICEIsogon({
@@ -238,13 +242,6 @@ let text = new ICEText({
   },
 });
 ice.addChild(text);
-
-// let p1 = new DOMPoint(0, 100);
-// let p2 = new DOMPoint(150, 100);
-// let p3 = new DOMPoint(150, 200);
-// let p4 = new DOMPoint(0, 200);
-// let path = new ICEDotPath({ dots: [p1, p2, p3, p4] });
-// ice.addChild(path);
 
 let g = new ICEGroup({
   left: 100,
@@ -329,47 +326,6 @@ group2.addChild(
   })
 );
 
-// let group1 = new ICEGroup({
-//   left: 100,
-//   top: 100,
-//   width: 100,
-//   height: 100,
-//   style: {
-//     strokeStyle: '#fa0404',
-//     fillStyle: '#beffff',
-//     lineWidth: 1,
-//   },
-//   transform: {
-//     // translate: [10, -10],
-//     // scale: [1, 1],
-//     rotate: 45,
-//   },
-// });
-// ice.addChild(group1);
-
-// let circle1 = new ICECircle({
-//   left: 0,
-//   top: 0,
-//   radius: 10,
-// });
-// group1.addChild(circle1);
-
-// let rect5 = new ICERect({
-//   left: 10,
-//   top: 10,
-//   with: 10,
-//   height: 10,
-// });
-// group1.addChild(rect5);
-
-// let rect6 = new ICERect({
-//   left: 600,
-//   top: 100,
-//   width: 400,
-//   height: 200,
-// });
-// ice.addChild(rect6);
-
 let ellipse = new ICEEllipse({
   left: 100,
   top: 600,
@@ -377,80 +333,3 @@ let ellipse = new ICEEllipse({
   radiusY: 30,
 });
 ice.addChild(ellipse);
-
-// let circle2 = new ICECircle({
-//   left: 100,
-//   top: 200,
-//   radius: 50,
-// });
-// ice.addChild(circle2);
-
-// let group2 = new ICEGroup({
-//   left: 20,
-//   top: 20,
-//   width: 100,
-//   height: 100,
-//   style: {
-//     strokeStyle: '#8b0000',
-//     fillStyle: '#99FFFF',
-//     lineWidth: 1,
-//   },
-//   // transform: {
-//   //   translate: [10, -10],
-//   //   scale: [1, 1],
-//   //   rotate: 10,
-//   // },
-// });
-// ice.addChild(group2);
-
-// let circle3 = new ICECircle({
-//   left: 0,
-//   top: 0,
-//   radius: 10,
-// });
-// group2.addChild(circle3);
-
-// let circle4 = new ICECircle({
-//   left: 20,
-//   top: 20,
-//   radius: 20,
-// });
-// group2.addChild(circle4);
-
-// let rect2 = new ICERect({
-//   left: 200,
-//   top: 200,
-//   width: 200,
-//   height: 100,
-//   style: {
-//     strokeStyle: '#e01414',
-//     fillStyle: '#46ca46',
-//     lineWidth: 3,
-//   },
-//   transform: {
-//     // translate: [10, -10],
-//     scale: [1, 1],
-//     rotate: 20,
-//   },
-// });
-// ice.addChild(rect2);
-
-// let circle3 = new ICECircle({
-//   left: 0,
-//   top: 0,
-//   radius: 10,
-// });
-// ice.addChild(circle3);
-
-// let th = new TransformPanel({
-//   left: 400,
-//   top: 100,
-//   width: 100,
-//   height: 100,
-//   style: {
-//     strokeStyle: '#8b0000',
-//     fillStyle: '#99FFFF',
-//     lineWidth: 1,
-//   },
-// });
-// ice.addChild(th);

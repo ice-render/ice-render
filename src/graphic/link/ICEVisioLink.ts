@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import { vec2 } from 'gl-matrix';
 import isNil from 'lodash/isNil';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
@@ -15,6 +16,7 @@ import ICEPolyLine from '../line/ICEPolyLine';
 import ICELinkSlot from './ICELinkSlot';
 
 /**
+ * ! FIXME: 删掉对 GeoPoint/GeoLine/GeoUtil 的依赖
  * @class ICEVisioLink
  *
  * Visio 型的连接线
@@ -52,7 +54,7 @@ export default class ICEVisioLink extends ICEPolyLine {
     if (isNil(props.endPoint)) {
       props.endPoint = [10, 10];
     }
-    props.points = [props.startPoint, props.endPoint];
+    props.points = [[...props.startPoint], [...props.endPoint]];
 
     //escapeDistance 疏散距离，是 4 个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
     props = { escapeDistance: 30, ...props };
@@ -87,7 +89,7 @@ export default class ICEVisioLink extends ICEPolyLine {
    * @overwrite
    * @returns
    */
-  protected calcDots(): Array<DOMPoint> {
+  protected calcDots() {
     let solutions = this.interpolate();
     let { left, top } = this.state;
     let arr = solutions[0][2];
@@ -95,7 +97,7 @@ export default class ICEVisioLink extends ICEPolyLine {
     this.state.dots = [];
     arr.forEach((item) => {
       this.state.points.push([item.x, item.y]);
-      this.state.dots.push(new DOMPoint(item.x - left, item.y - top));
+      this.state.dots.push([item.x - left, item.y - top]);
     });
     return this.state.dots;
   }
@@ -125,10 +127,10 @@ export default class ICEVisioLink extends ICEPolyLine {
     //find start exit point
     if (this.startSlot) {
       startBounding = this.startSlot.hostComponent.getMinBoundingBox();
-      potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl.y - this.state.escapeDistance); //north
-      potentialExits[1] = new GeoPoint(startBounding.tr.x + this.state.escapeDistance, startPoint.y); //east
-      potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br.y + this.state.escapeDistance); //south
-      potentialExits[3] = new GeoPoint(startBounding.tl.x - this.state.escapeDistance, startPoint.y); //west
+      potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl[1] - this.state.escapeDistance); //north
+      potentialExits[1] = new GeoPoint(startBounding.tr[0] + this.state.escapeDistance, startPoint.y); //east
+      potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br[1] + this.state.escapeDistance); //south
+      potentialExits[3] = new GeoPoint(startBounding.tl[0] - this.state.escapeDistance, startPoint.y); //west
       //pick closest exit point
       startExitPoint = potentialExits[0];
       for (let i = 1; i < potentialExits.length; i++) {
@@ -141,10 +143,10 @@ export default class ICEVisioLink extends ICEPolyLine {
     //find end exit point
     if (this.endSlot) {
       endBounding = this.endSlot.hostComponent.getMinBoundingBox();
-      potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl.y - this.state.escapeDistance); //north
-      potentialExits[1] = new GeoPoint(endBounding.tr.x + this.state.escapeDistance, endPoint.y); //east
-      potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br.y + this.state.escapeDistance); //south
-      potentialExits[3] = new GeoPoint(endBounding.tl.x - this.state.escapeDistance, endPoint.y); //west
+      potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl[1] - this.state.escapeDistance); //north
+      potentialExits[1] = new GeoPoint(endBounding.tr[0] + this.state.escapeDistance, endPoint.y); //east
+      potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br[1] + this.state.escapeDistance); //south
+      potentialExits[3] = new GeoPoint(endBounding.tl[0] - this.state.escapeDistance, endPoint.y); //west
       //pick closest exit point
       endExitPoint = potentialExits[0];
       for (let i = 1; i < potentialExits.length; i++) {
@@ -204,10 +206,10 @@ export default class ICEVisioLink extends ICEPolyLine {
     //add points X coordinates to be able to generate Variant III even in the absence of figures :p
     let eastExits = [s2_3[gapIndex].x + 20, s2_3[gapIndex + 1].x + 20];
     if (startBounding) {
-      eastExits.push(startBounding.br.x + 20);
+      eastExits.push(startBounding.br[0] + 20);
     }
     if (endBounding) {
-      eastExits.push(endBounding.br.x + 20);
+      eastExits.push(endBounding.br[0] + 20);
     }
     let eastExit = this.max(eastExits);
     let s2_3_1 = new GeoPoint(eastExit, s2_3[gapIndex].y);
@@ -221,10 +223,10 @@ export default class ICEVisioLink extends ICEPolyLine {
     //add points y coordinates to be able to generate Variant III even in the absence of figures :p
     let northExits = [s2_4[gapIndex].y - 20, s2_4[gapIndex + 1].y - 20];
     if (startBounding) {
-      northExits.push(startBounding.tl.y - 20);
+      northExits.push(startBounding.tl[1] - 20);
     }
     if (endBounding) {
-      northExits.push(endBounding.tl.y - 20);
+      northExits.push(endBounding.tl[1] - 20);
     }
     let northExit = this.min(northExits);
     let s2_4_1 = new GeoPoint(s2_4[gapIndex].x, northExit);
@@ -238,10 +240,10 @@ export default class ICEVisioLink extends ICEPolyLine {
     //add points x coordinates to be able to generate Variant III even in the absence of figures :p
     let westExits = [s2_5[gapIndex].x - 20, s2_5[gapIndex + 1].x - 20];
     if (startBounding) {
-      westExits.push(startBounding.tl.x - 20);
+      westExits.push(startBounding.tl[0] - 20);
     }
     if (endBounding) {
-      westExits.push(endBounding.tl.x - 20);
+      westExits.push(endBounding.tl[0] - 20);
     }
     let westExit = this.min(westExits);
     let s2_5_1 = new GeoPoint(westExit, s2_5[gapIndex].y);
@@ -255,10 +257,10 @@ export default class ICEVisioLink extends ICEPolyLine {
     //add points y coordinates to be able to generate Variant III even in the absence of figures :p
     let southExits = [s2_6[gapIndex].y + 20, s2_6[gapIndex + 1].y + 20];
     if (startBounding) {
-      southExits.push(startBounding.tl.y + startBounding.height + 20);
+      southExits.push(startBounding.tl[1] + startBounding.height + 20);
     }
     if (endBounding) {
-      southExits.push(endBounding.tl.y + endBounding.height + 20);
+      southExits.push(endBounding.tl[1] + endBounding.height + 20);
     }
     let southExit = this.max(southExits);
     let s2_6_1 = new GeoPoint(s2_6[gapIndex].x, southExit);
@@ -671,18 +673,19 @@ export default class ICEVisioLink extends ICEPolyLine {
    */
   private syncPosition(slot, position) {
     let slotBounding = slot.getMinBoundingBox();
-    let { x, y } = slotBounding.center;
+    let x = slotBounding.center[0];
+    let y = slotBounding.center[1];
     let point = this.globalToLocal(x, y);
     let { left, top } = this.state;
-    point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, left, top]));
+    point = vec2.transformMat2d([], point, [1, 0, 0, 1, left, top]);
 
     if (position === 'start') {
       this.setState({
-        startPoint: [point.x, point.y],
+        startPoint: [point[0], point[1]],
       });
     } else if (position === 'end') {
       this.setState({
-        endPoint: [point.x, point.y],
+        endPoint: [point[0], point[1]],
       });
     }
   }

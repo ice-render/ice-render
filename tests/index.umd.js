@@ -52,6 +52,265 @@
     AFTER_MOVE: 'AFTER_MOVE'
   };
 
+  /**
+   * Common utilities
+   * @module glMatrix
+   */
+  var ARRAY_TYPE = typeof Float32Array !== 'undefined' ? Float32Array : Array;
+  var degree = Math.PI / 180;
+  /**
+   * Convert Degree To Radian
+   *
+   * @param {Number} a Angle in Degrees
+   */
+
+  function toRadian(a) {
+    return a * degree;
+  }
+  if (!Math.hypot) Math.hypot = function () {
+    var y = 0,
+        i = arguments.length;
+
+    while (i--) {
+      y += arguments[i] * arguments[i];
+    }
+
+    return Math.sqrt(y);
+  };
+
+  /**
+   * 2x3 Matrix
+   * @module mat2d
+   * @description
+   * A mat2d contains six elements defined as:
+   * <pre>
+   * [a, b,
+   *  c, d,
+   *  tx, ty]
+   * </pre>
+   * This is a short form for the 3x3 matrix:
+   * <pre>
+   * [a, b, 0,
+   *  c, d, 0,
+   *  tx, ty, 1]
+   * </pre>
+   * The last column is ignored so the array is shorter and operations are faster.
+   */
+
+  /**
+   * Creates a new identity mat2d
+   *
+   * @returns {mat2d} a new 2x3 matrix
+   */
+
+  function create() {
+    var out = new ARRAY_TYPE(6);
+
+    if (ARRAY_TYPE != Float32Array) {
+      out[1] = 0;
+      out[2] = 0;
+      out[4] = 0;
+      out[5] = 0;
+    }
+
+    out[0] = 1;
+    out[3] = 1;
+    return out;
+  }
+  /**
+   * Inverts a mat2d
+   *
+   * @param {mat2d} out the receiving matrix
+   * @param {ReadonlyMat2d} a the source matrix
+   * @returns {mat2d} out
+   */
+
+  function invert(out, a) {
+    var aa = a[0],
+        ab = a[1],
+        ac = a[2],
+        ad = a[3];
+    var atx = a[4],
+        aty = a[5];
+    var det = aa * ad - ab * ac;
+
+    if (!det) {
+      return null;
+    }
+
+    det = 1.0 / det;
+    out[0] = ad * det;
+    out[1] = -ab * det;
+    out[2] = -ac * det;
+    out[3] = aa * det;
+    out[4] = (ac * aty - ad * atx) * det;
+    out[5] = (ab * atx - aa * aty) * det;
+    return out;
+  }
+  /**
+   * Multiplies two mat2d's
+   *
+   * @param {mat2d} out the receiving matrix
+   * @param {ReadonlyMat2d} a the first operand
+   * @param {ReadonlyMat2d} b the second operand
+   * @returns {mat2d} out
+   */
+
+  function multiply(out, a, b) {
+    var a0 = a[0],
+        a1 = a[1],
+        a2 = a[2],
+        a3 = a[3],
+        a4 = a[4],
+        a5 = a[5];
+    var b0 = b[0],
+        b1 = b[1],
+        b2 = b[2],
+        b3 = b[3],
+        b4 = b[4],
+        b5 = b[5];
+    out[0] = a0 * b0 + a2 * b1;
+    out[1] = a1 * b0 + a3 * b1;
+    out[2] = a0 * b2 + a2 * b3;
+    out[3] = a1 * b2 + a3 * b3;
+    out[4] = a0 * b4 + a2 * b5 + a4;
+    out[5] = a1 * b4 + a3 * b5 + a5;
+    return out;
+  }
+  /**
+   * Rotates a mat2d by the given angle
+   *
+   * @param {mat2d} out the receiving matrix
+   * @param {ReadonlyMat2d} a the matrix to rotate
+   * @param {Number} rad the angle to rotate the matrix by
+   * @returns {mat2d} out
+   */
+
+  function rotate(out, a, rad) {
+    var a0 = a[0],
+        a1 = a[1],
+        a2 = a[2],
+        a3 = a[3],
+        a4 = a[4],
+        a5 = a[5];
+    var s = Math.sin(rad);
+    var c = Math.cos(rad);
+    out[0] = a0 * c + a2 * s;
+    out[1] = a1 * c + a3 * s;
+    out[2] = a0 * -s + a2 * c;
+    out[3] = a1 * -s + a3 * c;
+    out[4] = a4;
+    out[5] = a5;
+    return out;
+  }
+  /**
+   * Scales the mat2d by the dimensions in the given vec2
+   *
+   * @param {mat2d} out the receiving matrix
+   * @param {ReadonlyMat2d} a the matrix to translate
+   * @param {ReadonlyVec2} v the vec2 to scale the matrix by
+   * @returns {mat2d} out
+   **/
+
+  function scale(out, a, v) {
+    var a0 = a[0],
+        a1 = a[1],
+        a2 = a[2],
+        a3 = a[3],
+        a4 = a[4],
+        a5 = a[5];
+    var v0 = v[0],
+        v1 = v[1];
+    out[0] = a0 * v0;
+    out[1] = a1 * v0;
+    out[2] = a2 * v1;
+    out[3] = a3 * v1;
+    out[4] = a4;
+    out[5] = a5;
+    return out;
+  }
+
+  /**
+   * 2 Dimensional Vector
+   * @module vec2
+   */
+
+  /**
+   * Creates a new, empty vec2
+   *
+   * @returns {vec2} a new 2D vector
+   */
+
+  function create$1() {
+    var out = new ARRAY_TYPE(2);
+
+    if (ARRAY_TYPE != Float32Array) {
+      out[0] = 0;
+      out[1] = 0;
+    }
+
+    return out;
+  }
+  /**
+   * Transforms the vec2 with a mat2d
+   *
+   * @param {vec2} out the receiving vector
+   * @param {ReadonlyVec2} a the vector to transform
+   * @param {ReadonlyMat2d} m matrix to transform with
+   * @returns {vec2} out
+   */
+
+  function transformMat2d(out, a, m) {
+    var x = a[0],
+        y = a[1];
+    out[0] = m[0] * x + m[2] * y + m[4];
+    out[1] = m[1] * x + m[3] * y + m[5];
+    return out;
+  }
+  /**
+   * Perform some operation over an array of vec2s.
+   *
+   * @param {Array} a the array of vectors to iterate over
+   * @param {Number} stride Number of elements between the start of each vec2. If 0 assumes tightly packed
+   * @param {Number} offset Number of elements to skip at the beginning of the array
+   * @param {Number} count Number of vec2s to iterate over. If 0 iterates over entire array
+   * @param {Function} fn Function to call for each vector in the array
+   * @param {Object} [arg] additional argument to pass to fn
+   * @returns {Array} a
+   * @function
+   */
+
+  var forEach = function () {
+    var vec = create$1();
+    return function (a, stride, offset, count, fn, arg) {
+      var i, l;
+
+      if (!stride) {
+        stride = 2;
+      }
+
+      if (!offset) {
+        offset = 0;
+      }
+
+      if (count) {
+        l = Math.min(count * stride + offset, a.length);
+      } else {
+        l = a.length;
+      }
+
+      for (i = offset; i < l; i += stride) {
+        vec[0] = a[i];
+        vec[1] = a[i + 1];
+        fn(vec, vec, arg);
+        a[i] = vec[0];
+        a[i + 1] = vec[1];
+      }
+
+      return a;
+    };
+  }();
+
   var IDX=256, HEX=[], BUFFER;
   while (IDX--) HEX[IDX] = (IDX + 256).toString(16).substring(1);
 
@@ -3002,6 +3261,1295 @@
   ICEEventTarget.prototype.removeEventListener = ICEEventTarget.prototype.off;
   ICEEventTarget.prototype.dispatchEvent = ICEEventTarget.prototype.trigger;
 
+  /**
+   * @class ICEBoundingBox 用4点法描述的边界盒子。
+   *
+   * - 边界盒子一定是矩形。
+   * - 边界盒子总是绘制在全局坐标系中。
+   * - 边界盒子总是通过自身的坐标点进行变换，而不是变换 canvas.ctx 。
+   * - 边界盒子总是通过组件的参数计算出来的，直接修改边界盒子不影响组件本身的参数。
+   *
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEBoundingBox {
+    //top-left
+    //top-right
+    //bottom-left
+    //bottom-right
+    //center-point
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+
+      _defineProperty(this, "tl", [0, 0]);
+
+      _defineProperty(this, "tr", [0, 0]);
+
+      _defineProperty(this, "bl", [0, 0]);
+
+      _defineProperty(this, "br", [0, 0]);
+
+      _defineProperty(this, "center", [0, 0]);
+
+      this.tl = [props[0], props[1]];
+      this.tr = [props[2], props[3]];
+      this.bl = [props[4], props[5]];
+      this.br = [props[6], props[7]];
+      this.center = [props[8], props[9]];
+    }
+    /**
+     * 从指定的 top/left/width/height 构建 ICEBoundingBox。
+     * @param left
+     * @param top
+     * @param width
+     * @param height
+     * @returns
+     */
+
+
+    static fromDimension(left, top, width, height) {
+      let tl = [left, top];
+      let tr = [left + width, top];
+      let bl = [left, top + height];
+      let br = [left + width, top + height];
+      let center = [left + width / 2, top + height / 2];
+      return new ICEBoundingBox([...tl, ...tr, ...bl, ...br, ...center]);
+    }
+
+    clone() {
+      const tl = [...this.tl];
+      const tr = [...this.tr];
+      const bl = [...this.bl];
+      const br = [...this.br];
+      const center = [...this.center];
+      return new ICEBoundingBox([...tl, ...tr, ...bl, ...br, ...center]);
+    }
+    /**
+     * 判断指定的坐标点是否位于边界矩形内部，向右水平射线法。
+     * 这里参考了 fabricjs 的实现方式。
+     * @see http://fabricjs.com/
+     * @param point
+     * @returns
+     */
+
+
+    containsPoint(point) {
+      //只考虑凸包的情况：[x,y]有一个值位于最大最小值之外，则不可能包含在边界盒子内部。
+      const {
+        minX,
+        minY,
+        maxX,
+        maxY
+      } = this.getMinAndMaxPoint();
+
+      if (point[0] < minX || point[0] > maxX || point[1] < minY || point[1] > maxY) {
+        return false;
+      }
+
+      let xcount = 0; //交叉点个数
+
+      let xi; //交点的 x 坐标
+
+      const boudingLines = this.getBoundingLines();
+
+      for (let i = 0; i < boudingLines.length; i++) {
+        const line = boudingLines[i]; //特例1：点位于线段下方，水平射线不可能与线段交叉
+
+        if (point[1] > line.o[1] && point[1] > line.d[1]) {
+          continue;
+        } //特例2：点位于线段上方，水平射线不可能与线段交叉
+
+
+        if (point[1] < line.o[1] && point[1] < line.d[1]) {
+          continue;
+        }
+
+        if (line.o[0] === line.d[0] && line.o[0] >= point[0]) {
+          //特例3：处理垂直于 x 轴（平行于 y 轴）的特殊情况
+          xi = line.o[0];
+        } else {
+          //斜率法求向右的射线与线段的交点 x 坐标
+          const k = (line.d[1] - line.o[1]) / (line.d[0] - line.o[0]); //斜率
+
+          xi = line.o[0] + (point[1] - line.o[1]) / k;
+        }
+
+        if (xi > point[0]) {
+          //只处理向右侧的射线情况即可
+          xcount++;
+        }
+
+        if (xcount === 2) {
+          continue;
+        }
+      }
+
+      return xcount !== 0 && xcount % 2 === 1;
+    }
+    /**
+     * 获取边界盒子的边所构成的线段，由于边界盒子总是被定义成 4 边形，这里直接简化处理。
+     */
+
+
+    getBoundingLines() {
+      const line_1 = {
+        o: [...this.tl],
+        d: [...this.tr]
+      }; //o:origin, d:destination
+
+      const line_2 = {
+        o: [...this.tr],
+        d: [...this.br]
+      };
+      const line_3 = {
+        o: [...this.br],
+        d: [...this.bl]
+      };
+      const line_4 = {
+        o: [...this.bl],
+        d: [...this.tl]
+      };
+      return [line_1, line_2, line_3, line_4];
+    }
+    /**
+     * 获取边界盒子 x,y 的最大和最小值
+     * @returns
+     */
+
+
+    getMinAndMaxPoint() {
+      //取任意一个顶点坐标作为初始值，然后与其它3个顶点的坐标进行比较
+      let minX = this.tl[0];
+      let minY = this.tl[1];
+      let maxX = this.tl[0];
+      let maxY = this.tl[1];
+      const arr = [this.tr, this.bl, this.br];
+      arr.forEach(p => {
+        if (p[0] < minX) {
+          minX = p[0];
+        }
+
+        if (p[0] > maxX) {
+          maxX = p[0];
+        }
+
+        if (p[1] < minY) {
+          minY = p[1];
+        }
+
+        if (p[1] > maxY) {
+          maxY = p[1];
+        }
+      });
+      return {
+        minX,
+        minY,
+        maxX,
+        maxY
+      };
+    }
+    /**
+     * FIXME:需要实现
+     * 另一个边界盒子是否完全位于当前盒子内部。
+     * @param box
+     * @returns
+     */
+
+
+    containsBox(box) {
+      return false;
+    }
+    /**
+     * 是否与另一个盒子存在相交的部分。
+     * @param box
+     * @returns
+     */
+
+
+    isIntersect(box) {
+      let left1 = this.tl[0];
+      let right1 = this.br[0];
+      let top1 = this.tl[1];
+      let bottom1 = this.br[1];
+      let left2 = box.tl[0];
+      let right2 = box.br[0];
+      let top2 = box.tl[1];
+      let bottom2 = box.br[1];
+      let isIntersect = !(left1 > right2 || top1 > bottom2 || right1 < left2 || bottom1 < top2);
+      return isIntersect;
+    }
+    /**
+     * @param matrix
+     * @returns A new ICEBoundingBox instance.
+     */
+
+
+    transform(matrix) {
+      const tl = transformMat2d([], this.tl, matrix);
+      const tr = transformMat2d([], this.tr, matrix);
+      const bl = transformMat2d([], this.bl, matrix);
+      const br = transformMat2d([], this.br, matrix);
+      const center = transformMat2d([], this.center, matrix);
+      return new ICEBoundingBox([...tl, ...tr, ...bl, ...br, ...center]);
+    }
+    /**
+     * @param box
+     * @returns A new ICEBoundingBox instance.
+     */
+
+
+    union(box) {
+      return null;
+    }
+
+    get width() {
+      const deltaX = this.br[0] - this.bl[0];
+      const deltaY = this.br[1] - this.bl[1];
+      return Math.hypot(deltaX, deltaY);
+    }
+
+    get height() {
+      const deltaX = this.br[0] - this.tr[0];
+      const deltaY = this.br[1] - this.tr[1];
+      return Math.hypot(deltaX, deltaY);
+    }
+
+    get left() {
+      return this.tl[0];
+    } //不允许设置 left 参数
+
+
+    set left(num) {
+      throw new Error('Can not set left to ICEBoundingBox directly.');
+    }
+
+    get top() {
+      return this.tl[1];
+    } //不允许设置 top 参数
+
+
+    set top(num) {
+      throw new Error('Can not set top to ICEBoundingBox directly.');
+    }
+
+    get centerX() {
+      return this.center[0];
+    }
+
+    get centerY() {
+      return this.center[1];
+    }
+
+    get centerPoint() {
+      return this.center;
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  class ICEMatrix {
+    constructor() {}
+    /**
+     * 从变换矩阵计算旋转角度。
+     * @param matrix
+     * @returns 角度
+     */
+
+
+    static calcRotateAngleFromMatrix(matrix) {
+      let radians = 0;
+      let a = matrix[0];
+      let b = matrix[1];
+      const temp = Math.hypot(a, b);
+      let sin = b / temp;
+      let cos = a / temp;
+      radians = Math.acos(cos);
+
+      if (sin < 0) {
+        radians += Math.PI / 2;
+      }
+
+      return radians * (180 / Math.PI);
+    }
+    /**
+     * 从变换矩阵计算缩放参数。
+     * @param matrix
+     * @returns 缩放数组
+     */
+
+
+    static calcScaleFromMatrix(matrix) {
+      let a = matrix[0];
+      let b = matrix[1];
+      let c = matrix[2];
+      let d = matrix[3];
+      const scaleX = Math.hypot(a, b) / a;
+      const scaleY = Math.hypot(c, d) / d;
+      return [scaleX, scaleY];
+    }
+
+  }
+
+  /**
+   * @class ICEComponent
+   *
+   * 最顶级的抽象类，Canvas 内部所有可见的组件都是它的子类。
+   *
+   * @abstract
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+  class ICEComponent extends ICEEventTarget {
+    //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
+    //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
+    //当对象被添加到 canvas 中时，ICE 会自动设置 ctx 的值，没有被添加到 canvas 中的对象 ctx 为 null 。
+    //事件总线， evtBus 在 render() 方法被调用时才会被设置，在被渲染出来之前，evtBus 为 null 。
+    //所有组件都有父组件，但不一定都有子组件，只有容器型的组件才有子组件。如果父组件为 null ，说明直接添加在 canvas 中。
+    //静态属性，实例计数器
+
+    /**
+     * @cfg
+     * {
+     *   id: 'ICE_' + Math.floor(Math.random() * 10000000000),   //全局唯一，跨机器，跨时间
+     *   left: 0,                                                //x 坐标相对于父组件的偏移量
+     *   top: 0,                                                 //y 坐标相对于父组件的偏移量
+     *   width: 0,                                               //原始宽度，没有经过变换
+     *   height: 0,                                              //原始高度，没有经过变换
+     *   style: { fillStyle: 'red', strokeStyle: 'blue', lineWidth: 1 },
+     *   animations: {},
+     *   transform: {                                            //组件自身的变换参数，不包含父组件
+     *     translate: [0, 0],
+     *     scale: [1, 1],
+     *     skew: [0, 0],
+     *     rotate: 0,     //角度
+     *   },
+     *   linearMatrix: [],                            //线性变换矩阵，不含平移，按照 gl-matrix 的格式定义
+     *   composedMatrix: [],                          //复合变换矩阵，包含所有祖先节点的平移、原点移动、线性变换计算，composedMatrix 不会实时更新，如果需要获取当前最新的变换矩阵，需要调用 composeMatrix() 方法。按照 gl-matrix 的格式定义
+     *   origin:'localCenter',
+     *   localOrigin: [0,0],                          //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
+     *   absoluteOrigin: [0,0],                       //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
+     *   zIndex: ICEComponent.instanceCounter++,      //类似于 CSS 中的 zIndex
+     *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
+     *   draggable:true,                              //是否可以拖动
+     *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
+     *   linkable:true,                               //组件是否可以用连接线连接起来，如果此状态为 true ，ICELinkSlotManager 在运行时会动态在组件上创建连接插槽 ICELinkSlot 的实例
+     *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable TODO:动画运行过程中不允许选中，不能进行交互？？？
+     *   showMinBoundingBox:true,                     //是否显示最小包围盒，开发时打开，主要用于 debug
+     *   showMaxBoundingBox:true,                     //是否显示最大包围盒，开发时打开，主要用于 debug
+     * }
+     * @param props
+     */
+
+    /**
+     * 在 ICE 引擎中，所有对象都可以启用动画效果，所以对象的 state 随时可能发生变化。
+     * props 与 state 之间的关系与行为模式借鉴自 React 框架，概念模型完全一致。
+     * @see https://reactjs.org/docs/components-and-props.html
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super();
+
+      _defineProperty(this, "ice", void 0);
+
+      _defineProperty(this, "root", void 0);
+
+      _defineProperty(this, "ctx", void 0);
+
+      _defineProperty(this, "evtBus", void 0);
+
+      _defineProperty(this, "parentNode", void 0);
+
+      _defineProperty(this, "props", {
+        id: 'ICE_' + v4(),
+        left: 0,
+        top: 0,
+        width: 0,
+        height: 0,
+        style: {
+          fillStyle: 'red',
+          strokeStyle: 'blue',
+          lineWidth: 1
+        },
+        animations: {},
+        transform: {
+          translate: [0, 0],
+          scale: [1, 1],
+          skew: [0, 0],
+          rotate: 0 //degree
+
+        },
+        linearMatrix: [],
+        composedMatrix: [],
+        origin: 'localCenter',
+        localOrigin: [0, 0],
+        absoluteOrigin: [0, 0],
+        zIndex: ICEComponent.instanceCounter++,
+        display: true,
+        draggable: true,
+        transformable: true,
+        interactive: true,
+        linkable: true,
+        showMinBoundingBox: true,
+        showMaxBoundingBox: true
+      });
+
+      _defineProperty(this, "state", { ...this.props
+      });
+
+      this.props = merge_1(this.props, props);
+      this.state = JSON.parse(JSON.stringify(this.props));
+      this.initEvents();
+    }
+    /**
+     * 子类需要提供自己的实现。
+     */
+
+
+    initEvents() {}
+    /**
+     * !Important: 核心方法，FrameManager 会调度此方法进行实际的渲染操作。
+     * !Important: 这些方法调用有顺序
+     */
+
+
+    render() {
+      this.calcOriginalDimension();
+      this.applyStyle();
+      this.applyTransformToCtx();
+      this.doRender();
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
+    applyStyle() {
+      Object.assign(this.ctx, { ...this.props.style,
+        ...this.state.style
+      });
+    }
+    /**
+     * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
+     * 此方法不能依赖原点位置和 transform 矩阵。
+     * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+     * @returns
+     */
+
+
+    calcOriginalDimension() {
+      return {
+        width: this.state.width,
+        height: this.state.height
+      };
+    }
+    /**
+     * 计算本地原点坐标，相对于组件本地坐标系。
+     * 此方法依赖于 width/height ，需要先计算组件的尺寸，然后才能调用此方法。
+     * @returns
+     */
+
+
+    calcLocalOrigin() {
+      let point = [0, 0];
+      let position = this.state.origin;
+
+      if (!position || position === 'localCenter') {
+        let halfWidth = this.state.width / 2;
+        let halfHeight = this.state.height / 2;
+        point[0] = halfWidth;
+        point[1] = halfHeight;
+      } //FIXME:计算原点位于其它位置的情况
+
+
+      this.state.localOrigin = point;
+      return point;
+    }
+    /**
+     * 根据原点位置描述计算原点坐标值。
+     * 移动坐标原点后，组件内部所有的坐标点数值、边界盒子的坐标，都会受到影响。
+     * 计算出的原点数值已经包含了所有父层的移位和变换。
+     * @method calcAbsoluteOrigin
+     */
+
+
+    calcAbsoluteOrigin() {
+      let tx = get_1(this, 'state.transform.translate.0') + this.state.left;
+      let ty = get_1(this, 'state.transform.translate.1') + this.state.top;
+      let point = [...this.calcLocalOrigin()];
+      point[0] += tx;
+      point[1] += ty;
+
+      if (this.parentNode) {
+        let pLocalX = this.parentNode.state.localOrigin[0];
+        let pLocalY = this.parentNode.state.localOrigin[1];
+        point = transformMat2d([], point, [1, 0, 0, 1, -pLocalX, -pLocalY]);
+        let pcm = this.parentNode.state.composedMatrix;
+        point = transformMat2d([], point, pcm);
+      }
+
+      this.state.absoluteOrigin = point;
+      return point;
+    }
+    /**
+     * 计算线性变换矩阵，此矩阵不包含平移操作。
+     * 线性变换顺序：旋转->错切->缩放
+     * 由于矩阵变换有顺序，这里采用符合自然理解的顺序进行。
+     * @method calcLinearMatrix
+     * @returns
+     */
+
+
+    calcLinearMatrix() {
+      let matrix = create(); //step1: skew
+      //!gl-matrix 的当前版本中没有提供 skew 函数，需要手动合 https://github.com/toji/gl-matrix/pull/293
+      // const skewX = get(this, 'state.transform.skew.0');
+      // const skewY = get(this, 'state.transform.skew.1');
+      // matrix.skewXSelf(skewX);
+      // matrix.skewYSelf(skewY);
+      //step2: rotate
+
+      let angle = get_1(this, 'state.transform.rotate');
+      matrix = rotate([], matrix, toRadian(angle)); //step3: scale
+
+      const scaleX = get_1(this, 'state.transform.scale.0');
+      const scaleY = get_1(this, 'state.transform.scale.1');
+      matrix = scale([], matrix, [scaleX, scaleY]);
+      this.state.linearMatrix = matrix;
+      return matrix;
+    }
+    /**
+     * 复合所有祖先节点的线性变换矩阵，获得相对于全局 canvas 对象的变换矩阵。
+     * @returns
+     */
+
+
+    calcAbsoluteLinearMatrix() {
+      let component = this;
+      let matrix = component.calcLinearMatrix();
+
+      while (component.parentNode) {
+        matrix = multiply([], component.parentNode.state.linearMatrix, matrix);
+        component = component.parentNode;
+      }
+
+      this.state.absoluteLinearMatrix = matrix;
+      return matrix;
+    }
+    /**
+     * 仿射变换由2步完成：
+     * - ctx 平移到指定的原点。
+     * - ctx 进行线性变换。
+     *
+     * Canvas 绘图过程中的仿射变换动作与线性代数中的规则有差异：
+     * - Canvas 的 Y 坐标轴方向是向下的。
+     * - Canvas 在做仿射变换时，变换的是 ctx 本身，而不是组件对象，相当于画布本身是具有弹性的可变形对象。
+     *
+     * @method composeMatrix
+     * @returns
+     */
+
+
+    composeMatrix() {
+      //step-1: 移动到指定原点（全局坐标系）。
+      let origin = this.calcAbsoluteOrigin();
+      let translationMatrix = [1, 0, 0, 1, origin[0], origin[1]]; //step-2: 计算线性变换矩阵，包含了所有祖先节点的线性变换。
+
+      let linearMatrix = this.calcAbsoluteLinearMatrix(); //step-3: 计算综合变换矩阵，相当于先在 canvas 默认原点（左上角位置）进行变换，然后在平移到计算出的原点位置。
+
+      let composedMatrix = multiply([], translationMatrix, linearMatrix);
+      this.state.composedMatrix = composedMatrix;
+      return composedMatrix;
+    }
+    /**
+     * 把变换矩阵应用到 this.ctx 上
+     */
+
+
+    applyTransformToCtx() {
+      this.ctx.setTransform(...this.composeMatrix());
+    }
+    /**
+     * 所有子类都应该提供具体的实现。
+     * @method doRender
+     */
+
+
+    doRender() {
+      if (this.state.showMinBoundingBox) {
+        let minBox = this.getMinBoundingBox();
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeStyle = '#ff0000';
+        this.ctx.fillStyle = 'rgba(0,0,0,0)';
+        this.ctx.beginPath();
+        this.ctx.moveTo(minBox.tl[0], minBox.tl[1]);
+        this.ctx.lineTo(minBox.tr[0], minBox.tr[1]);
+        this.ctx.lineTo(minBox.br[0], minBox.br[1]);
+        this.ctx.lineTo(minBox.bl[0], minBox.bl[1]);
+        this.ctx.closePath();
+        this.ctx.stroke();
+        this.ctx.fill();
+      }
+
+      if (this.state.showMaxBoundingBox) {
+        let maxBox = this.getMaxBoundingBox();
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeStyle = '#0000ff';
+        this.ctx.fillStyle = 'rgba(0,0,0,0)';
+        this.ctx.beginPath();
+        this.ctx.moveTo(maxBox.tl[0], maxBox.tl[1]);
+        this.ctx.lineTo(maxBox.tr[0], maxBox.tr[1]);
+        this.ctx.lineTo(maxBox.br[0], maxBox.br[1]);
+        this.ctx.lineTo(maxBox.bl[0], maxBox.bl[1]);
+        this.ctx.closePath();
+        this.ctx.stroke();
+        this.ctx.fill();
+      }
+    }
+    /**
+     * 获取组件的最小包围盒，此盒子的变换矩阵与组件自身完全相同。
+     * 此方法需要在 render() 之后调用，组件没有渲染时无法计算最小包围盒。
+     * @returns
+     */
+
+
+    getMinBoundingBox() {
+      //先基于组件本地坐标系进行计算
+      let originX = this.state.localOrigin[0];
+      let originY = this.state.localOrigin[1];
+      let width = this.state.width;
+      let height = this.state.height;
+      let boundingBox = new ICEBoundingBox([0 - originX, 0 - originY, 0 - originX + width, 0 - originY, 0 - originX, 0 - originY + height, 0 - originX + width, 0 - originY + height, 0, 0]); //再用 composedMatrix 进行变换
+
+      boundingBox = boundingBox.transform(this.composeMatrix());
+      return boundingBox;
+    }
+    /**
+     * 获取组件的最大包围盒：
+     * - 盒子保持水平和竖直，不旋转、不错切。
+     * - 盒子的4边在全局坐标 X/Y 轴上的投影范围与组件完全一致。
+     * @returns
+     */
+
+
+    getMaxBoundingBox() {
+      let boundingBox = this.getMinBoundingBox();
+      let {
+        minX,
+        minY,
+        maxX,
+        maxY
+      } = boundingBox.getMinAndMaxPoint();
+      let center = boundingBox.centerPoint;
+      boundingBox = new ICEBoundingBox([minX, minY, maxX, minY, minX, maxY, maxX, maxY, center[0], center[1]]);
+      return boundingBox;
+    }
+    /**
+     * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
+     * @param newState
+     */
+
+
+    setState(newState) {
+      merge_1(this.state, newState);
+
+      if (this.ice) {
+        this.ice._dirty = true;
+      }
+    }
+    /**
+     * 相对于父组件的坐标系和原点。
+     * @param left
+     * @param top
+     * @param evt
+     */
+
+
+    setPosition(left, top) {
+      let evt = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : new ICEEvent();
+      this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_MOVE, { ...evt,
+        left,
+        top
+      });
+      this.setState({
+        left,
+        top
+      });
+      this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, { ...evt,
+        left,
+        top
+      });
+    }
+    /**
+     * 在全局空间(canvas)中移动指定的位移。
+     * 注意：此方法用于直接设置组件在全局空间中的位移，而不是相对于其它坐标系。
+     * @param tx
+     * @param ty
+     * @param evt
+     */
+
+
+    moveGlobalPosition(tx, ty) {
+      let evt = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : new ICEEvent();
+
+      //如果组件存在嵌套，需要先用逆矩阵抵消所有祖先节点 transform 导致的坐标偏移。
+      if (this.parentNode) {
+        let point = [tx, ty];
+        let matrix = invert([], this.parentNode.state.absoluteLinearMatrix);
+        point = transformMat2d([], point, matrix);
+        tx = point[0];
+        ty = point[1];
+      }
+
+      this.setPosition(this.state.left + tx, this.state.top + ty, { ...evt,
+        tx,
+        ty
+      });
+    }
+    /**
+     * 直接设置在全局空间 (canvas) 中的位置。
+     * 注意：此方法用于直接设置组件在全局空间中的位置，而不是相对于其它坐标系。
+     * @param left
+     * @param top
+     * @param evt
+     */
+
+
+    setGlobalPosition(left, top) {
+      let evt = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : new ICEEvent();
+
+      //如果组件存在嵌套，需要先用逆矩阵抵消所有祖先节点 transform 导致的坐标偏移。
+      if (this.parentNode) {
+        let point = [left, top];
+        let matrix = invert([], this.parentNode.state.absoluteLinearMatrix);
+        point = transformMat2d([], point, matrix);
+        left = point[0];
+        top = point[1];
+      }
+
+      this.setPosition(left, top, { ...evt,
+        left,
+        top
+      });
+    }
+    /**
+     * 在全局空间(canvas)中旋转指定的角度。
+     * 注意：此方法用于直接设置组件在全局空间中的旋转角，而不是相对于其它坐标系。
+     * @param rotateAngle
+     */
+
+
+    setGlobalRotate(rotateAngle) {
+      if (this.parentNode) {
+        //组件存在嵌套的情况下，减掉所有祖先节点旋转角的总和。
+        let matrix = this.parentNode.state.absoluteLinearMatrix;
+        let angle = ICEMatrix.calcRotateAngleFromMatrix(matrix);
+        rotateAngle -= angle;
+      }
+
+      this.setState({
+        transform: {
+          rotate: rotateAngle
+        }
+      });
+    }
+    /**
+     * 组件局部坐标系中的点转换成全局空间(canvas)中的点，包含移动原点的操作。
+     * @param localX
+     * @param localY
+     * @returns
+     */
+
+
+    localToGlobal(localX, localY) {
+      let point = [localX, localY];
+      let matrix = this.state.composedMatrix;
+      point = transformMat2d([], point, matrix);
+      return point;
+    }
+    /**
+     * 全局空间(canvas)中的点转换成组件局部坐标系中的点，包含移动原点的操作。
+     * @param globalX
+     * @param globalY
+     * @returns
+     */
+
+
+    globalToLocal(globalX, globalY) {
+      let point = [globalX, globalY];
+      let matrix = invert([], this.state.composedMatrix);
+      point = transformMat2d([], point, matrix);
+      return point;
+    }
+    /**
+     * 根据变换矩阵计算组件在全局空间(canvas)中的旋转角度。
+     * @returns
+     */
+
+
+    getRotateAngle() {
+      let matrix = this.state.composedMatrix;
+      return ICEMatrix.calcRotateAngleFromMatrix(matrix);
+    }
+
+    getLocalLeftTop() {
+      let box = this.getMinBoundingBox();
+      let width = box.width;
+      let height = box.height;
+      let left = box.centerX - box.width / 2;
+      let top = box.centerY - box.height / 2;
+      return {
+        left,
+        top,
+        width,
+        height
+      };
+    }
+
+    containsPoint(x, y) {
+      return this.getMinBoundingBox().containsPoint([x, y]);
+    }
+    /**
+     * @method destory
+     * 销毁组件
+     * - FIXME:立即停止组件上的所有动画效果
+     * - 需要清理绑定的事件
+     * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
+     */
+
+
+    destory() {
+      this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, {
+        component: this
+      });
+      this.purgeEvents();
+      this.ice = null;
+      this.ctx = null;
+      this.root = null;
+      this.evtBus = null;
+      this.parentNode = null;
+    }
+
+  }
+
+  _defineProperty(ICEComponent, "instanceCounter", 0);
+
+  /**
+   * @class ICEPath
+   *
+   * 路径
+   *
+   * @abstract
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEPath extends ICEComponent {
+    /**
+     * @cfg
+     * {
+     *   dots:[]  //可选参数，路径上的点。
+     * }
+     * @param props
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        closePath: true,
+        ...props
+      });
+
+      _defineProperty(this, "path2D", new Path2D());
+    }
+    /**
+     * @method doRender
+     * @overwrite
+     */
+
+
+    doRender() {
+      //创建 Path2D 对象，doRender() 方法仅创建对象实例，不会立即绘制到画布上，绘制过程由 FrameManager 进行调度。
+      //@see FrameManager.ts
+      //@see https://developer.mozilla.org/en-US/docs/Web/API/Path2D/Path2D
+      this.createPathObject();
+      this.ctx.beginPath();
+
+      if (this.state.closePath) {
+        this.ctx.fill(this.path2D);
+      }
+
+      this.ctx.stroke(this.path2D);
+      super.doRender();
+    }
+    /**
+     * @method createPathObject
+     * 创建路径对象，子类需要提供具体实现。
+     */
+
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
+   * @class ICEDotPath
+   *
+   * 基于一系列点进行绘制的路径。
+   *
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEDotPath extends ICEPath {
+    /**
+     * FIXME:编写完整的配置项描述
+     * @cfg
+     * {
+     *
+     * }
+     *
+     * @param props
+     */
+    constructor(props) {
+      //dots 是内部计算使用的属性
+      super({
+        dots: [],
+        transformedDots: [],
+        closePath: true,
+        ...props
+      });
+    }
+    /**
+     * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
+     * 由于点状路径可能是不规则的形状，所以宽高需要手动计算，特殊形状的子类需要覆盖此方法提供自己的实现。
+     * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+     * @overwrite
+     * @returns
+     */
+
+
+    calcOriginalDimension() {
+      //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
+      this.calcDots();
+      let points = this.calc4VertexPoints();
+      let width = Math.abs(points[1][0] - points[0][0]); //maxX-minX
+
+      let height = Math.abs(points[2][1] - points[0][1]); //maxY-minY
+
+      this.state.width = width;
+      this.state.height = height;
+      return {
+        width: this.state.width,
+        height: this.state.height
+      };
+    }
+    /**
+     * 点状路径在重新计算本地原点坐标之后，需要移动内部所有点的位置。
+     * @overwrite
+     * @returns
+     */
+
+
+    calcLocalOrigin() {
+      let origin = super.calcLocalOrigin();
+
+      for (let i = 0; i < this.state.dots.length; i++) {
+        let dot = this.state.dots[i];
+        dot = transformMat2d([], dot, [1, 0, 0, 1, -origin[0], -origin[1]]);
+        this.state.dots[i] = dot;
+      }
+
+      return origin;
+    }
+    /**
+     * @returns
+     */
+
+
+    createPathObject() {
+      this.path2D = new Path2D();
+
+      for (let i = 0; i < this.state.dots.length; i++) {
+        const dot = this.state.dots[i];
+
+        if (i === 0) {
+          this.path2D.moveTo(dot[0], dot[1]);
+        } else {
+          this.path2D.lineTo(dot[0], dot[1]);
+        }
+      }
+
+      if (this.state.closePath) {
+        this.path2D.closePath();
+      }
+
+      return this.path2D;
+    }
+    /**
+     * 计算路径上的关键点:
+     * - 默认的坐标原点是 (0,0) 位置。
+     * - 这些点没有经过 transform 矩阵变换。
+     * this.calcOriginalDimension() 会依赖此方法，在计算尺寸时还没有确定原点坐标，所以 calcDots() 方法内部不能依赖原点坐标，只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+     * @returns
+     */
+
+
+    calcDots() {
+      this.state.dots = [];
+      return this.state.dots;
+    }
+    /**
+     *
+     * 计算4个顶点：
+     * - 相对于组件本地的坐标系，原点位于左上角，没有经过矩阵变换。
+     * - 返回值用于计算组件的原始 width/height 。
+     *
+     * @returns
+     */
+
+
+    calc4VertexPoints() {
+      let minX = 0;
+      let minY = 0;
+      let maxX = 0;
+      let maxY = 0;
+
+      for (let i = 0; i < this.state.dots.length; i++) {
+        let dot = this.state.dots[i];
+
+        if (i === 0) {
+          minX = dot[0];
+          maxX = dot[0];
+          minY = dot[1];
+          maxY = dot[1];
+        } else {
+          if (dot[0] < minX) {
+            minX = dot[0];
+          }
+
+          if (dot[0] > maxX) {
+            maxX = dot[0];
+          }
+
+          if (dot[1] < minY) {
+            minY = dot[1];
+          }
+
+          if (dot[1] > maxY) {
+            maxY = dot[1];
+          }
+        }
+      } //top-left point
+
+
+      const x1 = minX;
+      const y1 = minY; //top-right point
+
+      const x2 = maxX;
+      const y2 = minY; //bottom-left point
+
+      const x3 = minX;
+      const y3 = maxY; //bottom-right point
+
+      const x4 = maxX;
+      const y4 = maxY;
+      return [[x1, y1], [x2, y2], [x3, y3], [x4, y4]];
+    }
+
+    applyTransformToCtx() {
+      super.applyTransformToCtx();
+      const matrix = this.state.composedMatrix;
+      const dots = this.state.dots;
+      this.state.transformedDots = [];
+
+      for (let i = 0; i < dots.length; i++) {
+        const dot = dots[i];
+        const point = transformMat2d([], dot, matrix);
+        this.state.transformedDots.push(point);
+      }
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
+   * @class ICERect 矩形
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICERect extends ICEDotPath {
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        width: 10,
+        height: 10,
+        ...props
+      });
+    }
+    /**
+     * 计算路径上的关键点:
+     * - 默认的坐标原点是 (0,0) 位置。
+     * - 这些点没有经过 transform 矩阵变换。
+     * - this.calcOriginalDimension() 会依赖此方法，在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+     * @returns
+     */
+
+
+    calcDots() {
+      let point1 = [0, 0]; //top-left point
+
+      let point2 = [this.state.width, 0]; //top-right point
+
+      let point3 = [this.state.width, this.state.height]; //bottom-right point
+
+      let point4 = [0, this.state.height]; //bottom-left point
+
+      this.state.dots = [point1, point2, point3, point4];
+      return this.state.dots;
+    }
+
+  }
+
+  /**
+   * @class ICEGroup
+   *
+   * 容器型组件
+   *
+   * ICEGroup 可以包含自身，利用此组件可以构造出树形的对象结构。
+   *
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEGroup extends ICERect {
+    constructor(props) {
+      super(props);
+
+      _defineProperty(this, "parentNode", null);
+
+      _defineProperty(this, "childNodes", []);
+    }
+    /**
+     * !注意：在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。所以此时 child.root, child.ctx, child.evtBus 都可能为空。
+     * @param child
+     */
+
+
+    addChild(child) {
+      child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
+      this.childNodes.push(child);
+      child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
+    }
+
+    addChildren(arr) {
+      arr.forEach(child => {
+        this.addChild(child);
+      });
+    }
+
+    removeChild(child) {
+      child.destory();
+      this.childNodes.splice(this.childNodes.indexOf(child), 1);
+    }
+
+    removeChildren(arr) {
+      arr.forEach(child => {
+        this.removeChild(child);
+      });
+    }
+    /**
+     * @override
+     * @method destory
+     * 销毁组件
+     * - FIXME:立即停止组件上的所有动画效果
+     * - 需要清理绑定的事件
+     * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
+     */
+
+
+    destory() {
+      this.removeChildren(this.childNodes);
+      super.destory();
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
+   * @class ICEImage
+   * TODO:支持以下几种图片类型：jpg/jpeg/png/gif
+   * TODO:ICEImage 来源的几种方式
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEImage extends ICEComponent {
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        width: 100,
+        height: 100,
+        ...props
+      });
+    }
+    /**
+     * 空实现。
+     */
+
+
+    initEvents() {}
+
+    doRender() {
+      let img = new Image();
+      img.src = 'data:image/png;base64,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';
+      this.ctx.drawImage(img, 0 - this.state.localOrigin[0], 0 - this.state.localOrigin[1], this.state.width, this.state.height);
+      super.doRender();
+    }
+
+  }
+
+  /**
+   * Checks if `value` is `null` or `undefined`.
+   *
+   * @static
+   * @memberOf _
+   * @since 4.0.0
+   * @category Lang
+   * @param {*} value The value to check.
+   * @returns {boolean} Returns `true` if `value` is nullish, else `false`.
+   * @example
+   *
+   * _.isNil(null);
+   * // => true
+   *
+   * _.isNil(void 0);
+   * // => true
+   *
+   * _.isNil(NaN);
+   * // => false
+   */
+  function isNil(value) {
+    return value == null;
+  }
+
+  var isNil_1 = isNil;
+
   /** Used to match a single whitespace character. */
   var reWhitespace = /\s/;
 
@@ -3346,973 +4894,160 @@
   }
 
   /**
-   * @class ICEBoundingBox 用4点法描述的边界盒子。
-   *
-   * - 边界盒子一定是矩形。
-   * - 边界盒子总是绘制在全局坐标系中。
-   * - 边界盒子总是通过自身的坐标点进行变换，而不是变换 canvas.ctx 。
-   * - 边界盒子总是通过组件的参数计算出来的，直接修改边界盒子不影响组件本身的参数。
-   *
-   * TODO: Wrap up the original DOMPoint and DOMMatrix interfaces, add some util functions.
-   * @see https://developer.mozilla.org/en-US/docs/Web/API/DOMPoint
-   * @see https://developer.mozilla.org/en-US/docs/Web/API/DOMMatrix/DOMMatrix
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEBoundingBox {
-    //top-left
-    //top-right
-    //bottom-left
-    //bottom-right
-    //center-point
-    //FIXME:不使用 tl/tr/bl/br 固定4个顶点，顶点不定位
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-      _defineProperty(this, "tl", new DOMPoint());
-
-      _defineProperty(this, "tr", new DOMPoint());
-
-      _defineProperty(this, "bl", new DOMPoint());
-
-      _defineProperty(this, "br", new DOMPoint());
-
-      _defineProperty(this, "center", new DOMPoint());
-
-      this.tl = new DOMPoint(props[0], props[1]);
-      this.tr = new DOMPoint(props[2], props[3]);
-      this.bl = new DOMPoint(props[4], props[5]);
-      this.br = new DOMPoint(props[6], props[7]);
-      this.center = new DOMPoint(props[8], props[9]);
-    }
-    /**
-     * 从指定的 top/left/width/height 构建 ICEBoundingBox。
-     * @param left
-     * @param top
-     * @param width
-     * @param height
-     * @returns
-     */
-
-
-    static fromDimension(left, top, width, height) {
-      let tl = [left, top];
-      let tr = [left + width, top];
-      let bl = [left, top + height];
-      let br = [left + width, top + height];
-      let center = [left + width / 2, top + height / 2];
-      let paramArr = [...tl, ...tr, ...bl, ...br, ...center];
-      return new ICEBoundingBox(paramArr);
-    }
-
-    clone() {
-      const tl = DOMPoint.fromPoint(this.tl);
-      const tr = DOMPoint.fromPoint(this.tr);
-      const bl = DOMPoint.fromPoint(this.bl);
-      const br = DOMPoint.fromPoint(this.br);
-      const center = DOMPoint.fromPoint(this.center);
-      return new ICEBoundingBox([tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y, center.x, center.y]);
-    }
-    /**
-     * 判断指定的坐标点是否位于边界矩形内部，向右水平射线法。
-     * 这里参考了 fabricjs 的实现方式。
-     * @see http://fabricjs.com/
-     * @param point
-     * @returns
-     */
-
-
-    containsPoint(point) {
-      //只考虑凸包的情况：[x,y]有一个值位于最大最小值之外，则不可能包含在边界盒子内部。
-      const {
-        minX,
-        minY,
-        maxX,
-        maxY
-      } = this.getMinAndMaxPoint();
-
-      if (point.x < minX || point.x > maxX || point.y < minY || point.y > maxY) {
-        return false;
-      }
-
-      let xcount = 0; //交叉点个数
-
-      let xi; //交点的 x 坐标
-
-      const boudingLines = this.getBoundingLines();
-
-      for (let i = 0; i < boudingLines.length; i++) {
-        const line = boudingLines[i]; //特例1：点位于线段下方，水平射线不可能与线段交叉
-
-        if (point.y > line.o.y && point.y > line.d.y) {
-          continue;
-        } //特例2：点位于线段上方，水平射线不可能与线段交叉
-
-
-        if (point.y < line.o.y && point.y < line.d.y) {
-          continue;
-        }
-
-        if (line.o.x === line.d.x && line.o.x >= point.x) {
-          //特例3：处理垂直于 x 轴（平行于 y 轴）的特殊情况
-          xi = line.o.x;
-        } else {
-          //斜率法求向右的射线与线段的交点 x 坐标
-          const k = (line.d.y - line.o.y) / (line.d.x - line.o.x); //斜率
-
-          xi = line.o.x + (point.y - line.o.y) / k;
-        }
-
-        if (xi > point.x) {
-          //只处理向右侧的射线情况即可
-          xcount++;
-        }
-
-        if (xcount === 2) {
-          continue;
-        }
-      }
-
-      return xcount !== 0 && xcount % 2 === 1;
-    }
-    /**
-     * 获取边界盒子的边所构成的线段，由于边界盒子总是被定义成 4 边形，这里直接简化处理。
-     */
-
-
-    getBoundingLines() {
-      const line_1 = {
-        o: DOMPoint.fromPoint(this.tl),
-        d: DOMPoint.fromPoint(this.tr)
-      }; //o:origin, d:destination
-
-      const line_2 = {
-        o: DOMPoint.fromPoint(this.tr),
-        d: DOMPoint.fromPoint(this.br)
-      };
-      const line_3 = {
-        o: DOMPoint.fromPoint(this.br),
-        d: DOMPoint.fromPoint(this.bl)
-      };
-      const line_4 = {
-        o: DOMPoint.fromPoint(this.bl),
-        d: DOMPoint.fromPoint(this.tl)
-      };
-      return [line_1, line_2, line_3, line_4];
-    }
-    /**
-     * 获取边界盒子 x,y 的最大和最小值
-     * @returns
-     */
-
-
-    getMinAndMaxPoint() {
-      //取任意一个顶点坐标作为初始值，然后与其它3个顶点的坐标进行比较
-      let minX = this.tl.x;
-      let minY = this.tl.y;
-      let maxX = this.tl.x;
-      let maxY = this.tl.y;
-      const arr = [this.tr, this.bl, this.br];
-      arr.forEach(p => {
-        if (p.x < minX) {
-          minX = p.x;
-        }
-
-        if (p.x > maxX) {
-          maxX = p.x;
-        }
-
-        if (p.y < minY) {
-          minY = p.y;
-        }
-
-        if (p.y > maxY) {
-          maxY = p.y;
-        }
-      });
-      return {
-        minX,
-        minY,
-        maxX,
-        maxY
-      };
-    }
-    /**
-     * FIXME:需要实现
-     * 另一个边界盒子是否完全位于当前盒子内部。
-     * @param box
-     * @returns
-     */
-
-
-    containsBox(box) {
-      return false;
-    }
-    /**
-     * 是否与另一个盒子存在相交的部分。
-     * @param box
-     * @returns
-     */
-
-
-    isIntersect(box) {
-      let left1 = this.tl.x;
-      let right1 = this.br.x;
-      let top1 = this.tl.y;
-      let bottom1 = this.br.y;
-      let left2 = box.tl.x;
-      let right2 = box.br.x;
-      let top2 = box.tl.y;
-      let bottom2 = box.br.y;
-      let isIntersect = !(left1 > right2 || top1 > bottom2 || right1 < left2 || bottom1 < top2);
-      return isIntersect;
-    }
-    /**
-     * @param matrix
-     * @returns A new ICEBoundingBox instance.
-     */
-
-
-    transform(matrix) {
-      const tl = DOMPoint.fromPoint(this.tl).matrixTransform(matrix);
-      const tr = DOMPoint.fromPoint(this.tr).matrixTransform(matrix);
-      const bl = DOMPoint.fromPoint(this.bl).matrixTransform(matrix);
-      const br = DOMPoint.fromPoint(this.br).matrixTransform(matrix);
-      const center = DOMPoint.fromPoint(this.center).matrixTransform(matrix);
-      return new ICEBoundingBox([tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y, center.x, center.y]);
-    }
-    /**
-     * @param box
-     * @returns A new ICEBoundingBox instance.
-     */
-
-
-    union(box) {
-      return null;
-    }
-
-    get width() {
-      return GeoUtil.getLength(this.br.x, this.br.y, this.bl.x, this.bl.y);
-    }
-
-    get height() {
-      return GeoUtil.getLength(this.br.x, this.br.y, this.tr.x, this.tr.y);
-    }
-
-    get left() {
-      return this.tl.x;
-    } //不允许设置 left 参数
-
-
-    set left(num) {
-      throw new Error('Can not set left to ICEBoundingBox directly.');
-    }
-
-    get top() {
-      return this.tl.y;
-    } //不允许设置 top 参数
-
-
-    set top(num) {
-      throw new Error('Can not set top to ICEBoundingBox directly.');
-    }
-
-    get centerX() {
-      return this.center.x;
-    }
-
-    get centerY() {
-      return this.center.y;
-    }
-
-    get centerPoint() {
-      return this.center;
-    }
-
-  }
-
-  /**
    * Copyright (c) 2022 大漠穷秋.
    *
    * This source code is licensed under the MIT license found in the
    * LICENSE file in the root directory of this source tree.
    *
    */
-  //FIXME:包装 DOMMatrix，进行兼容处理。
-  //! W3C 原生的 DOMPoint, DOMMatrix 存在严重的兼容性问题和性能问题
-  //https://developer.mozilla.org/en-US/docs/Web/API/DOMMatrix
-  //DOMMatrix 类的浏览器兼容性：https://caniuse.com/?search=dommatrix
-  class ICEMatrix {
-    constructor() {}
-    /**
-     * 从变换矩阵计算旋转角度。
-     * @param matrix
-     * @returns 角度
-     */
-
-
-    static calcRotateAngleFromMatrix(matrix) {
-      let radians = 0;
-      let {
-        a,
-        b
-      } = matrix;
-      const temp = Math.hypot(a, b);
-      let sin = b / temp;
-      let cos = a / temp;
-      radians = Math.acos(cos);
-
-      if (sin < 0) {
-        radians += Math.PI / 2;
-      }
-
-      return radians * (180 / Math.PI);
-    }
-    /**
-     * 从变换矩阵计算缩放参数。
-     * @param matrix
-     * @returns 缩放数组
-     */
-
-
-    static calcScaleFromMatrix(matrix) {
-      const scaleX = Math.hypot(matrix.a, matrix.b) / matrix.a;
-      const scaleY = Math.hypot(matrix.c, matrix.d) / matrix.d;
-      return [scaleX, scaleY];
-    }
-
-  }
-
   /**
-   * @class ICEComponent
    *
-   * 最顶级的抽象类，Canvas 内部所有可见的组件都是它的子类。
+   * @class ICEPolyLine
    *
-   * @abstract
+   * 折线
+   *
+   * 基本特征：
+   *
+   * - ICEPolyLine 由多个点构成，如果折线上的所有点共线，则折线在外观上退化成直线。
+   * - ICEPolyLine 上至少存在 2 个点，否则无法画线。如果点数恰好为 2 ，折线退化成一条直线。
+   * - ICEPolyLine 以及所有子类不能进行 transform 操作。
+   * - ICEPolyLine 以及所有子类的 left/top 总是被设置为 startPoint 。
+   * - ICEPolyLine 以及所有子类的原点都在 startPoint 上，而不在几何中心点。
+   *
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
-  class ICEComponent extends ICEEventTarget {
-    //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
-    //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。
-    //当对象被添加到 canvas 中时，ICE 会自动设置 ctx 的值，没有被添加到 canvas 中的对象 ctx 为 null 。
-    //事件总线， evtBus 在 render() 方法被调用时才会被设置，在被渲染出来之前，evtBus 为 null 。
-    //所有组件都有父组件，但不一定都有子组件，只有容器型的组件才有子组件。如果父组件为 null ，说明直接添加在 canvas 中。
-    //静态属性，实例计数器
 
+  class ICEPolyLine extends ICEDotPath {
     /**
+     * FIXME:编写完整的配置项描述
      * @cfg
      * {
-     *   id: 'ICE_' + Math.floor(Math.random() * 10000000000),   //全局唯一，跨机器，跨时间
-     *   left: 0,                                                //x 坐标相对于父组件的偏移量
-     *   top: 0,                                                 //y 坐标相对于父组件的偏移量
-     *   width: 0,                                               //原始宽度，没有经过变换
-     *   height: 0,                                              //原始高度，没有经过变换
-     *   style: { fillStyle: 'red', strokeStyle: 'blue', lineWidth: 1 },
-     *   animations: {},
-     *   transform: {                                            //组件自身的变换参数，不包含父组件
-     *     translate: [0, 0],
-     *     scale: [1, 1],
-     *     skew: [0, 0],
-     *     rotate: 0,     //角度
-     *   },
-     *   translationMatrix: new DOMMatrix(),          //平移变换矩阵
-     *   linearMatrix: new DOMMatrix(),               //线性变换矩阵，不含平移
-     *   composedMatrix: new DOMMatrix(),             //复合变换矩阵，包含所有祖先节点的平移、原点移动、线性变换计算，composedMatrix 不会实时更新，如果需要获取当前最新的变换矩阵，需要调用 composeMatrix() 方法。
-     *   origin:'localCenter',
-     *   localOrigin: new DOMPoint(0, 0),             //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
-     *   absoluteOrigin: new DOMPoint(0, 0),          //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
-     *   zIndex: ICEComponent.instanceCounter++,  //类似于 CSS 中的 zIndex
-     *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
-     *   draggable:true,                              //是否可以拖动
-     *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
-     *   linkable:true,                               //组件是否可以用连接线连接起来，如果此状态为 true ，ICELinkSlotManager 在运行时会动态在组件上创建连接插槽 ICELinkSlot 的实例
-     *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable TODO:动画运行过程中不允许选中，不能进行交互？？？
-     *   showMinBoundingBox:true,                     //是否显示最小包围盒，开发时打开，主要用于 debug
-     *   showMaxBoundingBox:true,                     //是否显示最大包围盒，开发时打开，主要用于 debug
+     *  lineType: 'solid', //solid, dashed
+     *  lineWidth:2,
+     *  arrow: 'none',     //none, start, end ,both
+     *  closePath:false,
+     *  points:[],         //点的坐标
      * }
+     *
      * @param props
-     */
-
-    /**
-     * 在 ICE 引擎中，所有对象都可以启用动画效果，所以对象的 state 随时可能发生变化。
-     * props 与 state 之间的关系与行为模式借鉴自 React 框架，概念模型完全一致。
-     * @see https://reactjs.org/docs/components-and-props.html
      */
     constructor() {
       let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super();
+      let param = ICEPolyLine.arrangeParam(props);
+      super(param);
+    }
+    /**
+     *
+     * 整理并校验构造参数。
+     *
+     * @static
+     * @param props
+     * @returns
+     */
 
-      _defineProperty(this, "ice", void 0);
 
-      _defineProperty(this, "root", void 0);
+    static arrangeParam(props) {
+      //dots 是内部计算使用的属性，外部传参用 points 属性
+      //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
+      let param = merge_1({
+        linkable: false,
+        //所有线条类型的组件 linkable 都为 false ，因为在 ICE 中，用线条连接线条是没有意义的，线条之间不能互相连接。
+        lineType: 'solid',
+        lineWidth: 2,
+        arrow: 'none',
+        closePath: false,
+        points: [],
+        showMinBoundingBox: false,
+        showMaxBoundingBox: false
+      }, props); //至少有2个点，如果点数少于2个，自动填充。
 
-      _defineProperty(this, "ctx", void 0);
+      let len = param.points.length;
 
-      _defineProperty(this, "evtBus", void 0);
+      if (len < 2) {
+        if (len === 0) {
+          param.points.push([0, 0]);
+          param.points.push([10, 10]);
+        } else if (len === 1) {
+          param.points.push([10, 10]);
+        }
+      } //ICEPolyLine 的参数需要特殊处理，总是把 left/top 移动到第 0 个点的位置，外部传递的 left/top ， translate[0]/translate[1] 都无效。
 
-      _defineProperty(this, "parentNode", void 0);
 
-      _defineProperty(this, "props", {
-        id: 'ICE_' + v4(),
-        left: 0,
-        top: 0,
-        width: 0,
-        height: 0,
-        style: {
-          fillStyle: 'red',
-          strokeStyle: 'blue',
-          lineWidth: 1
-        },
-        animations: {},
+      param = merge_1(param, {
+        left: props.points[0][0],
+        top: props.points[0][1],
         transform: {
           translate: [0, 0],
           scale: [1, 1],
           skew: [0, 0],
           rotate: 0 //degree
 
-        },
-        translationMatrix: new DOMMatrix(),
-        linearMatrix: new DOMMatrix(),
-        composedMatrix: new DOMMatrix(),
-        origin: 'localCenter',
-        localOrigin: new DOMPoint(0, 0),
-        absoluteOrigin: new DOMPoint(0, 0),
-        zIndex: ICEComponent.instanceCounter++,
-        display: true,
-        draggable: true,
-        transformable: true,
-        interactive: true,
-        linkable: true,
-        showMinBoundingBox: true,
-        showMaxBoundingBox: true
-      });
+        }
+      }); //保证 lineWidth 不小于0
 
-      _defineProperty(this, "state", { ...this.props
-      });
+      if (param.style.lineWidth <= 0) {
+        param.style.lineWidth = 2;
+      }
 
-      this.props = merge_1(this.props, props);
-      this.state = JSON.parse(JSON.stringify(this.props));
-      this.initEvents();
+      return param;
     }
     /**
-     * 子类需要提供自己的实现。
-     */
-
-
-    initEvents() {}
-    /**
-     * !Important: 核心方法，FrameManager 会调度此方法进行实际的渲染操作。
-     * !Important: 这些方法调用有顺序
-     */
-
-
-    render() {
-      this.calcOriginalDimension();
-      this.applyStyle();
-      this.applyTransformToCtx();
-      this.doRender();
-      this.ctx.setTransform(new DOMMatrix());
-    }
-
-    applyStyle() {
-      Object.assign(this.ctx, { ...this.props.style,
-        ...this.state.style
-      });
-    }
-    /**
-     * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
-     * 此方法不能依赖原点位置和 transform 矩阵。
-     * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
-     * @returns
-     */
-
-
-    calcOriginalDimension() {
-      return {
-        width: this.state.width,
-        height: this.state.height
-      };
-    }
-    /**
-     * 计算本地原点坐标，相对于组件本地坐标系。
-     * 此方法依赖于 width/height ，需要先计算组件的尺寸，然后才能调用此方法。
+     * ICEPolyLine 有自己的特殊处理，它的原点永远在 (0,0) 位置，而不在几何中点。
+     * @overwrite
      * @returns
      */
 
 
     calcLocalOrigin() {
-      let point = new DOMPoint(0, 0);
-      let position = this.state.origin;
-
-      if (!position || position === 'localCenter') {
-        let halfWidth = this.state.width / 2;
-        let halfHeight = this.state.height / 2;
-        point.x = halfWidth;
-        point.y = halfHeight;
-      } //FIXME:计算原点位于其它位置的情况
-
-
+      let point = [0, 0];
       this.state.localOrigin = point;
       return point;
     }
     /**
-     * 根据原点位置描述计算原点坐标值。
-     * 移动坐标原点后，组件内部所有的坐标点数值、边界盒子的坐标，都会受到影响。
-     * 计算出的原点数值已经包含了所有父层的移位和变换。
-     * @method calcAbsoluteOrigin
-     */
-
-
-    calcAbsoluteOrigin() {
-      let tx = get_1(this, 'state.transform.translate.0') + this.state.left;
-      let ty = get_1(this, 'state.transform.translate.1') + this.state.top;
-      let point = DOMPoint.fromPoint(this.calcLocalOrigin());
-      point.x += tx;
-      point.y += ty;
-
-      if (this.parentNode) {
-        let pLocalX = this.parentNode.state.localOrigin.x;
-        let pLocalY = this.parentNode.state.localOrigin.y;
-        point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, -pLocalX, -pLocalY]));
-        let pcm = this.parentNode.state.composedMatrix;
-        point = point.matrixTransform(pcm);
-      }
-
-      this.state.absoluteOrigin = point;
-      return point;
-    }
-    /**
-     * 计算线性变换矩阵，此矩阵不包含平移操作。
-     * 线性变换顺序：旋转->错切->缩放
-     * 由于矩阵变换有顺序，这里采用符合自然理解的顺序进行。
-     * @method calcLinearMatrix
-     * @returns DOMMatrix
-     */
-
-
-    calcLinearMatrix() {
-      let matrix = new DOMMatrix(); //step1: skew
-      //DOMMatrix.skeXSelf 方法的参数是角度值，不是百分比。 @see https://drafts.fxtf.org/geometry/#DOMMatrix
-
-      const skewX = get_1(this, 'state.transform.skew.0');
-      const skewY = get_1(this, 'state.transform.skew.1');
-      matrix.skewXSelf(skewX);
-      matrix.skewYSelf(skewY); //step2: rotate
-
-      let angle = get_1(this, 'state.transform.rotate');
-      matrix.rotateSelf(angle); //step3: scale
-
-      const scaleX = get_1(this, 'state.transform.scale.0');
-      const scaleY = get_1(this, 'state.transform.scale.1');
-      matrix.scaleSelf(scaleX, scaleY);
-      this.state.linearMatrix = matrix;
-      return matrix;
-    }
-    /**
-     * 复合所有祖先节点的线性变换矩阵，获得相对于全局 canvas 对象的变换矩阵。
-     * @returns
-     */
-
-
-    calcAbsoluteLinearMatrix() {
-      let component = this;
-      let matrix = DOMMatrix.fromMatrix(component.calcLinearMatrix());
-
-      while (component.parentNode) {
-        matrix.multiplySelf(component.parentNode.state.linearMatrix);
-        component = component.parentNode;
-      }
-
-      this.state.absoluteLinearMatrix = DOMMatrix.fromMatrix(matrix);
-      return matrix;
-    }
-    /**
-     * 仿射变换由2步完成：
-     * - ctx 平移到指定的原点。
-     * - ctx 进行线性变换。
-     *
-     * Canvas 绘图过程中的仿射变换动作与线性代数中的规则有差异：
-     * - Canvas 的 Y 坐标轴方向是向下的。
-     * - Canvas 在做仿射变换时，变换的是 ctx 本身，而不是组件对象，相当于画布本身是具有弹性的可变形对象。
-     *
-     * @method composeMatrix
-     * @returns DOMMatrix
-     */
-
-
-    composeMatrix() {
-      //step-1: 移动到指定原点（全局坐标系）。
-      let origin = this.calcAbsoluteOrigin();
-      let translationMatrix = new DOMMatrix([1, 0, 0, 1, origin.x, origin.y]); //step-2: 计算线性变换矩阵，包含了所有祖先节点的线性变换。
-
-      let linearMatrix = this.calcAbsoluteLinearMatrix(); //step-3: 计算综合变换矩阵，相当于先在 canvas 默认原点（左上角位置）进行变换，然后在平移到计算出的原点位置。
-
-      let composedMatrix = translationMatrix.multiplySelf(linearMatrix);
-      this.state.composedMatrix = DOMMatrix.fromMatrix(composedMatrix);
-      return composedMatrix;
-    }
-    /**
-     * 把变换矩阵应用到 this.ctx 上
-     */
-
-
-    applyTransformToCtx() {
-      this.ctx.setTransform(this.composeMatrix());
-    }
-    /**
-     * 所有子类都应该提供具体的实现。
-     * @method doRender
-     */
-
-
-    doRender() {
-      if (this.state.showMinBoundingBox) {
-        let minBox = this.getMinBoundingBox();
-        this.ctx.setTransform(new DOMMatrix());
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeStyle = '#ff0000';
-        this.ctx.fillStyle = 'rgba(0,0,0,0)';
-        this.ctx.beginPath();
-        this.ctx.moveTo(minBox.tl.x, minBox.tl.y);
-        this.ctx.lineTo(minBox.tr.x, minBox.tr.y);
-        this.ctx.lineTo(minBox.br.x, minBox.br.y);
-        this.ctx.lineTo(minBox.bl.x, minBox.bl.y);
-        this.ctx.closePath();
-        this.ctx.stroke();
-        this.ctx.fill();
-      }
-
-      if (this.state.showMaxBoundingBox) {
-        let maxBox = this.getMaxBoundingBox();
-        this.ctx.setTransform(new DOMMatrix());
-        this.ctx.lineWidth = 1;
-        this.ctx.strokeStyle = '#0000ff';
-        this.ctx.fillStyle = 'rgba(0,0,0,0)';
-        this.ctx.beginPath();
-        this.ctx.moveTo(maxBox.tl.x, maxBox.tl.y);
-        this.ctx.lineTo(maxBox.tr.x, maxBox.tr.y);
-        this.ctx.lineTo(maxBox.br.x, maxBox.br.y);
-        this.ctx.lineTo(maxBox.bl.x, maxBox.bl.y);
-        this.ctx.closePath();
-        this.ctx.stroke();
-        this.ctx.fill();
-      }
-    }
-    /**
-     * 获取组件的最小包围盒，此盒子的变换矩阵与组件自身完全相同。
-     * 此方法需要在 render() 之后调用，组件没有渲染时无法计算最小包围盒。
-     * @returns
-     */
-
-
-    getMinBoundingBox() {
-      //先基于组件本地坐标系进行计算
-      let originX = this.state.localOrigin.x;
-      let originY = this.state.localOrigin.y;
-      let width = this.state.width;
-      let height = this.state.height;
-      let boundingBox = new ICEBoundingBox([0 - originX, 0 - originY, 0 - originX + width, 0 - originY, 0 - originX, 0 - originY + height, 0 - originX + width, 0 - originY + height, 0, 0]); //再用 composedMatrix 进行变换
-
-      boundingBox = boundingBox.transform(this.composeMatrix());
-      return boundingBox;
-    }
-    /**
-     * 获取组件的最大包围盒：
-     * - 盒子保持水平和竖直，不旋转、不错切。
-     * - 盒子的4边在全局坐标 X/Y 轴上的投影范围与组件完全一致。
-     * @returns
-     */
-
-
-    getMaxBoundingBox() {
-      let boundingBox = this.getMinBoundingBox();
-      let {
-        minX,
-        minY,
-        maxX,
-        maxY
-      } = boundingBox.getMinAndMaxPoint();
-      let center = boundingBox.centerPoint;
-      boundingBox = new ICEBoundingBox([minX, minY, maxX, minY, minX, maxY, maxX, maxY, center.x, center.y]);
-      return boundingBox;
-    }
-    /**
-     * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
-     * @param newState
-     */
-
-
-    setState(newState) {
-      merge_1(this.state, newState);
-
-      if (this.ice) {
-        this.ice._dirty = true;
-      }
-    }
-    /**
-     * 相对于父组件的坐标系和原点。
-     * @param left
-     * @param top
-     * @param evt
-     */
-
-
-    setPosition(left, top) {
-      let evt = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : new ICEEvent();
-      this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_MOVE, { ...evt,
-        left,
-        top
-      });
-      this.setState({
-        left,
-        top
-      });
-      this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, { ...evt,
-        left,
-        top
-      });
-    }
-    /**
-     * 在全局空间(canvas)中移动指定的位移。
-     * 注意：此方法用于直接设置组件在全局空间中的位移，而不是相对于其它坐标系。
-     * @param tx
-     * @param ty
-     * @param evt
-     */
-
-
-    moveGlobalPosition(tx, ty) {
-      let evt = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : new ICEEvent();
-
-      //如果组件存在嵌套，需要先用逆矩阵抵消所有祖先节点 transform 导致的坐标偏移。
-      if (this.parentNode) {
-        let point = new DOMPoint(tx, ty);
-        let matrix = this.parentNode.state.absoluteLinearMatrix.inverse();
-        point = point.matrixTransform(matrix);
-        tx = point.x;
-        ty = point.y;
-      }
-
-      this.setPosition(this.state.left + tx, this.state.top + ty, { ...evt,
-        tx,
-        ty
-      });
-    }
-    /**
-     * 直接设置在全局空间 (canvas) 中的位置。
-     * 注意：此方法用于直接设置组件在全局空间中的位置，而不是相对于其它坐标系。
-     * @param left
-     * @param top
-     * @param evt
-     */
-
-
-    setGlobalPosition(left, top) {
-      let evt = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : new ICEEvent();
-
-      //如果组件存在嵌套，需要先用逆矩阵抵消所有祖先节点 transform 导致的坐标偏移。
-      if (this.parentNode) {
-        let point = new DOMPoint(left, top);
-        let matrix = this.parentNode.state.absoluteLinearMatrix.inverse();
-        point = point.matrixTransform(matrix);
-        left = point.x;
-        top = point.y;
-      }
-
-      this.setPosition(left, top, { ...evt,
-        left,
-        top
-      });
-    }
-    /**
-     * 在全局空间(canvas)中旋转指定的角度。
-     * 注意：此方法用于直接设置组件在全局空间中的旋转角，而不是相对于其它坐标系。
-     * @param rotateAngle
-     */
-
-
-    setGlobalRotate(rotateAngle) {
-      if (this.parentNode) {
-        //组件存在嵌套的情况下，减掉所有祖先节点旋转角的总和。
-        let matrix = this.parentNode.state.absoluteLinearMatrix;
-        let angle = ICEMatrix.calcRotateAngleFromMatrix(matrix);
-        rotateAngle -= angle;
-      }
-
-      this.setState({
-        transform: {
-          rotate: rotateAngle
-        }
-      });
-    }
-    /**
-     * 组件局部坐标系中的点转换成全局空间(canvas)中的点，包含移动原点的操作。
-     * @param localX
-     * @param localY
-     * @returns
-     */
-
-
-    localToGlobal(localX, localY) {
-      let point = new DOMPoint(localX, localY);
-      let matrix = this.state.composedMatrix;
-      point = point.matrixTransform(matrix);
-      return point;
-    }
-    /**
-     * 全局空间(canvas)中的点转换成组件局部坐标系中的点，包含移动原点的操作。
-     * @param globalX
-     * @param globalY
-     * @returns
-     */
-
-
-    globalToLocal(globalX, globalY) {
-      let point = new DOMPoint(globalX, globalY);
-      let matrix = this.state.composedMatrix.inverse();
-      point = point.matrixTransform(matrix);
-      return point;
-    }
-    /**
-     * 根据变换矩阵计算组件在全局空间(canvas)中的旋转角度。
-     * @returns
-     */
-
-
-    getRotateAngle() {
-      let matrix = this.state.composedMatrix;
-      return ICEMatrix.calcRotateAngleFromMatrix(matrix);
-    }
-
-    getLocalLeftTop() {
-      let box = this.getMinBoundingBox();
-      let width = box.width;
-      let height = box.height;
-      let left = box.centerX - box.width / 2;
-      let top = box.centerY - box.height / 2;
-      return {
-        left,
-        top,
-        width,
-        height
-      };
-    }
-
-    containsPoint(x, y) {
-      return this.getMinBoundingBox().containsPoint(new DOMPoint(x, y));
-    }
-    /**
-     * @method destory
-     * 销毁组件
-     * - FIXME:立即停止组件上的所有动画效果
-     * - 需要清理绑定的事件
-     * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
-     */
-
-
-    destory() {
-      this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, {
-        component: this
-      });
-      this.purgeEvents();
-      this.ice = null;
-      this.ctx = null;
-      this.root = null;
-      this.evtBus = null;
-      this.parentNode = null;
-    }
-
-  }
-
-  _defineProperty(ICEComponent, "instanceCounter", 0);
-
-  /**
-   * @class ICEPath
-   *
-   * 路径
-   *
-   * @abstract
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEPath extends ICEComponent {
-    /**
-     * @cfg
-     * {
-     *   dots:Array<DOMPoint>  //可选参数，路径上的点。
-     * }
-     * @param props
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        closePath: true,
-        ...props
-      });
-
-      _defineProperty(this, "path2D", new Path2D());
-    }
-    /**
-     * @method doRender
+     * ICEPolyLine 有自己特殊的计算方式：
+     * - 原点总是放在 startPoint 的位置。
+     * - 数值相对于组件本地坐标系进行计算。
      * @overwrite
+     * @returns
      */
 
 
-    doRender() {
-      //创建 Path2D 对象，doRender() 方法仅创建对象实例，不会立即绘制到画布上，绘制过程由 FrameManager 进行调度。
-      //@see FrameManager.ts
-      //@see https://developer.mozilla.org/en-US/docs/Web/API/Path2D/Path2D
-      this.createPathObject();
-      this.ctx.beginPath();
-
-      if (this.state.closePath) {
-        this.ctx.fill(this.path2D);
-      }
-
-      this.ctx.stroke(this.path2D);
-      super.doRender();
+    calcDots() {
+      let left = this.state.left;
+      let top = this.state.top;
+      this.state.dots = [];
+      this.state.points.forEach(p => {
+        let x = p[0] - left;
+        let y = p[1] - top;
+        this.state.dots.push([x, y]);
+      });
+      return this.state.dots;
     }
     /**
-     * @method createPathObject
-     * 创建路径对象，子类需要提供具体实现。
+     * 动态向线条上增加一个点
+     * @param point
+     * @param index
      */
 
 
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  /**
-   * @class ICEDotPath
-   *
-   * 基于一系列点进行绘制的路径。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEDotPath extends ICEPath {
+    addDot(point, index) {
+      this.state.points.splice(index, 0, point);
+      this.state.dots.splice(index, 0, [point[0], point[1]]);
+    }
     /**
-     * FIXME:编写完整的配置项描述
-     * @cfg
-     * {
-     *
-     * }
-     *
-     * @param props
+     * 从线条上删掉一个点，如果线条上的点数已经小于等于 2 ，则什么都不做。
+     * @param index
      */
-    constructor(props) {
-      //dots 是内部计算使用的属性
-      super({
-        dots: [],
-        transformedDots: [],
-        closePath: true,
-        ...props
-      });
+
+
+    rmDot(index) {
+      if (this.state.points.length < 3) {
+        return false;
+      }
+
+      this.state.points.splice(index, 1);
+      this.state.dots.splice(index, 1);
+      return true;
     }
     /**
      * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
@@ -4324,252 +5059,261 @@
 
 
     calcOriginalDimension() {
-      //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
       this.calcDots();
-      let points = this.calc4VertexPoints();
-      let width = Math.abs(points[1].x - points[0].x); //maxX-minX
+      let points = this.calc4VertexPoints(); //最小包围盒的4个顶点
 
-      let height = Math.abs(points[2].y - points[0].y); //maxY-minY
+      let width = Math.abs(points[1][0] - points[0][0]); //maxX-minX
 
-      this.state.width = width;
-      this.state.height = height;
-      return {
-        width: this.state.width,
-        height: this.state.height
-      };
-    }
-    /**
-     * 点状路径在重新计算本地原点坐标之后，需要移动内部所有点的位置。
-     * @overwrite
-     * @returns
-     */
+      let height = this.state.style.lineWidth; //先进行共线判断，如果所有点都在同一条直线上，那么边界盒子的整体高度就等于线条的粗细
 
+      if (this.isDotsOnSameLine()) {
+        this.state.width = width;
+        this.state.height = height;
+        return {
+          width: this.state.width,
+          height: this.state.height
+        };
+      } else {
+        height = Math.abs(points[2][1] - points[0][1]); //maxY-minY
 
-    calcLocalOrigin() {
-      let origin = super.calcLocalOrigin();
-
-      for (let i = 0; i < this.state.dots.length; i++) {
-        let dot = this.state.dots[i];
-        dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -origin.x, -origin.y]));
-        this.state.dots[i] = dot;
+        this.state.width = width;
+        this.state.height = height;
+        return {
+          width: this.state.width,
+          height: this.state.height
+        };
       }
-
-      return origin;
     }
     /**
+     * 进行共线判断，如果所有点都在同一条直线上，那么边界盒子的整体高度就等于线条的粗细
      * @returns
      */
 
 
-    createPathObject() {
-      this.path2D = new Path2D();
+    isDotsOnSameLine() {
+      let len = this.state.points.length;
+      let startX = round_1(this.state.points[0][0], 2);
+      let startY = round_1(this.state.points[0][1], 2);
+      let endX = round_1(this.state.points[len - 1][0], 2);
+      let endY = round_1(this.state.points[len - 1][1], 2);
+      let counter = 0;
+      let vector1 = [endX - startX, endY - startY]; //起点和终点构成的向量坐标
 
-      for (let i = 0; i < this.state.dots.length; i++) {
-        const dot = this.state.dots[i];
+      for (let i = 0; i < len; i++) {
+        let p = this.state.points[i];
+        let vector2 = [p[0] - startX, p[1] - startY];
+        let crossProduct = GeoUtil.crossProduct(vector1[0], vector1[1], vector2[0], vector2[1]);
 
-        if (i === 0) {
-          this.path2D.moveTo(dot.x, dot.y);
-        } else {
-          this.path2D.lineTo(dot.x, dot.y);
+        if (crossProduct === 0) {
+          counter++;
         }
+      } //折线上的所有点都共线，外观上已经退化成一条直线
+
+
+      if (counter === len) {
+        return true;
       }
 
-      if (this.state.closePath) {
-        this.path2D.closePath();
-      }
-
-      return this.path2D;
+      return false;
     }
     /**
-     * 计算路径上的关键点:
-     * - 默认的坐标原点是 (0,0) 位置。
-     * - 这些点没有经过 transform 矩阵变换。
-     * this.calcOriginalDimension() 会依赖此方法，在计算尺寸时还没有确定原点坐标，所以 calcDots() 方法内部不能依赖原点坐标，只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
-     * @returns
-     */
-
-
-    calcDots() {
-      this.state.dots = [];
-      return this.state.dots;
-    }
-    /**
-     *
      * 计算4个顶点：
      * - 相对于组件本地的坐标系，原点位于左上角，没有经过矩阵变换。
      * - 返回值用于计算组件的原始 width/height 。
-     *
-     * @returns Array<DOMPoint>
+     * @returns
      */
 
 
     calc4VertexPoints() {
-      let minX = 0;
-      let minY = 0;
-      let maxX = 0;
-      let maxY = 0;
-
-      for (let i = 0; i < this.state.dots.length; i++) {
-        let point = this.state.dots[i];
-
-        if (i === 0) {
-          minX = point.x;
-          maxX = point.x;
-          minY = point.y;
-          maxY = point.y;
-        } else {
-          if (point.x < minX) {
-            minX = point.x;
-          }
-
-          if (point.x > maxX) {
-            maxX = point.x;
-          }
-
-          if (point.y < minY) {
-            minY = point.y;
-          }
-
-          if (point.y > maxY) {
-            maxY = point.y;
-          }
-        }
-      } //top-left point
-
-
-      const x1 = minX;
-      const y1 = minY; //top-right point
-
-      const x2 = maxX;
-      const y2 = minY; //bottom-left point
-
-      const x3 = minX;
-      const y3 = maxY; //bottom-right point
-
-      const x4 = maxX;
-      const y4 = maxY;
-      return [new DOMPoint(x1, y1), new DOMPoint(x2, y2), new DOMPoint(x3, y3), new DOMPoint(x4, y4)];
-    }
-
-    applyTransformToCtx() {
-      super.applyTransformToCtx();
-      const matrix = this.state.composedMatrix;
-      const dots = this.state.dots;
-      this.state.transformedDots = [];
-
-      for (let i = 0; i < dots.length; i++) {
-        const dot = dots[i];
-        const point = DOMPoint.fromPoint(dot).matrixTransform(matrix);
-        this.state.transformedDots.push(point);
+      if (this.isDotsOnSameLine()) {
+        return this.splitEndpointsTo4Points();
+      } else {
+        return super.calc4VertexPoints();
       }
     }
-
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  /**
-   * @class ICERect 矩形
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICERect extends ICEDotPath {
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        width: 10,
-        height: 10,
-        ...props
-      });
-    }
     /**
-     * 计算路径上的关键点:
-     * - 默认的坐标原点是 (0,0) 位置。
-     * - 这些点没有经过 transform 矩阵变换。
-     * - this.calcOriginalDimension() 会依赖此方法，在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+     * 把直线的2个端点分裂成4个点，把线条的粗细参数(lineWidth)当成高度看待，方便计算最小包围盒。
      * @returns
      */
 
 
-    calcDots() {
-      let point1 = new DOMPoint(0, 0); //top-left point
+    splitEndpointsTo4Points() {
+      let len = this.state.points.length;
+      let startX = 0; //由于 ICEPolyLine 总是把 left/top 与起点重合，所以这里的 startX 总是为 0
 
-      let point2 = new DOMPoint(this.state.width, 0); //top-right point
+      let startY = 0; //由于 ICEPolyLine 总是把 left/top 与起点重合，所以这里的 startY 总是为 0
 
-      let point3 = new DOMPoint(this.state.width, this.state.height); //bottom-right point
+      let endX = this.state.points[len - 1][0] - this.state.points[0][0];
+      let endY = this.state.points[len - 1][1] - this.state.points[0][1];
+      let angle = this.getRotateAngle();
+      let height = this.state.height;
+      let deltaX = Math.cos(angle * Math.PI / 180) * height / 2;
+      let deltaY = Math.sin(angle * Math.PI / 180) * height / 2;
+      deltaX = round_1(deltaX, 3);
+      deltaY = round_1(deltaY, 3); //计算4个顶点，让边界盒子紧贴直线
 
-      let point4 = new DOMPoint(0, this.state.height); //bottom-left point
-
-      this.state.dots = [point1, point2, point3, point4];
-      return this.state.dots;
-    }
-
-  }
-
-  /**
-   * @class ICEGroup
-   *
-   * 容器型组件
-   *
-   * ICEGroup 可以包含自身，利用此组件可以构造出树形的对象结构。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEGroup extends ICERect {
-    constructor(props) {
-      super(props);
-
-      _defineProperty(this, "parentNode", null);
-
-      _defineProperty(this, "childNodes", []);
+      let point1 = [startX + deltaX, startY + deltaY];
+      let point2 = [startX - deltaX, startY - deltaY];
+      let point3 = [endX + deltaX, endY + deltaY];
+      let point4 = [endX - deltaX, endY - deltaY];
+      return [point1, point2, point3, point4];
     }
     /**
-     * !注意：在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。所以此时 child.root, child.ctx, child.evtBus 都可能为空。
-     * @param child
+     * 获取组件的最小包围盒，此盒子的变换矩阵与组件自身完全相同。
+     * @returns
      */
 
 
-    addChild(child) {
-      child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
-      this.childNodes.push(child);
-      child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
-    }
+    getMinBoundingBox() {
+      //先基于组件本地坐标系进行计算
+      let originX = this.state.localOrigin[0];
+      let originY = this.state.localOrigin[1];
+      let points = this.calc4VertexPoints();
+      let boundingBox = new ICEBoundingBox([points[0][0] - originX, points[0][1] - originY, points[1][0] - originX, points[1][1] - originY, points[2][0] - originX, points[2][1] - originY, points[3][0] - originX, points[3][1] - originY, 0, 0]); //再用 composedMatrix 进行变换
 
-    addChildren(arr) {
-      arr.forEach(child => {
-        this.addChild(child);
-      });
-    }
-
-    removeChild(child) {
-      child.destory();
-      this.childNodes.splice(this.childNodes.indexOf(child), 1);
-    }
-
-    removeChildren(arr) {
-      arr.forEach(child => {
-        this.removeChild(child);
-      });
+      boundingBox = boundingBox.transform(this.state.composedMatrix);
+      return boundingBox;
     }
     /**
-     * @override
-     * @method destory
-     * 销毁组件
-     * - FIXME:立即停止组件上的所有动画效果
-     * - 需要清理绑定的事件
-     * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
+     * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
+     *
+     * ICEPolyLine 有自己特殊的处理方法：
+     *
+     * - ICEPolyLine 的 width/height 属性总是计算出来的，不能直接修改，不接受 width/height 配置项。
+     * - ICEPolyLine ICEPolyLine 不能进行 transform 操作，不接受 transform 配置项。
+     * - ICEPolyLine 可以直接修改 points 。
+     * - ICEPolyLine 的 left/top 数值可以直接修改，修改 left/top 时，会重新计算起点和终点坐标，保证 left/top 与 startPoint 始终保持在同一个点上。
+     *
+     * @overwrite
+     * @param newState
      */
 
 
-    destory() {
-      this.removeChildren(this.childNodes);
-      super.destory();
+    setState(newState) {
+      //ICEPolyLine 的 width/height 属性总是计算出来的，不能直接修改，不接受 width/height 配置项。
+      if (!isNil_1(newState.width)) {
+        delete newState.width;
+      }
+
+      if (!isNil_1(newState.height)) {
+        delete newState.height;
+      } //ICEPolyLine 不能进行 transform 操作，不接受 transform 配置项。
+
+
+      if (!isNil_1(newState.transform)) {
+        delete newState.transform;
+      }
+
+      if (!isNil_1(newState.left)) {
+        let offsetX = newState.left - this.state.points[0][0];
+
+        for (let i = 0; i < this.state.points.length; i++) {
+          this.state.points[i][0] += offsetX;
+        }
+      }
+
+      if (!isNil_1(newState.top)) {
+        let offsetY = newState.top - this.state.points[0][1];
+
+        for (let i = 0; i < this.state.points.length; i++) {
+          this.state.points[i][1] += offsetY;
+        }
+      }
+
+      if (!isNil_1(newState.startPoint)) {
+        this.state.points[0] = [...newState.startPoint]; //对 ICEPolyLine 来说，需要保证 left/top 与起点始终重合。
+
+        this.state.left = this.state.points[0][0];
+        this.state.top = this.state.points[0][1];
+      }
+
+      if (!isNil_1(newState.endPoint)) {
+        let len = this.state.points.length;
+        this.state.points[len - 1] = [...newState.endPoint];
+      }
+
+      super.setState(newState);
+    }
+    /**
+     * 获取旋转角
+     * @returns
+     */
+
+
+    getRotateAngle() {
+      //先进行共线判断，如果所有点都共线，则旋转角等于直线斜率对应的旋转角。
+      if (this.isDotsOnSameLine()) {
+        let startX = 0; //由于 ICEPolyLine 总是把 left/top 与 startPoint 重合，所以这里的 startX 总是为 0
+
+        let startY = 0; //由于 ICEPolyLine 总是把 left/top 与 startPoint 重合，所以这里的 startY 总是为 0
+
+        let len = this.state.points.length;
+        let endX = this.state.points[len - 1][0] - this.state.points[0][0];
+        let endY = this.state.points[len - 1][1] - this.state.points[0][1]; //计算直线的旋转角
+
+        let angle = GeoUtil.calcRotateAngle(endX, endY, startX, startY);
+        angle += 90; //加90度，法向
+
+        return angle;
+      } else {
+        return super.getRotateAngle();
+      }
+    }
+    /**
+     * 判断给定的坐标点是否位于线段上。
+     * 计算方法：如果给点的坐标点到线段两端的距离之和等于线段长度，则表示点位于线段上，允许一定的误差范围，用 delta 参数进行调节。
+     * 算法来源：http://www.jeffreythompson.org/collision-detection/line-point.php
+     * @param x
+     * @param y
+     * @returns
+     */
+
+
+    containsPoint(x, y) {
+      const delta = 3; //允许的浮点运算误差，正负区间内，调节此参数可以扩大或者缩小精确度。
+
+      const lines = this.getLines();
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const x1 = line.o[0];
+        const y1 = line.o[1];
+        const x2 = line.d[0];
+        const y2 = line.d[1];
+        const lineLength = GeoUtil.getLength(x1, y1, x2, y2);
+        const len1 = GeoUtil.getLength(x, y, x1, y1);
+        const len2 = GeoUtil.getLength(x, y, x2, y2);
+
+        if (len1 + len2 >= lineLength - delta && len1 + len2 <= lineLength + delta) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    getLines() {
+      const result = [];
+      const dots = this.state.transformedDots;
+
+      if (!dots || dots.length < 2) {
+        return result;
+      }
+
+      for (let i = 0; i < dots.length - 1; i++) {
+        const x1 = dots[i][0];
+        const y1 = dots[i][1];
+        const x2 = dots[i + 1][0];
+        const y2 = dots[i + 1][1];
+        const line = {
+          o: [x1, y1],
+          d: [x2, y2]
+        }; //o:origin, d:destination
+
+        result.push(line);
+      }
+
+      return result;
     }
 
   }
@@ -4581,75 +5325,8 @@
    * LICENSE file in the root directory of this source tree.
    *
    */
-  /**
-   * @class ICEImage
-   * TODO:支持以下几种图片类型：jpg/jpeg/png/gif
-   * TODO:ICEImage 来源的几种方式
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEImage extends ICEComponent {
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        width: 100,
-        height: 100,
-        ...props
-      });
-    }
-    /**
-     * 空实现。
-     */
-
-
-    initEvents() {}
-
-    doRender() {
-      let img = new Image();
-      img.src = 'data:image/png;base64,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';
-      this.ctx.drawImage(img, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y, this.state.width, this.state.height);
-      super.doRender();
-    }
-
-  }
 
   /**
-   * Checks if `value` is `null` or `undefined`.
-   *
-   * @static
-   * @memberOf _
-   * @since 4.0.0
-   * @category Lang
-   * @param {*} value The value to check.
-   * @returns {boolean} Returns `true` if `value` is nullish, else `false`.
-   * @example
-   *
-   * _.isNil(null);
-   * // => true
-   *
-   * _.isNil(void 0);
-   * // => true
-   *
-   * _.isNil(NaN);
-   * // => false
-   */
-  function isNil(value) {
-    return value == null;
-  }
-
-  var isNil_1 = isNil;
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-
-  /**
-   * FIXME: 与 ICEPoint 合并。
-   *
    * @class GeoPoint
    * A geometrically point, invisible, no dimension, just used for mathematical operations.
    * This implementation is improved from http://diagramo.com/ .
@@ -5011,431 +5688,7 @@
   }
 
   /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  /**
-   *
-   * @class ICEPolyLine
-   *
-   * 折线
-   *
-   * 基本特征：
-   *
-   * - ICEPolyLine 由多个点构成，如果折线上的所有点共线，则折线在外观上退化成直线。
-   * - ICEPolyLine 上至少存在 2 个点，否则无法画线。如果点数恰好为 2 ，折线退化成一条直线。
-   * - ICEPolyLine 以及所有子类不能进行 transform 操作。
-   * - ICEPolyLine 以及所有子类的 left/top 总是被设置为 startPoint 。
-   * - ICEPolyLine 以及所有子类的原点都在 startPoint 上，而不在几何中心点。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEPolyLine extends ICEDotPath {
-    /**
-     * FIXME:编写完整的配置项描述
-     * @cfg
-     * {
-     *  lineType: 'solid', //solid, dashed
-     *  lineWidth:2,
-     *  arrow: 'none',     //none, start, end ,both
-     *  closePath:false,
-     *  points:[],         //点的坐标
-     * }
-     *
-     * @param props
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      let param = ICEPolyLine.arrangeParam(props);
-      super(param);
-    }
-    /**
-     *
-     * 整理并校验构造参数。
-     *
-     * @static
-     * @param props
-     * @returns
-     */
-
-
-    static arrangeParam(props) {
-      //dots 是内部计算使用的属性，外部传参用 points 属性
-      //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
-      let param = merge_1({
-        linkable: false,
-        //所有线条类型的组件 linkable 都为 false ，因为在 ICE 中，用线条连接线条是没有意义的，线条之间不能互相连接。
-        lineType: 'solid',
-        lineWidth: 2,
-        arrow: 'none',
-        closePath: false,
-        points: [],
-        showMinBoundingBox: false,
-        showMaxBoundingBox: false
-      }, props); //至少有2个点，如果点数少于2个，自动填充。
-
-      let len = param.points.length;
-
-      if (len < 2) {
-        if (len === 0) {
-          param.points.push([0, 0]);
-          param.points.push([10, 10]);
-        } else if (len === 1) {
-          param.points.push([10, 10]);
-        }
-      } //ICEPolyLine 的参数需要特殊处理，总是把 left/top 移动到第 0 个点的位置，外部传递的 left/top ， translate.x/translate.y 都无效。
-
-
-      param = merge_1(param, {
-        left: props.points[0][0],
-        top: props.points[0][1],
-        transform: {
-          translate: [0, 0],
-          scale: [1, 1],
-          skew: [0, 0],
-          rotate: 0 //degree
-
-        }
-      }); //保证 lineWidth 不小于0
-
-      if (param.style.lineWidth <= 0) {
-        param.style.lineWidth = 2;
-      }
-
-      return param;
-    }
-    /**
-     * ICEPolyLine 有自己的特殊处理，它的原点永远在 (0,0) 位置，而不在几何中点。
-     * @overwrite
-     * @returns
-     */
-
-
-    calcLocalOrigin() {
-      let point = new DOMPoint(0, 0);
-      this.state.localOrigin = point;
-      return point;
-    }
-    /**
-     * ICEPolyLine 有自己特殊的计算方式：
-     * - 原点总是放在 startPoint 的位置。
-     * - 数值相对于组件本地坐标系进行计算。
-     * @overwrite
-     * @returns
-     */
-
-
-    calcDots() {
-      let left = this.state.left;
-      let top = this.state.top;
-      this.state.dots = [];
-      this.state.points.forEach(p => {
-        let x = p[0] - left;
-        let y = p[1] - top;
-        this.state.dots.push(new DOMPoint(x, y));
-      });
-      return this.state.dots;
-    }
-    /**
-     * 动态向线条上增加一个点
-     * @param point
-     * @param index
-     */
-
-
-    addDot(point, index) {
-      this.state.points.splice(index, 0, point);
-      this.state.dots.splice(index, 0, new DOMPoint(point[0], point[1]));
-    }
-    /**
-     * 从线条上删掉一个点，如果线条上的点数已经小于等于 2 ，则什么都不做。
-     * @param index
-     */
-
-
-    rmDot(index) {
-      if (this.state.points.length < 3) {
-        return false;
-      }
-
-      this.state.points.splice(index, 1);
-      this.state.dots.splice(index, 1);
-      return true;
-    }
-    /**
-     * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
-     * 由于点状路径可能是不规则的形状，所以宽高需要手动计算，特殊形状的子类需要覆盖此方法提供自己的实现。
-     * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
-     * @overwrite
-     * @returns
-     */
-
-
-    calcOriginalDimension() {
-      this.calcDots();
-      let points = this.calc4VertexPoints(); //最小包围盒的4个顶点
-
-      let width = Math.abs(points[1].x - points[0].x); //maxX-minX
-
-      let height = this.state.style.lineWidth; //先进行共线判断，如果所有点都在同一条直线上，那么边界盒子的整体高度就等于线条的粗细
-
-      if (this.isDotsOnSameLine()) {
-        this.state.width = width;
-        this.state.height = height;
-        return {
-          width: this.state.width,
-          height: this.state.height
-        };
-      } else {
-        height = Math.abs(points[2].y - points[0].y); //maxY-minY
-
-        this.state.width = width;
-        this.state.height = height;
-        return {
-          width: this.state.width,
-          height: this.state.height
-        };
-      }
-    }
-    /**
-     * 进行共线判断，如果所有点都在同一条直线上，那么边界盒子的整体高度就等于线条的粗细
-     * @returns
-     */
-
-
-    isDotsOnSameLine() {
-      let len = this.state.points.length;
-      let startX = round_1(this.state.points[0][0], 2);
-      let startY = round_1(this.state.points[0][1], 2);
-      let endX = round_1(this.state.points[len - 1][0], 2);
-      let endY = round_1(this.state.points[len - 1][1], 2);
-      let counter = 0;
-      let vector1 = [endX - startX, endY - startY]; //起点和终点构成的向量坐标
-
-      for (let i = 0; i < len; i++) {
-        let p = this.state.points[i];
-        let vector2 = [p[0] - startX, p[1] - startY];
-        let crossProduct = GeoUtil.crossProduct(vector1[0], vector1[1], vector2[0], vector2[1]);
-
-        if (crossProduct === 0) {
-          counter++;
-        }
-      } //折线上的所有点都共线，外观上已经退化成一条直线
-
-
-      if (counter === len) {
-        return true;
-      }
-
-      return false;
-    }
-    /**
-     * 计算4个顶点：
-     * - 相对于组件本地的坐标系，原点位于左上角，没有经过矩阵变换。
-     * - 返回值用于计算组件的原始 width/height 。
-     * @returns Array<DOMPoint>
-     */
-
-
-    calc4VertexPoints() {
-      if (this.isDotsOnSameLine()) {
-        return this.splitEndpointsTo4Points();
-      } else {
-        return super.calc4VertexPoints();
-      }
-    }
-    /**
-     * 把直线的2个端点分裂成4个点，把线条的粗细参数(lineWidth)当成高度看待，方便计算最小包围盒。
-     * @returns
-     */
-
-
-    splitEndpointsTo4Points() {
-      let len = this.state.points.length;
-      let startX = 0; //由于 ICEPolyLine 总是把 left/top 与起点重合，所以这里的 startX 总是为 0
-
-      let startY = 0; //由于 ICEPolyLine 总是把 left/top 与起点重合，所以这里的 startY 总是为 0
-
-      let endX = this.state.points[len - 1][0] - this.state.points[0][0];
-      let endY = this.state.points[len - 1][1] - this.state.points[0][1];
-      let angle = this.getRotateAngle();
-      let height = this.state.height;
-      let deltaX = Math.cos(angle * Math.PI / 180) * height / 2;
-      let deltaY = Math.sin(angle * Math.PI / 180) * height / 2;
-      deltaX = round_1(deltaX, 3);
-      deltaY = round_1(deltaY, 3); //计算4个顶点，让边界盒子紧贴直线
-
-      let point1 = new DOMPoint(startX + deltaX, startY + deltaY);
-      let point2 = new DOMPoint(startX - deltaX, startY - deltaY);
-      let point3 = new DOMPoint(endX + deltaX, endY + deltaY);
-      let point4 = new DOMPoint(endX - deltaX, endY - deltaY);
-      return [point1, point2, point3, point4];
-    }
-    /**
-     * 获取组件的最小包围盒，此盒子的变换矩阵与组件自身完全相同。
-     * @returns
-     */
-
-
-    getMinBoundingBox() {
-      //先基于组件本地坐标系进行计算
-      let originX = this.state.localOrigin.x;
-      let originY = this.state.localOrigin.y;
-      let points = this.calc4VertexPoints();
-      let boundingBox = new ICEBoundingBox([points[0].x - originX, points[0].y - originY, points[1].x - originX, points[1].y - originY, points[2].x - originX, points[2].y - originY, points[3].x - originX, points[3].y - originY, 0, 0]); //再用 composedMatrix 进行变换
-
-      boundingBox = boundingBox.transform(this.state.composedMatrix);
-      return boundingBox;
-    }
-    /**
-     * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
-     *
-     * ICEPolyLine 有自己特殊的处理方法：
-     *
-     * - ICEPolyLine 的 width/height 属性总是计算出来的，不能直接修改，不接受 width/height 配置项。
-     * - ICEPolyLine ICEPolyLine 不能进行 transform 操作，不接受 transform 配置项。
-     * - ICEPolyLine 可以直接修改 points 。
-     * - ICEPolyLine 的 left/top 数值可以直接修改，修改 left/top 时，会重新计算起点和终点坐标，保证 left/top 与 startPoint 始终保持在同一个点上。
-     *
-     * @overwrite
-     * @param newState
-     */
-
-
-    setState(newState) {
-      //ICEPolyLine 的 width/height 属性总是计算出来的，不能直接修改，不接受 width/height 配置项。
-      if (!isNil_1(newState.width)) {
-        delete newState.width;
-      }
-
-      if (!isNil_1(newState.height)) {
-        delete newState.height;
-      } //ICEPolyLine 不能进行 transform 操作，不接受 transform 配置项。
-
-
-      if (!isNil_1(newState.transform)) {
-        delete newState.transform;
-      }
-
-      if (!isNil_1(newState.left)) {
-        let offsetX = newState.left - this.state.points[0][0];
-
-        for (let i = 0; i < this.state.points.length; i++) {
-          this.state.points[i][0] += offsetX;
-        }
-      }
-
-      if (!isNil_1(newState.top)) {
-        let offsetY = newState.top - this.state.points[0][1];
-
-        for (let i = 0; i < this.state.points.length; i++) {
-          this.state.points[i][1] += offsetY;
-        }
-      }
-
-      if (!isNil_1(newState.startPoint)) {
-        this.state.points[0] = [...newState.startPoint]; //对 ICEPolyLine 来说，需要保证 left/top 与起点始终重合。
-
-        this.state.left = this.state.points[0][0];
-        this.state.top = this.state.points[0][1];
-      }
-
-      if (!isNil_1(newState.endPoint)) {
-        let len = this.state.points.length;
-        this.state.points[len - 1] = [...newState.endPoint];
-      }
-
-      super.setState(newState);
-    }
-    /**
-     * 获取旋转角
-     * @returns
-     */
-
-
-    getRotateAngle() {
-      //先进行共线判断，如果所有点都共线，则旋转角等于直线斜率对应的旋转角。
-      if (this.isDotsOnSameLine()) {
-        let startX = 0; //由于 ICEPolyLine 总是把 left/top 与 startPoint 重合，所以这里的 startX 总是为 0
-
-        let startY = 0; //由于 ICEPolyLine 总是把 left/top 与 startPoint 重合，所以这里的 startY 总是为 0
-
-        let len = this.state.points.length;
-        let endX = this.state.points[len - 1][0] - this.state.points[0][0];
-        let endY = this.state.points[len - 1][1] - this.state.points[0][1]; //计算直线的旋转角
-
-        let angle = GeoUtil.calcRotateAngle(endX, endY, startX, startY);
-        angle += 90; //加90度，法向
-
-        return angle;
-      } else {
-        return super.getRotateAngle();
-      }
-    }
-    /**
-     * 判断给定的坐标点是否位于线段上。
-     * 计算方法：如果给点的坐标点到线段两端的距离之和等于线段长度，则表示点位于线段上，允许一定的误差范围，用 delta 参数进行调节。
-     * 算法来源：http://www.jeffreythompson.org/collision-detection/line-point.php
-     * @param x
-     * @param y
-     * @returns
-     */
-
-
-    containsPoint(x, y) {
-      const delta = 3; //允许的浮点运算误差，正负区间内，调节此参数可以扩大或者缩小精确度。
-
-      const lines = this.getLines();
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const x1 = line.o.x;
-        const y1 = line.o.y;
-        const x2 = line.d.x;
-        const y2 = line.d.y;
-        const lineLength = GeoUtil.getLength(x1, y1, x2, y2);
-        const len1 = GeoUtil.getLength(x, y, x1, y1);
-        const len2 = GeoUtil.getLength(x, y, x2, y2);
-
-        if (len1 + len2 >= lineLength - delta && len1 + len2 <= lineLength + delta) {
-          return true;
-        }
-      }
-
-      return false;
-    }
-
-    getLines() {
-      const result = [];
-      const dots = this.state.transformedDots;
-
-      if (!dots || dots.length < 2) {
-        return result;
-      }
-
-      for (let i = 0; i < dots.length - 1; i++) {
-        const x1 = dots[i].x;
-        const y1 = dots[i].y;
-        const x2 = dots[i + 1].x;
-        const y2 = dots[i + 1].y;
-        const line = {
-          o: new DOMPoint(x1, y1),
-          d: new DOMPoint(x2, y2)
-        }; //o:origin, d:destination
-
-        result.push(line);
-      }
-
-      return result;
-    }
-
-  }
-
-  /**
+   * ! FIXME: 删掉对 GeoPoint/GeoLine/GeoUtil 的依赖
    * @class ICEVisioLink
    *
    * Visio 型的连接线
@@ -5477,7 +5730,7 @@
         props.endPoint = [10, 10];
       }
 
-      props.points = [props.startPoint, props.endPoint]; //escapeDistance 疏散距离，是 4 个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
+      props.points = [[...props.startPoint], [...props.endPoint]]; //escapeDistance 疏散距离，是 4 个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
 
       props = {
         escapeDistance: 30,
@@ -5529,7 +5782,7 @@
       this.state.dots = [];
       arr.forEach(item => {
         this.state.points.push([item.x, item.y]);
-        this.state.dots.push(new DOMPoint(item.x - left, item.y - top));
+        this.state.dots.push([item.x - left, item.y - top]);
       });
       return this.state.dots;
     }
@@ -5557,13 +5810,13 @@
 
       if (this.startSlot) {
         startBounding = this.startSlot.hostComponent.getMinBoundingBox();
-        potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl.y - this.state.escapeDistance); //north
+        potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl[1] - this.state.escapeDistance); //north
 
-        potentialExits[1] = new GeoPoint(startBounding.tr.x + this.state.escapeDistance, startPoint.y); //east
+        potentialExits[1] = new GeoPoint(startBounding.tr[0] + this.state.escapeDistance, startPoint.y); //east
 
-        potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br.y + this.state.escapeDistance); //south
+        potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br[1] + this.state.escapeDistance); //south
 
-        potentialExits[3] = new GeoPoint(startBounding.tl.x - this.state.escapeDistance, startPoint.y); //west
+        potentialExits[3] = new GeoPoint(startBounding.tl[0] - this.state.escapeDistance, startPoint.y); //west
         //pick closest exit point
 
         startExitPoint = potentialExits[0];
@@ -5578,13 +5831,13 @@
 
       if (this.endSlot) {
         endBounding = this.endSlot.hostComponent.getMinBoundingBox();
-        potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl.y - this.state.escapeDistance); //north
+        potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl[1] - this.state.escapeDistance); //north
 
-        potentialExits[1] = new GeoPoint(endBounding.tr.x + this.state.escapeDistance, endPoint.y); //east
+        potentialExits[1] = new GeoPoint(endBounding.tr[0] + this.state.escapeDistance, endPoint.y); //east
 
-        potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br.y + this.state.escapeDistance); //south
+        potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br[1] + this.state.escapeDistance); //south
 
-        potentialExits[3] = new GeoPoint(endBounding.tl.x - this.state.escapeDistance, endPoint.y); //west
+        potentialExits[3] = new GeoPoint(endBounding.tl[0] - this.state.escapeDistance, endPoint.y); //west
         //pick closest exit point
 
         endExitPoint = potentialExits[0];
@@ -5641,11 +5894,11 @@
       let eastExits = [s2_3[gapIndex].x + 20, s2_3[gapIndex + 1].x + 20];
 
       if (startBounding) {
-        eastExits.push(startBounding.br.x + 20);
+        eastExits.push(startBounding.br[0] + 20);
       }
 
       if (endBounding) {
-        eastExits.push(endBounding.br.x + 20);
+        eastExits.push(endBounding.br[0] + 20);
       }
 
       let eastExit = this.max(eastExits);
@@ -5660,11 +5913,11 @@
       let northExits = [s2_4[gapIndex].y - 20, s2_4[gapIndex + 1].y - 20];
 
       if (startBounding) {
-        northExits.push(startBounding.tl.y - 20);
+        northExits.push(startBounding.tl[1] - 20);
       }
 
       if (endBounding) {
-        northExits.push(endBounding.tl.y - 20);
+        northExits.push(endBounding.tl[1] - 20);
       }
 
       let northExit = this.min(northExits);
@@ -5679,11 +5932,11 @@
       let westExits = [s2_5[gapIndex].x - 20, s2_5[gapIndex + 1].x - 20];
 
       if (startBounding) {
-        westExits.push(startBounding.tl.x - 20);
+        westExits.push(startBounding.tl[0] - 20);
       }
 
       if (endBounding) {
-        westExits.push(endBounding.tl.x - 20);
+        westExits.push(endBounding.tl[0] - 20);
       }
 
       let westExit = this.min(westExits);
@@ -5698,11 +5951,11 @@
       let southExits = [s2_6[gapIndex].y + 20, s2_6[gapIndex + 1].y + 20];
 
       if (startBounding) {
-        southExits.push(startBounding.tl.y + startBounding.height + 20);
+        southExits.push(startBounding.tl[1] + startBounding.height + 20);
       }
 
       if (endBounding) {
-        southExits.push(endBounding.tl.y + endBounding.height + 20);
+        southExits.push(endBounding.tl[1] + endBounding.height + 20);
       }
 
       let southExit = this.max(southExits);
@@ -6137,24 +6390,22 @@
 
     syncPosition(slot, position) {
       let slotBounding = slot.getMinBoundingBox();
-      let {
-        x,
-        y
-      } = slotBounding.center;
+      let x = slotBounding.center[0];
+      let y = slotBounding.center[1];
       let point = this.globalToLocal(x, y);
       let {
         left,
         top
       } = this.state;
-      point = point.matrixTransform(new DOMMatrix([1, 0, 0, 1, left, top]));
+      point = transformMat2d([], point, [1, 0, 0, 1, left, top]);
 
       if (position === 'start') {
         this.setState({
-          startPoint: [point.x, point.y]
+          startPoint: [point[0], point[1]]
         });
       } else if (position === 'end') {
         this.setState({
-          endPoint: [point.x, point.y]
+          endPoint: [point[0], point[1]]
         });
       }
     }
@@ -6275,7 +6526,7 @@
 
     createPathObject() {
       this.path2D = new Path2D();
-      this.path2D.ellipse(this.state.radiusX - this.state.localOrigin.x, this.state.radiusY - this.state.localOrigin.y, this.state.radiusX, this.state.radiusY, this.state.rotation, this.state.startAngle, this.state.endAngle, this.state.counterclockwise);
+      this.path2D.ellipse(this.state.radiusX - this.state.localOrigin[0], this.state.radiusY - this.state.localOrigin[1], this.state.radiusX, this.state.radiusY, this.state.rotation, this.state.startAngle, this.state.endAngle, this.state.counterclockwise);
       this.path2D.closePath();
       return this.path2D;
     }
@@ -6339,6 +6590,41 @@
   }
 
   /**
+   * i 代表角度 scale:放大比例
+   */
+
+  class ICEHeart extends ICEDotPath {
+    /**
+     * @required
+     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      let param = {
+        scale: 2,
+        ...props
+      };
+      super(param);
+    }
+
+    calcDots() {
+      this.state.dots = [];
+
+      for (let i = 0; i < 2 * Math.PI; i += 0.01) {
+        let scale = this.state.scale;
+        let x = scale * (12 * Math.sin(i) - 4 * Math.sin(3 * i)) + this.state.width / 2;
+        let y = -scale * (13 * Math.cos(i) - 5 * Math.cos(2 * i) - 2 * Math.cos(3 * i) - Math.cos(4 * i)) + this.state.height / 2;
+        this.state.dots.push([x, y]);
+      }
+
+      return this.state.dots;
+    }
+
+  }
+
+  _defineProperty(ICEHeart, "type", 'ICEHeart');
+
+  /**
    *
    * FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
    *
@@ -6398,10 +6684,61 @@
         let radius = this.state.radius;
         let x = Math.floor(radius * Math.cos(currentAngel) + radius);
         let y = Math.floor(radius * Math.sin(currentAngel) + radius);
-        this.state.dots.push(new DOMPoint(x, y));
+        this.state.dots.push([x, y]);
       }
 
       return this.state.dots;
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+
+  const sin = Math.sin;
+  const cos = Math.cos;
+  const radian = Math.PI / 180;
+
+  class ICERose extends ICEPath {
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        r: [10],
+        n: 1,
+        k: 0,
+        ...props
+      });
+    }
+
+    createPathObject() {
+      this.path2D = new Path2D();
+      const R = this.state.r;
+      const k = this.state.k;
+      const n = this.state.n;
+      const x0 = this.state.localOrigin[0];
+      const y0 = this.state.localOrigin[1];
+      let x;
+      let y;
+      let r;
+      this.path2D.moveTo(x0, y0);
+
+      for (let i = 0, len = R.length; i < len; i++) {
+        r = R[i];
+
+        for (let j = 0; j <= 360 * n; j++) {
+          x = r * sin(k / n * j % 360 * radian) * cos(j * radian) + x0;
+          y = r * sin(k / n * j % 360 * radian) * sin(j * radian) + y0;
+          this.path2D.lineTo(x, y);
+        }
+      }
+
+      this.path2D.closePath();
+      return this.path2D;
     }
 
   }
@@ -6440,10 +6777,10 @@
         let v2 = this.state.dots[j];
 
         if (counter == 0) {
-          this.path2D.moveTo(v1.x, v1.y);
-          this.path2D.lineTo(v2.x, v2.y);
+          this.path2D.moveTo(v1[0], v1[1]);
+          this.path2D.lineTo(v2[0], v2[1]);
         } else {
-          this.path2D.lineTo(v2.x, v2.y);
+          this.path2D.lineTo(v2[0], v2[1]);
         }
 
         i = j;
@@ -6547,8 +6884,8 @@
 
 
     doRender() {
-      this.ctx.strokeText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
-      this.ctx.fillText(this.state.text, 0 - this.state.localOrigin.x, 0 - this.state.localOrigin.y + this.state.height, this.state.width);
+      this.ctx.strokeText(this.state.text, 0 - this.state.localOrigin[0], 0 - this.state.localOrigin[1] + this.state.height, this.state.width);
+      this.ctx.fillText(this.state.text, 0 - this.state.localOrigin[0], 0 - this.state.localOrigin[1] + this.state.height, this.state.width);
     }
 
   }
@@ -7102,10 +7439,10 @@
       let newEndY = targetState.points[len - 1][1]; //用逆矩阵补偿组件 transform 导致的坐标变换。
       //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
 
-      let matrix = targetState.absoluteLinearMatrix.inverse();
-      let point = new DOMPoint(movementX, movementY).matrixTransform(matrix);
-      movementX = point.x;
-      movementY = point.y;
+      let matrix = invert([], targetState.absoluteLinearMatrix);
+      let point = transformMat2d([], [movementX, movementY], matrix);
+      movementX = point[0];
+      movementY = point[1];
 
       switch (position) {
         case 'start':
@@ -7147,15 +7484,15 @@
         let len = this.targetComponent.state.points.length;
         let start = this.targetComponent.state.points[0];
         let end = this.targetComponent.state.points[len - 1];
-        let startPoint = new DOMPoint(start[0], start[1]);
-        let endPoint = new DOMPoint(end[0], end[1]);
+        let startPoint = [start[0], start[1]];
+        let endPoint = [end[0], end[1]];
         this.startControl.setState({
-          left: startPoint.x - halfControlSize,
-          top: startPoint.y - halfControlSize
+          left: startPoint[0] - halfControlSize,
+          top: startPoint[1] - halfControlSize
         });
         this.endControl.setState({
-          left: endPoint.x - halfControlSize,
-          top: endPoint.y - halfControlSize
+          left: endPoint[0] - halfControlSize,
+          top: endPoint[1] - halfControlSize
         });
       }
     }
@@ -7224,6 +7561,10 @@
         ...props,
         linkable: false
       });
+    }
+
+    initEvents() {
+      super.initEvents();
       this.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.resizeEvtHandler, this);
     }
     /**
@@ -7250,10 +7591,10 @@
       let newHeight = parentState.height; //用 parentNode 的逆矩阵把全局坐标系中的移动量转换为组件本地的移动量。
       //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
 
-      let matrix = parentState.absoluteLinearMatrix.inverse();
-      let point = new DOMPoint(movementX, movementY).matrixTransform(matrix);
-      movementX = point.x;
-      movementY = point.y;
+      let matrix = invert([], parentState.absoluteLinearMatrix);
+      let point = transformMat2d([], [movementX, movementY], matrix);
+      movementX = point[0];
+      movementY = point[1];
 
       switch (quadrant) {
         case 1:
@@ -7342,10 +7683,10 @@
       let parentLocalOrigin = parentState.localOrigin;
       let parentWidth = parentState.width;
       let parentHeight = parentState.height;
-      let matrix = parentState.absoluteLinearMatrix.inverse();
-      let point = new DOMPoint(tx, ty).matrixTransform(matrix);
-      tx = point.x;
-      ty = point.y;
+      let matrix = invert([], parentState.absoluteLinearMatrix);
+      let point = transformMat2d([], [tx, ty], matrix);
+      tx = point[0];
+      ty = point[1];
       let {
         left,
         top,
@@ -7362,7 +7703,7 @@
         } //手柄发生移动之后，重新计算当前位于哪个象限或者坐标轴上
 
 
-        if (left + halfandleSize - parentLocalOrigin.x > 0) {
+        if (left + halfandleSize - parentLocalOrigin[0] > 0) {
           newQuadrant = 8;
         } else {
           newQuadrant = 7;
@@ -7375,7 +7716,7 @@
         } //手柄发生移动之后，重新计算当前位于哪个象限或者坐标轴上
 
 
-        if (top + halfandleSize - parentLocalOrigin.y > 0) {
+        if (top + halfandleSize - parentLocalOrigin[1] > 0) {
           newQuadrant = 6;
         } else {
           newQuadrant = 5;
@@ -7400,26 +7741,26 @@
 
         let y2 = -parentHeight / 2;
         let k2 = y2 / x2; //子组件的 left/top 是相对于父组件的左上角位置的数值，而不是父组件移动原点之后的数值，换基到本地原点，然后基于斜率计算。
-        //k=(top+halfandleSize-parentLocalOrigin.y+ty)/(left+halfandleSize-parentLocalOrigin.x+tx)
-        //ty=k(left+halfandleSize-parentLocalOrigin.x+tx)-(top+halfandleSize-parentLocalOrigin.y)
+        //k=(top+halfandleSize-parentLocalOrigin[1]+ty)/(left+halfandleSize-parentLocalOrigin[0]+tx)
+        //ty=k(left+halfandleSize-parentLocalOrigin[0]+tx)-(top+halfandleSize-parentLocalOrigin[1])
 
         if (quadrant === 2 || quadrant == 4) {
-          ty = k1 * (left + halfandleSize - parentLocalOrigin.x + tx) - (top + halfandleSize - parentLocalOrigin.y);
+          ty = k1 * (left + halfandleSize - parentLocalOrigin[0] + tx) - (top + halfandleSize - parentLocalOrigin[1]);
         } else {
-          ty = k2 * (left + halfandleSize - parentLocalOrigin.x + tx) - (top + halfandleSize - parentLocalOrigin.y);
+          ty = k2 * (left + halfandleSize - parentLocalOrigin[0] + tx) - (top + halfandleSize - parentLocalOrigin[1]);
         }
 
         left += tx;
         top += ty; //手柄发生移动之后，重新计算当前位于哪个象限或者坐标轴上
 
-        if (left + halfandleSize - parentLocalOrigin.x > 0) {
-          if (top + halfandleSize - parentLocalOrigin.y > 0) {
+        if (left + halfandleSize - parentLocalOrigin[0] > 0) {
+          if (top + halfandleSize - parentLocalOrigin[1] > 0) {
             newQuadrant = 4;
           } else {
             newQuadrant = 1;
           }
         } else {
-          if (top + halfandleSize - parentLocalOrigin.y > 0) {
+          if (top + halfandleSize - parentLocalOrigin[1] > 0) {
             newQuadrant = 3;
           } else {
             newQuadrant = 2;
@@ -7469,6 +7810,10 @@
         props,
         linkable: false
       });
+    }
+
+    initEvents() {
+      super.initEvents();
       this.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.rotateEvtHandler, this);
     }
 
@@ -7480,7 +7825,7 @@
 
 
       let parentOrigin = this.parentNode.state.absoluteOrigin;
-      let rotateAngle = GeoUtil.calcRotateAngle(evt.offsetX, evt.offsetY, parentOrigin.x, parentOrigin.y); //parentNode 旋转角与手柄旋转角同步
+      let rotateAngle = GeoUtil.calcRotateAngle(evt.offsetX, evt.offsetY, parentOrigin[0], parentOrigin[1]); //parentNode 旋转角与手柄旋转角同步
 
       const param = {
         transform: {
@@ -7563,35 +7908,35 @@
         //可以移动的坐标轴
         quadrant: 2,
         //在组件本地坐标轴中的象限 @see ResizeControl
-        position: new DOMPoint(-halfControlSize, -halfControlSize)
+        position: [-halfControlSize, -halfControlSize]
       }, {
         direction: 'y',
         quadrant: 5,
-        position: new DOMPoint(halfWidth - halfControlSize, -halfControlSize)
+        position: [halfWidth - halfControlSize, -halfControlSize]
       }, {
         direction: 'xy',
         quadrant: 1,
-        position: new DOMPoint(width - halfControlSize, -halfControlSize)
+        position: [width - halfControlSize, -halfControlSize]
       }, {
         direction: 'x',
         quadrant: 8,
-        position: new DOMPoint(width - halfControlSize, halfHeight - halfControlSize)
+        position: [width - halfControlSize, halfHeight - halfControlSize]
       }, {
         direction: 'xy',
         quadrant: 4,
-        position: new DOMPoint(width - halfControlSize, height - halfControlSize)
+        position: [width - halfControlSize, height - halfControlSize]
       }, {
         direction: 'y',
         quadrant: 6,
-        position: new DOMPoint(halfWidth - halfControlSize, height - halfControlSize)
+        position: [halfWidth - halfControlSize, height - halfControlSize]
       }, {
         direction: 'xy',
         quadrant: 3,
-        position: new DOMPoint(-halfControlSize, height - halfControlSize)
+        position: [-halfControlSize, height - halfControlSize]
       }, {
         direction: 'x',
         quadrant: 7,
-        position: new DOMPoint(-halfControlSize, halfHeight - halfControlSize)
+        position: [-halfControlSize, halfHeight - halfControlSize]
       }];
       let counter = 1;
       this.resizeControlInstanceCache = [];
@@ -7599,8 +7944,8 @@
         const handleInstance = new ResizeControl({
           zIndex: Number.MAX_VALUE - counter++,
           display: false,
-          left: controlConfig.position.x,
-          top: controlConfig.position.y,
+          left: controlConfig.position[0],
+          top: controlConfig.position[1],
           width: this.resizeControlSize,
           height: this.resizeControlSize,
           //TODO: style 放到 props 中去变成可配置的参数
@@ -7635,6 +7980,7 @@
     }
 
     initEvents() {
+      super.initEvents();
       this.on(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.resizeEvtHandler, this);
       this.on(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, this.rotateEvtHandler, this);
     }
@@ -7680,45 +8026,45 @@
       let halfControlSize = this.resizeControlSize / 2;
       this.resizeControlInstanceCache.forEach(resizeControl => {
         let quadrant = resizeControl.state.quadrant;
-        let point = new DOMPoint();
+        let point = [0, 0];
 
         switch (quadrant) {
           case 1:
-            point = new DOMPoint(width - halfControlSize, -halfControlSize);
+            point = [width - halfControlSize, -halfControlSize];
             break;
 
           case 2:
-            point = new DOMPoint(-halfControlSize, -halfControlSize);
+            point = [-halfControlSize, -halfControlSize];
             break;
 
           case 3:
-            point = new DOMPoint(-halfControlSize, height - halfControlSize);
+            point = [-halfControlSize, height - halfControlSize];
             break;
 
           case 4:
-            point = new DOMPoint(width - halfControlSize, height - halfControlSize);
+            point = [width - halfControlSize, height - halfControlSize];
             break;
 
           case 5:
-            point = new DOMPoint(halfWidth - halfControlSize, -halfControlSize);
+            point = [halfWidth - halfControlSize, -halfControlSize];
             break;
 
           case 6:
-            point = new DOMPoint(halfWidth - halfControlSize, height - halfControlSize);
+            point = [halfWidth - halfControlSize, height - halfControlSize];
             break;
 
           case 7:
-            point = new DOMPoint(-halfControlSize, halfHeight - halfControlSize);
+            point = [-halfControlSize, halfHeight - halfControlSize];
             break;
 
           case 8:
-            point = new DOMPoint(width - halfControlSize, halfHeight - halfControlSize);
+            point = [width - halfControlSize, halfHeight - halfControlSize];
             break;
         }
 
         resizeControl.setState({
-          left: point.x,
-          top: point.y
+          left: point[0],
+          top: point[1]
         });
       }); //重新计算 RotateControl 的位置
 
@@ -7756,10 +8102,10 @@
       let newTop = targetState.top;
       let newWidth = targetState.width;
       let newHeight = targetState.height;
-      let matrix = targetState.absoluteLinearMatrix.inverse();
-      let point = new DOMPoint(movementX, movementY).matrixTransform(matrix);
-      movementX = point.x;
-      movementY = point.y;
+      let matrix = invert([], targetState.absoluteLinearMatrix);
+      let point = transformMat2d([], [movementX, movementY], matrix);
+      movementX = point[0];
+      movementY = point[1];
 
       switch (quadrant) {
         case 1:
@@ -7819,7 +8165,7 @@
       });
     }
 
-    updatePosition() {
+    updatePanel() {
       if (this.targetComponent) {
         let angle = this.targetComponent.getRotateAngle();
         let {
@@ -7844,10 +8190,10 @@
       this._targetComponent = component;
 
       if (component) {
-        this.updatePosition();
-        component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
+        this.updatePanel();
+        component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
       } else {
-        component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
+        component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
       }
     }
 
@@ -7950,9 +8296,7 @@
         transform: {
           rotate: 45
         }
-      }); //在同一时刻，不可能同时出现多个 TransformControlPanel 实例，这里默认构造一个，放在距离可见区域很远的位置？？？
-      //FIXME:需要测试是否会影响 toDataURL 的输出结果。
-
+      });
       this.ice.addChild(this.transformControlPanel);
       this.transformControlPanel.disable(); //默认处于禁用状态
 
@@ -8561,23 +8905,23 @@
 
         switch (slot.state.position) {
           case 'T':
-            left = box.center.x - this.slotRadius;
-            top = box.tl.y - this.slotRadius;
+            left = box.center[0] - this.slotRadius;
+            top = box.tl[1] - this.slotRadius;
             break;
 
           case 'R':
-            left = box.tr.x - this.slotRadius;
-            top = box.center.y - this.slotRadius;
+            left = box.tr[0] - this.slotRadius;
+            top = box.center[1] - this.slotRadius;
             break;
 
           case 'B':
-            left = box.center.x - this.slotRadius;
-            top = box.br.y - this.slotRadius;
+            left = box.center[0] - this.slotRadius;
+            top = box.br[1] - this.slotRadius;
             break;
 
           case 'L':
-            left = box.bl.x - this.slotRadius;
-            top = box.center.y - this.slotRadius;
+            left = box.bl[0] - this.slotRadius;
+            top = box.center[1] - this.slotRadius;
             break;
         }
 
@@ -8762,6 +9106,7 @@
       const startTime = Date.now();
       this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
       this.renderQueue = Array.from(this.ice.childNodes);
+      console.log(`Render Queue length> ${this.renderQueue.length}`);
       this.renderQueue.sort((firstEl, secondEl) => {
         //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
         return firstEl.state.zIndex - secondEl.state.zIndex;
@@ -9045,58 +9390,62 @@
   });
   ice.addChild(img);
 
-  // let heart = new ICEHeart();
-  // ice.addChild(heart);
-  // let rose = new ICERose({
-  //   left: 10,
-  //   top: 10,
-  //   width: 100,
-  //   height: 100,
-  //   style: {
-  //     strokeStyle: '#0c09d4',
-  //     fillStyle: '#f5d106',
-  //     lineWidth: 5,
-  //   },
-  // });
-  // ice.addChild(rose);
-
-  // let baseRect1 = new ICERect({
-  //   left: 100,
-  //   top: 100,
-  //   width: 300,
-  //   height: 200,
-  //   style: {
-  //     strokeStyle: '#0c09d4',
-  //     fillStyle: '#f5d106',
-  //     lineWidth: 5,
-  //   },
-  //   animations: {
-  //     left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
-  //     top: { from: 0, to: 200, duration: 3000 },
-  //     width: { from: 100, to: 200, duration: 5000 },
-  //     height: { from: 100, to: 200, duration: 5000 },
-  //   },
-  //   transform: {
-  //     // translate: [10, 10],
-  //     rotate: 45,
-  //     // skew: [20, 0],
-  //     // scale: [1, 1],
-  //   },
-  // });
-  // baseRect1.on('click', (evt) => {
-  //   console.log('baseRect1');
-  // });
-  // ice.addChild(baseRect1);
-
-  let rect1 = new ICERect({
-    left: 100,
-    top: 20,
+  let heart = new ICEHeart();
+  ice.addChild(heart);
+  let rose = new ICERose({
+    left: 10,
+    top: 10,
     width: 100,
     height: 100,
     style: {
       strokeStyle: '#0c09d4',
       fillStyle: '#f5d106',
       lineWidth: 5,
+    },
+  });
+  ice.addChild(rose);
+
+  let baseRect1 = new ICERect({
+    left: 100,
+    top: 100,
+    width: 300,
+    height: 200,
+    style: {
+      strokeStyle: '#0c09d4',
+      fillStyle: '#f5d106',
+      lineWidth: 5,
+    },
+    animations: {
+      left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+      top: { from: 0, to: 200, duration: 3000 },
+      width: { from: 100, to: 200, duration: 5000 },
+      height: { from: 100, to: 200, duration: 5000 },
+    },
+    transform: {
+      // translate: [10, 10],
+      rotate: 30,
+      // skew: [20, 0],
+      // scale: [1, 1],
+    },
+  });
+  baseRect1.on('click', (evt) => {
+    console.log('baseRect1');
+  });
+  ice.addChild(baseRect1);
+
+  let rect1 = new ICERect({
+    left: 100,
+    top: 100,
+    width: 100,
+    height: 100,
+    style: {
+      strokeStyle: '#0c09d4',
+      fillStyle: '#f5d106',
+      lineWidth: 1,
+    },
+    transform: {
+      rotate: 45,
+      scale: [1, 1],
     },
     // animations: {
     //   left: { from: 0, to: 100, duration: 2000, easing: 'easeOutQuart' },
@@ -9107,25 +9456,25 @@
   });
   ice.addChild(rect1);
 
-  // let polyLine = new ICEPolyLine({
-  //   left: 0,
-  //   top: 0,
-  //   points: [
-  //     [300, 300],
-  //     [100, 100],
-  //   ],
-  //   style: {
-  //     strokeStyle: '#7803e6',
-  //     fillStyle: '#008000',
-  //     lineWidth: 10,
-  //   },
-  //   transform: {
-  //     // translate: [10, -10],
-  //     // scale: [1, 1],
-  //     // rotate: 20,
-  //   },
-  // });
-  // ice.addChild(polyLine);
+  let polyLine = new ICEPolyLine({
+    left: 0,
+    top: 0,
+    points: [
+      [300, 300],
+      [100, 100],
+    ],
+    style: {
+      strokeStyle: '#7803e6',
+      fillStyle: '#008000',
+      lineWidth: 10,
+    },
+    transform: {
+      // translate: [10, -10],
+      // scale: [1, 1],
+      // rotate: 20,
+    },
+  });
+  ice.addChild(polyLine);
 
   // let polyLine2 = new ICEPolyLine({
   //   left: 0,
@@ -9176,7 +9525,7 @@
   });
   ice.addChild(linkCircle3);
 
-  // //正三角形
+  // // //正三角形
   let isogon3 = new ICEIsogon({
     left: 600,
     top: 300,
@@ -9192,22 +9541,22 @@
   ice.addChild(isogon3);
 
   // //正五边形
-  // let isogon5 = new ICEIsogon({
-  //   left: 500,
-  //   top: 400,
-  //   radius: 50,
-  //   edges: 5,
-  // });
-  // ice.addChild(isogon5);
+  let isogon5 = new ICEIsogon({
+    left: 500,
+    top: 400,
+    radius: 50,
+    edges: 5,
+  });
+  ice.addChild(isogon5);
 
   // //正6边形
-  // let isogon6 = new ICEIsogon({
-  //   left: 650,
-  //   top: 400,
-  //   radius: 50,
-  //   edges: 6,
-  // });
-  // ice.addChild(isogon6);
+  let isogon6 = new ICEIsogon({
+    left: 650,
+    top: 400,
+    radius: 50,
+    edges: 6,
+  });
+  ice.addChild(isogon6);
 
   // // 正十五边形
   // let isogon15 = new ICEIsogon({
@@ -9251,13 +9600,6 @@
     },
   });
   ice.addChild(text);
-
-  // let p1 = new DOMPoint(0, 100);
-  // let p2 = new DOMPoint(150, 100);
-  // let p3 = new DOMPoint(150, 200);
-  // let p4 = new DOMPoint(0, 200);
-  // let path = new ICEDotPath({ dots: [p1, p2, p3, p4] });
-  // ice.addChild(path);
 
   let g = new ICEGroup({
     left: 100,
@@ -9342,47 +9684,6 @@
     })
   );
 
-  // let group1 = new ICEGroup({
-  //   left: 100,
-  //   top: 100,
-  //   width: 100,
-  //   height: 100,
-  //   style: {
-  //     strokeStyle: '#fa0404',
-  //     fillStyle: '#beffff',
-  //     lineWidth: 1,
-  //   },
-  //   transform: {
-  //     // translate: [10, -10],
-  //     // scale: [1, 1],
-  //     rotate: 45,
-  //   },
-  // });
-  // ice.addChild(group1);
-
-  // let circle1 = new ICECircle({
-  //   left: 0,
-  //   top: 0,
-  //   radius: 10,
-  // });
-  // group1.addChild(circle1);
-
-  // let rect5 = new ICERect({
-  //   left: 10,
-  //   top: 10,
-  //   with: 10,
-  //   height: 10,
-  // });
-  // group1.addChild(rect5);
-
-  // let rect6 = new ICERect({
-  //   left: 600,
-  //   top: 100,
-  //   width: 400,
-  //   height: 200,
-  // });
-  // ice.addChild(rect6);
-
   let ellipse = new ICEEllipse({
     left: 100,
     top: 600,
@@ -9390,82 +9691,5 @@
     radiusY: 30,
   });
   ice.addChild(ellipse);
-
-  // let circle2 = new ICECircle({
-  //   left: 100,
-  //   top: 200,
-  //   radius: 50,
-  // });
-  // ice.addChild(circle2);
-
-  // let group2 = new ICEGroup({
-  //   left: 20,
-  //   top: 20,
-  //   width: 100,
-  //   height: 100,
-  //   style: {
-  //     strokeStyle: '#8b0000',
-  //     fillStyle: '#99FFFF',
-  //     lineWidth: 1,
-  //   },
-  //   // transform: {
-  //   //   translate: [10, -10],
-  //   //   scale: [1, 1],
-  //   //   rotate: 10,
-  //   // },
-  // });
-  // ice.addChild(group2);
-
-  // let circle3 = new ICECircle({
-  //   left: 0,
-  //   top: 0,
-  //   radius: 10,
-  // });
-  // group2.addChild(circle3);
-
-  // let circle4 = new ICECircle({
-  //   left: 20,
-  //   top: 20,
-  //   radius: 20,
-  // });
-  // group2.addChild(circle4);
-
-  // let rect2 = new ICERect({
-  //   left: 200,
-  //   top: 200,
-  //   width: 200,
-  //   height: 100,
-  //   style: {
-  //     strokeStyle: '#e01414',
-  //     fillStyle: '#46ca46',
-  //     lineWidth: 3,
-  //   },
-  //   transform: {
-  //     // translate: [10, -10],
-  //     scale: [1, 1],
-  //     rotate: 20,
-  //   },
-  // });
-  // ice.addChild(rect2);
-
-  // let circle3 = new ICECircle({
-  //   left: 0,
-  //   top: 0,
-  //   radius: 10,
-  // });
-  // ice.addChild(circle3);
-
-  // let th = new TransformPanel({
-  //   left: 400,
-  //   top: 100,
-  //   width: 100,
-  //   height: 100,
-  //   style: {
-  //     strokeStyle: '#8b0000',
-  //     fillStyle: '#99FFFF',
-  //     lineWidth: 1,
-  //   },
-  // });
-  // ice.addChild(th);
 
 })));

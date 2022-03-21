@@ -39,8 +39,8 @@ class ICEEllipse extends ICEPath {
   protected createPathObject(): Path2D {
     this.path2D = new Path2D();
     this.path2D.ellipse(
-      this.state.radiusX - this.state.localOrigin.x,
-      this.state.radiusY - this.state.localOrigin.y,
+      this.state.radiusX - this.state.localOrigin[0],
+      this.state.radiusY - this.state.localOrigin[1],
       this.state.radiusX,
       this.state.radiusY,
       this.state.rotation,

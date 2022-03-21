@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import { mat2d, vec2 } from 'gl-matrix';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEComponent from '../../graphic/ICEComponent';
 import ICEControlPanel from '../ICEControlPanel';
@@ -69,42 +70,42 @@ export default class TransformControlPanel extends ICEControlPanel {
       {
         direction: 'xy', //可以移动的坐标轴
         quadrant: 2, //在组件本地坐标轴中的象限 @see ResizeControl
-        position: new DOMPoint(-halfControlSize, -halfControlSize),
+        position: [-halfControlSize, -halfControlSize],
       },
       {
         direction: 'y',
         quadrant: 5,
-        position: new DOMPoint(halfWidth - halfControlSize, -halfControlSize),
+        position: [halfWidth - halfControlSize, -halfControlSize],
       },
       {
         direction: 'xy',
         quadrant: 1,
-        position: new DOMPoint(width - halfControlSize, -halfControlSize),
+        position: [width - halfControlSize, -halfControlSize],
       },
       {
         direction: 'x',
         quadrant: 8,
-        position: new DOMPoint(width - halfControlSize, halfHeight - halfControlSize),
+        position: [width - halfControlSize, halfHeight - halfControlSize],
       },
       {
         direction: 'xy',
         quadrant: 4,
-        position: new DOMPoint(width - halfControlSize, height - halfControlSize),
+        position: [width - halfControlSize, height - halfControlSize],
       },
       {
         direction: 'y',
         quadrant: 6,
-        position: new DOMPoint(halfWidth - halfControlSize, height - halfControlSize),
+        position: [halfWidth - halfControlSize, height - halfControlSize],
       },
       {
         direction: 'xy',
         quadrant: 3,
-        position: new DOMPoint(-halfControlSize, height - halfControlSize),
+        position: [-halfControlSize, height - halfControlSize],
       },
       {
         direction: 'x',
         quadrant: 7,
-        position: new DOMPoint(-halfControlSize, halfHeight - halfControlSize),
+        position: [-halfControlSize, halfHeight - halfControlSize],
       },
     ];
 
@@ -114,8 +115,8 @@ export default class TransformControlPanel extends ICEControlPanel {
       const handleInstance = new ResizeControl({
         zIndex: Number.MAX_VALUE - counter++,
         display: false,
-        left: controlConfig.position.x,
-        top: controlConfig.position.y,
+        left: controlConfig.position[0],
+        top: controlConfig.position[1],
         width: this.resizeControlSize,
         height: this.resizeControlSize,
         //TODO: style 放到 props 中去变成可配置的参数
@@ -152,6 +153,7 @@ export default class TransformControlPanel extends ICEControlPanel {
   }
 
   protected initEvents(): void {
+    super.initEvents();
     this.on(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.resizeEvtHandler, this);
     this.on(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, this.rotateEvtHandler, this);
   }
@@ -185,38 +187,38 @@ export default class TransformControlPanel extends ICEControlPanel {
     let halfControlSize = this.resizeControlSize / 2;
     this.resizeControlInstanceCache.forEach((resizeControl) => {
       let quadrant = resizeControl.state.quadrant;
-      let point = new DOMPoint();
+      let point = [0, 0];
       switch (quadrant) {
         case 1:
-          point = new DOMPoint(width - halfControlSize, -halfControlSize);
+          point = [width - halfControlSize, -halfControlSize];
           break;
         case 2:
-          point = new DOMPoint(-halfControlSize, -halfControlSize);
+          point = [-halfControlSize, -halfControlSize];
           break;
         case 3:
-          point = new DOMPoint(-halfControlSize, height - halfControlSize);
+          point = [-halfControlSize, height - halfControlSize];
           break;
         case 4:
-          point = new DOMPoint(width - halfControlSize, height - halfControlSize);
+          point = [width - halfControlSize, height - halfControlSize];
           break;
         case 5:
-          point = new DOMPoint(halfWidth - halfControlSize, -halfControlSize);
+          point = [halfWidth - halfControlSize, -halfControlSize];
           break;
         case 6:
-          point = new DOMPoint(halfWidth - halfControlSize, height - halfControlSize);
+          point = [halfWidth - halfControlSize, height - halfControlSize];
           break;
         case 7:
-          point = new DOMPoint(-halfControlSize, halfHeight - halfControlSize);
+          point = [-halfControlSize, halfHeight - halfControlSize];
           break;
         case 8:
-          point = new DOMPoint(width - halfControlSize, halfHeight - halfControlSize);
+          point = [width - halfControlSize, halfHeight - halfControlSize];
           break;
         default:
           break;
       }
       resizeControl.setState({
-        left: point.x,
-        top: point.y,
+        left: point[0],
+        top: point[1],
       });
     });
 
@@ -248,10 +250,10 @@ export default class TransformControlPanel extends ICEControlPanel {
     let newWidth = targetState.width;
     let newHeight = targetState.height;
 
-    let matrix = targetState.absoluteLinearMatrix.inverse();
-    let point = new DOMPoint(movementX, movementY).matrixTransform(matrix);
-    movementX = point.x;
-    movementY = point.y;
+    let matrix = mat2d.invert([], targetState.absoluteLinearMatrix);
+    let point = vec2.transformMat2d([], [movementX, movementY], matrix);
+    movementX = point[0];
+    movementY = point[1];
 
     switch (quadrant) {
       case 1:
@@ -306,7 +308,7 @@ export default class TransformControlPanel extends ICEControlPanel {
     });
   }
 
-  protected updatePosition() {
+  protected updatePanel() {
     if (this.targetComponent) {
       let angle = this.targetComponent.getRotateAngle();
       let { left, top, width, height } = this.targetComponent.getLocalLeftTop();
@@ -325,10 +327,10 @@ export default class TransformControlPanel extends ICEControlPanel {
   public set targetComponent(component: ICEComponent) {
     this._targetComponent = component;
     if (component) {
-      this.updatePosition();
-      component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
+      this.updatePanel();
+      component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
     } else {
-      component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
+      component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
     }
   }
 

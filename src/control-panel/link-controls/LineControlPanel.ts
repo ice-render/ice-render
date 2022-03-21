@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import { mat2d, vec2 } from 'gl-matrix';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEComponent from '../../graphic/ICEComponent';
 import ICELinkHook from '../../graphic/link/ICELinkHook';
@@ -124,10 +125,10 @@ export default class LineControlPanel extends ICEControlPanel {
 
     //用逆矩阵补偿组件 transform 导致的坐标变换。
     //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
-    let matrix = targetState.absoluteLinearMatrix.inverse();
-    let point = new DOMPoint(movementX, movementY).matrixTransform(matrix);
-    movementX = point.x;
-    movementY = point.y;
+    let matrix = mat2d.invert([], targetState.absoluteLinearMatrix);
+    let point = vec2.transformMat2d([], [movementX, movementY], matrix);
+    movementX = point[0];
+    movementY = point[1];
 
     switch (position) {
       case 'start':
@@ -170,15 +171,15 @@ export default class LineControlPanel extends ICEControlPanel {
       let len = this.targetComponent.state.points.length;
       let start = this.targetComponent.state.points[0];
       let end = this.targetComponent.state.points[len - 1];
-      let startPoint = new DOMPoint(start[0], start[1]);
-      let endPoint = new DOMPoint(end[0], end[1]);
+      let startPoint = [start[0], start[1]];
+      let endPoint = [end[0], end[1]];
       this.startControl.setState({
-        left: startPoint.x - halfControlSize,
-        top: startPoint.y - halfControlSize,
+        left: startPoint[0] - halfControlSize,
+        top: startPoint[1] - halfControlSize,
       });
       this.endControl.setState({
-        left: endPoint.x - halfControlSize,
-        top: endPoint.y - halfControlSize,
+        left: endPoint[0] - halfControlSize,
+        top: endPoint[1] - halfControlSize,
       });
     }
   }
