@@ -22,8 +22,8 @@ class ICERose extends ICEPath {
     const R = this.state.r;
     const k = this.state.k;
     const n = this.state.n;
-    const x0 = this.state.localOrigin.x;
-    const y0 = this.state.localOrigin.y;
+    const x0 = this.state.localOrigin[0];
+    const y0 = this.state.localOrigin[1];
     let x;
     let y;
     let r;

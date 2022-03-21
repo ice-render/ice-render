@@ -83,7 +83,7 @@ class ICEPolyLine extends ICEDotPath {
       }
     }
 
-    //ICEPolyLine 的参数需要特殊处理，总是把 left/top 移动到第 0 个点的位置，外部传递的 left/top ， translate.x/translate.y 都无效。
+    //ICEPolyLine 的参数需要特殊处理，总是把 left/top 移动到第 0 个点的位置，外部传递的 left/top ， translate[0]/translate[1] 都无效。
     param = merge(param, {
       left: props.points[0][0],
       top: props.points[0][1],
@@ -108,8 +108,8 @@ class ICEPolyLine extends ICEDotPath {
    * @overwrite
    * @returns
    */
-  protected calcLocalOrigin(): DOMPoint {
-    let point = new DOMPoint(0, 0);
+  protected calcLocalOrigin() {
+    let point = [0, 0];
     this.state.localOrigin = point;
     return point;
   }
@@ -121,14 +121,14 @@ class ICEPolyLine extends ICEDotPath {
    * @overwrite
    * @returns
    */
-  protected calcDots(): Array<DOMPoint> {
+  protected calcDots() {
     let left = this.state.left;
     let top = this.state.top;
     this.state.dots = [];
     this.state.points.forEach((p) => {
       let x = p[0] - left;
       let y = p[1] - top;
-      this.state.dots.push(new DOMPoint(x, y));
+      this.state.dots.push([x, y]);
     });
     return this.state.dots;
   }
@@ -140,7 +140,7 @@ class ICEPolyLine extends ICEDotPath {
    */
   public addDot(point: [number, number], index: number): void {
     this.state.points.splice(index, 0, point);
-    this.state.dots.splice(index, 0, new DOMPoint(point[0], point[1]));
+    this.state.dots.splice(index, 0, [point[0], point[1]]);
   }
 
   /**
@@ -167,7 +167,7 @@ class ICEPolyLine extends ICEDotPath {
     this.calcDots();
 
     let points = this.calc4VertexPoints(); //最小包围盒的4个顶点
-    let width = Math.abs(points[1].x - points[0].x); //maxX-minX
+    let width = Math.abs(points[1][0] - points[0][0]); //maxX-minX
     let height = this.state.style.lineWidth;
 
     //先进行共线判断，如果所有点都在同一条直线上，那么边界盒子的整体高度就等于线条的粗细
@@ -176,7 +176,7 @@ class ICEPolyLine extends ICEDotPath {
       this.state.height = height;
       return { width: this.state.width, height: this.state.height };
     } else {
-      height = Math.abs(points[2].y - points[0].y); //maxY-minY
+      height = Math.abs(points[2][1] - points[0][1]); //maxY-minY
       this.state.width = width;
       this.state.height = height;
       return { width: this.state.width, height: this.state.height };
@@ -217,9 +217,9 @@ class ICEPolyLine extends ICEDotPath {
    * 计算4个顶点：
    * - 相对于组件本地的坐标系，原点位于左上角，没有经过矩阵变换。
    * - 返回值用于计算组件的原始 width/height 。
-   * @returns Array<DOMPoint>
+   * @returns
    */
-  protected calc4VertexPoints(): Array<DOMPoint> {
+  protected calc4VertexPoints() {
     if (this.isDotsOnSameLine()) {
       return this.splitEndpointsTo4Points();
     } else {
@@ -231,7 +231,7 @@ class ICEPolyLine extends ICEDotPath {
    * 把直线的2个端点分裂成4个点，把线条的粗细参数(lineWidth)当成高度看待，方便计算最小包围盒。
    * @returns
    */
-  protected splitEndpointsTo4Points(): Array<DOMPoint> {
+  protected splitEndpointsTo4Points() {
     let len = this.state.points.length;
     let startX = 0; //由于 ICEPolyLine 总是把 left/top 与起点重合，所以这里的 startX 总是为 0
     let startY = 0; //由于 ICEPolyLine 总是把 left/top 与起点重合，所以这里的 startY 总是为 0
@@ -246,10 +246,10 @@ class ICEPolyLine extends ICEDotPath {
     deltaY = round(deltaY, 3);
 
     //计算4个顶点，让边界盒子紧贴直线
-    let point1 = new DOMPoint(startX + deltaX, startY + deltaY);
-    let point2 = new DOMPoint(startX - deltaX, startY - deltaY);
-    let point3 = new DOMPoint(endX + deltaX, endY + deltaY);
-    let point4 = new DOMPoint(endX - deltaX, endY - deltaY);
+    let point1 = [startX + deltaX, startY + deltaY];
+    let point2 = [startX - deltaX, startY - deltaY];
+    let point3 = [endX + deltaX, endY + deltaY];
+    let point4 = [endX - deltaX, endY - deltaY];
 
     return [point1, point2, point3, point4];
   }
@@ -260,18 +260,18 @@ class ICEPolyLine extends ICEDotPath {
    */
   public getMinBoundingBox(): ICEBoundingBox {
     //先基于组件本地坐标系进行计算
-    let originX = this.state.localOrigin.x;
-    let originY = this.state.localOrigin.y;
+    let originX = this.state.localOrigin[0];
+    let originY = this.state.localOrigin[1];
     let points = this.calc4VertexPoints();
     let boundingBox = new ICEBoundingBox([
-      points[0].x - originX,
-      points[0].y - originY,
-      points[1].x - originX,
-      points[1].y - originY,
-      points[2].x - originX,
-      points[2].y - originY,
-      points[3].x - originX,
-      points[3].y - originY,
+      points[0][0] - originX,
+      points[0][1] - originY,
+      points[1][0] - originX,
+      points[1][1] - originY,
+      points[2][0] - originX,
+      points[2][1] - originY,
+      points[3][0] - originX,
+      points[3][1] - originY,
       0,
       0,
     ]);
@@ -374,10 +374,10 @@ class ICEPolyLine extends ICEDotPath {
     const lines = this.getLines();
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const x1 = line.o.x;
-      const y1 = line.o.y;
-      const x2 = line.d.x;
-      const y2 = line.d.y;
+      const x1 = line.o[0];
+      const y1 = line.o[1];
+      const x2 = line.d[0];
+      const y2 = line.d[1];
       const lineLength = GeoUtil.getLength(x1, y1, x2, y2);
       const len1 = GeoUtil.getLength(x, y, x1, y1);
       const len2 = GeoUtil.getLength(x, y, x2, y2);
@@ -395,11 +395,11 @@ class ICEPolyLine extends ICEDotPath {
       return result;
     }
     for (let i = 0; i < dots.length - 1; i++) {
-      const x1 = dots[i].x;
-      const y1 = dots[i].y;
-      const x2 = dots[i + 1].x;
-      const y2 = dots[i + 1].y;
-      const line = { o: new DOMPoint(x1, y1), d: new DOMPoint(x2, y2) }; //o:origin, d:destination
+      const x1 = dots[i][0];
+      const y1 = dots[i][1];
+      const x2 = dots[i + 1][0];
+      const y2 = dots[i + 1][1];
+      const line = { o: [x1, y1], d: [x2, y2] }; //o:origin, d:destination
       result.push(line);
     }
     return result;

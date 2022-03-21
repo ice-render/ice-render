@@ -65,6 +65,7 @@ class CanvasRenderer extends ICEEventTarget {
 
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
     this.renderQueue = Array.from(this.ice.childNodes);
+    console.log(`Render Queue length> ${this.renderQueue.length}`);
     this.renderQueue.sort((firstEl, secondEl) => {
       //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
       return firstEl.state.zIndex - secondEl.state.zIndex;

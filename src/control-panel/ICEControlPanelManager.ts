@@ -49,8 +49,6 @@ class ICEControlPanelManager {
         rotate: 45,
       },
     });
-    //在同一时刻，不可能同时出现多个 TransformControlPanel 实例，这里默认构造一个，放在距离可见区域很远的位置？？？
-    //FIXME:需要测试是否会影响 toDataURL 的输出结果。
     this.ice.addChild(this.transformControlPanel);
     this.transformControlPanel.disable(); //默认处于禁用状态
 
@@ -98,6 +96,7 @@ class ICEControlPanelManager {
     this.ice.selectionList = [component];
     this.lineControlPanel.disable();
     this.transformControlPanel.disable();
+
     //线条型的组件变换工具与其它组件不同
     if (component instanceof ICEPolyLine) {
       this.lineControlPanel.targetComponent = component;

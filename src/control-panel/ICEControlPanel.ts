@@ -28,8 +28,6 @@ export default abstract class ICEControlPanel extends ICEGroup {
 
   protected abstract initControls(): void;
 
-  protected abstract initEvents(): void;
-
   protected abstract setControlPositions(): void;
 
   protected doRender(): void {

@@ -23,6 +23,10 @@ import ICECircle from '../../graphic/shape/ICECircle';
 export default class RotateControl extends ICECircle {
   constructor(props) {
     super({ props, linkable: false });
+  }
+
+  protected initEvents(): void {
+    super.initEvents();
     this.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.rotateEvtHandler, this);
   }
 
@@ -34,7 +38,7 @@ export default class RotateControl extends ICECircle {
 
     //计算手柄旋转角
     let parentOrigin = this.parentNode.state.absoluteOrigin;
-    let rotateAngle = GeoUtil.calcRotateAngle(evt.offsetX, evt.offsetY, parentOrigin.x, parentOrigin.y);
+    let rotateAngle = GeoUtil.calcRotateAngle(evt.offsetX, evt.offsetY, parentOrigin[0], parentOrigin[1]);
 
     //parentNode 旋转角与手柄旋转角同步
     const param = {

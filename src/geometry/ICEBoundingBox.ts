@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import GeoUtil from './GeoUtil';
+import { vec2 } from 'gl-matrix';
 
 /**
  * @class ICEBoundingBox 用4点法描述的边界盒子。
@@ -15,30 +15,26 @@ import GeoUtil from './GeoUtil';
  * - 边界盒子总是通过自身的坐标点进行变换，而不是变换 canvas.ctx 。
  * - 边界盒子总是通过组件的参数计算出来的，直接修改边界盒子不影响组件本身的参数。
  *
- * TODO: Wrap up the original DOMPoint and DOMMatrix interfaces, add some util functions.
- * @see https://developer.mozilla.org/en-US/docs/Web/API/DOMPoint
- * @see https://developer.mozilla.org/en-US/docs/Web/API/DOMMatrix/DOMMatrix
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICEBoundingBox {
   //top-left
-  public tl = new DOMPoint();
+  public tl = [0, 0];
   //top-right
-  public tr = new DOMPoint();
+  public tr = [0, 0];
   //bottom-left
-  public bl = new DOMPoint();
+  public bl = [0, 0];
   //bottom-right
-  public br = new DOMPoint();
+  public br = [0, 0];
   //center-point
-  public center = new DOMPoint();
+  public center = [0, 0];
 
-  //FIXME:不使用 tl/tr/bl/br 固定4个顶点，顶点不定位
   constructor(props: Array<number> = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]) {
-    this.tl = new DOMPoint(props[0], props[1]);
-    this.tr = new DOMPoint(props[2], props[3]);
-    this.bl = new DOMPoint(props[4], props[5]);
-    this.br = new DOMPoint(props[6], props[7]);
-    this.center = new DOMPoint(props[8], props[9]);
+    this.tl = [props[0], props[1]];
+    this.tr = [props[2], props[3]];
+    this.bl = [props[4], props[5]];
+    this.br = [props[6], props[7]];
+    this.center = [props[8], props[9]];
   }
 
   /**
@@ -55,17 +51,16 @@ class ICEBoundingBox {
     let bl = [left, top + height];
     let br = [left + width, top + height];
     let center = [left + width / 2, top + height / 2];
-    let paramArr = [...tl, ...tr, ...bl, ...br, ...center];
-    return new ICEBoundingBox(paramArr);
+    return new ICEBoundingBox([...tl, ...tr, ...bl, ...br, ...center]);
   }
 
   public clone(): ICEBoundingBox {
-    const tl = DOMPoint.fromPoint(this.tl);
-    const tr = DOMPoint.fromPoint(this.tr);
-    const bl = DOMPoint.fromPoint(this.bl);
-    const br = DOMPoint.fromPoint(this.br);
-    const center = DOMPoint.fromPoint(this.center);
-    return new ICEBoundingBox([tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y, center.x, center.y]);
+    const tl = [...this.tl];
+    const tr = [...this.tr];
+    const bl = [...this.bl];
+    const br = [...this.br];
+    const center = [...this.center];
+    return new ICEBoundingBox([...tl, ...tr, ...bl, ...br, ...center]);
   }
 
   /**
@@ -75,10 +70,10 @@ class ICEBoundingBox {
    * @param point
    * @returns
    */
-  public containsPoint(point: DOMPoint): boolean {
+  public containsPoint(point): boolean {
     //只考虑凸包的情况：[x,y]有一个值位于最大最小值之外，则不可能包含在边界盒子内部。
     const { minX, minY, maxX, maxY } = this.getMinAndMaxPoint();
-    if (point.x < minX || point.x > maxX || point.y < minY || point.y > maxY) {
+    if (point[0] < minX || point[0] > maxX || point[1] < minY || point[1] > maxY) {
       return false;
     }
 
@@ -90,25 +85,25 @@ class ICEBoundingBox {
       const line = boudingLines[i];
 
       //特例1：点位于线段下方，水平射线不可能与线段交叉
-      if (point.y > line.o.y && point.y > line.d.y) {
+      if (point[1] > line.o[1] && point[1] > line.d[1]) {
         continue;
       }
 
       //特例2：点位于线段上方，水平射线不可能与线段交叉
-      if (point.y < line.o.y && point.y < line.d.y) {
+      if (point[1] < line.o[1] && point[1] < line.d[1]) {
         continue;
       }
 
-      if (line.o.x === line.d.x && line.o.x >= point.x) {
+      if (line.o[0] === line.d[0] && line.o[0] >= point[0]) {
         //特例3：处理垂直于 x 轴（平行于 y 轴）的特殊情况
-        xi = line.o.x;
+        xi = line.o[0];
       } else {
         //斜率法求向右的射线与线段的交点 x 坐标
-        const k = (line.d.y - line.o.y) / (line.d.x - line.o.x); //斜率
-        xi = line.o.x + (point.y - line.o.y) / k;
+        const k = (line.d[1] - line.o[1]) / (line.d[0] - line.o[0]); //斜率
+        xi = line.o[0] + (point[1] - line.o[1]) / k;
       }
 
-      if (xi > point.x) {
+      if (xi > point[0]) {
         //只处理向右侧的射线情况即可
         xcount++;
       }
@@ -125,10 +120,10 @@ class ICEBoundingBox {
    * 获取边界盒子的边所构成的线段，由于边界盒子总是被定义成 4 边形，这里直接简化处理。
    */
   private getBoundingLines(): Array<any> {
-    const line_1 = { o: DOMPoint.fromPoint(this.tl), d: DOMPoint.fromPoint(this.tr) }; //o:origin, d:destination
-    const line_2 = { o: DOMPoint.fromPoint(this.tr), d: DOMPoint.fromPoint(this.br) };
-    const line_3 = { o: DOMPoint.fromPoint(this.br), d: DOMPoint.fromPoint(this.bl) };
-    const line_4 = { o: DOMPoint.fromPoint(this.bl), d: DOMPoint.fromPoint(this.tl) };
+    const line_1 = { o: [...this.tl], d: [...this.tr] }; //o:origin, d:destination
+    const line_2 = { o: [...this.tr], d: [...this.br] };
+    const line_3 = { o: [...this.br], d: [...this.bl] };
+    const line_4 = { o: [...this.bl], d: [...this.tl] };
     return [line_1, line_2, line_3, line_4];
   }
 
@@ -138,24 +133,24 @@ class ICEBoundingBox {
    */
   public getMinAndMaxPoint(): any {
     //取任意一个顶点坐标作为初始值，然后与其它3个顶点的坐标进行比较
-    let minX = this.tl.x;
-    let minY = this.tl.y;
-    let maxX = this.tl.x;
-    let maxY = this.tl.y;
+    let minX = this.tl[0];
+    let minY = this.tl[1];
+    let maxX = this.tl[0];
+    let maxY = this.tl[1];
 
     const arr = [this.tr, this.bl, this.br];
     arr.forEach((p) => {
-      if (p.x < minX) {
-        minX = p.x;
+      if (p[0] < minX) {
+        minX = p[0];
       }
-      if (p.x > maxX) {
-        maxX = p.x;
+      if (p[0] > maxX) {
+        maxX = p[0];
       }
-      if (p.y < minY) {
-        minY = p.y;
+      if (p[1] < minY) {
+        minY = p[1];
       }
-      if (p.y > maxY) {
-        maxY = p.y;
+      if (p[1] > maxY) {
+        maxY = p[1];
       }
     });
 
@@ -178,15 +173,15 @@ class ICEBoundingBox {
    * @returns
    */
   public isIntersect(box: ICEBoundingBox): boolean {
-    let left1 = this.tl.x;
-    let right1 = this.br.x;
-    let top1 = this.tl.y;
-    let bottom1 = this.br.y;
+    let left1 = this.tl[0];
+    let right1 = this.br[0];
+    let top1 = this.tl[1];
+    let bottom1 = this.br[1];
 
-    let left2 = box.tl.x;
-    let right2 = box.br.x;
-    let top2 = box.tl.y;
-    let bottom2 = box.br.y;
+    let left2 = box.tl[0];
+    let right2 = box.br[0];
+    let top2 = box.tl[1];
+    let bottom2 = box.br[1];
 
     let isIntersect = !(left1 > right2 || top1 > bottom2 || right1 < left2 || bottom1 < top2);
     return isIntersect;
@@ -196,13 +191,13 @@ class ICEBoundingBox {
    * @param matrix
    * @returns A new ICEBoundingBox instance.
    */
-  public transform(matrix: DOMMatrix): ICEBoundingBox {
-    const tl = DOMPoint.fromPoint(this.tl).matrixTransform(matrix);
-    const tr = DOMPoint.fromPoint(this.tr).matrixTransform(matrix);
-    const bl = DOMPoint.fromPoint(this.bl).matrixTransform(matrix);
-    const br = DOMPoint.fromPoint(this.br).matrixTransform(matrix);
-    const center = DOMPoint.fromPoint(this.center).matrixTransform(matrix);
-    return new ICEBoundingBox([tl.x, tl.y, tr.x, tr.y, bl.x, bl.y, br.x, br.y, center.x, center.y]);
+  public transform(matrix): ICEBoundingBox {
+    const tl = vec2.transformMat2d([], this.tl, matrix);
+    const tr = vec2.transformMat2d([], this.tr, matrix);
+    const bl = vec2.transformMat2d([], this.bl, matrix);
+    const br = vec2.transformMat2d([], this.br, matrix);
+    const center = vec2.transformMat2d([], this.center, matrix);
+    return new ICEBoundingBox([...tl, ...tr, ...bl, ...br, ...center]);
   }
 
   /**
@@ -214,15 +209,19 @@ class ICEBoundingBox {
   }
 
   public get width(): number {
-    return GeoUtil.getLength(this.br.x, this.br.y, this.bl.x, this.bl.y);
+    const deltaX = this.br[0] - this.bl[0];
+    const deltaY = this.br[1] - this.bl[1];
+    return Math.hypot(deltaX, deltaY);
   }
 
   public get height(): number {
-    return GeoUtil.getLength(this.br.x, this.br.y, this.tr.x, this.tr.y);
+    const deltaX = this.br[0] - this.tr[0];
+    const deltaY = this.br[1] - this.tr[1];
+    return Math.hypot(deltaX, deltaY);
   }
 
   public get left(): number {
-    return this.tl.x;
+    return this.tl[0];
   }
 
   //不允许设置 left 参数
@@ -231,7 +230,7 @@ class ICEBoundingBox {
   }
 
   public get top(): number {
-    return this.tl.y;
+    return this.tl[1];
   }
 
   //不允许设置 top 参数
@@ -240,14 +239,14 @@ class ICEBoundingBox {
   }
 
   public get centerX(): number {
-    return this.center.x;
+    return this.center[0];
   }
 
   public get centerY(): number {
-    return this.center.y;
+    return this.center[1];
   }
 
-  public get centerPoint(): DOMPoint {
+  public get centerPoint() {
     return this.center;
   }
 }

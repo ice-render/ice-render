@@ -21,7 +21,7 @@ abstract class ICEPath extends ICEComponent {
   /**
    * @cfg
    * {
-   *   dots:Array<DOMPoint>  //可选参数，路径上的点。
+   *   dots:[]  //可选参数，路径上的点。
    * }
    * @param props
    */

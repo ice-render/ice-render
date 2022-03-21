@@ -50,7 +50,7 @@ class ICEIsogon extends ICEDotPath {
    * - 这些点没有经过 transform 矩阵变换。
    * @returns
    */
-  protected calcDots(): Array<DOMPoint> {
+  protected calcDots() {
     //求正 N 边形的顶点坐标，极坐标法。
     this.state.dots = [];
     let avgAngle = (2 * Math.PI) / this.state.edges;
@@ -63,7 +63,7 @@ class ICEIsogon extends ICEDotPath {
       let radius = this.state.radius;
       let x = Math.floor(radius * Math.cos(currentAngel) + radius);
       let y = Math.floor(radius * Math.sin(currentAngel) + radius);
-      this.state.dots.push(new DOMPoint(x, y));
+      this.state.dots.push([x, y]);
     }
     return this.state.dots;
   }

@@ -6,8 +6,6 @@
  *
  */
 /**
- * FIXME: 与 ICEPoint 合并。
- *
  * @class GeoPoint
  * A geometrically point, invisible, no dimension, just used for mathematical operations.
  * This implementation is improved from http://diagramo.com/ .

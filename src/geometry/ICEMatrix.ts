@@ -5,10 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-//FIXME:包装 DOMMatrix，进行兼容处理。
-//! W3C 原生的 DOMPoint, DOMMatrix 存在严重的兼容性问题和性能问题
-//https://developer.mozilla.org/en-US/docs/Web/API/DOMMatrix
-//DOMMatrix 类的浏览器兼容性：https://caniuse.com/?search=dommatrix
+
 export default class ICEMatrix {
   constructor() {}
 
@@ -17,9 +14,10 @@ export default class ICEMatrix {
    * @param matrix
    * @returns 角度
    */
-  public static calcRotateAngleFromMatrix(matrix: DOMMatrix): number {
+  public static calcRotateAngleFromMatrix(matrix): number {
     let radians = 0;
-    let { a, b } = matrix;
+    let a = matrix[0];
+    let b = matrix[1];
     const temp = Math.hypot(a, b);
     let sin = b / temp;
     let cos = a / temp;
@@ -35,9 +33,13 @@ export default class ICEMatrix {
    * @param matrix
    * @returns 缩放数组
    */
-  public static calcScaleFromMatrix(matrix: DOMMatrix): Array<number> {
-    const scaleX = Math.hypot(matrix.a, matrix.b) / matrix.a;
-    const scaleY = Math.hypot(matrix.c, matrix.d) / matrix.d;
+  public static calcScaleFromMatrix(matrix): Array<number> {
+    let a = matrix[0];
+    let b = matrix[1];
+    let c = matrix[2];
+    let d = matrix[3];
+    const scaleX = Math.hypot(a, b) / a;
+    const scaleY = Math.hypot(c, d) / d;
     return [scaleX, scaleY];
   }
 }

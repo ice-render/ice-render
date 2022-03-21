@@ -133,20 +133,20 @@ export default class ICELinkSlotManager {
       let top = 0;
       switch (slot.state.position) {
         case 'T':
-          left = box.center.x - this.slotRadius;
-          top = box.tl.y - this.slotRadius;
+          left = box.center[0] - this.slotRadius;
+          top = box.tl[1] - this.slotRadius;
           break;
         case 'R':
-          left = box.tr.x - this.slotRadius;
-          top = box.center.y - this.slotRadius;
+          left = box.tr[0] - this.slotRadius;
+          top = box.center[1] - this.slotRadius;
           break;
         case 'B':
-          left = box.center.x - this.slotRadius;
-          top = box.br.y - this.slotRadius;
+          left = box.center[0] - this.slotRadius;
+          top = box.br[1] - this.slotRadius;
           break;
         case 'L':
-          left = box.bl.x - this.slotRadius;
-          top = box.center.y - this.slotRadius;
+          left = box.bl[0] - this.slotRadius;
+          top = box.center[1] - this.slotRadius;
           break;
         default:
           break;
