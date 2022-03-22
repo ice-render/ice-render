@@ -9415,12 +9415,12 @@
       fillStyle: '#f5d106',
       lineWidth: 5,
     },
-    animations: {
-      left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
-      top: { from: 0, to: 200, duration: 3000 },
-      width: { from: 100, to: 200, duration: 5000 },
-      height: { from: 100, to: 200, duration: 5000 },
-    },
+    // animations: {
+    //   left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+    //   top: { from: 0, to: 200, duration: 3000 },
+    //   width: { from: 100, to: 200, duration: 5000 },
+    //   height: { from: 100, to: 200, duration: 5000 },
+    // },
     transform: {
       // translate: [10, 10],
       rotate: 30,
