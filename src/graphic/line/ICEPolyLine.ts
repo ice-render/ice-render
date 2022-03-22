@@ -126,10 +126,15 @@ class ICEPolyLine extends ICEDotPath {
 
   protected makeConnection() {
     const { startSlotId, endSlotId } = this.props;
-    const startSlot = this.ice.findComponent(startSlotId);
-    const endSlot = this.ice.findComponent(endSlotId);
-    startSlot && this.setSlot(startSlot, 'start');
-    endSlot && this.setSlot(endSlot, 'end');
+    if (startSlotId) {
+      const startSlot = this.ice.findComponent(startSlotId);
+      startSlot && this.setSlot(startSlot, 'start');
+    }
+
+    if (endSlotId) {
+      const endSlot = this.ice.findComponent(endSlotId);
+      endSlot && this.setSlot(endSlot, 'end');
+    }
   }
 
   /**

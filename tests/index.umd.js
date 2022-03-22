@@ -5273,10 +5273,16 @@
         startSlotId,
         endSlotId
       } = this.props;
-      const startSlot = this.ice.findComponent(startSlotId);
-      const endSlot = this.ice.findComponent(endSlotId);
-      startSlot && this.setSlot(startSlot, 'start');
-      endSlot && this.setSlot(endSlot, 'end');
+
+      if (startSlotId) {
+        const startSlot = this.ice.findComponent(startSlotId);
+        startSlot && this.setSlot(startSlot, 'start');
+      }
+
+      if (endSlotId) {
+        const endSlot = this.ice.findComponent(endSlotId);
+        endSlot && this.setSlot(endSlot, 'end');
+      }
     }
     /**
      * ICEPolyLine 有自己的特殊处理，它的原点永远在 (0,0) 位置，而不在几何中点。
