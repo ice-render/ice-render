@@ -25,9 +25,6 @@ class CanvasRenderer extends ICEEventTarget {
   private stopped: boolean = false;
   private renderQueue = []; //等待渲染的组件队列，FIFO
 
-  static readonly MAX_QUE_LENGTH = 5000000; //队列最大长度，超长忽略，不能进入队列。
-  static readonly FRAME_TIME = 16; //每帧最大用时 16ms ，超过此时间放到下一帧继续渲染。
-
   constructor(ice: ICE) {
     super();
     this.ice = ice;
