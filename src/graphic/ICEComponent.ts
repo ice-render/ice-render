@@ -340,7 +340,8 @@ abstract class ICEComponent extends ICEEventTarget {
     ]);
 
     //再用 composedMatrix 进行变换
-    boundingBox = boundingBox.transform(this.composeMatrix());
+    //!FIXME:缓存的 composedMatrix 矩阵与变换工具之间会失去同步
+    boundingBox = boundingBox.transform(this.state.composedMatrix);
     return boundingBox;
   }
 

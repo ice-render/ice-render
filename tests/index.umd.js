@@ -3994,8 +3994,9 @@
       let width = this.state.width;
       let height = this.state.height;
       let boundingBox = new ICEBoundingBox([0 - originX, 0 - originY, 0 - originX + width, 0 - originY, 0 - originX, 0 - originY + height, 0 - originX + width, 0 - originY + height, 0, 0]); //再用 composedMatrix 进行变换
+      //!FIXME:缓存的 composedMatrix 矩阵与变换工具之间会失去同步
 
-      boundingBox = boundingBox.transform(this.composeMatrix());
+      boundingBox = boundingBox.transform(this.state.composedMatrix);
       return boundingBox;
     }
     /**
@@ -9125,7 +9126,7 @@
   // });
   // ice.addChild(baseRect1);
 
-  for (let i = 0; i < 1; i++) {
+  for (let i = 0; i < 100; i++) {
     let rect = new ICERect({
       left: Math.random() * 1024,
       top: Math.random() * 768,
