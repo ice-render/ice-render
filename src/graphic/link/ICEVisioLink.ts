@@ -5,15 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { vec2 } from 'gl-matrix';
 import isNil from 'lodash/isNil';
-import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
-import ICEEvent from '../../event/ICEEvent';
 import GeoLine from '../../geometry/GeoLine';
 import GeoPoint from '../../geometry/GeoPoint';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICEPolyLine from '../line/ICEPolyLine';
-import ICELinkSlot from './ICELinkSlot';
 
 /**
  * ! FIXME: 删掉对 GeoPoint/GeoLine/GeoUtil 的依赖
@@ -36,9 +32,6 @@ import ICELinkSlot from './ICELinkSlot';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default class ICEVisioLink extends ICEPolyLine {
-  private startSlot: ICELinkSlot;
-  private endSlot: ICELinkSlot;
-
   /**
    * FIXME:补全 props 配置项的描述
    */
@@ -59,28 +52,6 @@ export default class ICEVisioLink extends ICEPolyLine {
     //escapeDistance 疏散距离，是 4 个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
     props = { escapeDistance: 30, ...props };
     return props;
-  }
-
-  /**
-   * @override
-   */
-  protected initEvents() {
-    super.initEvents();
-
-    //如果 props 里面的 startSlotId 和 endSlotId 不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
-    this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
-  }
-
-  protected afterAddHandler(evt: ICEEvent) {
-    this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
-  }
-
-  private makeConnection() {
-    const { startSlotId, endSlotId } = this.props;
-    const startSlot = this.ice.findComponent(startSlotId);
-    const endSlot = this.ice.findComponent(endSlotId);
-    startSlot && this.setSlot(startSlot, 'start');
-    endSlot && this.setSlot(endSlot, 'end');
   }
 
   /**
@@ -662,106 +633,5 @@ export default class ICEVisioLink extends ICEPolyLine {
    */
   public rmDot(index: number): boolean {
     throw new Error('Can NOT remove dot from ICEVisioLink mannually.');
-  }
-
-  /**
-   *
-   * 当连线两头的组件发生移动时，触发连线重新绘制自身。
-   *
-   * @param slot
-   * @param position
-   */
-  private syncPosition(slot, position) {
-    let slotBounding = slot.getMinBoundingBox();
-    let x = slotBounding.center[0];
-    let y = slotBounding.center[1];
-    let point = this.globalToLocal(x, y);
-    let { left, top } = this.state;
-    point = vec2.transformMat2d([], point, [1, 0, 0, 1, left, top]);
-
-    if (position === 'start') {
-      this.setState({
-        startPoint: [point[0], point[1]],
-      });
-    } else if (position === 'end') {
-      this.setState({
-        endPoint: [point[0], point[1]],
-      });
-    }
-  }
-
-  protected followStartSlot(evt: ICEEvent): void {
-    this.syncPosition(this.startSlot, 'start');
-  }
-
-  protected followEndSlot(evt: ICEEvent): void {
-    this.syncPosition(this.endSlot, 'end');
-  }
-
-  //当 Slot 被删除时，清理它与连接线、宿主组件之间的关联关系。
-  private slotBeforeRemoveHandler(evt: ICEEvent): void {
-    const slot = evt.param.component;
-    if (!slot) return;
-    if (this.startSlot === slot) {
-      this.deleteSlot(slot, 'start');
-    } else if (this.endSlot === slot) {
-      this.deleteSlot(slot, 'end');
-    }
-  }
-
-  /**
-   * 设置连线与组件之间的逻辑关系
-   */
-  public setSlot(slot, position) {
-    if (!slot || !position) return;
-
-    //总是先尝试解除连接关系，然后再重新尝试连接
-    this.deleteSlot(slot, position);
-
-    //设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
-    this.setState({
-      draggable: false,
-    });
-
-    if (position === 'start') {
-      this.startSlot = slot;
-      this.state.startSlotId = slot.props.id;
-      this.syncPosition(this.startSlot, 'start');
-      this.startSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this);
-
-      //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
-      this.startSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
-    } else if (position === 'end') {
-      this.endSlot = slot;
-      this.state.endSlotId = slot.props.id;
-      this.syncPosition(this.endSlot, 'end');
-      this.endSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this);
-
-      //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
-      this.endSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
-    }
-  }
-
-  /**
-   * 解除连线与组件之间的连接关系。
-   * @param slot
-   */
-  public deleteSlot(slot, position) {
-    if (position === 'start' && this.startSlot === slot) {
-      this.startSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this);
-      this.startSlot = null;
-      this.state.startSlotId = '';
-    } else if (position === 'end' && this.endSlot === slot) {
-      this.endSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this);
-      this.endSlot = null;
-      this.state.endSlotId = '';
-    }
-
-    //如果两端都没有连接的组件，连接线自身变成可拖动
-    if (!this.startSlot && !this.endSlot) {
-      this.setState({
-        draggable: true,
-      });
-    }
   }
 }
