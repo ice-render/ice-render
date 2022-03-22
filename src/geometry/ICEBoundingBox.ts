@@ -54,15 +54,6 @@ class ICEBoundingBox {
     return new ICEBoundingBox([...tl, ...tr, ...bl, ...br, ...center]);
   }
 
-  public clone(): ICEBoundingBox {
-    const tl = [...this.tl];
-    const tr = [...this.tr];
-    const bl = [...this.bl];
-    const br = [...this.br];
-    const center = [...this.center];
-    return new ICEBoundingBox([...tl, ...tr, ...bl, ...br, ...center]);
-  }
-
   /**
    * 判断指定的坐标点是否位于边界矩形内部，向右水平射线法。
    * 这里参考了 fabricjs 的实现方式。

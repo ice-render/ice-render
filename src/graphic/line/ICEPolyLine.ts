@@ -228,7 +228,7 @@ class ICEPolyLine extends ICEDotPath {
     for (let i = 0; i < len; i++) {
       let p = this.state.points[i];
       let vector2 = [p[0] - startX, p[1] - startY];
-      let crossProduct = GeoUtil.crossProduct(vector1[0], vector1[1], vector2[0], vector2[1]);
+      let crossProduct = vec2.cross([], vector1, vector2)[2];
       if (crossProduct === 0) {
         counter++;
       }
@@ -407,9 +407,9 @@ class ICEPolyLine extends ICEDotPath {
       const y1 = line.o[1];
       const x2 = line.d[0];
       const y2 = line.d[1];
-      const lineLength = GeoUtil.getLength(x1, y1, x2, y2);
-      const len1 = GeoUtil.getLength(x, y, x1, y1);
-      const len2 = GeoUtil.getLength(x, y, x2, y2);
+      const lineLength = Math.hypot(x2 - x1, y2 - y1);
+      const len1 = Math.hypot(x1 - x, y1 - y);
+      const len2 = Math.hypot(x2 - x, y2 - y);
       if (len1 + len2 >= lineLength - delta && len1 + len2 <= lineLength + delta) {
         return true;
       }
