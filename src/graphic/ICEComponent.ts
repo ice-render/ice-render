@@ -470,8 +470,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * @returns
    */
   public getRotateAngle(): number {
-    let matrix = this.state.composedMatrix;
-    return ICEMatrix.calcRotateAngleFromMatrix(matrix);
+    return this.state.transform.rotate;
   }
 
   public getLocalLeftTop() {
