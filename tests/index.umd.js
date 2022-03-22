@@ -3941,37 +3941,25 @@
 
 
     doRender() {
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.lineWidth = 1;
+
       if (this.state.showMinBoundingBox) {
-        let minBox = this.getMinBoundingBox();
-        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        this.ctx.lineWidth = 1;
         this.ctx.strokeStyle = '#ff0000';
         this.ctx.fillStyle = 'rgba(0,0,0,0)';
-        this.ctx.beginPath();
-        this.ctx.moveTo(minBox.tl[0], minBox.tl[1]);
-        this.ctx.lineTo(minBox.tr[0], minBox.tr[1]);
-        this.ctx.lineTo(minBox.br[0], minBox.br[1]);
-        this.ctx.lineTo(minBox.bl[0], minBox.bl[1]);
-        this.ctx.closePath();
-        this.ctx.stroke();
-        this.ctx.fill();
+        let minBox = this.getMinBoundingBox();
+        this.ctx.rect(minBox.tl[0], minBox.tl[1], minBox.width, minBox.height);
       }
 
       if (this.state.showMaxBoundingBox) {
-        let maxBox = this.getMaxBoundingBox();
-        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        this.ctx.lineWidth = 1;
         this.ctx.strokeStyle = '#0000ff';
         this.ctx.fillStyle = 'rgba(0,0,0,0)';
-        this.ctx.beginPath();
-        this.ctx.moveTo(maxBox.tl[0], maxBox.tl[1]);
-        this.ctx.lineTo(maxBox.tr[0], maxBox.tr[1]);
-        this.ctx.lineTo(maxBox.br[0], maxBox.br[1]);
-        this.ctx.lineTo(maxBox.bl[0], maxBox.bl[1]);
-        this.ctx.closePath();
-        this.ctx.stroke();
-        this.ctx.fill();
+        let maxBox = this.getMaxBoundingBox();
+        this.ctx.rect(maxBox.tl[0], maxBox.tl[1], maxBox.width, maxBox.height);
       }
+
+      this.ctx.stroke();
+      this.ctx.fill();
     }
     /**
      * 获取组件的最小包围盒，此盒子的变换矩阵与组件自身完全相同。
