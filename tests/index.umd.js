@@ -7044,7 +7044,7 @@
       if (this._stopped) return null;
       let x = clientX - this.ice.canvasBoundingClientRect.left;
       let y = clientY - this.ice.canvasBoundingClientRect.top;
-      let components = this.ice.childNodes;
+      let components = [...this.ice.childNodes];
 
       for (let i = 0; i < components.length; i++) {
         let component = components[i];
