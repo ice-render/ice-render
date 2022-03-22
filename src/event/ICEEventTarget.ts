@@ -109,7 +109,7 @@ abstract class ICEEventTarget {
    * @returns
    */
   public trigger(eventName: string, originalEvent: any = null, param = {}) {
-    if (!this.listeners[eventName]) return false;
+    if (!this.listeners[eventName] || !this.listeners[eventName].length) return false;
     if (this.suspendedEventNames.includes(eventName)) return false;
 
     //DOM 事件和代码触发的事件都会被转换成 ICEEvent

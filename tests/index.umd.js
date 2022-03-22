@@ -3208,7 +3208,7 @@
     trigger(eventName) {
       let originalEvent = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
       let param = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
-      if (!this.listeners[eventName]) return false;
+      if (!this.listeners[eventName] || !this.listeners[eventName].length) return false;
       if (this.suspendedEventNames.includes(eventName)) return false; //DOM 事件和代码触发的事件都会被转换成 ICEEvent
       //FIXME:这里需要判断传递了 originalEvent 且类型为 ICEEvent 的情况。
 
