@@ -127,11 +127,13 @@ abstract class ICEEventTarget {
       });
     }
 
-    this.listeners[eventName].forEach((item: any) => {
+    let arr = this.listeners[eventName];
+    for (let i = 0; i < arr.length; i++) {
+      let item = arr[i];
       let fn = item.callback;
       let scope = item.scope;
       fn.call(scope, iceEvent);
-    });
+    }
     return true;
   }
 

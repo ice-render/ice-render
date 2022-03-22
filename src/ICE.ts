@@ -133,9 +133,9 @@ class ICE {
   }
 
   public addChildren(arr: Array<ICEComponent>): void {
-    arr.forEach((child) => {
-      this.addChild(child);
-    });
+    for (let i = 0; i < arr.length; i++) {
+      this.addChild(arr[i]);
+    }
   }
 
   public removeChild(component: ICEComponent) {
@@ -154,9 +154,9 @@ class ICE {
   }
 
   public removeChildren(arr: Array<ICEComponent>): void {
-    arr.forEach((child) => {
-      this.removeChild(child);
-    });
+    for (let i = 0; i < arr.length; i++) {
+      this.removeChild(arr[i]);
+    }
   }
 
   public clearAll() {

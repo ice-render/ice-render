@@ -43,12 +43,14 @@ class AnimationManager {
   }
 
   private frameEventHandler(evt: ICEEvent) {
-    this.animationMap.forEach((el: ICEComponent) => {
-      //在动画过程中，对象不响应鼠标或者触摸交互，防止影响属性值的计算。
+    let arr = [...this.animationMap.values()];
+    for (let i = 0; i < arr.length; i++) {
+      let el = arr[i];
+      //在动画过程中，对象不响应所有交互事件，防止影响属性值的计算。
       el.state.interactive = false;
       this.tween(el);
       el.state.interactive = true;
-    });
+    }
   }
 
   //TODO:处理无限循环播放的情况，处理播放次数的情况
