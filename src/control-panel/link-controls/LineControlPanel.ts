@@ -13,8 +13,6 @@ import ICEControlPanel from '../ICEControlPanel';
 
 /**
  *
- * FIXME: 当组件移动位置是， LineControlPanel 不需要跟随移动，始终保持在左上角即可。
- *
  * @class LineControlPanel
  *
  * 线条变换控制面板
@@ -185,13 +183,10 @@ export default class LineControlPanel extends ICEControlPanel {
   }
 
   public set targetComponent(component: ICEComponent) {
+    this._targetComponent && this._targetComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
     this._targetComponent = component;
-    if (component) {
-      this.updatePosition();
-      component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
-    } else {
-      component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
-    }
+    this._targetComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
+    this.updatePosition();
   }
 
   public get targetComponent(): ICEComponent {

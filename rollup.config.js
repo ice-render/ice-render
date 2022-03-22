@@ -21,17 +21,18 @@ const CommonPlugins = [
     include: ['src/**/*'],
   }),
   env === 'production' && terser(),
-  uglify({
-    output: {
-      comments: function (node, comment) {
-        if (comment.type === 'comment2') {
-          // multiline comment
-          return /@preserve|@license|@cc_on/i.test(comment.value);
-        }
-        return false;
+  env === 'production' &&
+    uglify({
+      output: {
+        comments: function (node, comment) {
+          if (comment.type === 'comment2') {
+            // multiline comment
+            return /@preserve|@license|@cc_on/i.test(comment.value);
+          }
+          return false;
+        },
       },
-    },
-  }),
+    }),
   license({
     sourcemap: true,
     banner: {

@@ -126,11 +126,18 @@ abstract class ICEComponent extends ICEEventTarget {
    * !Important: 这些方法调用有顺序
    */
   public render(): void {
+    this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER);
+    if (!this.state.display) {
+      return;
+    }
+
     this.calcOriginalDimension();
     this.applyStyle();
     this.applyTransformToCtx();
     this.doRender();
     this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER);
   }
 
   protected applyStyle(): void {

@@ -60,7 +60,6 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   private refreshRenderQueue() {
-    //FIXME:先把 display:false 的组件排除掉。
     this.renderQueue = Array.from(this.ice.childNodes);
     console.log(`Render Queue length> ${this.renderQueue.length}`);
     this.renderQueue.sort((firstEl, secondEl) => {
@@ -81,7 +80,7 @@ class CanvasRenderer extends ICEEventTarget {
 
     //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
     this.ice._dirty = false;
-    this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
+    this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, null, { components: [...this.renderQueue] });
 
     const endTime = Date.now();
     console.log(` Render time ${endTime - startTime} ms.`);
@@ -93,13 +92,6 @@ class CanvasRenderer extends ICEEventTarget {
    * @returns
    */
   private renderRecursively(component: ICEComponent) {
-    this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER, null, { component: component });
-    component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER);
-
-    if (!component.state.display) {
-      return;
-    }
-
     //先渲染自己
     component.render();
 
@@ -115,9 +107,6 @@ class CanvasRenderer extends ICEEventTarget {
         this.renderRecursively(child);
       });
     }
-
-    component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER);
-    this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, null, { component: component });
   }
 }
 
