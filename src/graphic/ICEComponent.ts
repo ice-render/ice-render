@@ -16,6 +16,7 @@ import ICEEventTarget from '../event/ICEEventTarget';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICEMatrix from '../geometry/ICEMatrix';
 import ICE from '../ICE';
+import { skew } from '../util/gl-matrix-skew';
 
 /**
  * @class ICEComponent
@@ -50,10 +51,10 @@ abstract class ICEComponent extends ICEEventTarget {
    *   style: { fillStyle: 'red', strokeStyle: 'blue', lineWidth: 1 },
    *   animations: {},
    *   transform: {                                            //组件自身的变换参数，不包含父组件
-   *     translate: [0, 0],
-   *     scale: [1, 1],
-   *     skew: [0, 0],
-   *     rotate: 0,     //角度
+   *     translate: [0, 0],                                    //平移，像素
+   *     scale: [1, 1],                                        //X轴缩放倍数，Y轴缩放倍数
+   *     skew: [0, 0],                                         //X轴扭曲角度，Y轴扭曲角度
+   *     rotate: 0,                                            //旋转角度
    *   },
    *   linearMatrix: [],                            //线性变换矩阵，不含平移，按照 gl-matrix 的格式定义
    *   composedMatrix: [],                          //复合变换矩阵，包含所有祖先节点的平移、原点移动、线性变换计算，composedMatrix 不会实时更新，如果需要获取当前最新的变换矩阵，需要调用 composeMatrix() 方法。按照 gl-matrix 的格式定义
@@ -204,10 +205,9 @@ abstract class ICEComponent extends ICEEventTarget {
 
     //step1: skew
     //!gl-matrix 的当前版本中没有提供 skew 函数，需要手动合 https://github.com/toji/gl-matrix/pull/293
-    // const skewX = get(this, 'state.transform.skew.0');
-    // const skewY = get(this, 'state.transform.skew.1');
-    // matrix.skewXSelf(skewX);
-    // matrix.skewYSelf(skewY);
+    const skewX = get(this, 'state.transform.skew.0');
+    const skewY = get(this, 'state.transform.skew.1');
+    matrix = skew([], matrix, glMatrix.toRadian(skewX), glMatrix.toRadian(skewY));
 
     //step2: rotate
     let angle = get(this, 'state.transform.rotate');
