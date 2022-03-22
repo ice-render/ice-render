@@ -130,7 +130,8 @@ class ICEBoundingBox {
     let maxY = this.tl[1];
 
     const arr = [this.tr, this.bl, this.br];
-    arr.forEach((p) => {
+    for (let i = 0; i < arr.length; i++) {
+      const p = arr[i];
       if (p[0] < minX) {
         minX = p[0];
       }
@@ -143,7 +144,7 @@ class ICEBoundingBox {
       if (p[1] > maxY) {
         maxY = p[1];
       }
-    });
+    }
 
     return { minX, minY, maxX, maxY };
   }

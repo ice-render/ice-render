@@ -111,7 +111,8 @@ export default class TransformControlPanel extends ICEControlPanel {
 
     let counter = 1;
     this.resizeControlInstanceCache = [];
-    resizeControlConfig.forEach((controlConfig) => {
+    for (let i = 0; i < resizeControlConfig.length; i++) {
+      const controlConfig = resizeControlConfig[i];
       const handleInstance = new ResizeControl({
         zIndex: Number.MAX_VALUE - counter++,
         display: false,
@@ -131,7 +132,7 @@ export default class TransformControlPanel extends ICEControlPanel {
 
       this.addChild(handleInstance);
       this.resizeControlInstanceCache.push(handleInstance);
-    });
+    }
 
     // 创建 1 个 RotateControl
     let left = this.state.width / 2 - this.rotateControlSize;
@@ -160,9 +161,10 @@ export default class TransformControlPanel extends ICEControlPanel {
 
   public enable() {
     this.rotateControlInstance.setState({ display: true });
-    this.resizeControlInstanceCache.forEach((item) => {
+    for (let i = 0; i < this.resizeControlInstanceCache.length; i++) {
+      const item = this.resizeControlInstanceCache[i];
       item.setState({ display: true });
-    });
+    }
     this.setState({ display: true });
     this.resume(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
     this.resume(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE);
@@ -170,9 +172,10 @@ export default class TransformControlPanel extends ICEControlPanel {
 
   public disable() {
     this.rotateControlInstance.setState({ display: false });
-    this.resizeControlInstanceCache.forEach((item) => {
+    for (let i = 0; i < this.resizeControlInstanceCache.length; i++) {
+      const item = this.resizeControlInstanceCache[i];
       item.setState({ display: false });
-    });
+    }
     this.setState({ display: false });
     this.suspend(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
     this.suspend(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE);
@@ -185,7 +188,9 @@ export default class TransformControlPanel extends ICEControlPanel {
     let halfWidth = width / 2;
     let halfHeight = height / 2;
     let halfControlSize = this.resizeControlSize / 2;
-    this.resizeControlInstanceCache.forEach((resizeControl) => {
+
+    for (let i = 0; i < this.resizeControlInstanceCache.length; i++) {
+      const resizeControl = this.resizeControlInstanceCache[i];
       let quadrant = resizeControl.state.quadrant;
       let point = [0, 0];
       switch (quadrant) {
@@ -220,7 +225,7 @@ export default class TransformControlPanel extends ICEControlPanel {
         left: point[0],
         top: point[1],
       });
-    });
+    }
 
     //重新计算 RotateControl 的位置
     let left = this.state.width / 2 - this.rotateControlSize;
@@ -342,7 +347,8 @@ export default class TransformControlPanel extends ICEControlPanel {
    */
   public toggleControlQuadrant(control, quadrant: number): void {
     //1-3可以交换，2-4可以交换，5-6可以交换，7-8可以交换
-    this.resizeControlInstanceCache.forEach((item) => {
+    for (let i = 0; i < this.resizeControlInstanceCache.length; i++) {
+      const item = this.resizeControlInstanceCache[i];
       if (item.state.quadrant === quadrant) {
         let tempQuadrant = 0;
         switch (quadrant) {
@@ -377,7 +383,7 @@ export default class TransformControlPanel extends ICEControlPanel {
           quadrant: tempQuadrant,
         });
       }
-    });
+    }
 
     control.setState({ quadrant: quadrant });
   }

@@ -50,13 +50,12 @@ export default class ICELinkSlotManager {
       return item.state.linkable;
     });
 
-    components.forEach((component) => {
+    for (let i = 0; i < components.length; i++) {
+      const component = components[i];
       if (!component.linkSlots || !component.linkSlots.length) {
         this.createLinkSlots(component);
       }
-    });
-
-    setTimeout(() => {}, 0);
+    }
   }
 
   /**

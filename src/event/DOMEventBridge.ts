@@ -28,7 +28,8 @@ class DOMEventBridge {
   start() {
     let componentCache = null; //缓存上次位于鼠标位置的组件
 
-    mouseEvents.forEach((evtMapping) => {
+    for (let i = 0; i < mouseEvents.length; i++) {
+      const evtMapping = mouseEvents[i];
       const iceEvtName = evtMapping[1];
       const originEvtName = evtMapping[0];
       this.ice.evtBus.on(iceEvtName, (evt: ICEEvent) => {
@@ -47,7 +48,8 @@ class DOMEventBridge {
         }
         this.ice.evtBus.trigger(originEvtName, evt); //this.ice.evtBus 本身一定会触发一次事件。
       });
-    });
+    }
+
     return this;
   }
 
@@ -99,9 +101,10 @@ class DOMEventBridge {
     if (this._stopped) return;
 
     if (component.childNodes && component.childNodes.length) {
-      component.childNodes.forEach((child) => {
+      for (let i = 0; i < component.childNodes.length; i++) {
+        const child = component.childNodes[i];
         this.traverse(x, y, child);
-      });
+      }
     }
 
     //不可交互的组件、没有渲染的组件，不派发事件。

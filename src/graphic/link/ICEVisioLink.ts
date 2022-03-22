@@ -66,10 +66,13 @@ export default class ICEVisioLink extends ICEPolyLine {
     let arr = solutions[0][2];
     this.state.points = [];
     this.state.dots = [];
-    arr.forEach((item) => {
+
+    for (let i = 0; i < arr.length; i++) {
+      const item = arr[i];
       this.state.points.push([item.x, item.y]);
       this.state.dots.push([item.x - left, item.y - top]);
-    });
+    }
+
     return this.state.dots;
   }
 
