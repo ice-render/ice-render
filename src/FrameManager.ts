@@ -25,10 +25,11 @@ const FrameManager = {
   stopped: false,
 
   frameCallback: function (): void {
-    FrameManager.evtBuses.forEach((evtBus) => {
+    for (let i = 0; i < FrameManager.evtBuses.length; i++) {
       if (FrameManager.stopped) return;
+      const evtBus = FrameManager.evtBuses[i];
       evtBus.trigger(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT);
-    });
+    }
     if (!FrameManager.stopped) {
       root.requestFrame(FrameManager.frameCallback);
     }

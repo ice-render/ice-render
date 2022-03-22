@@ -3228,11 +3228,15 @@
         });
       }
 
-      this.listeners[eventName].forEach(item => {
+      let arr = this.listeners[eventName];
+
+      for (let i = 0; i < arr.length; i++) {
+        let item = arr[i];
         let fn = item.callback;
         let scope = item.scope;
         fn.call(scope, iceEvent);
-      });
+      }
+
       return true;
     }
     /**
@@ -4434,12 +4438,15 @@
     }
 
     frameEventHandler(evt) {
-      this.animationMap.forEach(el => {
-        //在动画过程中，对象不响应鼠标或者触摸交互，防止影响属性值的计算。
+      let arr = [...this.animationMap.values()];
+
+      for (let i = 0; i < arr.length; i++) {
+        let el = arr[i]; //在动画过程中，对象不响应所有交互事件，防止影响属性值的计算。
+
         el.state.interactive = false;
         this.tween(el);
         el.state.interactive = true;
-      });
+      }
     } //TODO:处理无限循环播放的情况，处理播放次数的情况
     //TODO:每一个属性变化的持续时间不同，需要做同步处理，所有动画都执行完毕之后，需要把对象从动画列表中删除
 
@@ -7152,10 +7159,11 @@
     evtBuses: [],
     stopped: false,
     frameCallback: function () {
-      FrameManager.evtBuses.forEach(evtBus => {
+      for (let i = 0; i < FrameManager.evtBuses.length; i++) {
         if (FrameManager.stopped) return;
+        const evtBus = FrameManager.evtBuses[i];
         evtBus.trigger(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT);
-      });
+      }
 
       if (!FrameManager.stopped) {
         root$2.requestFrame(FrameManager.frameCallback);
@@ -8924,9 +8932,9 @@
     }
 
     addChildren(arr) {
-      arr.forEach(child => {
-        this.addChild(child);
-      });
+      for (let i = 0; i < arr.length; i++) {
+        this.addChild(arr[i]);
+      }
     }
 
     removeChild(component) {
@@ -8941,9 +8949,9 @@
     }
 
     removeChildren(arr) {
-      arr.forEach(child => {
-        this.removeChild(child);
-      });
+      for (let i = 0; i < arr.length; i++) {
+        this.removeChild(arr[i]);
+      }
     }
 
     clearAll() {
