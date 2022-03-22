@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import GeoPoint from './GeoPoint';
 
 /**
  * @class GeoLine
@@ -21,21 +20,6 @@ export default class GeoLine {
   constructor(startPoint, endPoint) {
     this.startPoint = startPoint;
     this.endPoint = endPoint;
-  }
-
-  /**
-   *
-   * @method load
-   * Creates a {GeoLine} out of JSON parsed object.
-   *
-   *
-   * 从 JSON 对象创建直线。
-   * @param {JSONObject} o - the JSON parsed object
-   * @return {GeoLine} a newly constructed GeoLine
-   */
-  static load(o) {
-    let newLine = new GeoLine(GeoPoint.load(o.startPoint), GeoPoint.load(o.endPoint));
-    return newLine;
   }
 
   /**
@@ -70,124 +54,5 @@ export default class GeoLine {
     } else {
       return false;
     }
-  }
-
-  /**
-   * @method near
-   * See if we are near a {GeoLine} by a certain radius (also includes the extremities into computation).
-   *
-   *
-   * 测试某个点是否在某个角度上接近 {GeoLine} （断点也计算在内）。
-   *
-   * @param {Number} x - the x coordinates
-   * @param {Number} y - the y coordinates
-   * @param {Number} radius - the radius to search for
-   * @see http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-   * @see "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
-   */
-  near(x, y, radius) {
-    if (this.endPoint.x === this.startPoint.x) {
-      //Vertical line, so the vicinity area is a rectangle
-      return (
-        ((this.startPoint.y - radius <= y && this.endPoint.y + radius >= y) ||
-          (this.endPoint.y - radius <= y && this.startPoint.y + radius >= y)) &&
-        x > this.startPoint.x - radius &&
-        x < this.startPoint.x + radius
-      );
-    }
-
-    if (this.startPoint.y === this.endPoint.y) {
-      //Horizontal line, so the vicinity area is a rectangle
-      return (
-        ((this.startPoint.x - radius <= x && this.endPoint.x + radius >= x) ||
-          (this.endPoint.x - radius <= x && this.startPoint.x + radius >= x)) &&
-        y > this.startPoint.y - radius &&
-        y < this.startPoint.y + radius
-      );
-    }
-
-    let startX = Math.min(this.endPoint.x, this.startPoint.x);
-    let startY = Math.min(this.endPoint.y, this.startPoint.y);
-    let endX = Math.max(this.endPoint.x, this.startPoint.x);
-    let endY = Math.max(this.endPoint.y, this.startPoint.y);
-
-    /*We will compute the distance from point to the line
-     * by using the algorithm from
-     * http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-     * */
-
-    //First we need to find a,b,c of the line equation ax + by + c = 0
-    let a = this.endPoint.y - this.startPoint.y;
-    let b = this.startPoint.x - this.endPoint.x;
-    let c = -(this.startPoint.x * this.endPoint.y - this.endPoint.x * this.startPoint.y);
-
-    //Secondly we get the distance "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
-    let d = Math.abs((a * x + b * y + c) / Math.hypot(a, b));
-
-    //Thirdly we get coordinates of closest line's point to target point
-    //http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Cartesian_coordinates
-    let closestX = (b * (b * x - a * y) - a * c) / (Math.pow(a, 2) + Math.pow(b, 2));
-    let closestY = (a * (-b * x + a * y) - b * c) / (Math.pow(a, 2) + Math.pow(b, 2));
-
-    let r =
-      (d <= radius && endX >= closestX && closestX >= startX && endY >= closestY && closestY >= startY) || //the projection of the point falls INSIDE of the segment
-      this.startPoint.near(x, y, radius) ||
-      this.endPoint.near(x, y, radius); //the projection of the point falls OUTSIDE of the segment
-
-    return r;
-  }
-
-  /**
-   * @method getPoints
-   * Get an arry composed by the start point and end point of the line.
-   *
-   *
-   * 获取端点构成的数组。
-   */
-  getPoints() {
-    let points = [];
-    points.push(this.startPoint);
-    points.push(this.endPoint);
-    return points;
-  }
-
-  /**
-   * @method getPoint
-   * Return the {GeoPoint} corresponding the t certain t value.
-   *
-   *
-   * 获取指定百分比上的点，参数 t 是百分比。
-   * @param {Number} t the value of parameter t, where t in [0,1], t is like a percent
-   */
-  getPoint(t) {
-    let xp = t * (this.endPoint.x - this.startPoint.x) + this.startPoint.x;
-    let yp = t * (this.endPoint.y - this.startPoint.y) + this.startPoint.y;
-    return new GeoPoint(xp, yp);
-  }
-
-  /**
-   * @method clone
-   */
-  clone() {
-    let ret = new GeoLine(this.startPoint.clone(), this.endPoint.clone());
-    return ret;
-  }
-
-  /**
-   * @equals
-   * @param {*} anotherLine
-   */
-  equals(anotherLine) {
-    if (!(anotherLine instanceof GeoLine)) {
-      return false;
-    }
-    return this.startPoint.equals(anotherLine.startPoint) && this.endPoint.equals(anotherLine.endPoint);
-  }
-
-  /**
-   * @method toString
-   */
-  toString() {
-    return 'line(' + this.startPoint + ',' + this.endPoint + ')';
   }
 }

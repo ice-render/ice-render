@@ -252,6 +252,22 @@
     return out;
   }
   /**
+   * Computes the cross product of two vec2's
+   * Note that the cross product must by definition produce a 3D vector
+   *
+   * @param {vec3} out the receiving vector
+   * @param {ReadonlyVec2} a the first operand
+   * @param {ReadonlyVec2} b the second operand
+   * @returns {vec3} out
+   */
+
+  function cross(out, a, b) {
+    var z = a[0] * b[1] - a[1] * b[0];
+    out[0] = out[1] = 0;
+    out[2] = z;
+    return out;
+  }
+  /**
    * Transforms the vec2 with a mat2d
    *
    * @param {vec2} out the receiving vector
@@ -3315,15 +3331,6 @@
       let center = [left + width / 2, top + height / 2];
       return new ICEBoundingBox([...tl, ...tr, ...bl, ...br, ...center]);
     }
-
-    clone() {
-      const tl = [...this.tl];
-      const tr = [...this.tr];
-      const bl = [...this.bl];
-      const br = [...this.br];
-      const center = [...this.center];
-      return new ICEBoundingBox([...tl, ...tr, ...bl, ...br, ...center]);
-    }
     /**
      * 判断指定的坐标点是否位于边界矩形内部，向右水平射线法。
      * 这里参考了 fabricjs 的实现方式。
@@ -4793,40 +4800,6 @@
       throw new Error('GeoUtil is a static util class.');
     }
     /**
-     * 判断一个坐标点是否包含在图元内部。
-     * @param component
-     * @param point
-     * @returns
-     */
-
-
-    static containsPoint(component, point) {
-      return false;
-    }
-    /**
-     * 判断两个图元是否相交。
-     * @param a 第一个图元
-     * @param b 第二个图元
-     * @returns
-     */
-
-
-    static isIntersect(a, b) {
-      return false;
-    }
-    /**
-     * 已知两点坐标，求线段长度。
-     * @param x1
-     * @param y1
-     * @param x2
-     * @param y2
-     */
-
-
-    static getLength(x1, y1, x2, y2) {
-      return Math.hypot(x2 - x1, y2 - y1);
-    }
-    /**
      *
      * 已知向量原点和向量坐标值，求向量相对于 X 轴正向的旋转角度。
      *
@@ -4854,41 +4827,6 @@
       let rotateAngle = sign * Math.acos(cos) * 180 / Math.PI + 360;
       rotateAngle = rotateAngle % 360;
       return rotateAngle;
-    }
-    /**
-     * 2D 向量叉乘。
-     *
-     * 两个点需要处于同一个坐标系中。
-     *
-     * @param x1
-     * @param y1
-     * @param x2
-     * @param y2
-     * @returns
-     */
-
-
-    static crossProduct(x1, y1, x2, y2) {
-      //FIXME:需要确认计算公式是否正确
-      let result = x1 * y2 - x2 * y1;
-      return round_1(result, 2);
-    }
-    /**
-     * 2D 向量点乘。
-     *
-     * 两个点需要处于同一个坐标系中。
-     *
-     * @param x1
-     * @param y1
-     * @param x2
-     * @param y2
-     * @returns
-     */
-
-
-    static dotProduct(x1, y1, x2, y2) {
-      let result = x1 * x2 + y1 * y2;
-      return round_1(result, 2);
     }
 
   }
@@ -5123,7 +5061,7 @@
       for (let i = 0; i < len; i++) {
         let p = this.state.points[i];
         let vector2 = [p[0] - startX, p[1] - startY];
-        let crossProduct = GeoUtil.crossProduct(vector1[0], vector1[1], vector2[0], vector2[1]);
+        let crossProduct = cross([], vector1, vector2)[2];
 
         if (crossProduct === 0) {
           counter++;
@@ -5301,9 +5239,9 @@
         const y1 = line.o[1];
         const x2 = line.d[0];
         const y2 = line.d[1];
-        const lineLength = GeoUtil.getLength(x1, y1, x2, y2);
-        const len1 = GeoUtil.getLength(x, y, x1, y1);
-        const len2 = GeoUtil.getLength(x, y, x2, y2);
+        const lineLength = Math.hypot(x2 - x1, y2 - y1);
+        const len1 = Math.hypot(x1 - x, y1 - y);
+        const len2 = Math.hypot(x2 - x, y2 - y);
 
         if (len1 + len2 >= lineLength - delta && len1 + len2 <= lineLength + delta) {
           return true;
@@ -5452,6 +5390,62 @@
    */
 
   /**
+   * @class GeoLine
+   * A geometrically line, invisible, no dimension, just used for mathematical operations.
+   * This implementation is improved from http://diagramo.com/ .
+   *
+   *
+   * 几何学意义上的直线，它不可见，没有宽度，用来进行数学运算。此实现从 diagramo 改进而来：http://diagramo.com/ 。
+   *
+   * @docauthor 大漠穷秋 <damoqiongqiu@126.com>
+   */
+  class GeoLine {
+    constructor(startPoint, endPoint) {
+      this.startPoint = startPoint;
+      this.endPoint = endPoint;
+    }
+    /**
+     * @method constants
+     * Tests to see if a point belongs to this line (not as infinite line but more like a segment)
+     * Algorithm: Compute line's equation and see if (x, y) verifies it.
+     *
+     * 测试某个点是否位于直线上（这里不是数学意义上的无线延长直线，而是线段）。
+     * 算法：计算斜率，看(x,y)点是否位于线段上。
+     *
+     * @see http://www.jeffreythompson.org/collision-detection/line-point.php
+     * @param {Number} x - the X coordinates
+     * @param {Number} y - the Y coordinates
+     */
+
+
+    contains(x, y) {
+      // if the point is inside rectangle bounds of the segment
+      if (Math.min(this.startPoint.x, this.endPoint.x) <= x && x <= Math.max(this.startPoint.x, this.endPoint.x) && Math.min(this.startPoint.y, this.endPoint.y) <= y && y <= Math.max(this.startPoint.y, this.endPoint.y)) {
+        // check for vertical line
+        if (this.startPoint.x == this.endPoint.x) {
+          return x == this.startPoint.x;
+        } else {
+          // usual (not vertical) line can be represented as y = a * x + b
+          let a = (this.endPoint.y - this.startPoint.y) / (this.endPoint.x - this.startPoint.x);
+          let b = this.startPoint.y - a * this.startPoint.x;
+          return y == a * x + b;
+        }
+      } else {
+        return false;
+      }
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+
+  /**
    * @class GeoPoint
    * A geometrically point, invisible, no dimension, just used for mathematical operations.
    * This implementation is improved from http://diagramo.com/ .
@@ -5534,188 +5528,6 @@
     clone() {
       let newPoint = new GeoPoint(this.x, this.y);
       return newPoint;
-    }
-
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  /**
-   * @class GeoLine
-   * A geometrically line, invisible, no dimension, just used for mathematical operations.
-   * This implementation is improved from http://diagramo.com/ .
-   *
-   *
-   * 几何学意义上的直线，它不可见，没有宽度，用来进行数学运算。此实现从 diagramo 改进而来：http://diagramo.com/ 。
-   *
-   * @docauthor 大漠穷秋 <damoqiongqiu@126.com>
-   */
-
-  class GeoLine {
-    constructor(startPoint, endPoint) {
-      this.startPoint = startPoint;
-      this.endPoint = endPoint;
-    }
-    /**
-     *
-     * @method load
-     * Creates a {GeoLine} out of JSON parsed object.
-     *
-     *
-     * 从 JSON 对象创建直线。
-     * @param {JSONObject} o - the JSON parsed object
-     * @return {GeoLine} a newly constructed GeoLine
-     */
-
-
-    static load(o) {
-      let newLine = new GeoLine(GeoPoint.load(o.startPoint), GeoPoint.load(o.endPoint));
-      return newLine;
-    }
-    /**
-     * @method constants
-     * Tests to see if a point belongs to this line (not as infinite line but more like a segment)
-     * Algorithm: Compute line's equation and see if (x, y) verifies it.
-     *
-     * 测试某个点是否位于直线上（这里不是数学意义上的无线延长直线，而是线段）。
-     * 算法：计算斜率，看(x,y)点是否位于线段上。
-     *
-     * @see http://www.jeffreythompson.org/collision-detection/line-point.php
-     * @param {Number} x - the X coordinates
-     * @param {Number} y - the Y coordinates
-     */
-
-
-    contains(x, y) {
-      // if the point is inside rectangle bounds of the segment
-      if (Math.min(this.startPoint.x, this.endPoint.x) <= x && x <= Math.max(this.startPoint.x, this.endPoint.x) && Math.min(this.startPoint.y, this.endPoint.y) <= y && y <= Math.max(this.startPoint.y, this.endPoint.y)) {
-        // check for vertical line
-        if (this.startPoint.x == this.endPoint.x) {
-          return x == this.startPoint.x;
-        } else {
-          // usual (not vertical) line can be represented as y = a * x + b
-          let a = (this.endPoint.y - this.startPoint.y) / (this.endPoint.x - this.startPoint.x);
-          let b = this.startPoint.y - a * this.startPoint.x;
-          return y == a * x + b;
-        }
-      } else {
-        return false;
-      }
-    }
-    /**
-     * @method near
-     * See if we are near a {GeoLine} by a certain radius (also includes the extremities into computation).
-     *
-     *
-     * 测试某个点是否在某个角度上接近 {GeoLine} （断点也计算在内）。
-     *
-     * @param {Number} x - the x coordinates
-     * @param {Number} y - the y coordinates
-     * @param {Number} radius - the radius to search for
-     * @see http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-     * @see "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
-     */
-
-
-    near(x, y, radius) {
-      if (this.endPoint.x === this.startPoint.x) {
-        //Vertical line, so the vicinity area is a rectangle
-        return (this.startPoint.y - radius <= y && this.endPoint.y + radius >= y || this.endPoint.y - radius <= y && this.startPoint.y + radius >= y) && x > this.startPoint.x - radius && x < this.startPoint.x + radius;
-      }
-
-      if (this.startPoint.y === this.endPoint.y) {
-        //Horizontal line, so the vicinity area is a rectangle
-        return (this.startPoint.x - radius <= x && this.endPoint.x + radius >= x || this.endPoint.x - radius <= x && this.startPoint.x + radius >= x) && y > this.startPoint.y - radius && y < this.startPoint.y + radius;
-      }
-
-      let startX = Math.min(this.endPoint.x, this.startPoint.x);
-      let startY = Math.min(this.endPoint.y, this.startPoint.y);
-      let endX = Math.max(this.endPoint.x, this.startPoint.x);
-      let endY = Math.max(this.endPoint.y, this.startPoint.y);
-      /*We will compute the distance from point to the line
-       * by using the algorithm from
-       * http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-       * */
-      //First we need to find a,b,c of the line equation ax + by + c = 0
-
-      let a = this.endPoint.y - this.startPoint.y;
-      let b = this.startPoint.x - this.endPoint.x;
-      let c = -(this.startPoint.x * this.endPoint.y - this.endPoint.x * this.startPoint.y); //Secondly we get the distance "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
-
-      let d = Math.abs((a * x + b * y + c) / Math.hypot(a, b)); //Thirdly we get coordinates of closest line's point to target point
-      //http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Cartesian_coordinates
-
-      let closestX = (b * (b * x - a * y) - a * c) / (Math.pow(a, 2) + Math.pow(b, 2));
-      let closestY = (a * (-b * x + a * y) - b * c) / (Math.pow(a, 2) + Math.pow(b, 2));
-      let r = d <= radius && endX >= closestX && closestX >= startX && endY >= closestY && closestY >= startY || //the projection of the point falls INSIDE of the segment
-      this.startPoint.near(x, y, radius) || this.endPoint.near(x, y, radius); //the projection of the point falls OUTSIDE of the segment
-
-      return r;
-    }
-    /**
-     * @method getPoints
-     * Get an arry composed by the start point and end point of the line.
-     *
-     *
-     * 获取端点构成的数组。
-     */
-
-
-    getPoints() {
-      let points = [];
-      points.push(this.startPoint);
-      points.push(this.endPoint);
-      return points;
-    }
-    /**
-     * @method getPoint
-     * Return the {GeoPoint} corresponding the t certain t value.
-     *
-     *
-     * 获取指定百分比上的点，参数 t 是百分比。
-     * @param {Number} t the value of parameter t, where t in [0,1], t is like a percent
-     */
-
-
-    getPoint(t) {
-      let xp = t * (this.endPoint.x - this.startPoint.x) + this.startPoint.x;
-      let yp = t * (this.endPoint.y - this.startPoint.y) + this.startPoint.y;
-      return new GeoPoint(xp, yp);
-    }
-    /**
-     * @method clone
-     */
-
-
-    clone() {
-      let ret = new GeoLine(this.startPoint.clone(), this.endPoint.clone());
-      return ret;
-    }
-    /**
-     * @equals
-     * @param {*} anotherLine
-     */
-
-
-    equals(anotherLine) {
-      if (!(anotherLine instanceof GeoLine)) {
-        return false;
-      }
-
-      return this.startPoint.equals(anotherLine.startPoint) && this.endPoint.equals(anotherLine.endPoint);
-    }
-    /**
-     * @method toString
-     */
-
-
-    toString() {
-      return 'line(' + this.startPoint + ',' + this.endPoint + ')';
     }
 
   }
