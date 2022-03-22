@@ -320,7 +320,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * 此方法需要在 render() 之后调用，组件没有渲染时无法计算最小包围盒。
    * @returns
    */
-  public getMinBoundingBox(): ICEBoundingBox {
+  public getMinBoundingBox(refreshMatrix: boolean = false): ICEBoundingBox {
     //先基于组件本地坐标系进行计算
     let originX = this.state.localOrigin[0];
     let originY = this.state.localOrigin[1];
@@ -340,8 +340,8 @@ abstract class ICEComponent extends ICEEventTarget {
     ]);
 
     //再用 composedMatrix 进行变换
-    //!FIXME:缓存的 composedMatrix 矩阵与变换工具之间会失去同步
-    boundingBox = boundingBox.transform(this.state.composedMatrix);
+    const matrix = refreshMatrix ? this.composeMatrix() : this.state.composedMatrix;
+    boundingBox = boundingBox.transform(matrix);
     return boundingBox;
   }
 
@@ -475,7 +475,7 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   public getLocalLeftTop() {
-    let box = this.getMinBoundingBox();
+    let box = this.getMinBoundingBox(true);
     let width = box.width;
     let height = box.height;
     let left = box.centerX - box.width / 2;
