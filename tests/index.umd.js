@@ -3004,12 +3004,11 @@
    * LICENSE file in the root directory of this source tree.
    *
    */
-  //ICE 自定的事件名称常量，原生 DOM 事件的名称不变。
+  //!ICE 自定的事件名称常量，原生 DOM 事件的名称不变。
   const ICE_EVENT_NAME_CONSTS = {
     ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
     BEFORE_RENDER: 'BEFORE_RENDER',
     AFTER_RENDER: 'AFTER_RENDER',
-    ICE_CLICK: 'ICE_CLICK',
     BEFORE_ADD: 'BEFORE_ADD',
     //在 addChild() 方法中的第一行执行
     AFTER_ADD: 'AFTER_ADD',
