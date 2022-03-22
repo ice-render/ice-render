@@ -4164,8 +4164,7 @@
 
 
     getRotateAngle() {
-      let matrix = this.state.composedMatrix;
-      return ICEMatrix.calcRotateAngleFromMatrix(matrix);
+      return this.state.transform.rotate;
     }
 
     getLocalLeftTop() {
@@ -9137,6 +9136,9 @@
         strokeStyle: '#0c09d4',
         fillStyle: '#f5d106',
         lineWidth: 1,
+      },
+      transform: {
+        rotate: Math.random() * 360,
       },
     });
     ice.addChild(rect);

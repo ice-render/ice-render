@@ -86,6 +86,9 @@ for (let i = 0; i < 100; i++) {
       fillStyle: '#f5d106',
       lineWidth: 1,
     },
+    transform: {
+      rotate: Math.random() * 360,
+    },
   });
   ice.addChild(rect);
 }
