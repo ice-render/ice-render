@@ -3459,7 +3459,10 @@
       let maxX = this.tl[0];
       let maxY = this.tl[1];
       const arr = [this.tr, this.bl, this.br];
-      arr.forEach(p => {
+
+      for (let i = 0; i < arr.length; i++) {
+        const p = arr[i];
+
         if (p[0] < minX) {
           minX = p[0];
         }
@@ -3475,7 +3478,8 @@
         if (p[1] > maxY) {
           maxY = p[1];
         }
-      });
+      }
+
       return {
         minX,
         minY,
@@ -4611,9 +4615,10 @@
     }
 
     addChildren(arr) {
-      arr.forEach(child => {
+      for (let i = 0; i < arr.length; i++) {
+        const child = arr[i];
         this.addChild(child);
-      });
+      }
     }
 
     removeChild(child) {
@@ -4622,9 +4627,10 @@
     }
 
     removeChildren(arr) {
-      arr.forEach(child => {
+      for (let i = 0; i < arr.length; i++) {
+        const child = arr[i];
         this.removeChild(child);
-      });
+      }
     }
     /**
      * @override
@@ -5297,11 +5303,14 @@
       let left = this.state.left;
       let top = this.state.top;
       this.state.dots = [];
-      this.state.points.forEach(p => {
+
+      for (let i = 0; i < this.state.points.length; i++) {
+        const p = this.state.points[i];
         let x = p[0] - left;
         let y = p[1] - top;
         this.state.dots.push([x, y]);
-      });
+      }
+
       return this.state.dots;
     }
     /**
@@ -6518,7 +6527,9 @@
       }];
       let counter = 1;
       this.resizeControlInstanceCache = [];
-      resizeControlConfig.forEach(controlConfig => {
+
+      for (let i = 0; i < resizeControlConfig.length; i++) {
+        const controlConfig = resizeControlConfig[i];
         const handleInstance = new ResizeControl({
           zIndex: Number.MAX_VALUE - counter++,
           display: false,
@@ -6537,7 +6548,8 @@
         });
         this.addChild(handleInstance);
         this.resizeControlInstanceCache.push(handleInstance);
-      }); // 创建 1 个 RotateControl
+      } // 创建 1 个 RotateControl
+
 
       let left = this.state.width / 2 - this.rotateControlSize;
       let top = -this.rotateControlffsetY;
@@ -6567,11 +6579,14 @@
       this.rotateControlInstance.setState({
         display: true
       });
-      this.resizeControlInstanceCache.forEach(item => {
+
+      for (let i = 0; i < this.resizeControlInstanceCache.length; i++) {
+        const item = this.resizeControlInstanceCache[i];
         item.setState({
           display: true
         });
-      });
+      }
+
       this.setState({
         display: true
       });
@@ -6583,11 +6598,14 @@
       this.rotateControlInstance.setState({
         display: false
       });
-      this.resizeControlInstanceCache.forEach(item => {
+
+      for (let i = 0; i < this.resizeControlInstanceCache.length; i++) {
+        const item = this.resizeControlInstanceCache[i];
         item.setState({
           display: false
         });
-      });
+      }
+
       this.setState({
         display: false
       });
@@ -6602,7 +6620,9 @@
       let halfWidth = width / 2;
       let halfHeight = height / 2;
       let halfControlSize = this.resizeControlSize / 2;
-      this.resizeControlInstanceCache.forEach(resizeControl => {
+
+      for (let i = 0; i < this.resizeControlInstanceCache.length; i++) {
+        const resizeControl = this.resizeControlInstanceCache[i];
         let quadrant = resizeControl.state.quadrant;
         let point = [0, 0];
 
@@ -6644,7 +6664,8 @@
           left: point[0],
           top: point[1]
         });
-      }); //重新计算 RotateControl 的位置
+      } //重新计算 RotateControl 的位置
+
 
       let left = this.state.width / 2 - this.rotateControlSize;
       let top = -this.rotateControlffsetY;
@@ -6785,7 +6806,9 @@
 
     toggleControlQuadrant(control, quadrant) {
       //1-3可以交换，2-4可以交换，5-6可以交换，7-8可以交换
-      this.resizeControlInstanceCache.forEach(item => {
+      for (let i = 0; i < this.resizeControlInstanceCache.length; i++) {
+        const item = this.resizeControlInstanceCache[i];
+
         if (item.state.quadrant === quadrant) {
           let tempQuadrant = 0;
 
@@ -6827,7 +6850,8 @@
             quadrant: tempQuadrant
           });
         }
-      });
+      }
+
       control.setState({
         quadrant: quadrant
       });
@@ -6967,7 +6991,8 @@
     start() {
       let componentCache = null; //缓存上次位于鼠标位置的组件
 
-      mouseEvents.forEach(evtMapping => {
+      for (let i = 0; i < mouseEvents.length; i++) {
+        const evtMapping = mouseEvents[i];
         const iceEvtName = evtMapping[1];
         const originEvtName = evtMapping[0];
         this.ice.evtBus.on(iceEvtName, evt => {
@@ -6987,7 +7012,8 @@
 
           this.ice.evtBus.trigger(originEvtName, evt); //this.ice.evtBus 本身一定会触发一次事件。
         });
-      });
+      }
+
       return this;
     }
 
@@ -7039,9 +7065,10 @@
       if (this._stopped) return;
 
       if (component.childNodes && component.childNodes.length) {
-        component.childNodes.forEach(child => {
+        for (let i = 0; i < component.childNodes.length; i++) {
+          const child = component.childNodes[i];
           this.traverse(x, y, child);
-        });
+        }
       } //不可交互的组件、没有渲染的组件，不派发事件。
 
 
@@ -7110,13 +7137,16 @@
       if (root$2 && root$2 && root$2.addEventListener) {
         //所有原生 DOM 事件全部通过 EventBus 转发到 canvas 内部的对象上去
         //TODO:不同浏览器版本，以及 NodeJS 环境兼容性测试
-        MouseEventInterceptor.evtBuses.forEach(evtBus => {
-          mouseEvents.forEach(item => {
+        for (let i = 0; i < MouseEventInterceptor.evtBuses.length; i++) {
+          const evtBus = MouseEventInterceptor.evtBuses[i];
+
+          for (let j = 0; j < mouseEvents.length; j++) {
+            const item = mouseEvents[j];
             root$2.addEventListener(item[0], evt => {
               evtBus.trigger(item[1], evt);
             });
-          });
-        });
+          }
+        }
       }
     },
     regitserEvtBus: function (evtBus) {
@@ -7441,12 +7471,14 @@
       components = components.filter(item => {
         return item.state.linkable;
       });
-      components.forEach(component => {
+
+      for (let i = 0; i < components.length; i++) {
+        const component = components[i];
+
         if (!component.linkSlots || !component.linkSlots.length) {
           this.createLinkSlots(component);
         }
-      });
-      setTimeout(() => {}, 0);
+      }
     }
     /**
      * 创建连接插槽，插槽默认分布在组件最小边界盒子的4条边几何中点位置。
@@ -7763,10 +7795,13 @@
       let arr = solutions[0][2];
       this.state.points = [];
       this.state.dots = [];
-      arr.forEach(item => {
+
+      for (let i = 0; i < arr.length; i++) {
+        const item = arr[i];
         this.state.points.push([item.x, item.y]);
         this.state.dots.push([item.x - left, item.y - top]);
-      });
+      }
+
       return this.state.dots;
     }
     /**
@@ -8665,14 +8700,18 @@
         lastModifyTime: new Date().toLocaleString(),
         childNodes: []
       };
-      this.ice.childNodes.forEach(child => {
+
+      for (let i = 0; i < this.ice.childNodes.length; i++) {
+        const child = this.ice.childNodes[i];
+
         if (child instanceof ICEControlPanel || child.parentNode instanceof ICEControlPanel || child instanceof ICELinkSlot || child instanceof ICELinkHook) {
           console.warn('控制手柄类型的组件不需要存储...', child);
-          return;
+          continue;
         }
 
         this.encodeRecursively(child, result);
-      });
+      }
+
       console.log(result);
       return JSON.stringify(result);
     } //递归序列化
@@ -8761,9 +8800,12 @@
       const startTime = Date.now();
       this.refreshRenderQueue();
       this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
-      this.renderQueue.forEach(component => {
+
+      for (let i = 0; i < this.renderQueue.length; i++) {
+        const component = this.renderQueue[i];
         this.renderRecursively(component);
-      }); //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
+      } //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
+
 
       this.ice._dirty = false;
       this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, null, {
@@ -8784,15 +8826,16 @@
       component.render(); //如果有子节点，递归
 
       if (component.childNodes && component.childNodes.length) {
-        component.childNodes.forEach(child => {
-          //子组件的 root/ctx/evtBus/ice/renderer 总是和父组件保持一致
+        for (let i = 0; i < component.childNodes.length; i++) {
+          const child = component.childNodes[i]; //子组件的 root/ctx/evtBus/ice/renderer 总是和父组件保持一致
+
           child.root = component.root;
           child.ctx = component.ctx;
           child.evtBus = component.evtBus;
           child.ice = component.ice;
           child.parentNode = component;
           this.renderRecursively(child);
-        });
+        }
       }
     }
 

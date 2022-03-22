@@ -8,7 +8,6 @@
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../event/ICEEvent';
 import ICEEventTarget from '../event/ICEEventTarget';
-import ICEComponent from '../graphic/ICEComponent';
 import ICE from '../ICE';
 
 /**
@@ -74,9 +73,10 @@ class CanvasRenderer extends ICEEventTarget {
     this.refreshRenderQueue();
 
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
-    this.renderQueue.forEach((component: ICEComponent) => {
+    for (let i = 0; i < this.renderQueue.length; i++) {
+      const component = this.renderQueue[i];
       this.renderRecursively(component);
-    });
+    }
 
     //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
     this.ice._dirty = false;
@@ -91,13 +91,14 @@ class CanvasRenderer extends ICEEventTarget {
    * @param component
    * @returns
    */
-  private renderRecursively(component: ICEComponent) {
+  private renderRecursively(component) {
     //先渲染自己
     component.render();
 
     //如果有子节点，递归
     if (component.childNodes && component.childNodes.length) {
-      component.childNodes.forEach((child) => {
+      for (let i = 0; i < component.childNodes.length; i++) {
+        const child = component.childNodes[i];
         //子组件的 root/ctx/evtBus/ice/renderer 总是和父组件保持一致
         child.root = component.root;
         child.ctx = component.ctx;
@@ -105,7 +106,7 @@ class CanvasRenderer extends ICEEventTarget {
         child.ice = component.ice;
         child.parentNode = component;
         this.renderRecursively(child);
-      });
+      }
     }
   }
 }

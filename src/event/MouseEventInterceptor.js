@@ -23,13 +23,15 @@ const MouseEventInterceptor = {
     if (root && root && root.addEventListener) {
       //所有原生 DOM 事件全部通过 EventBus 转发到 canvas 内部的对象上去
       //TODO:不同浏览器版本，以及 NodeJS 环境兼容性测试
-      MouseEventInterceptor.evtBuses.forEach((evtBus) => {
-        mouseEvents.forEach((item) => {
+      for (let i = 0; i < MouseEventInterceptor.evtBuses.length; i++) {
+        const evtBus = MouseEventInterceptor.evtBuses[i];
+        for (let j = 0; j < mouseEvents.length; j++) {
+          const item = mouseEvents[j];
           root.addEventListener(item[0], (evt) => {
             evtBus.trigger(item[1], evt);
           });
-        });
-      });
+        }
+      }
     }
   },
 

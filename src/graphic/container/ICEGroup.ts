@@ -37,9 +37,10 @@ class ICEGroup extends ICERect {
   }
 
   public addChildren(arr: Array<ICEComponent>): void {
-    arr.forEach((child) => {
+    for (let i = 0; i < arr.length; i++) {
+      const child = arr[i];
       this.addChild(child);
-    });
+    }
   }
 
   public removeChild(child: ICEComponent) {
@@ -48,9 +49,10 @@ class ICEGroup extends ICERect {
   }
 
   public removeChildren(arr: Array<ICEComponent>): void {
-    arr.forEach((child) => {
+    for (let i = 0; i < arr.length; i++) {
+      const child = arr[i];
       this.removeChild(child);
-    });
+    }
   }
 
   /**

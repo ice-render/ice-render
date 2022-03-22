@@ -154,11 +154,12 @@ class ICEPolyLine extends ICEDotPath {
     let left = this.state.left;
     let top = this.state.top;
     this.state.dots = [];
-    this.state.points.forEach((p) => {
+    for (let i = 0; i < this.state.points.length; i++) {
+      const p = this.state.points[i];
       let x = p[0] - left;
       let y = p[1] - top;
       this.state.dots.push([x, y]);
-    });
+    }
     return this.state.dots;
   }
 
