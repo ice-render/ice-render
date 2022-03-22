@@ -288,7 +288,12 @@ abstract class ICEComponent extends ICEEventTarget {
       this.ctx.lineWidth = 1;
       this.ctx.strokeStyle = '#ff0000';
       this.ctx.fillStyle = 'rgba(0,0,0,0)';
-      this.ctx.rect(minBox.tl[0], minBox.tl[1], minBox.width, minBox.height);
+      this.ctx.beginPath();
+      this.ctx.moveTo(minBox.tl[0], minBox.tl[1]);
+      this.ctx.lineTo(minBox.tr[0], minBox.tr[1]);
+      this.ctx.lineTo(minBox.br[0], minBox.br[1]);
+      this.ctx.lineTo(minBox.bl[0], minBox.bl[1]);
+      this.ctx.closePath();
       this.ctx.stroke();
       this.ctx.fill();
     }
@@ -299,7 +304,12 @@ abstract class ICEComponent extends ICEEventTarget {
       this.ctx.lineWidth = 1;
       this.ctx.strokeStyle = '#0000ff';
       this.ctx.fillStyle = 'rgba(0,0,0,0)';
-      this.ctx.rect(maxBox.tl[0], maxBox.tl[1], maxBox.width, maxBox.height);
+      this.ctx.beginPath();
+      this.ctx.moveTo(maxBox.tl[0], maxBox.tl[1]);
+      this.ctx.lineTo(maxBox.tr[0], maxBox.tr[1]);
+      this.ctx.lineTo(maxBox.br[0], maxBox.br[1]);
+      this.ctx.lineTo(maxBox.bl[0], maxBox.bl[1]);
+      this.ctx.closePath();
       this.ctx.stroke();
       this.ctx.fill();
     }
