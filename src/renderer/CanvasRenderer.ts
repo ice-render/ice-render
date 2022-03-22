@@ -59,16 +59,22 @@ class CanvasRenderer extends ICEEventTarget {
     return this.ice._dirty;
   }
 
-  private doRender() {
-    const startTime = Date.now();
-
-    this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
+  private refreshRenderQueue() {
+    //FIXME:先把 display:false 的组件排除掉。
     this.renderQueue = Array.from(this.ice.childNodes);
     console.log(`Render Queue length> ${this.renderQueue.length}`);
     this.renderQueue.sort((firstEl, secondEl) => {
       //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
       return firstEl.state.zIndex - secondEl.state.zIndex;
     });
+  }
+
+  private doRender() {
+    const startTime = Date.now();
+
+    this.refreshRenderQueue();
+
+    this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
     this.renderQueue.forEach((component: ICEComponent) => {
       this.renderRecursively(component);
     });

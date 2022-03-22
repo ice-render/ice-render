@@ -70,15 +70,11 @@ export default abstract class ICEDotPath extends ICEPath {
    */
   protected createPathObject(): Path2D {
     this.path2D = new Path2D();
-    for (let i = 0; i < this.state.dots.length; i++) {
+    this.path2D.moveTo(this.state.dots[0][0], this.state.dots[0][1]);
+    for (let i = 1; i < this.state.dots.length; i++) {
       const dot = this.state.dots[i];
-      if (i === 0) {
-        this.path2D.moveTo(dot[0], dot[1]);
-      } else {
-        this.path2D.lineTo(dot[0], dot[1]);
-      }
+      this.path2D.lineTo(dot[0], dot[1]);
     }
-
     if (this.state.closePath) {
       this.path2D.closePath();
     }
@@ -106,32 +102,27 @@ export default abstract class ICEDotPath extends ICEPath {
    * @returns
    */
   protected calc4VertexPoints() {
-    let minX = 0;
-    let minY = 0;
-    let maxX = 0;
-    let maxY = 0;
-    for (let i = 0; i < this.state.dots.length; i++) {
+    let minX = this.state.dots[0][0];
+    let minY = this.state.dots[0][1];
+    let maxX = this.state.dots[0][0];
+    let maxY = this.state.dots[0][1];
+
+    for (let i = 1; i < this.state.dots.length; i++) {
       let dot = this.state.dots[i];
-      if (i === 0) {
+      if (dot[0] < minX) {
         minX = dot[0];
+      }
+      if (dot[0] > maxX) {
         maxX = dot[0];
+      }
+      if (dot[1] < minY) {
         minY = dot[1];
+      }
+      if (dot[1] > maxY) {
         maxY = dot[1];
-      } else {
-        if (dot[0] < minX) {
-          minX = dot[0];
-        }
-        if (dot[0] > maxX) {
-          maxX = dot[0];
-        }
-        if (dot[1] < minY) {
-          minY = dot[1];
-        }
-        if (dot[1] > maxY) {
-          maxY = dot[1];
-        }
       }
     }
+
     //top-left point
     const x1 = minX;
     const y1 = minY;

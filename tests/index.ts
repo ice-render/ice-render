@@ -47,33 +47,48 @@ document.querySelector('#btn-3').addEventListener('click', (evt) => {
 // });
 // ice.addChild(rose);
 
-let baseRect1 = new ICERect({
-  left: 100,
-  top: 100,
-  width: 300,
-  height: 200,
-  style: {
-    strokeStyle: '#0c09d4',
-    fillStyle: '#f5d106',
-    lineWidth: 5,
-  },
-  // animations: {
-  //   left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
-  //   top: { from: 0, to: 200, duration: 3000 },
-  //   width: { from: 100, to: 200, duration: 5000 },
-  //   height: { from: 100, to: 200, duration: 5000 },
-  // },
-  transform: {
-    // translate: [10, 10],
-    // rotate: 30,
-    skew: [10, 0],
-    // scale: [1, 1],
-  },
-});
-baseRect1.on('click', (evt) => {
-  console.log('baseRect1');
-});
-ice.addChild(baseRect1);
+// let baseRect1 = new ICERect({
+//   left: 100,
+//   top: 100,
+//   width: 300,
+//   height: 200,
+//   style: {
+//     strokeStyle: '#0c09d4',
+//     fillStyle: '#f5d106',
+//     lineWidth: 5,
+//   },
+//   // animations: {
+//   //   left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+//   //   top: { from: 0, to: 200, duration: 3000 },
+//   //   width: { from: 100, to: 200, duration: 5000 },
+//   //   height: { from: 100, to: 200, duration: 5000 },
+//   // },
+//   transform: {
+//     // translate: [10, 10],
+//     // rotate: 30,
+//     skew: [10, 0],
+//     // scale: [1, 1],
+//   },
+// });
+// baseRect1.on('click', (evt) => {
+//   console.log('baseRect1');
+// });
+// ice.addChild(baseRect1);
+
+for (let i = 0; i < 1000; i++) {
+  let rect = new ICERect({
+    left: Math.random() * 1024,
+    top: Math.random() * 768,
+    width: 50,
+    height: 50,
+    style: {
+      strokeStyle: '#0c09d4',
+      fillStyle: '#f5d106',
+      lineWidth: 1,
+    },
+  });
+  ice.addChild(rect);
+}
 
 // let rect1 = new ICERect({
 //   left: 100,
