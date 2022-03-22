@@ -49,12 +49,12 @@ class ICELinkSlot extends ICECircle {
     super.initEvents();
 
     //由于 ICELinkSlot 默认不可见，实例的 display 为 false ，所以不会触发 AFTER_RENDER 事件，这里只能监听 BEFORE_RENDER
-    //这里不能直接访问 this.evtBus ，因为对象在进入到渲染阶段时才会被设置 evtBus 实例，在 initEvents() 被调用时 this.evtBus 为空。 @see ICE.evtBus
-    this.once(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER, this.afterAddHandler, this);
+    //不能在 initEvents() 方法中访问 this.evtBus ，在 initEvents() 被调用时 this.evtBus 为空，因为对象在进入到渲染阶段时才会被设置 evtBus 实例。 @see ICE.evtBus
+    this.once(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER, this.beforeRenderHandler, this);
     this.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
   }
 
-  protected afterAddHandler(evt: ICEEvent) {
+  protected beforeRenderHandler(evt: ICEEvent) {
     this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
     this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
     this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
@@ -156,8 +156,39 @@ class ICELinkSlot extends ICECircle {
     return false;
   }
 
+  //FIXME:这里需要采用 TransformControlPanel 中的算法来计算插槽位置。
+  protected updatePosition() {
+    let box = this._hostComponent.getMinBoundingBox();
+    let left = 0;
+    let top = 0;
+    switch (this.state.position) {
+      case 'T':
+        left = box.center[0] - this.state.radius;
+        top = box.tl[1] - this.state.radius;
+        break;
+      case 'R':
+        left = box.tr[0] - this.state.radius;
+        top = box.center[1] - this.state.radius;
+        break;
+      case 'B':
+        left = box.center[0] - this.state.radius;
+        top = box.br[1] - this.state.radius;
+        break;
+      case 'L':
+        left = box.bl[0] - this.state.radius;
+        top = box.center[1] - this.state.radius;
+        break;
+      default:
+        break;
+    }
+    this.setState({ left, top });
+  }
+
   public set hostComponent(component) {
+    this._hostComponent && this._hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
     this._hostComponent = component;
+    this._hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
+    this.updatePosition();
   }
 
   public get hostComponent() {

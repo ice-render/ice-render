@@ -325,13 +325,10 @@ export default class TransformControlPanel extends ICEControlPanel {
   }
 
   public set targetComponent(component: ICEComponent) {
+    this._targetComponent && this._targetComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
     this._targetComponent = component;
-    if (component) {
-      this.updatePanel();
-      component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
-    } else {
-      component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
-    }
+    this._targetComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
+    this.updatePanel();
   }
 
   public get targetComponent(): ICEComponent {

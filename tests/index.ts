@@ -75,7 +75,7 @@ document.querySelector('#btn-3').addEventListener('click', (evt) => {
 // });
 // ice.addChild(baseRect1);
 
-for (let i = 0; i < 1000; i++) {
+for (let i = 0; i < 2000; i++) {
   let rect = new ICERect({
     left: Math.random() * 1024,
     top: Math.random() * 768,

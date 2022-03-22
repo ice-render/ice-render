@@ -31,27 +31,32 @@ export default class ICELinkSlotManager {
   }
 
   start() {
-    this.ice.renderer.on(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
+    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.afterRenderHandler, this);
     return this;
   }
 
   stop() {
-    this.ice.renderer.off(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterRenderHandler, this);
+    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.afterRenderHandler, this);
     return this;
   }
 
   private afterRenderHandler(evt) {
-    const component = evt.param.component;
-    if (!component || !component.state.linkable) {
+    let components = evt.param.components;
+    if (!components || !components.length) {
       return;
     }
 
-    if (!component.linkSlots || !component.linkSlots.length) {
-      this.createLinkSlots(component);
-    }
+    components = components.filter((item) => {
+      return item.state.linkable;
+    });
 
-    //FIXME: 如果 slot 处于显示状态，则计算所有 slot 当前的位置。当 slot 处于隐藏状态时，不计算它们的位置，节约性能？？？
-    this.setSlotPositions(component);
+    components.forEach((component) => {
+      if (!component.linkSlots || !component.linkSlots.length) {
+        this.createLinkSlots(component);
+      }
+    });
+
+    setTimeout(() => {}, 0);
   }
 
   /**
@@ -123,35 +128,5 @@ export default class ICELinkSlotManager {
 
     component.linkSlots = [slot_1, slot_2, slot_3, slot_4];
     component.state.slotIds = [slot_1.props.id, slot_2.props.id, slot_3.props.id, slot_4.props.id];
-  }
-
-  //FIXME:这里需要采用 TransformControlPanel 中的算法来计算插槽位置。
-  protected setSlotPositions(component) {
-    let box = component.getMinBoundingBox();
-    component.linkSlots.forEach((slot) => {
-      let left = 0;
-      let top = 0;
-      switch (slot.state.position) {
-        case 'T':
-          left = box.center[0] - this.slotRadius;
-          top = box.tl[1] - this.slotRadius;
-          break;
-        case 'R':
-          left = box.tr[0] - this.slotRadius;
-          top = box.center[1] - this.slotRadius;
-          break;
-        case 'B':
-          left = box.center[0] - this.slotRadius;
-          top = box.br[1] - this.slotRadius;
-          break;
-        case 'L':
-          left = box.bl[0] - this.slotRadius;
-          top = box.center[1] - this.slotRadius;
-          break;
-        default:
-          break;
-      }
-      slot.setState({ left, top });
-    });
   }
 }
