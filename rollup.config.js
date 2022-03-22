@@ -3,7 +3,12 @@ import json from '@rollup/plugin-json';
 import nodeResolve from '@rollup/plugin-node-resolve';
 import babel from 'rollup-plugin-babel';
 import { terser } from 'rollup-plugin-terser';
+import { uglify } from 'rollup-plugin-uglify';
 import pkg from './package.json';
+
+const { visualizer } = require('rollup-plugin-visualizer');
+const path = require('path');
+const license = require('rollup-plugin-license');
 
 const env = process.env.NODE_ENV;
 const extensions = ['.js', '.jsx', '.ts', '.tsx'];
@@ -16,6 +21,31 @@ const CommonPlugins = [
     include: ['src/**/*'],
   }),
   env === 'production' && terser(),
+  uglify({
+    output: {
+      comments: function (node, comment) {
+        if (comment.type === 'comment2') {
+          // multiline comment
+          return /@preserve|@license|@cc_on/i.test(comment.value);
+        }
+        return false;
+      },
+    },
+  }),
+  license({
+    sourcemap: true,
+    banner: {
+      commentStyle: 'regular',
+      content: {
+        file: path.join(__dirname, 'LICENSE'),
+        encoding: 'utf-8',
+      },
+    },
+    thirdParty: {
+      allow: '(MIT OR Apache-2.0)',
+    },
+  }),
+  visualizer(),
 ].filter(Boolean);
 const external = [...Object.keys(pkg.devDependencies || {}), ...Object.keys(pkg.peerDependencies || {})];
 const globals = {};
