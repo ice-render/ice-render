@@ -3988,15 +3988,16 @@
 
 
     getMinBoundingBox() {
+      let refreshMatrix = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
       //先基于组件本地坐标系进行计算
       let originX = this.state.localOrigin[0];
       let originY = this.state.localOrigin[1];
       let width = this.state.width;
       let height = this.state.height;
       let boundingBox = new ICEBoundingBox([0 - originX, 0 - originY, 0 - originX + width, 0 - originY, 0 - originX, 0 - originY + height, 0 - originX + width, 0 - originY + height, 0, 0]); //再用 composedMatrix 进行变换
-      //!FIXME:缓存的 composedMatrix 矩阵与变换工具之间会失去同步
 
-      boundingBox = boundingBox.transform(this.state.composedMatrix);
+      const matrix = refreshMatrix ? this.composeMatrix() : this.state.composedMatrix;
+      boundingBox = boundingBox.transform(matrix);
       return boundingBox;
     }
     /**
@@ -4168,7 +4169,7 @@
     }
 
     getLocalLeftTop() {
-      let box = this.getMinBoundingBox();
+      let box = this.getMinBoundingBox(true);
       let width = box.width;
       let height = box.height;
       let left = box.centerX - box.width / 2;
