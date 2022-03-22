@@ -45,6 +45,14 @@ class CanvasRenderer extends ICEEventTarget {
     return this;
   }
 
+  private frameEvtHandler(evt: ICEEvent) {
+    if (this.needUpdate()) {
+      this.doRender();
+    } else {
+      console.log('没有需要渲染的组件...');
+    }
+  }
+
   /**
    * 判断是否需要刷新
    * @returns
@@ -52,12 +60,6 @@ class CanvasRenderer extends ICEEventTarget {
   private needUpdate(): boolean {
     if (!this.ice.childNodes || !this.ice.childNodes.length) return false;
     return this.ice._dirty;
-  }
-
-  private frameEvtHandler(evt: ICEEvent) {
-    if (this.needUpdate()) {
-      this.doRender();
-    }
   }
 
   private doRender() {
