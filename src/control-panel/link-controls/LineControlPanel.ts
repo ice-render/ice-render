@@ -6,6 +6,7 @@
  *
  */
 import { mat2d, vec2 } from 'gl-matrix';
+import bigZIndexNum from '../../consts/BIG_ZINDEX_NUMBER';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEComponent from '../../graphic/ICEComponent';
 import ICELinkHook from '../../graphic/link/ICELinkHook';
@@ -35,7 +36,7 @@ export default class LineControlPanel extends ICEControlPanel {
   constructor(props) {
     super({
       ...props,
-      zIndex: Number.MAX_VALUE,
+      zIndex: bigZIndexNum + 10,
       linkable: false,
       showMinBoundingBox: false,
       showMaxBoundingBox: false,
@@ -44,13 +45,12 @@ export default class LineControlPanel extends ICEControlPanel {
   }
 
   protected initControls(): void {
-    let counter = 1;
     let width = this.state.width;
     let height = this.state.height;
     let halfControlSize = this.controlSize / 2;
 
     this.startControl = new ICELinkHook({
-      zIndex: Number.MAX_VALUE - counter++,
+      zIndex: bigZIndexNum + 11,
       display: false,
       left: -halfControlSize,
       top: -halfControlSize,
@@ -67,7 +67,7 @@ export default class LineControlPanel extends ICEControlPanel {
     this.addChild(this.startControl);
 
     this.endControl = new ICELinkHook({
-      zIndex: Number.MAX_VALUE - counter++,
+      zIndex: bigZIndexNum + 12,
       display: false,
       left: width - halfControlSize,
       top: height - halfControlSize,

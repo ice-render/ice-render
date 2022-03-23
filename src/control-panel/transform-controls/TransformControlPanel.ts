@@ -6,6 +6,7 @@
  *
  */
 import { mat2d, vec2 } from 'gl-matrix';
+import bigZIndexNum from '../../consts/BIG_ZINDEX_NUMBER';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEComponent from '../../graphic/ICEComponent';
 import ICEControlPanel from '../ICEControlPanel';
@@ -32,7 +33,7 @@ export default class TransformControlPanel extends ICEControlPanel {
   constructor(props) {
     super({
       ...props,
-      zIndex: Number.MAX_VALUE,
+      zIndex: bigZIndexNum + 1,
       linkable: false,
       showMinBoundingBox: false,
       showMaxBoundingBox: false,
@@ -109,12 +110,11 @@ export default class TransformControlPanel extends ICEControlPanel {
       },
     ];
 
-    let counter = 1;
     this.resizeControlInstanceCache = [];
     for (let i = 0; i < resizeControlConfig.length; i++) {
       const controlConfig = resizeControlConfig[i];
       const handleInstance = new ResizeControl({
-        zIndex: Number.MAX_VALUE - counter++,
+        zIndex: bigZIndexNum + 2,
         display: false,
         left: controlConfig.position[0],
         top: controlConfig.position[1],
@@ -138,7 +138,7 @@ export default class TransformControlPanel extends ICEControlPanel {
     let left = this.state.width / 2 - this.rotateControlSize;
     let top = -this.rotateControlffsetY;
     this.rotateControlInstance = new RotateControl({
-      zIndex: Number.MAX_VALUE - counter++,
+      zIndex: bigZIndexNum + 3,
       display: false,
       left: left,
       top: top,
