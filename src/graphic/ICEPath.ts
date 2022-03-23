@@ -26,7 +26,7 @@ abstract class ICEPath extends ICEComponent {
    * @param props
    */
   constructor(props: any = {}) {
-    super({ closePath: true, ...props });
+    super({ closePath: true, fill: true, stroke: true, ...props });
   }
 
   /**
@@ -38,9 +38,14 @@ abstract class ICEPath extends ICEComponent {
 
     this.ctx.beginPath();
     if (this.state.closePath) {
+      this.ctx.closePath();
+    }
+    if (this.state.fill) {
       this.ctx.fill(this.path2D);
     }
-    this.ctx.stroke(this.path2D);
+    if (this.state.stroke) {
+      this.ctx.stroke(this.path2D);
+    }
 
     super.doRender();
   }

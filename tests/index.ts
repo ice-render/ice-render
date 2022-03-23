@@ -130,6 +130,8 @@ for (let i = 0; i < 2000; i++) {
     top: Math.random() * 768,
     width: 50,
     height: 50,
+    // fill: false,
+    // stroke: false,
     style: {
       strokeStyle: '#0c09d4',
       fillStyle: '#f5d106',
