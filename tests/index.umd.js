@@ -3935,10 +3935,11 @@
 
 
 	  doRender() {
+	    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+	    this.ctx.lineWidth = 1;
+
 	    if (this.state.showMinBoundingBox) {
 	      let minBox = this.getMinBoundingBox();
-	      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-	      this.ctx.lineWidth = 1;
 	      this.ctx.strokeStyle = '#ff0000';
 	      this.ctx.fillStyle = 'rgba(0,0,0,0)';
 	      this.ctx.beginPath();
@@ -3947,14 +3948,10 @@
 	      this.ctx.lineTo(minBox.br[0], minBox.br[1]);
 	      this.ctx.lineTo(minBox.bl[0], minBox.bl[1]);
 	      this.ctx.closePath();
-	      this.ctx.stroke();
-	      this.ctx.fill();
 	    }
 
 	    if (this.state.showMaxBoundingBox) {
 	      let maxBox = this.getMaxBoundingBox();
-	      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-	      this.ctx.lineWidth = 1;
 	      this.ctx.strokeStyle = '#0000ff';
 	      this.ctx.fillStyle = 'rgba(0,0,0,0)';
 	      this.ctx.beginPath();
@@ -3963,9 +3960,10 @@
 	      this.ctx.lineTo(maxBox.br[0], maxBox.br[1]);
 	      this.ctx.lineTo(maxBox.bl[0], maxBox.bl[1]);
 	      this.ctx.closePath();
-	      this.ctx.stroke();
-	      this.ctx.fill();
 	    }
+
+	    this.ctx.stroke();
+	    this.ctx.fill();
 	  }
 	  /**
 	   * 获取组件的最小包围盒，此盒子的变换矩阵与组件自身完全相同。
@@ -9189,7 +9187,7 @@
 	// });
 	// ice.addChild(baseRect1);
 
-	for (let i = 0; i < 2000; i++) {
+	for (let i = 0; i < 1000; i++) {
 	  let rect = new ICERect({
 	    left: Math.random() * 1024,
 	    top: Math.random() * 768,
