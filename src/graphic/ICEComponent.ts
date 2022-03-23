@@ -294,6 +294,8 @@ abstract class ICEComponent extends ICEEventTarget {
       this.ctx.lineTo(minBox.br[0], minBox.br[1]);
       this.ctx.lineTo(minBox.bl[0], minBox.bl[1]);
       this.ctx.closePath();
+      this.ctx.stroke();
+      this.ctx.fill();
     }
 
     if (this.state.showMaxBoundingBox) {
@@ -306,10 +308,9 @@ abstract class ICEComponent extends ICEEventTarget {
       this.ctx.lineTo(maxBox.br[0], maxBox.br[1]);
       this.ctx.lineTo(maxBox.bl[0], maxBox.bl[1]);
       this.ctx.closePath();
+      this.ctx.stroke();
+      this.ctx.fill();
     }
-
-    this.ctx.stroke();
-    this.ctx.fill();
   }
 
   /**
