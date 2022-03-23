@@ -3773,6 +3773,7 @@
 	    this.props = merge_1(this.props, props);
 	    this.state = JSON.parse(JSON.stringify(this.props));
 	    this.initEvents();
+	    this.calcOriginalDimension();
 	  }
 	  /**
 	   * 子类需要提供自己的实现。
@@ -3793,11 +3794,9 @@
 	      return;
 	    }
 
-	    this.calcOriginalDimension();
 	    this.applyStyle();
 	    this.applyTransformToCtx();
 	    this.doRender();
-	    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
 	    this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER);
 	  }
 
