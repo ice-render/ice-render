@@ -3948,6 +3948,8 @@
 	      this.ctx.lineTo(minBox.br[0], minBox.br[1]);
 	      this.ctx.lineTo(minBox.bl[0], minBox.bl[1]);
 	      this.ctx.closePath();
+	      this.ctx.stroke();
+	      this.ctx.fill();
 	    }
 
 	    if (this.state.showMaxBoundingBox) {
@@ -3960,10 +3962,9 @@
 	      this.ctx.lineTo(maxBox.br[0], maxBox.br[1]);
 	      this.ctx.lineTo(maxBox.bl[0], maxBox.bl[1]);
 	      this.ctx.closePath();
+	      this.ctx.stroke();
+	      this.ctx.fill();
 	    }
-
-	    this.ctx.stroke();
-	    this.ctx.fill();
 	  }
 	  /**
 	   * 获取组件的最小包围盒，此盒子的变换矩阵与组件自身完全相同。
