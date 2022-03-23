@@ -448,7 +448,7 @@ class ICEPolyLine extends ICEDotPath {
    * @param position
    */
   protected syncPosition(slot, position) {
-    let slotBounding = slot.getMinBoundingBox();
+    let slotBounding = slot.getMinBoundingBox(true);
     let x = slotBounding.center[0];
     let y = slotBounding.center[1];
     let point = this.globalToLocal(x, y);
