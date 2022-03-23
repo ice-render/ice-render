@@ -7,7 +7,6 @@
  */
 import { v4 as uuid } from '@lukeed/uuid';
 import { glMatrix, mat2d, vec2 } from 'gl-matrix';
-import get from 'lodash/get';
 import merge from 'lodash/merge';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import EventBus from '../event/EventBus';
@@ -16,6 +15,7 @@ import ICEEventTarget from '../event/ICEEventTarget';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICEMatrix from '../geometry/ICEMatrix';
 import ICE from '../ICE';
+import { getVal } from '../util/data-util';
 import { skew } from '../util/gl-matrix-skew';
 
 /**
@@ -179,8 +179,8 @@ abstract class ICEComponent extends ICEEventTarget {
    * @method calcAbsoluteOrigin
    */
   public calcAbsoluteOrigin() {
-    let tx = get(this, 'state.transform.translate.0') + this.state.left;
-    let ty = get(this, 'state.transform.translate.1') + this.state.top;
+    let tx = getVal(this, 'state.transform.translate.0') + this.state.left;
+    let ty = getVal(this, 'state.transform.translate.1') + this.state.top;
 
     let point = [...this.calcLocalOrigin()];
     point[0] += tx;
@@ -210,17 +210,17 @@ abstract class ICEComponent extends ICEEventTarget {
     let matrix = mat2d.create();
 
     //step1: skew
-    const skewX = get(this, 'state.transform.skew.0');
-    const skewY = get(this, 'state.transform.skew.1');
+    const skewX = getVal(this, 'state.transform.skew.0');
+    const skewY = getVal(this, 'state.transform.skew.1');
     matrix = skew([], matrix, glMatrix.toRadian(skewX), glMatrix.toRadian(skewY));
 
     //step2: rotate
-    let angle = get(this, 'state.transform.rotate');
+    let angle = getVal(this, 'state.transform.rotate');
     matrix = mat2d.rotate([], matrix, glMatrix.toRadian(angle));
 
     //step3: scale
-    const scaleX = get(this, 'state.transform.scale.0');
-    const scaleY = get(this, 'state.transform.scale.1');
+    const scaleX = getVal(this, 'state.transform.scale.0');
+    const scaleY = getVal(this, 'state.transform.scale.1');
     matrix = mat2d.scale([], matrix, [scaleX, scaleY]);
 
     this.state.linearMatrix = matrix;
