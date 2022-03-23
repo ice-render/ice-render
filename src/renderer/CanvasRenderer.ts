@@ -80,7 +80,7 @@ class CanvasRenderer extends ICEEventTarget {
 
     //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
     this.ice._dirty = false;
-    this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, null, { components: [...this.renderQueue] });
+    this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
 
     const endTime = Date.now();
     console.log(` Render time ${endTime - startTime} ms.`);

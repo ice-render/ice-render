@@ -30,32 +30,30 @@ export default class ICELinkSlotManager {
     this.ice = ice;
   }
 
+  //TODO:处理 BEFORE_REMOVE 事件，在组件被删除之前，删掉连接插槽
   start() {
-    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.afterRenderHandler, this);
+    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.afterAddHandler, this);
     return this;
   }
 
+  //TODO:处理 BEFORE_REMOVE 事件，在组件被删除之前，删掉连接插槽
   stop() {
-    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.afterRenderHandler, this);
+    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.afterAddHandler, this);
     return this;
   }
 
-  private afterRenderHandler(evt) {
-    let components = evt.param.components;
-    if (!components || !components.length) {
+  private afterAddHandler(evt) {
+    const component = evt.param.component;
+    if (!component || !component.state.linkable) {
       return;
     }
 
-    components = components.filter((item) => {
-      return item.state.linkable;
-    });
-
-    for (let i = 0; i < components.length; i++) {
-      const component = components[i];
-      if (!component.linkSlots || !component.linkSlots.length) {
-        this.createLinkSlots(component);
-      }
+    if (component.linkSlots) {
+      return;
     }
+
+    console.log('create link slots...');
+    this.createLinkSlots(component);
   }
 
   /**

@@ -116,6 +116,7 @@ class ICE {
   public addChild(component) {
     if (this.childNodes.indexOf(component) !== -1) return;
 
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
 
     component.ice = this;
@@ -123,12 +124,12 @@ class ICE {
     component.ctx = this.ctx;
     component.evtBus = this.evtBus;
     component.renderer = this.renderer;
-
     this.childNodes.push(component);
     if (Object.keys(component.props.animations).length) {
       this.animationManager.add(component);
     }
 
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
   }
 
@@ -149,6 +150,7 @@ class ICE {
       return;
     }
 
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: component });
     component.destory();
     this.childNodes.splice(this.childNodes.indexOf(component), 1);
   }

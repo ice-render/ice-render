@@ -211,7 +211,6 @@ abstract class ICEComponent extends ICEEventTarget {
     let matrix = mat2d.create();
 
     //step1: skew
-    //!gl-matrix 的当前版本中没有提供 skew 函数，需要手动合 https://github.com/toji/gl-matrix/pull/293
     const skewX = get(this, 'state.transform.skew.0');
     const skewY = get(this, 'state.transform.skew.1');
     matrix = skew([], matrix, glMatrix.toRadian(skewX), glMatrix.toRadian(skewY));
