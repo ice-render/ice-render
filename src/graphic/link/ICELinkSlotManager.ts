@@ -32,13 +32,13 @@ export default class ICELinkSlotManager {
 
   //TODO:处理 BEFORE_REMOVE 事件，在组件被删除之前，删掉连接插槽
   start() {
-    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.afterAddHandler, this);
+    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.afterAddHandler, this);
     return this;
   }
 
   //TODO:处理 BEFORE_REMOVE 事件，在组件被删除之前，删掉连接插槽
   stop() {
-    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.afterAddHandler, this);
+    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.afterAddHandler, this);
     return this;
   }
 
