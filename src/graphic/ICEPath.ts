@@ -34,12 +34,10 @@ abstract class ICEPath extends ICEComponent {
    * @overwrite
    */
   protected doRender(): void {
+    this.ctx.beginPath();
+
     this.createPathObject();
 
-    this.ctx.beginPath();
-    if (this.state.closePath) {
-      this.ctx.closePath();
-    }
     if (this.state.fill) {
       this.ctx.fill(this.path2D);
     }
