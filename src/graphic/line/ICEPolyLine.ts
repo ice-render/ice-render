@@ -7,7 +7,6 @@
  */
 import { vec2 } from 'gl-matrix';
 import isNil from 'lodash/isNil';
-import merge from 'lodash/merge';
 import round from 'lodash/round';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
@@ -70,8 +69,8 @@ class ICEPolyLine extends ICEDotPath {
   public static arrangeParam(props): any {
     //dots 是内部计算使用的属性，外部传参用 points 属性
     //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
-    let param = merge(
-      {
+    let param = {
+      ...{
         linkable: false, //所有线条类型的组件 linkable 都为 false ，因为在 ICE 中，用线条连接线条是没有意义的，线条之间不能互相连接。
         lineType: 'solid',
         lineWidth: 2,
@@ -81,8 +80,8 @@ class ICEPolyLine extends ICEDotPath {
         showMinBoundingBox: false,
         showMaxBoundingBox: false,
       },
-      props
-    );
+      ...props,
+    };
 
     //至少有2个点，如果点数少于2个，自动填充。
     let len = param.points.length;
@@ -96,16 +95,19 @@ class ICEPolyLine extends ICEDotPath {
     }
 
     //ICEPolyLine 的参数需要特殊处理，总是把 left/top 移动到第 0 个点的位置，外部传递的 left/top ， translate[0]/translate[1] 都无效。
-    param = merge(param, {
-      left: props.points[0][0],
-      top: props.points[0][1],
-      transform: {
-        translate: [0, 0],
-        scale: [1, 1],
-        skew: [0, 0],
-        rotate: 0, //degree
+    param = {
+      ...param,
+      ...{
+        left: props.points[0][0],
+        top: props.points[0][1],
+        transform: {
+          translate: [0, 0],
+          scale: [1, 1],
+          skew: [0, 0],
+          rotate: 0, //degree
+        },
       },
-    });
+    };
 
     //保证 lineWidth 不小于0
     if (param.style.lineWidth <= 0) {
