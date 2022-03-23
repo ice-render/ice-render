@@ -1,7 +1,7 @@
 // import ICEGroup from '../src/graphic/container/ICEGroup';
 // import ICEImage from '../src/graphic/ICEImage';
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
-// import ICEVisioLink from '../src/graphic/link/ICEVisioLink';
+import ICEVisioLink from '../src/graphic/link/ICEVisioLink';
 // import ICECircle from '../src/graphic/shape/ICECircle';
 // import ICEEllipse from '../src/graphic/shape/ICEEllipse';
 // import ICEHeart from '../src/graphic/shape/ICEHeart';
@@ -47,100 +47,100 @@ document.querySelector('#btn-3').addEventListener('click', (evt) => {
 // });
 // ice.addChild(rose);
 
-// let baseRect1 = new ICERect({
-//   left: 100,
-//   top: 100,
-//   width: 100,
-//   height: 100,
-//   style: {
-//     strokeStyle: '#0c09d4',
-//     fillStyle: '#f5d106',
-//     lineWidth: 5,
-//   },
-//   // animations: {
-//   //   left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
-//   //   top: { from: 0, to: 200, duration: 3000 },
-//   //   width: { from: 100, to: 200, duration: 5000 },
-//   //   height: { from: 100, to: 200, duration: 5000 },
-//   // },
-//   transform: {
-//     // translate: [10, 10],
-//     // rotate: 30,
-//     skew: [10, 0],
-//     // scale: [1, 1],
-//   },
-// });
-// baseRect1.on('click', (evt) => {
-//   console.log('baseRect1');
-// });
-// ice.addChild(baseRect1);
+let baseRect1 = new ICERect({
+  left: 100,
+  top: 100,
+  width: 100,
+  height: 100,
+  style: {
+    strokeStyle: '#0c09d4',
+    fillStyle: '#f5d106',
+    lineWidth: 5,
+  },
+  // animations: {
+  //   left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+  //   top: { from: 0, to: 200, duration: 3000 },
+  //   width: { from: 100, to: 200, duration: 5000 },
+  //   height: { from: 100, to: 200, duration: 5000 },
+  // },
+  transform: {
+    // translate: [10, 10],
+    // rotate: 30,
+    skew: [10, 0],
+    // scale: [1, 1],
+  },
+});
+baseRect1.on('click', (evt) => {
+  console.log('baseRect1');
+});
+ice.addChild(baseRect1);
 
-// let rect1 = new ICERect({
-//   left: 500,
-//   top: 100,
-//   width: 100,
-//   height: 100,
-//   style: {
-//     strokeStyle: '#0c09d4',
-//     fillStyle: '#f5d106',
-//     lineWidth: 1,
-//   },
-//   transform: {
-//     rotate: 45,
-//     scale: [1, 1],
-//   },
-//   // animations: {
-//   //   left: { from: 0, to: 100, duration: 2000, easing: 'easeOutQuart' },
-//   //   // top: { from: 0, to: 200, duration: 3000 },
-//   //   width: { from: 100, to: 200, duration: 5000 },
-//   //   height: { from: 100, to: 200, duration: 5000 },
-//   // },
-// });
-// ice.addChild(rect1);
+let rect1 = new ICERect({
+  left: 500,
+  top: 100,
+  width: 100,
+  height: 100,
+  style: {
+    strokeStyle: '#0c09d4',
+    fillStyle: '#f5d106',
+    lineWidth: 1,
+  },
+  transform: {
+    rotate: 45,
+    scale: [1, 1],
+  },
+  // animations: {
+  //   left: { from: 0, to: 100, duration: 2000, easing: 'easeOutQuart' },
+  //   // top: { from: 0, to: 200, duration: 3000 },
+  //   width: { from: 100, to: 200, duration: 5000 },
+  //   height: { from: 100, to: 200, duration: 5000 },
+  // },
+});
+ice.addChild(rect1);
 
-// let visioLink = new ICEVisioLink({
-//   left: 0,
-//   top: 0,
-//   startPoint: [500, 500],
-//   endPoint: [600, 600],
-//   style: {
-//     strokeStyle: '#08ee00',
-//     fillStyle: '#008000',
-//     lineWidth: 5,
-//   },
-// });
-// ice.addChild(visioLink);
+let visioLink = new ICEVisioLink({
+  left: 0,
+  top: 0,
+  startPoint: [500, 500],
+  endPoint: [600, 600],
+  style: {
+    strokeStyle: '#08ee00',
+    fillStyle: '#008000',
+    lineWidth: 5,
+  },
+});
+ice.addChild(visioLink);
 
-// let visioLink2 = new ICEVisioLink({
-//   left: 0,
-//   top: 0,
-//   startPoint: [300, 300],
-//   endPoint: [400, 400],
-//   style: {
-//     strokeStyle: '#08ee00',
-//     fillStyle: '#008000',
-//     lineWidth: 5,
-//   },
-// });
-// ice.addChild(visioLink2);
+let visioLink2 = new ICEVisioLink({
+  left: 0,
+  top: 0,
+  startPoint: [300, 300],
+  endPoint: [400, 400],
+  style: {
+    strokeStyle: '#08ee00',
+    fillStyle: '#008000',
+    lineWidth: 5,
+  },
+});
+ice.addChild(visioLink2);
 
-for (let i = 0; i < 2000; i++) {
-  let rect = new ICERect({
-    left: Math.random() * 1024,
-    top: Math.random() * 768,
-    width: 50,
-    height: 50,
-    style: {
-      strokeStyle: '#0c09d4',
-      fillStyle: '#f5d106',
-      lineWidth: 1,
-    },
-    transform: {
-      rotate: Math.random() * 360,
-    },
-  });
-  ice.addChild(rect);
-}
+// for (let i = 0; i < 2000; i++) {
+//   let rect = new ICERect({
+//     left: Math.random() * 1024,
+//     top: Math.random() * 768,
+//     width: 50,
+//     height: 50,
+//     style: {
+//       strokeStyle: '#0c09d4',
+//       fillStyle: '#f5d106',
+//       lineWidth: 1,
+//     },
+//     transform: {
+//       rotate: Math.random() * 360,
+//     },
+//   });
+//   ice.addChild(rect);
+// }
 
 // let polyLine = new ICEPolyLine({
 //   left: 0,
