@@ -34,30 +34,31 @@ export default class ICELinkSlotManager {
 
   start() {
     this.createLinkSlots();
-    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.afterAddHandler, this);
+    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
     return this;
   }
 
   stop() {
-    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.afterAddHandler, this);
+    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
     return this;
-  }
-
-  private afterAddHandler(evt) {
-    const component = evt.param.component;
-    if (!component || !component.state.linkable) {
-      return;
-    }
-    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, component); //!作用域是 component
   }
 
   private hookMouseMoveHandler(evt: ICEEvent) {
     let linkHook = evt.target;
     let hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
-    let slotBounding: ICEBoundingBox = this.getMaxBoundingBox();
-    if (slotBounding.isIntersect(hookBounding)) {
-      for (let i = 0; i < this.ice._linkSlots.length; i++) {
-        this.ice._linkSlots[i].hostComponent = this;
+
+    const childNodes = [...this.ice.childNodes];
+    for (let i = 0; i < childNodes.length; i++) {
+      const component = childNodes[i];
+      if (!component || !component.state.linkable) {
+        continue;
+      }
+      let slotBounding: ICEBoundingBox = component.getMaxBoundingBox();
+      if (slotBounding.isIntersect(hookBounding)) {
+        for (let i = 0; i < this.ice._linkSlots.length; i++) {
+          this.ice._linkSlots[i].hostComponent = component;
+        }
+        return;
       }
     }
   }
