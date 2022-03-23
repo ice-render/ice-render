@@ -3571,6 +3571,22 @@
 	    return this.center;
 	  }
 
+	  get topCenter() {
+	    return [this.tl[0] + (this.tr[0] - this.tl[0]) / 2, this.tl[1] + (this.tr[1] - this.tl[1]) / 2];
+	  }
+
+	  get rightCenter() {
+	    return [this.tr[0] + (this.br[0] - this.tr[0]) / 2, this.tr[1] + (this.br[1] - this.tr[1]) / 2];
+	  }
+
+	  get bottomCenter() {
+	    return [this.bl[0] + (this.br[0] - this.bl[0]) / 2, this.bl[1] + (this.br[1] - this.bl[1]) / 2];
+	  }
+
+	  get leftCenter() {
+	    return [this.tl[0] + (this.bl[0] - this.tl[0]) / 2, this.tl[1] + (this.bl[1] - this.tl[1]) / 2];
+	  }
+
 	}
 
 	/**
@@ -3974,7 +3990,7 @@
 
 
 	  getMinBoundingBox() {
-	    let refreshMatrix = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
+	    let refresh = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
 	    //先基于组件本地坐标系进行计算
 	    let originX = this.state.localOrigin[0];
 	    let originY = this.state.localOrigin[1];
@@ -3982,7 +3998,7 @@
 	    let height = this.state.height;
 	    let boundingBox = new ICEBoundingBox([0 - originX, 0 - originY, 0 - originX + width, 0 - originY, 0 - originX, 0 - originY + height, 0 - originX + width, 0 - originY + height, 0, 0]); //再用 composedMatrix 进行变换
 
-	    const matrix = refreshMatrix ? this.composeMatrix() : this.state.composedMatrix;
+	    const matrix = refresh ? this.composeMatrix() : this.state.composedMatrix;
 	    boundingBox = boundingBox.transform(matrix);
 	    return boundingBox;
 	  }
@@ -3995,7 +4011,8 @@
 
 
 	  getMaxBoundingBox() {
-	    let boundingBox = this.getMinBoundingBox();
+	    let refresh = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
+	    let boundingBox = this.getMinBoundingBox(refresh);
 	    let {
 	      minX,
 	      minY,
@@ -5191,7 +5208,6 @@
 	 * LICENSE file in the root directory of this source tree.
 	 *
 	 */
-
 	/**
 	 *
 	 * @class ICEPolyLine
@@ -5208,7 +5224,16 @@
 	 *
 	 * @author 大漠穷秋<damoqiongqiu@126.com>
 	 */
+
 	class ICEPolyLine extends ICEDotPath {
+	  /**
+	   * {
+	   *  start:{componnet:ICEComponent,position:'T'},
+	   *  end:{component:ICEComponent,position:'B'}
+	   * }
+	   */
+	  //记录连接到了哪个组件上
+
 	  /**
 	   * FIXME:编写完整的配置项描述
 	   * @cfg
@@ -5226,8 +5251,10 @@
 	    let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 	    let param = ICEPolyLine.arrangeParam(props);
 	    super(param);
-	    this.startSlot = void 0;
-	    this.endSlot = void 0;
+	    this.links = {
+	      start: {},
+	      end: {}
+	    };
 	  }
 	  /**
 	   *
@@ -5290,29 +5317,110 @@
 
 
 	  initEvents() {
-	    super.initEvents(); //如果 props 里面的 startSlotId 和 endSlotId 不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
+	    super.initEvents(); // //如果 props 里面的 startSlotId 和 endSlotId 不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
+	    // this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
+	  } // protected afterAddHandler(evt: ICEEvent) {
+	  //   this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
+	  // }
+	  // protected makeConnection() {
+	  //   const { startSlotId, endSlotId } = this.props;
+	  //   if (startSlotId) {
+	  //     const startSlot = this.ice.findComponent(startSlotId);
+	  //     startSlot && this.setSlot(startSlot, 'start');
+	  //   }
+	  //   if (endSlotId) {
+	  //     const endSlot = this.ice.findComponent(endSlotId);
+	  //     endSlot && this.setSlot(endSlot, 'end');
+	  //   }
+	  // }
 
-	    this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
+
+	  setLink() {
+	    let terminal = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 'start';
+	    let component = arguments.length > 1 ? arguments[1] : undefined;
+	    let position = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'T';
+	    this.removeLink(terminal, component, position);
+	    this.links[terminal] = {
+	      component: component,
+	      position: position
+	    };
+	    component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
+	    component.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.followComponent, this); //连接线连接到组件上之后，自身不再能拖拽
+
+	    this.setState({
+	      draggable: false
+	    }); //FIXME:在 this.state 上添加存储结构
 	  }
 
-	  afterAddHandler(evt) {
-	    this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
-	  }
+	  removeLink() {
+	    let terminal = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 'start';
+	    let component = arguments.length > 1 ? arguments[1] : undefined;
+	    let position = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'T';
+	    const _component = this.links[terminal].component;
+	    const _position = this.links[terminal].position;
 
-	  makeConnection() {
-	    const {
-	      startSlotId,
-	      endSlotId
-	    } = this.props;
+	    if (_component === component && _position === position) {
+	      _component && _component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
+	      this.links[terminal] = {};
+	    } //FIXME:更新 this.state 上的存储结构
+	    //如果两端都没有连接的组件，连接线自身变成可拖动
 
-	    if (startSlotId) {
-	      const startSlot = this.ice.findComponent(startSlotId);
-	      startSlot && this.setSlot(startSlot, 'start');
+
+	    if (!this.links.start.component && !this.links.end.component) {
+	      this.setState({
+	        draggable: true
+	      });
 	    }
+	  }
+	  /**
+	   * @method
+	   * 连接的组件位置发生移动之后，重新计算连接线的起点和终点。
+	   */
 
-	    if (endSlotId) {
-	      const endSlot = this.ice.findComponent(endSlotId);
-	      endSlot && this.setSlot(endSlot, 'end');
+
+	  followComponent(evt) {
+	    for (let terminal in this.links) {
+	      const position = this.links[terminal].position;
+	      const component = this.links[terminal].component;
+
+	      if (!position || !component) {
+	        continue;
+	      }
+
+	      const box = component.getMaxBoundingBox();
+	      let temp = [0, 0];
+
+	      switch (position) {
+	        case 'T':
+	          temp = box.topCenter;
+	          break;
+
+	        case 'R':
+	          temp = box.rightCenter;
+	          break;
+
+	        case 'B':
+	          temp = box.bottomCenter;
+	          break;
+
+	        case 'L':
+	          temp = box.leftCenter;
+	          break;
+	      }
+
+	      switch (terminal) {
+	        case 'start':
+	          this.setState({
+	            startPoint: [...temp]
+	          });
+	          break;
+
+	        case 'end':
+	          this.setState({
+	            endPoint: [...temp]
+	          });
+	          break;
+	      }
 	    }
 	  }
 	  /**
@@ -5642,112 +5750,23 @@
 
 	    return result;
 	  }
-	  /**
-	   *
-	   * 当连线两头的组件发生移动时，触发连线重新绘制自身。
-	   *
-	   * @param slot
-	   * @param position
-	   */
-
-
-	  syncPosition(slot, position) {
-	    let slotBounding = slot.getMinBoundingBox(true);
-	    let x = slotBounding.center[0];
-	    let y = slotBounding.center[1];
-	    let point = this.globalToLocal(x, y);
-	    let {
-	      left,
-	      top
-	    } = this.state;
-	    point = transformMat2d([], point, [1, 0, 0, 1, left, top]);
-
-	    if (position === 'start') {
-	      this.setState({
-	        startPoint: [point[0], point[1]]
-	      });
-	    } else if (position === 'end') {
-	      this.setState({
-	        endPoint: [point[0], point[1]]
-	      });
-	    }
-	  }
-
-	  followStartSlot(evt) {
-	    this.syncPosition(this.startSlot, 'start');
-	  }
-
-	  followEndSlot(evt) {
-	    this.syncPosition(this.endSlot, 'end');
-	  } //当 Slot 被删除时，清理它与连接线、宿主组件之间的关联关系。
-
-
-	  slotBeforeRemoveHandler(evt) {
-	    const slot = evt.param.component;
-	    if (!slot) return;
-
-	    if (this.startSlot === slot) {
-	      this.deleteSlot(slot, 'start');
-	    } else if (this.endSlot === slot) {
-	      this.deleteSlot(slot, 'end');
-	    }
-	  }
-	  /**
-	   * 设置连线与组件之间的逻辑关系
-	   */
-
-
-	  setSlot(slot, position) {
-	    if (!slot || !position) return; //总是先尝试解除连接关系，然后再重新尝试连接
-
-	    this.deleteSlot(slot, position); //设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
-
-	    this.setState({
-	      draggable: false
-	    });
-
-	    if (position === 'start') {
-	      this.startSlot = slot;
-	      this.state.startSlotId = slot.props.id;
-	      this.syncPosition(this.startSlot, 'start');
-	      this.startSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this); //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
-
-	      this.startSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
-	    } else if (position === 'end') {
-	      this.endSlot = slot;
-	      this.state.endSlotId = slot.props.id;
-	      this.syncPosition(this.endSlot, 'end');
-	      this.endSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this); //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
-
-	      this.endSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
-	    }
-	  }
-	  /**
-	   * 解除连线与组件之间的连接关系。
-	   * @param slot
-	   */
-
-
-	  deleteSlot(slot, position) {
-	    if (position === 'start' && this.startSlot === slot) {
-	      this.startSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this);
-	      this.startSlot = null;
-	      this.state.startSlotId = '';
-	    } else if (position === 'end' && this.endSlot === slot) {
-	      this.endSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this);
-	      this.endSlot = null;
-	      this.state.endSlotId = '';
-	    } //如果两端都没有连接的组件，连接线自身变成可拖动
-
-
-	    if (!this.startSlot && !this.endSlot) {
-	      this.setState({
-	        draggable: true
-	      });
-	    }
-	  }
 
 	}
+
+	/**
+	 * Copyright (c) 2022 大漠穷秋.
+	 *
+	 * This source code is licensed under the MIT license found in the
+	 * LICENSE file in the root directory of this source tree.
+	 *
+	 */
+
+	/**
+	 * zIndex 最大值，这里使用一千万是安全的，在一张画布上渲染一千万个图形的可能性很小
+	 * zIndex 用来控制组件在画布中的堆叠次序
+	 * @see ICEComponent.state.zIndex
+	 */
+	const bigZIndexNum = 10000000;
 
 	/**
 	 * Copyright (c) 2022 大漠穷秋.
@@ -5975,7 +5994,7 @@
 	  //TODO:改成可配置参数
 	  constructor(props) {
 	    super({ ...props,
-	      zIndex: Number.MAX_VALUE,
+	      zIndex: bigZIndexNum + 10,
 	      linkable: false,
 	      showMinBoundingBox: false,
 	      showMaxBoundingBox: false
@@ -5987,12 +6006,11 @@
 	  }
 
 	  initControls() {
-	    let counter = 1;
 	    let width = this.state.width;
 	    let height = this.state.height;
 	    let halfControlSize = this.controlSize / 2;
 	    this.startControl = new ICELinkHook({
-	      zIndex: Number.MAX_VALUE - counter++,
+	      zIndex: bigZIndexNum + 11,
 	      display: false,
 	      left: -halfControlSize,
 	      top: -halfControlSize,
@@ -6008,7 +6026,7 @@
 	    });
 	    this.addChild(this.startControl);
 	    this.endControl = new ICELinkHook({
-	      zIndex: Number.MAX_VALUE - counter++,
+	      zIndex: bigZIndexNum + 12,
 	      display: false,
 	      left: width - halfControlSize,
 	      top: height - halfControlSize,
@@ -6491,7 +6509,7 @@
 	  //TODO:改成可配置参数
 	  constructor(props) {
 	    super({ ...props,
-	      zIndex: Number.MAX_VALUE,
+	      zIndex: bigZIndexNum + 1,
 	      linkable: false,
 	      showMinBoundingBox: false,
 	      showMaxBoundingBox: false
@@ -6566,13 +6584,12 @@
 	      quadrant: 7,
 	      position: [-halfControlSize, halfHeight - halfControlSize]
 	    }];
-	    let counter = 1;
 	    this.resizeControlInstanceCache = [];
 
 	    for (let i = 0; i < resizeControlConfig.length; i++) {
 	      const controlConfig = resizeControlConfig[i];
 	      const handleInstance = new ResizeControl({
-	        zIndex: Number.MAX_VALUE - counter++,
+	        zIndex: bigZIndexNum + 2,
 	        display: false,
 	        left: controlConfig.position[0],
 	        top: controlConfig.position[1],
@@ -6595,7 +6612,7 @@
 	    let left = this.state.width / 2 - this.rotateControlSize;
 	    let top = -this.rotateControlffsetY;
 	    this.rotateControlInstance = new RotateControl({
-	      zIndex: Number.MAX_VALUE - counter++,
+	      zIndex: bigZIndexNum + 3,
 	      display: false,
 	      left: left,
 	      top: top,
@@ -7332,13 +7349,25 @@
 	    this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
 	    this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
 	    this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
+	    this.evtBus.on('mouseup', this.globalMouseUpHandler, this);
 	  }
 
 	  beforeRemoveHandler(evt) {
 	    this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
 	    this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
 	    this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
+	    this.evtBus.off('mouseup', this.globalMouseUpHandler, this);
 	    this._hostComponent = null;
+	  }
+	  /**
+	   * 只要鼠标弹起，连接插槽总是变成不可见状态。
+	   */
+
+
+	  globalMouseUpHandler() {
+	    this.setState({
+	      display: false
+	    });
 	  }
 	  /**
 	   * 监听 EventBus 上连接钩子鼠标按下事件
@@ -7347,6 +7376,12 @@
 
 
 	  hookMouseDownHandler(evt) {
+	    console.log('linkslot, hook mousedown event...');
+
+	    if (!this._hostComponent) {
+	      return;
+	    }
+
 	    this.setState({
 	      display: true
 	    });
@@ -7391,24 +7426,24 @@
 	    }
 	  }
 	  /**
-	   * 监听 EventBus 上连接钩子鼠标弹起事件
+	   * 处理 EventBus 上连接钩子鼠标弹起事件
 	   * @param evt
 	   */
 
 
 	  hookMouseUpHandler(evt) {
+	    if (!this._hostComponent) {
+	      return;
+	    }
+
 	    let linkHook = evt.target;
 	    let linkLine = linkHook.parentNode.targetComponent;
 	    let position = linkHook.state.position;
 
 	    if (this.isIntersectWithHook(linkHook)) {
-	      // 如果 hook 与 slot 位置重叠，让连接线与 slot 所在的组件建立连接关系
-	      // 把连线上的起点或者终点坐标设置为当前发生碰撞的 ICELinkSlot 的坐标
-	      // ICELinkHook 实例在 LinkControlPanel 中，全局只有2个实例，所有连接线都共享同一个 LinkControlPanel 实例。
-	      linkLine && linkLine.setSlot(this, position);
+	      linkLine && linkLine.setLink(position, this._hostComponent, this.props.position);
 	    } else {
-	      //hook 没有与当前的 slot 重叠，让 hook 所在的连接线解除与当前 slot 之间的连接关系
-	      linkLine && linkLine.deleteSlot(this, position);
+	      linkLine && linkLine.removeLink(position, this._hostComponent, this.props.position);
 	    }
 
 	    this.setState({
@@ -7433,10 +7468,13 @@
 	    }
 
 	    return false;
-	  } //FIXME:这里需要采用 TransformControlPanel 中的算法来计算插槽位置。
+	  } //FIXME:这里位置计算有问题
+	  //FIXME:这里需要采用 TransformControlPanel 中的算法来计算插槽位置。
 
 
 	  updatePosition() {
+	    console.log('link slot update position ...');
+
 	    let box = this._hostComponent.getMinBoundingBox();
 
 	    let left = 0;
@@ -7471,12 +7509,12 @@
 	  }
 
 	  set hostComponent(component) {
-	    this._hostComponent && this._hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
+	    this._hostComponent && this._hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
 	    this._hostComponent = component;
-
-	    this._hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
-
-	    this._hostComponent.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
+	    this._hostComponent && this._hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
+	    this._hostComponent && this.setState({
+	      display: true
+	    });
 	  }
 
 	  get hostComponent() {
@@ -7495,8 +7533,7 @@
 	/**
 	 * @class ICELinkSlotManager
 	 *
-	 * - ICELinkSlotManager 连接插槽管理器，用于管理所有可连接组件上的连接插槽。
-	 * - ICELinkSlotManager 监听 renderer 上的 BEFORE_RENDER 和 AFTER_RENDER 事件，如果发现组件的 linkable 状态为 true ，会动态在组件上创建用于连接的插槽 ICELinkSlot 。
+	 * - ICELinkSlotManager 连接插槽管理器，用于管理连接插槽，共4个，所有可连接的组件都复用这4个插槽的实例。
 	 * - ICELinkSlotManager 的实例是在 ICE 初始化时创建的。
 	 * - ICELinkSlotManager 是全局单例，同一个 ICE 实例上只能有一个 ICELinkSlotManager 实例。
 	 *
@@ -7509,14 +7546,13 @@
 	    this.slotRadius = 10;
 	    this.ice = void 0;
 	    this.ice = ice;
-	  } //TODO:处理 BEFORE_REMOVE 事件，在组件被删除之前，删掉连接插槽
-
+	  }
 
 	  start() {
+	    this.createLinkSlots();
 	    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.afterAddHandler, this);
 	    return this;
-	  } //TODO:处理 BEFORE_REMOVE 事件，在组件被删除之前，删掉连接插槽
-
+	  }
 
 	  stop() {
 	    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.afterAddHandler, this);
@@ -7530,12 +7566,19 @@
 	      return;
 	    }
 
-	    if (component.linkSlots) {
-	      return;
-	    }
+	    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, component); //!作用域是 component
+	  }
 
-	    console.log('create link slots...');
-	    this.createLinkSlots(component);
+	  hookMouseMoveHandler(evt) {
+	    let linkHook = evt.target;
+	    let hookBounding = linkHook.getMaxBoundingBox();
+	    let slotBounding = this.getMaxBoundingBox();
+
+	    if (slotBounding.isIntersect(hookBounding)) {
+	      for (let i = 0; i < this.ice._linkSlots.length; i++) {
+	        this.ice._linkSlots[i].hostComponent = this;
+	      }
+	    }
 	  }
 	  /**
 	   * 创建连接插槽，插槽默认分布在组件最小边界盒子的4条边几何中点位置。
@@ -7543,12 +7586,17 @@
 	   */
 
 
-	  createLinkSlots(component) {
-	    const slotIds = component.props.slotIds ? component.props.slotIds : [];
+	  createLinkSlots() {
+	    if (this.ice._linkSlots && this.ice._linkSlots.length) {
+	      return;
+	    }
+
 	    let slot_1 = new ICELinkSlot({
-	      id: slotIds[0] ? slotIds[0] : 'ICE_' + v4(),
+	      id: 'ICE_' + v4(),
+	      zIndex: bigZIndexNum,
 	      display: false,
 	      transformable: false,
+	      draggable: false,
 	      radius: this.slotRadius,
 	      position: 'T',
 	      style: {
@@ -7557,12 +7605,13 @@
 	        lineWidth: 1
 	      }
 	    });
-	    slot_1.hostComponent = component;
 	    this.ice.addChild(slot_1);
 	    let slot_2 = new ICELinkSlot({
-	      id: slotIds[1] ? slotIds[1] : 'ICE_' + v4(),
+	      id: 'ICE_' + v4(),
+	      zIndex: bigZIndexNum,
 	      display: false,
 	      transformable: false,
+	      draggable: false,
 	      radius: this.slotRadius,
 	      position: 'R',
 	      style: {
@@ -7571,12 +7620,13 @@
 	        lineWidth: 1
 	      }
 	    });
-	    slot_2.hostComponent = component;
 	    this.ice.addChild(slot_2);
 	    let slot_3 = new ICELinkSlot({
-	      id: slotIds[2] ? slotIds[2] : 'ICE_' + v4(),
+	      id: 'ICE_' + v4(),
+	      zIndex: bigZIndexNum,
 	      display: false,
 	      transformable: false,
+	      draggable: false,
 	      radius: this.slotRadius,
 	      position: 'B',
 	      style: {
@@ -7585,12 +7635,13 @@
 	        lineWidth: 1
 	      }
 	    });
-	    slot_3.hostComponent = component;
 	    this.ice.addChild(slot_3);
 	    let slot_4 = new ICELinkSlot({
-	      id: slotIds[3] ? slotIds[3] : 'ICE_' + v4(),
+	      id: 'ICE_' + v4(),
+	      zIndex: bigZIndexNum,
 	      display: false,
 	      transformable: false,
+	      draggable: false,
 	      radius: this.slotRadius,
 	      position: 'L',
 	      style: {
@@ -7599,10 +7650,8 @@
 	        lineWidth: 1
 	      }
 	    });
-	    slot_4.hostComponent = component;
 	    this.ice.addChild(slot_4);
-	    component.linkSlots = [slot_1, slot_2, slot_3, slot_4];
-	    component.state.slotIds = [slot_1.props.id, slot_2.props.id, slot_3.props.id, slot_4.props.id];
+	    this.ice._linkSlots = [slot_1, slot_2, slot_3, slot_4];
 	  }
 
 	}
@@ -7883,8 +7932,10 @@
 	    let startBounding = new ICEBoundingBox();
 	    let endBounding = new ICEBoundingBox(); //find start exit point
 
-	    if (this.startSlot) {
-	      startBounding = this.startSlot.hostComponent.getMinBoundingBox();
+	    const startComponent = this.links.start.component;
+
+	    if (startComponent) {
+	      startBounding = startComponent.getMinBoundingBox();
 	      potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl[1] - this.state.escapeDistance); //north
 
 	      potentialExits[1] = new GeoPoint(startBounding.tr[0] + this.state.escapeDistance, startPoint.y); //east
@@ -7904,8 +7955,10 @@
 	    } //find end exit point
 
 
-	    if (this.endSlot) {
-	      endBounding = this.endSlot.hostComponent.getMinBoundingBox();
+	    const endComponent = this.links.end.component;
+
+	    if (endComponent) {
+	      endBounding = endComponent.getMinBoundingBox();
 	      potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl[1] - this.state.escapeDistance); //north
 
 	      potentialExits[1] = new GeoPoint(endBounding.tr[0] + this.state.escapeDistance, endPoint.y); //east
@@ -8868,9 +8921,10 @@
 
 	  refreshRenderQueue() {
 	    this.renderQueue = Array.from(this.ice.childNodes);
-	    console.log(`Render Queue length> ${this.renderQueue.length}`);
+	    console.log(`Render Queue length> ${this.renderQueue.length}`); //FIXME:树形结构会导致 zIndex 排序无效
+	    //FIXME:根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
+
 	    this.renderQueue.sort((firstEl, secondEl) => {
-	      //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
 	      return firstEl.state.zIndex - secondEl.state.zIndex;
 	    });
 	  }
@@ -9163,8 +9217,8 @@
 	// let baseRect1 = new ICERect({
 	//   left: 100,
 	//   top: 100,
-	//   width: 300,
-	//   height: 200,
+	//   width: 100,
+	//   height: 100,
 	//   style: {
 	//     strokeStyle: '#0c09d4',
 	//     fillStyle: '#f5d106',
@@ -9188,26 +9242,8 @@
 	// });
 	// ice.addChild(baseRect1);
 
-	for (let i = 0; i < 1000; i++) {
-	  let rect = new ICERect({
-	    left: Math.random() * 1024,
-	    top: Math.random() * 768,
-	    width: 50,
-	    height: 50,
-	    style: {
-	      strokeStyle: '#0c09d4',
-	      fillStyle: '#f5d106',
-	      lineWidth: 1,
-	    },
-	    transform: {
-	      rotate: Math.random() * 360,
-	    },
-	  });
-	  ice.addChild(rect);
-	}
-
 	// let rect1 = new ICERect({
-	//   left: 100,
+	//   left: 500,
 	//   top: 100,
 	//   width: 100,
 	//   height: 100,
@@ -9228,6 +9264,50 @@
 	//   // },
 	// });
 	// ice.addChild(rect1);
+
+	// let visioLink = new ICEVisioLink({
+	//   left: 0,
+	//   top: 0,
+	//   startPoint: [500, 500],
+	//   endPoint: [600, 600],
+	//   style: {
+	//     strokeStyle: '#08ee00',
+	//     fillStyle: '#008000',
+	//     lineWidth: 5,
+	//   },
+	// });
+	// ice.addChild(visioLink);
+
+	// let visioLink2 = new ICEVisioLink({
+	//   left: 0,
+	//   top: 0,
+	//   startPoint: [300, 300],
+	//   endPoint: [400, 400],
+	//   style: {
+	//     strokeStyle: '#08ee00',
+	//     fillStyle: '#008000',
+	//     lineWidth: 5,
+	//   },
+	// });
+	// ice.addChild(visioLink2);
+
+	for (let i = 0; i < 2000; i++) {
+	  let rect = new ICERect({
+	    left: Math.random() * 1024,
+	    top: Math.random() * 768,
+	    width: 50,
+	    height: 50,
+	    style: {
+	      strokeStyle: '#0c09d4',
+	      fillStyle: '#f5d106',
+	      lineWidth: 1,
+	    },
+	    transform: {
+	      rotate: Math.random() * 360,
+	    },
+	  });
+	  ice.addChild(rect);
+	}
 
 	// let polyLine = new ICEPolyLine({
 	//   left: 0,
@@ -9264,32 +9344,6 @@
 	//   },
 	// });
 	// ice.addChild(polyLine2);
-
-	// let visioLink = new ICEVisioLink({
-	//   left: 0,
-	//   top: 0,
-	//   startPoint: [500, 500],
-	//   endPoint: [600, 600],
-	//   style: {
-	//     strokeStyle: '#08ee00',
-	//     fillStyle: '#008000',
-	//     lineWidth: 5,
-	//   },
-	// });
-	// ice.addChild(visioLink);
-
-	// let visioLink2 = new ICEVisioLink({
-	//   left: 0,
-	//   top: 0,
-	//   startPoint: [300, 300],
-	//   endPoint: [400, 400],
-	//   style: {
-	//     strokeStyle: '#08ee00',
-	//     fillStyle: '#008000',
-	//     lineWidth: 5,
-	//   },
-	// });
-	// ice.addChild(visioLink2);
 
 	// let linkCircle3 = new ICECircle({
 	//   left: 100,

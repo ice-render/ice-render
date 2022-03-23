@@ -318,7 +318,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * 此方法需要在 render() 之后调用，组件没有渲染时无法计算最小包围盒。
    * @returns
    */
-  public getMinBoundingBox(refreshMatrix: boolean = false): ICEBoundingBox {
+  public getMinBoundingBox(refresh: boolean = false): ICEBoundingBox {
     //先基于组件本地坐标系进行计算
     let originX = this.state.localOrigin[0];
     let originY = this.state.localOrigin[1];
@@ -338,7 +338,7 @@ abstract class ICEComponent extends ICEEventTarget {
     ]);
 
     //再用 composedMatrix 进行变换
-    const matrix = refreshMatrix ? this.composeMatrix() : this.state.composedMatrix;
+    const matrix = refresh ? this.composeMatrix() : this.state.composedMatrix;
     boundingBox = boundingBox.transform(matrix);
     return boundingBox;
   }
@@ -349,8 +349,8 @@ abstract class ICEComponent extends ICEEventTarget {
    * - 盒子的4边在全局坐标 X/Y 轴上的投影范围与组件完全一致。
    * @returns
    */
-  public getMaxBoundingBox(): ICEBoundingBox {
-    let boundingBox = this.getMinBoundingBox();
+  public getMaxBoundingBox(refresh: boolean = false): ICEBoundingBox {
+    let boundingBox = this.getMinBoundingBox(refresh);
     let { minX, minY, maxX, maxY } = boundingBox.getMinAndMaxPoint();
     let center = boundingBox.centerPoint;
     boundingBox = new ICEBoundingBox([minX, minY, maxX, minY, minX, maxY, maxX, maxY, center[0], center[1]]);

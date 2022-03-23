@@ -8,6 +8,7 @@
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
+import ICEPolyLine from '../line/ICEPolyLine';
 import ICECircle from '../shape/ICECircle';
 import ICELinkHook from './ICELinkHook';
 
@@ -58,13 +59,24 @@ class ICELinkSlot extends ICECircle {
     this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
     this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
     this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
+    this.evtBus.on('mouseup', this.globalMouseUpHandler, this);
   }
 
   protected beforeRemoveHandler(evt: ICEEvent) {
     this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
     this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
     this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
+    this.evtBus.off('mouseup', this.globalMouseUpHandler, this);
     this._hostComponent = null;
+  }
+
+  /**
+   * 只要鼠标弹起，连接插槽总是变成不可见状态。
+   */
+  protected globalMouseUpHandler() {
+    this.setState({
+      display: false,
+    });
   }
 
   /**
@@ -72,6 +84,11 @@ class ICELinkSlot extends ICECircle {
    * @param evt
    */
   protected hookMouseDownHandler(evt: ICEEvent) {
+    console.log('linkslot, hook mousedown event...');
+
+    if (!this._hostComponent) {
+      return;
+    }
     this.setState({
       display: true,
     });
@@ -116,21 +133,21 @@ class ICELinkSlot extends ICECircle {
   }
 
   /**
-   * 监听 EventBus 上连接钩子鼠标弹起事件
+   * 处理 EventBus 上连接钩子鼠标弹起事件
    * @param evt
    */
   protected hookMouseUpHandler(evt: ICEEvent) {
-    let linkHook = evt.target;
-    let linkLine = linkHook.parentNode.targetComponent;
-    let position = linkHook.state.position;
+    if (!this._hostComponent) {
+      return;
+    }
+
+    let linkHook: ICELinkHook = evt.target;
+    let linkLine: ICEPolyLine = linkHook.parentNode.targetComponent;
+    let position: string = linkHook.state.position;
     if (this.isIntersectWithHook(linkHook)) {
-      // 如果 hook 与 slot 位置重叠，让连接线与 slot 所在的组件建立连接关系
-      // 把连线上的起点或者终点坐标设置为当前发生碰撞的 ICELinkSlot 的坐标
-      // ICELinkHook 实例在 LinkControlPanel 中，全局只有2个实例，所有连接线都共享同一个 LinkControlPanel 实例。
-      linkLine && linkLine.setSlot(this, position);
+      linkLine && linkLine.setLink(position, this._hostComponent, this.props.position);
     } else {
-      //hook 没有与当前的 slot 重叠，让 hook 所在的连接线解除与当前 slot 之间的连接关系
-      linkLine && linkLine.deleteSlot(this, position);
+      linkLine && linkLine.removeLink(position, this._hostComponent, this.props.position);
     }
 
     this.setState({
@@ -156,8 +173,11 @@ class ICELinkSlot extends ICECircle {
     return false;
   }
 
+  //FIXME:这里位置计算有问题
   //FIXME:这里需要采用 TransformControlPanel 中的算法来计算插槽位置。
   protected updatePosition() {
+    console.log('link slot update position ...');
+
     let box = this._hostComponent.getMinBoundingBox();
     let left = 0;
     let top = 0;
@@ -185,10 +205,13 @@ class ICELinkSlot extends ICECircle {
   }
 
   public set hostComponent(component) {
-    this._hostComponent && this._hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
+    this._hostComponent && this._hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
     this._hostComponent = component;
-    this._hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
-    this._hostComponent.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
+    this._hostComponent && this._hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
+    this._hostComponent &&
+      this.setState({
+        display: true,
+      });
   }
 
   public get hostComponent() {

@@ -50,8 +50,8 @@ document.querySelector('#btn-3').addEventListener('click', (evt) => {
 // let baseRect1 = new ICERect({
 //   left: 100,
 //   top: 100,
-//   width: 300,
-//   height: 200,
+//   width: 100,
+//   height: 100,
 //   style: {
 //     strokeStyle: '#0c09d4',
 //     fillStyle: '#f5d106',
@@ -75,26 +75,8 @@ document.querySelector('#btn-3').addEventListener('click', (evt) => {
 // });
 // ice.addChild(baseRect1);
 
-for (let i = 0; i < 1000; i++) {
-  let rect = new ICERect({
-    left: Math.random() * 1024,
-    top: Math.random() * 768,
-    width: 50,
-    height: 50,
-    style: {
-      strokeStyle: '#0c09d4',
-      fillStyle: '#f5d106',
-      lineWidth: 1,
-    },
-    transform: {
-      rotate: Math.random() * 360,
-    },
-  });
-  ice.addChild(rect);
-}
-
 // let rect1 = new ICERect({
-//   left: 100,
+//   left: 500,
 //   top: 100,
 //   width: 100,
 //   height: 100,
@@ -115,6 +97,50 @@ for (let i = 0; i < 1000; i++) {
 //   // },
 // });
 // ice.addChild(rect1);
+
+// let visioLink = new ICEVisioLink({
+//   left: 0,
+//   top: 0,
+//   startPoint: [500, 500],
+//   endPoint: [600, 600],
+//   style: {
+//     strokeStyle: '#08ee00',
+//     fillStyle: '#008000',
+//     lineWidth: 5,
+//   },
+// });
+// ice.addChild(visioLink);
+
+// let visioLink2 = new ICEVisioLink({
+//   left: 0,
+//   top: 0,
+//   startPoint: [300, 300],
+//   endPoint: [400, 400],
+//   style: {
+//     strokeStyle: '#08ee00',
+//     fillStyle: '#008000',
+//     lineWidth: 5,
+//   },
+// });
+// ice.addChild(visioLink2);
+
+for (let i = 0; i < 2000; i++) {
+  let rect = new ICERect({
+    left: Math.random() * 1024,
+    top: Math.random() * 768,
+    width: 50,
+    height: 50,
+    style: {
+      strokeStyle: '#0c09d4',
+      fillStyle: '#f5d106',
+      lineWidth: 1,
+    },
+    transform: {
+      rotate: Math.random() * 360,
+    },
+  });
+  ice.addChild(rect);
+}
 
 // let polyLine = new ICEPolyLine({
 //   left: 0,
@@ -151,32 +177,6 @@ for (let i = 0; i < 1000; i++) {
 //   },
 // });
 // ice.addChild(polyLine2);
-
-// let visioLink = new ICEVisioLink({
-//   left: 0,
-//   top: 0,
-//   startPoint: [500, 500],
-//   endPoint: [600, 600],
-//   style: {
-//     strokeStyle: '#08ee00',
-//     fillStyle: '#008000',
-//     lineWidth: 5,
-//   },
-// });
-// ice.addChild(visioLink);
-
-// let visioLink2 = new ICEVisioLink({
-//   left: 0,
-//   top: 0,
-//   startPoint: [300, 300],
-//   endPoint: [400, 400],
-//   style: {
-//     strokeStyle: '#08ee00',
-//     fillStyle: '#008000',
-//     lineWidth: 5,
-//   },
-// });
-// ice.addChild(visioLink2);
 
 // let linkCircle3 = new ICECircle({
 //   left: 100,

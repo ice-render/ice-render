@@ -13,8 +13,8 @@ import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
 import GeoUtil from '../../geometry/GeoUtil';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
+import ICEComponent from '../ICEComponent';
 import ICEDotPath from '../ICEDotPath';
-import ICELinkSlot from '../link/ICELinkSlot';
 
 /**
  *
@@ -33,8 +33,13 @@ import ICELinkSlot from '../link/ICELinkSlot';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICEPolyLine extends ICEDotPath {
-  protected startSlot: ICELinkSlot;
-  protected endSlot: ICELinkSlot;
+  /**
+   * {
+   *  start:{componnet:ICEComponent,position:'T'},
+   *  end:{component:ICEComponent,position:'B'}
+   * }
+   */
+  protected links: any = { start: {}, end: {} }; //记录连接到了哪个组件上
 
   /**
    * FIXME:编写完整的配置项描述
@@ -116,24 +121,105 @@ class ICEPolyLine extends ICEDotPath {
   protected initEvents() {
     super.initEvents();
 
-    //如果 props 里面的 startSlotId 和 endSlotId 不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
-    this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
+    // //如果 props 里面的 startSlotId 和 endSlotId 不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
+    // this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
   }
 
-  protected afterAddHandler(evt: ICEEvent) {
-    this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
+  // protected afterAddHandler(evt: ICEEvent) {
+  //   this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
+  // }
+
+  // protected makeConnection() {
+  //   const { startSlotId, endSlotId } = this.props;
+  //   if (startSlotId) {
+  //     const startSlot = this.ice.findComponent(startSlotId);
+  //     startSlot && this.setSlot(startSlot, 'start');
+  //   }
+
+  //   if (endSlotId) {
+  //     const endSlot = this.ice.findComponent(endSlotId);
+  //     endSlot && this.setSlot(endSlot, 'end');
+  //   }
+  // }
+
+  public setLink(terminal: string = 'start', component: ICEComponent, position: string = 'T') {
+    this.removeLink(terminal, component, position);
+
+    this.links[terminal] = { component: component, position: position };
+    component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
+    component.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.followComponent, this);
+
+    //连接线连接到组件上之后，自身不再能拖拽
+    this.setState({
+      draggable: false,
+    });
+
+    //FIXME:在 this.state 上添加存储结构
   }
 
-  protected makeConnection() {
-    const { startSlotId, endSlotId } = this.props;
-    if (startSlotId) {
-      const startSlot = this.ice.findComponent(startSlotId);
-      startSlot && this.setSlot(startSlot, 'start');
+  public removeLink(terminal: string = 'start', component: ICEComponent, position: string = 'T') {
+    const _component = this.links[terminal].component;
+    const _position = this.links[terminal].position;
+    if (_component === component && _position === position) {
+      _component && _component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
+      this.links[terminal] = {};
     }
 
-    if (endSlotId) {
-      const endSlot = this.ice.findComponent(endSlotId);
-      endSlot && this.setSlot(endSlot, 'end');
+    //FIXME:更新 this.state 上的存储结构
+
+    //如果两端都没有连接的组件，连接线自身变成可拖动
+    if (!this.links.start.component && !this.links.end.component) {
+      this.setState({
+        draggable: true,
+      });
+    }
+  }
+
+  /**
+   * @method
+   * 连接的组件位置发生移动之后，重新计算连接线的起点和终点。
+   */
+  private followComponent(evt: ICEEvent) {
+    for (let terminal in this.links) {
+      const position = this.links[terminal].position;
+      const component: ICEComponent = this.links[terminal].component;
+      if (!position || !component) {
+        continue;
+      }
+
+      const box = component.getMaxBoundingBox();
+      let temp = [0, 0];
+      switch (position) {
+        case 'T':
+          temp = box.topCenter;
+          break;
+        case 'R':
+          temp = box.rightCenter;
+          break;
+        case 'B':
+          temp = box.bottomCenter;
+          break;
+        case 'L':
+          temp = box.leftCenter;
+          break;
+        default:
+          break;
+      }
+
+      switch (terminal) {
+        case 'start':
+          this.setState({
+            startPoint: [...temp],
+          });
+          break;
+        case 'end':
+          this.setState({
+            endPoint: [...temp],
+          });
+          break;
+        default:
+          break;
+      }
     }
   }
 
@@ -438,107 +524,6 @@ class ICEPolyLine extends ICEDotPath {
       result.push(line);
     }
     return result;
-  }
-
-  /**
-   *
-   * 当连线两头的组件发生移动时，触发连线重新绘制自身。
-   *
-   * @param slot
-   * @param position
-   */
-  protected syncPosition(slot, position) {
-    let slotBounding = slot.getMinBoundingBox(true);
-    let x = slotBounding.center[0];
-    let y = slotBounding.center[1];
-    let point = this.globalToLocal(x, y);
-    let { left, top } = this.state;
-    point = vec2.transformMat2d([], point, [1, 0, 0, 1, left, top]);
-
-    if (position === 'start') {
-      this.setState({
-        startPoint: [point[0], point[1]],
-      });
-    } else if (position === 'end') {
-      this.setState({
-        endPoint: [point[0], point[1]],
-      });
-    }
-  }
-
-  protected followStartSlot(evt: ICEEvent): void {
-    this.syncPosition(this.startSlot, 'start');
-  }
-
-  protected followEndSlot(evt: ICEEvent): void {
-    this.syncPosition(this.endSlot, 'end');
-  }
-
-  //当 Slot 被删除时，清理它与连接线、宿主组件之间的关联关系。
-  protected slotBeforeRemoveHandler(evt: ICEEvent): void {
-    const slot = evt.param.component;
-    if (!slot) return;
-    if (this.startSlot === slot) {
-      this.deleteSlot(slot, 'start');
-    } else if (this.endSlot === slot) {
-      this.deleteSlot(slot, 'end');
-    }
-  }
-
-  /**
-   * 设置连线与组件之间的逻辑关系
-   */
-  public setSlot(slot, position) {
-    if (!slot || !position) return;
-
-    //总是先尝试解除连接关系，然后再重新尝试连接
-    this.deleteSlot(slot, position);
-
-    //设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
-    this.setState({
-      draggable: false,
-    });
-
-    if (position === 'start') {
-      this.startSlot = slot;
-      this.state.startSlotId = slot.props.id;
-      this.syncPosition(this.startSlot, 'start');
-      this.startSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this);
-
-      //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
-      this.startSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
-    } else if (position === 'end') {
-      this.endSlot = slot;
-      this.state.endSlotId = slot.props.id;
-      this.syncPosition(this.endSlot, 'end');
-      this.endSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this);
-
-      //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
-      this.endSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
-    }
-  }
-
-  /**
-   * 解除连线与组件之间的连接关系。
-   * @param slot
-   */
-  public deleteSlot(slot, position) {
-    if (position === 'start' && this.startSlot === slot) {
-      this.startSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this);
-      this.startSlot = null;
-      this.state.startSlotId = '';
-    } else if (position === 'end' && this.endSlot === slot) {
-      this.endSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this);
-      this.endSlot = null;
-      this.state.endSlotId = '';
-    }
-
-    //如果两端都没有连接的组件，连接线自身变成可拖动
-    if (!this.startSlot && !this.endSlot) {
-      this.setState({
-        draggable: true,
-      });
-    }
   }
 }
 
