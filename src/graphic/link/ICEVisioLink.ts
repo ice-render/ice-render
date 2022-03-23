@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import get from 'lodash/get';
 import isNil from 'lodash/isNil';
 import GeoLine from '../../geometry/GeoLine';
 import GeoPoint from '../../geometry/GeoPoint';
@@ -100,7 +99,7 @@ export default class ICEVisioLink extends ICEPolyLine {
     let endBounding = new ICEBoundingBox();
 
     //find start exit point
-    const startComponent = get(this, 'links.start.component');
+    const startComponent = this.links.start.component;
     if (startComponent) {
       startBounding = startComponent.getMinBoundingBox();
       potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl[1] - this.state.escapeDistance); //north
@@ -117,7 +116,7 @@ export default class ICEVisioLink extends ICEPolyLine {
     }
 
     //find end exit point
-    const endComponent = get(this, 'links.end.component');
+    const endComponent = this.links.end.component;
     if (endComponent) {
       endBounding = endComponent.getMinBoundingBox();
       potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl[1] - this.state.escapeDistance); //north
