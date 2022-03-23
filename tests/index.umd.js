@@ -3899,6 +3899,8 @@
 	    let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
 	    super({
 	      closePath: true,
+	      fill: true,
+	      stroke: true,
 	      ...props
 	    });
 	    this.path2D = new Path2D();
@@ -3914,10 +3916,17 @@
 	    this.ctx.beginPath();
 
 	    if (this.state.closePath) {
+	      this.ctx.closePath();
+	    }
+
+	    if (this.state.fill) {
 	      this.ctx.fill(this.path2D);
 	    }
 
-	    this.ctx.stroke(this.path2D);
+	    if (this.state.stroke) {
+	      this.ctx.stroke(this.path2D);
+	    }
+
 	    super.doRender();
 	  }
 	  /**
@@ -9071,6 +9080,8 @@
 	    top: Math.random() * 768,
 	    width: 50,
 	    height: 50,
+	    // fill: false,
+	    // stroke: false,
 	    style: {
 	      strokeStyle: '#0c09d4',
 	      fillStyle: '#f5d106',
