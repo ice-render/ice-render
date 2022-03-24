@@ -29,7 +29,7 @@
 - TODO:重构  TransformPanel 与组件之间的 zIndex 关系，TransformPanel 永远绘制在关联的组件上一层？Number.MAX_VALUE？【已解决】
 
 - TODO: TransformPanel 的外观可配置，可以选择不展示缩放手柄、旋转手柄。（先跳过，后面补）
-- TODO: TransformPanel 可以隐藏起来，而不是一直放在画布上。（先跳过，后面补）
+- TODO: TransformPanel 可以隐藏起来，而不是一直放在画布上。（先跳过，后面补）【已解决】
 - TODO: TransformPanel 支持对象翻转（先跳过，后面补）
 - TODO:围绕中心点变换、围绕左侧、右侧、上边、下边、指定任意坐标点变换。（先跳过，后面补）
 - FIXME:ICEIsogon 在绘制三角形时计算方式不正确。（先跳过，后面补）
@@ -71,7 +71,7 @@
 - 
 - FIXME:解决渲染性能问题（跳帧、网格渲染、多 Layer 机制、webworker?webassembly?）                  <---------------------------
 - FIXME:引入打包分析工具【已完成】
-- TODO:所有 forEach 改成基本 for 循环
+- TODO:所有 forEach 改成基本 for 循环【已完成】
 - TODO:增量渲染机制，碰撞检测和局部渲染机制（先跳过，后面补）
 - TODO:添加快捷键支持，实现删除功能
 - 

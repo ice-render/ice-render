@@ -75,9 +75,13 @@ class DOMEventBridge {
     let x = clientX - this.ice.canvasBoundingClientRect.left;
     let y = clientY - this.ice.canvasBoundingClientRect.top;
 
-    let components = [...this.ice.childNodes];
-    for (let i = 0; i < components.length; i++) {
-      let component: any = components[i];
+    let arr = [...this.ice.childNodes];
+    arr.sort((a, b) => {
+      return a.zIndex - b.zIndex;
+    });
+
+    for (let i = 0; i < arr.length; i++) {
+      let component: any = arr[i];
       this.traverse(x, y, component);
     }
 
