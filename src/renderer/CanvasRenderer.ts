@@ -22,9 +22,6 @@ import ICE from '../ICE';
 class CanvasRenderer extends ICEEventTarget {
   private ice: ICE;
   private stopped: boolean = false;
-  private startTime;
-  private _finished: boolean = true;
-  private MAX_FRAME_TIME: number = 32; //每一帧的最大执行时间，32ms，对应 30fps。
   private renderQueue = []; //等待渲染的组件队列，FIFO
 
   constructor(ice: ICE) {
@@ -45,10 +42,6 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   private frameEvtHandler(evt: ICEEvent) {
-    if (!this._finished) {
-      console.log('上一帧没有完成所有组件的渲染，跳帧...');
-      return;
-    }
     if (this.needUpdate()) {
       this.doRender();
     } else {
@@ -76,7 +69,7 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   private doRender() {
-    this.startTime = Date.now();
+    const startTime = Date.now();
 
     this.refreshRenderQueue();
 
@@ -87,8 +80,7 @@ class CanvasRenderer extends ICEEventTarget {
     }
 
     //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
-    this._finished = true;
-    console.log(`Render time ${Date.now() - this.startTime} ms, finished ${this._finished}.`);
+    console.log(`Render time ${Date.now() - startTime} ms.`);
     this.ice._dirty = false;
     this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
   }
@@ -99,13 +91,6 @@ class CanvasRenderer extends ICEEventTarget {
    * @returns
    */
   private renderRecursively(component) {
-    const deltaTime = Date.now() - this.startTime;
-    if (deltaTime > this.MAX_FRAME_TIME) {
-      this._finished = false;
-    } else {
-      this._finished = true;
-    }
-
     //先渲染自己
     component.render();
 
