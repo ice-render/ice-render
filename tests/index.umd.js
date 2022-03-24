@@ -5335,7 +5335,8 @@
           closePath: false,
           points: [],
           showMinBoundingBox: false,
-          showMaxBoundingBox: false
+          showMaxBoundingBox: false,
+          links: {}
         },
         ...props
       }; //至少有2个点，如果点数少于2个，自动填充。
@@ -5378,23 +5379,42 @@
 
 
     initEvents() {
-      super.initEvents(); // //如果 props 里面的 startSlotId 和 endSlotId 不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
-      // this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
-    } // protected afterAddHandler(evt: ICEEvent) {
-    //   this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
-    // }
-    // protected makeConnection() {
-    //   const { startSlotId, endSlotId } = this.props;
-    //   if (startSlotId) {
-    //     const startSlot = this.ice.findComponent(startSlotId);
-    //     startSlot && this.setSlot(startSlot, 'start');
-    //   }
-    //   if (endSlotId) {
-    //     const endSlot = this.ice.findComponent(endSlotId);
-    //     endSlot && this.setSlot(endSlot, 'end');
-    //   }
-    // }
+      super.initEvents(); //如果 props 里面的 links 数据结构不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
+      //在反序列化时需要进行此操作。
 
+      this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
+    }
+
+    afterAddHandler(evt) {
+      //连接线的两端分别与一个组件关联，因此需要等待渲染器完成一轮渲染之后才能建立连接，否则需要连接的对象可能还没有渲染出来。
+      this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
+    }
+
+    makeConnection() {
+      const links = this.props.links;
+
+      if (links) {
+        if (links.start) {
+          const id = links.start.id;
+          const position = links.start.position;
+
+          if (id && position) {
+            const component = this.ice.findComponent(id);
+            this.setLink('start', component, position);
+          }
+        }
+
+        if (links.end) {
+          const id = links.end.id;
+          const position = links.end.position;
+
+          if (id && position) {
+            const component = this.ice.findComponent(id);
+            this.setLink('end', component, position);
+          }
+        }
+      }
+    }
 
     setLink() {
       let terminal = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 'start';
@@ -5406,11 +5426,25 @@
         position: position
       };
       component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
-      component.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.followComponent, this); //连接线连接到组件上之后，自身不再能拖拽
+      component.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.followComponent, this); //重新设置连接信息，连接线连接到组件上之后，自身不再能拖拽
+
+      const _temp = {};
+
+      for (let p in this.links) {
+        let obj = this.links[p];
+
+        if (obj.component && obj.position) {
+          _temp[p] = {
+            id: obj.component.props.id,
+            position: obj.position
+          };
+        }
+      }
 
       this.setState({
+        links: _temp,
         draggable: false
-      }); //FIXME:在 this.state 上添加存储结构
+      });
     }
 
     removeLink() {
@@ -5423,9 +5457,9 @@
       if (_component === component && _position === position) {
         _component && _component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
         this.links[terminal] = {};
-      } //FIXME:更新 this.state 上的存储结构
-      //如果两端都没有连接的组件，连接线自身变成可拖动
+      }
 
+      this.state.links[terminal] = {}; //如果两端都没有连接的组件，连接线自身变成可拖动
 
       if (!this.links.start.component && !this.links.end.component) {
         this.setState({
@@ -9168,8 +9202,7 @@
     }
 
     removeChild(component) {
-      if (component instanceof ICEControlPanel || component.parentNode instanceof ICEControlPanel || // component instanceof ICELinkSlot ||
-      component instanceof ICELinkHook) {
+      if (component instanceof ICEControlPanel || component.parentNode instanceof ICEControlPanel || component instanceof ICELinkSlot || component instanceof ICELinkHook) {
         console.warn('控制手柄类型的组件不能删除...', component);
         return;
       }
@@ -9231,6 +9264,7 @@
       setTimeout(() => {
         this.eventBridge.stopped = false;
       }, 300);
+      this._dirty = true;
       let endTime = Date.now();
       console.log(`fromJSON> ${endTime - startTime} ms`);
     }
