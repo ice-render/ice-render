@@ -3453,14 +3453,14 @@
 	      return;
 	    }
 
-	    this.calcOriginalDimension();
-	    this.applyStyle();
+	    this.calcComponentParams();
+	    this.applyStyleToCtx();
 	    this.applyTransformToCtx();
 	    this.doRender();
 	    this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER);
 	  }
 
-	  applyStyle() {
+	  applyStyleToCtx() {
 	    const _style = { ...this.props.style,
 	      ...this.state.style
 	    };
@@ -3477,7 +3477,7 @@
 	   */
 
 
-	  calcOriginalDimension() {
+	  calcComponentParams() {
 	    return {
 	      width: this.state.width,
 	      height: this.state.height
@@ -4850,7 +4850,7 @@
 	   */
 
 
-	  calcOriginalDimension() {
+	  calcComponentParams() {
 	    //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
 	    this.calcDots();
 	    let points = this.calc4VertexPoints();
@@ -4907,7 +4907,7 @@
 	   * 计算路径上的关键点:
 	   * - 默认的坐标原点是 (0,0) 位置。
 	   * - 这些点没有经过 transform 矩阵变换。
-	   * this.calcOriginalDimension() 会依赖此方法，在计算尺寸时还没有确定原点坐标，所以 calcDots() 方法内部不能依赖原点坐标，只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+	   * this.calcComponentParams() 会依赖此方法，在计算尺寸时还没有确定原点坐标，所以 calcDots() 方法内部不能依赖原点坐标，只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
 	   * @returns
 	   */
 
@@ -5278,7 +5278,7 @@
 	   */
 
 
-	  calcOriginalDimension() {
+	  calcComponentParams() {
 	    this.calcDots();
 	    let points = this.calc4VertexPoints(); //最小包围盒的4个顶点
 
@@ -8477,7 +8477,7 @@
 	   */
 
 
-	  calcOriginalDimension() {
+	  calcComponentParams() {
 	    const div = this.root.document.createElement('div');
 	    div.contenteditable = false;
 	    div.innerHTML = this.state.text;

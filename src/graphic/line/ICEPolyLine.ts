@@ -286,7 +286,7 @@ class ICEPolyLine extends ICEDotPath {
    * @overwrite
    * @returns
    */
-  public calcOriginalDimension() {
+  public calcComponentParams() {
     this.calcDots();
 
     let points = this.calc4VertexPoints(); //最小包围盒的4个顶点
