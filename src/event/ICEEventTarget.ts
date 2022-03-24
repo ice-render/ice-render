@@ -122,7 +122,7 @@ abstract class ICEEventTarget {
     } else {
       iceEvent = new ICEEvent({
         type: eventName,
-        timeStamp: new Date().getTime(),
+        timeStamp: Date.now(),
         param: { ...param },
       });
     }

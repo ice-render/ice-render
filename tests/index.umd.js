@@ -3084,7 +3084,7 @@
       } else {
         iceEvent = new ICEEvent({
           type: eventName,
-          timeStamp: new Date().getTime(),
+          timeStamp: Date.now(),
           param: { ...param
           }
         });
@@ -3554,7 +3554,7 @@
    * @see https://www.w3resource.com/javascript-exercises/javascript-math-exercise-23.php
    */
   function uuid() {
-    var dt = new Date().getTime();
+    var dt = Date.now();
     var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
       var r = (dt + Math.random() * 16) % 16 | 0;
       dt = Math.floor(dt / 16);
@@ -8935,11 +8935,15 @@
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
   class CanvasRenderer extends ICEEventTarget {
+    //每一帧的最大执行时间，32ms，对应 30fps。
     //等待渲染的组件队列，FIFO
     constructor(ice) {
       super();
       this.ice = void 0;
       this.stopped = false;
+      this.startTime = void 0;
+      this._finished = true;
+      this.MAX_FRAME_TIME = 32;
       this.renderQueue = [];
       this.ice = ice;
     }
@@ -8957,6 +8961,11 @@
     }
 
     frameEvtHandler(evt) {
+      if (!this._finished) {
+        console.log('上一帧没有完成所有组件的渲染，跳帧...');
+        return;
+      }
+
       if (this.needUpdate()) {
         this.doRender();
       } else {
@@ -8985,7 +8994,7 @@
     }
 
     doRender() {
-      const startTime = Date.now();
+      this.startTime = Date.now();
       this.refreshRenderQueue();
       this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
 
@@ -8995,10 +9004,10 @@
       } //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
 
 
+      this._finished = true;
+      console.log(`Render time ${Date.now() - this.startTime} ms, finished ${this._finished}.`);
       this.ice._dirty = false;
       this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
-      const endTime = Date.now();
-      console.log(` Render time ${endTime - startTime} ms.`);
     }
     /**
      * 如果有子组件，递归渲染。
@@ -9008,7 +9017,15 @@
 
 
     renderRecursively(component) {
-      //先渲染自己
+      const deltaTime = Date.now() - this.startTime;
+
+      if (deltaTime > this.MAX_FRAME_TIME) {
+        this._finished = false;
+      } else {
+        this._finished = true;
+      } //先渲染自己
+
+
       component.render(); //如果有子节点，递归
 
       if (component.childNodes && component.childNodes.length) {
@@ -9203,7 +9220,7 @@
 
 
     fromJSON(jsonStr) {
-      let startTime = new Date().getTime(); //先停止关键的管理器
+      let startTime = Date.now(); //先停止关键的管理器
 
       FrameManager.stop();
       this.renderer.stop();
@@ -9226,7 +9243,7 @@
       setTimeout(() => {
         this.eventBridge.stopped = false;
       }, 300);
-      let endTime = new Date().getTime();
+      let endTime = Date.now();
       console.log(`fromJSON> ${endTime - startTime} ms`);
     }
 

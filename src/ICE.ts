@@ -181,7 +181,7 @@ class ICE {
 
   //FIXME:从 JSON 数据反序列化需要的处理时间可能会比较长，需要防止 fromJSON() 方法被高频调用导致的问题。
   public fromJSON(jsonStr: string) {
-    let startTime = new Date().getTime();
+    let startTime = Date.now();
 
     //先停止关键的管理器
     FrameManager.stop();
@@ -209,7 +209,7 @@ class ICE {
       this.eventBridge.stopped = false;
     }, 300);
 
-    let endTime = new Date().getTime();
+    let endTime = Date.now();
     console.log(`fromJSON> ${endTime - startTime} ms`);
   }
 }
