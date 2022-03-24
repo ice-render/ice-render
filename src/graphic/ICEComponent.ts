@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { v4 as uuid } from '@lukeed/uuid';
 import { glMatrix, mat2d, vec2 } from 'gl-matrix';
 import merge from 'lodash/merge';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
@@ -17,6 +16,7 @@ import ICEMatrix from '../geometry/ICEMatrix';
 import ICE from '../ICE';
 import { getVal } from '../util/data-util';
 import { skew } from '../util/gl-matrix-skew';
+import { uuid } from '../util/uuid';
 
 /**
  * @class ICEComponent
@@ -43,7 +43,7 @@ abstract class ICEComponent extends ICEEventTarget {
   /**
    * @cfg
    * {
-   *   id: 'ICE_' + Math.floor(Math.random() * 10000000000),   //全局唯一，跨机器，跨时间
+   *   id: 'ICE_XXXXXXX',                                      //UUID
    *   left: 0,                                                //x 坐标相对于父组件的偏移量
    *   top: 0,                                                 //y 坐标相对于父组件的偏移量
    *   width: 0,                                               //原始宽度，没有经过变换
