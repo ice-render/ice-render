@@ -131,15 +131,15 @@ abstract class ICEComponent extends ICEEventTarget {
       return;
     }
 
-    this.calcOriginalDimension();
-    this.applyStyle();
+    this.calcComponentParams();
+    this.applyStyleToCtx();
     this.applyTransformToCtx();
     this.doRender();
 
     this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER);
   }
 
-  protected applyStyle(): void {
+  protected applyStyleToCtx(): void {
     const _style = { ...this.props.style, ...this.state.style };
     for (let p in _style) {
       this.ctx[p] = _style[p];
@@ -152,7 +152,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    * @returns
    */
-  public calcOriginalDimension() {
+  public calcComponentParams() {
     return { width: this.state.width, height: this.state.height };
   }
 

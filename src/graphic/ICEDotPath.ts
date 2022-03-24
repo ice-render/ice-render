@@ -37,7 +37,7 @@ export default abstract class ICEDotPath extends ICEPath {
    * @overwrite
    * @returns
    */
-  public calcOriginalDimension() {
+  public calcComponentParams() {
     //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
     this.calcDots();
     let points = this.calc4VertexPoints();
@@ -85,7 +85,7 @@ export default abstract class ICEDotPath extends ICEPath {
    * 计算路径上的关键点:
    * - 默认的坐标原点是 (0,0) 位置。
    * - 这些点没有经过 transform 矩阵变换。
-   * this.calcOriginalDimension() 会依赖此方法，在计算尺寸时还没有确定原点坐标，所以 calcDots() 方法内部不能依赖原点坐标，只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * this.calcComponentParams() 会依赖此方法，在计算尺寸时还没有确定原点坐标，所以 calcDots() 方法内部不能依赖原点坐标，只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    * @returns
    */
   protected calcDots() {
