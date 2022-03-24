@@ -18,6 +18,7 @@ import MouseEventInterceptor from './event/MouseEventInterceptor.js';
 import FrameManager from './FrameManager';
 import ICEComponent from './graphic/ICEComponent';
 import ICELinkHook from './graphic/link/ICELinkHook';
+import ICELinkSlot from './graphic/link/ICELinkSlot';
 import ICELinkSlotManager from './graphic/link/ICELinkSlotManager';
 import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
@@ -143,7 +144,7 @@ class ICE {
     if (
       component instanceof ICEControlPanel ||
       component.parentNode instanceof ICEControlPanel ||
-      // component instanceof ICELinkSlot ||
+      component instanceof ICELinkSlot ||
       component instanceof ICELinkHook
     ) {
       console.warn('控制手柄类型的组件不能删除...', component);
@@ -208,6 +209,8 @@ class ICE {
     setTimeout(() => {
       this.eventBridge.stopped = false;
     }, 300);
+
+    this._dirty = true;
 
     let endTime = Date.now();
     console.log(`fromJSON> ${endTime - startTime} ms`);

@@ -79,6 +79,7 @@ class ICEPolyLine extends ICEDotPath {
         points: [],
         showMinBoundingBox: false,
         showMaxBoundingBox: false,
+        links: {},
       },
       ...props,
     };
@@ -123,26 +124,37 @@ class ICEPolyLine extends ICEDotPath {
   protected initEvents() {
     super.initEvents();
 
-    // //如果 props 里面的 startSlotId 和 endSlotId 不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
-    // this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
+    //如果 props 里面的 links 数据结构不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
+    //在反序列化时需要进行此操作。
+    this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
   }
 
-  // protected afterAddHandler(evt: ICEEvent) {
-  //   this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
-  // }
+  protected afterAddHandler(evt: ICEEvent) {
+    //连接线的两端分别与一个组件关联，因此需要等待渲染器完成一轮渲染之后才能建立连接，否则需要连接的对象可能还没有渲染出来。
+    this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
+  }
 
-  // protected makeConnection() {
-  //   const { startSlotId, endSlotId } = this.props;
-  //   if (startSlotId) {
-  //     const startSlot = this.ice.findComponent(startSlotId);
-  //     startSlot && this.setSlot(startSlot, 'start');
-  //   }
-
-  //   if (endSlotId) {
-  //     const endSlot = this.ice.findComponent(endSlotId);
-  //     endSlot && this.setSlot(endSlot, 'end');
-  //   }
-  // }
+  protected makeConnection() {
+    const links = this.props.links;
+    if (links) {
+      if (links.start) {
+        const id = links.start.id;
+        const position = links.start.position;
+        if (id && position) {
+          const component = this.ice.findComponent(id);
+          this.setLink('start', component, position);
+        }
+      }
+      if (links.end) {
+        const id = links.end.id;
+        const position = links.end.position;
+        if (id && position) {
+          const component = this.ice.findComponent(id);
+          this.setLink('end', component, position);
+        }
+      }
+    }
+  }
 
   public setLink(terminal: string = 'start', component: ICEComponent, position: string = 'T') {
     this.removeLink(terminal, component, position);
@@ -151,12 +163,18 @@ class ICEPolyLine extends ICEDotPath {
     component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
     component.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.followComponent, this);
 
-    //连接线连接到组件上之后，自身不再能拖拽
+    //重新设置连接信息，连接线连接到组件上之后，自身不再能拖拽
+    const _temp = {};
+    for (let p in this.links) {
+      let obj = this.links[p];
+      if (obj.component && obj.position) {
+        _temp[p] = { id: obj.component.props.id, position: obj.position };
+      }
+    }
     this.setState({
+      links: _temp,
       draggable: false,
     });
-
-    //FIXME:在 this.state 上添加存储结构
   }
 
   public removeLink(terminal: string = 'start', component: ICEComponent, position: string = 'T') {
@@ -167,7 +185,7 @@ class ICEPolyLine extends ICEDotPath {
       this.links[terminal] = {};
     }
 
-    //FIXME:更新 this.state 上的存储结构
+    this.state.links[terminal] = {};
 
     //如果两端都没有连接的组件，连接线自身变成可拖动
     if (!this.links.start.component && !this.links.end.component) {
