@@ -24,8 +24,6 @@ export default class Deserializer {
 
   public fromJSON(jsonStr: string) {
     const jsonObj = JSON.parse(jsonStr);
-    console.log(jsonObj);
-
     const childNodes = jsonObj.childNodes;
     for (let i = 0; i < childNodes.length; i++) {
       this.decodeRecursively(this.ice, childNodes[i]);
