@@ -8864,7 +8864,6 @@
 
     fromJSON(jsonStr) {
       const jsonObj = JSON.parse(jsonStr);
-      console.log(jsonObj);
       const childNodes = jsonObj.childNodes;
 
       for (let i = 0; i < childNodes.length; i++) {
@@ -9252,8 +9251,7 @@
       this.linkSlotManager.stop();
       this.clearAll(); //反序列化，创建组件实例
 
-      this.deserializer.fromJSON(jsonStr);
-      console.log('deserialize>', this.childNodes); //重新启动关键管理器
+      this.deserializer.fromJSON(jsonStr); //重新启动关键管理器
 
       FrameManager.start();
       this.renderer.start();

@@ -197,8 +197,6 @@ class ICE {
     //反序列化，创建组件实例
     this.deserializer.fromJSON(jsonStr);
 
-    console.log('deserialize>', this.childNodes);
-
     //重新启动关键管理器
     FrameManager.start();
     this.renderer.start();
