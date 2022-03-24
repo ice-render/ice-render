@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { v4 as uuid } from '@lukeed/uuid';
 import bigZIndexNum from '../../consts/BIG_ZINDEX_NUMBER';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
@@ -73,7 +72,6 @@ export default class ICELinkSlotManager {
     }
 
     let slot_1 = new ICELinkSlot({
-      id: 'ICE_' + uuid(),
       zIndex: bigZIndexNum,
       display: false,
       transformable: false,
@@ -89,7 +87,6 @@ export default class ICELinkSlotManager {
     this.ice.addChild(slot_1);
 
     let slot_2 = new ICELinkSlot({
-      id: 'ICE_' + uuid(),
       zIndex: bigZIndexNum,
       display: false,
       transformable: false,
@@ -105,7 +102,6 @@ export default class ICELinkSlotManager {
     this.ice.addChild(slot_2);
 
     let slot_3 = new ICELinkSlot({
-      id: 'ICE_' + uuid(),
       zIndex: bigZIndexNum,
       display: false,
       transformable: false,
@@ -121,7 +117,6 @@ export default class ICELinkSlotManager {
     this.ice.addChild(slot_3);
 
     let slot_4 = new ICELinkSlot({
-      id: 'ICE_' + uuid(),
       zIndex: bigZIndexNum,
       display: false,
       transformable: false,
