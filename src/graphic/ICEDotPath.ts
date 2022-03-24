@@ -75,9 +75,6 @@ export default abstract class ICEDotPath extends ICEPath {
       const dot = this.state.dots[i];
       this.path2D.lineTo(dot[0], dot[1]);
     }
-    if (this.state.closePath) {
-      this.path2D.closePath();
-    }
     return this.path2D;
   }
 

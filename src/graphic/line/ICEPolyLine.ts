@@ -71,17 +71,20 @@ class ICEPolyLine extends ICEDotPath {
     //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
     let param = {
       ...{
-        linkable: false, //所有线条类型的组件 linkable 都为 false ，因为在 ICE 中，用线条连接线条是没有意义的，线条之间不能互相连接。
         lineType: 'solid',
         lineWidth: 2,
         arrow: 'none',
-        closePath: false,
         points: [],
         showMinBoundingBox: false,
         showMaxBoundingBox: false,
         links: {},
       },
       ...props,
+      ...{
+        linkable: false, //所有线条类型的组件 linkable 都为 false ，因为在 ICE 中，用线条连接线条是没有意义的，线条之间不能互相连接。
+        closePath: false,
+        fill: false,
+      },
     };
 
     //至少有2个点，如果点数少于2个，自动填充。
@@ -126,7 +129,7 @@ class ICEPolyLine extends ICEDotPath {
 
     //如果 props 里面的 links 数据结构不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
     //在反序列化时需要进行此操作。
-    this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
+    this.once(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.afterAddHandler, this);
   }
 
   protected afterAddHandler(evt: ICEEvent) {
@@ -154,14 +157,17 @@ class ICEPolyLine extends ICEDotPath {
         }
       }
     }
+
+    this.ice._dirty = true;
   }
 
-  public setLink(terminal: string = 'start', component: ICEComponent, position: string = 'T') {
+  public setLink(terminal: string, component: ICEComponent, position: string) {
     this.removeLink(terminal, component, position);
 
     this.links[terminal] = { component: component, position: position };
     component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
     component.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.followComponent, this);
+    this.followComponent();
 
     //重新设置连接信息，连接线连接到组件上之后，自身不再能拖拽
     const _temp = {};
@@ -172,20 +178,19 @@ class ICEPolyLine extends ICEDotPath {
       }
     }
     this.setState({
-      links: _temp,
+      links: { ..._temp },
       draggable: false,
     });
   }
 
-  public removeLink(terminal: string = 'start', component: ICEComponent, position: string = 'T') {
+  public removeLink(terminal: string, component: ICEComponent, position: string) {
     const _component = this.links[terminal].component;
     const _position = this.links[terminal].position;
     if (_component === component && _position === position) {
       _component && _component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
       this.links[terminal] = {};
+      this.state.links[terminal] = {};
     }
-
-    this.state.links[terminal] = {};
 
     //如果两端都没有连接的组件，连接线自身变成可拖动
     if (!this.links.start.component && !this.links.end.component) {
@@ -199,7 +204,7 @@ class ICEPolyLine extends ICEDotPath {
    * @method
    * 连接的组件位置发生移动之后，重新计算连接线的起点和终点。
    */
-  private followComponent(evt: ICEEvent) {
+  private followComponent(evt?: ICEEvent) {
     for (let terminal in this.links) {
       const position = this.links[terminal].position;
       const component: ICEComponent = this.links[terminal].component;
