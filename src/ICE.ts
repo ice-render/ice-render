@@ -114,7 +114,7 @@ class ICE {
    *
    * @param component
    */
-  public addChild(component) {
+  public addChild(component, markDirty: boolean = true) {
     if (this.childNodes.indexOf(component) !== -1) return;
 
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD, null, { component: component });
@@ -130,17 +130,20 @@ class ICE {
       this.animationManager.add(component);
     }
 
+    this._dirty = markDirty;
+
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
   }
 
   public addChildren(arr: Array<ICEComponent>): void {
     for (let i = 0; i < arr.length; i++) {
-      this.addChild(arr[i]);
+      this.addChild(arr[i], false);
     }
+    this._dirty = true;
   }
 
-  public removeChild(component: ICEComponent) {
+  public removeChild(component: ICEComponent, markDirty: boolean = true) {
     if (
       component instanceof ICEControlPanel ||
       component.parentNode instanceof ICEControlPanel ||
@@ -154,12 +157,14 @@ class ICE {
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: component });
     component.destory();
     this.childNodes.splice(this.childNodes.indexOf(component), 1);
+    this._dirty = markDirty;
   }
 
   public removeChildren(arr: Array<ICEComponent>): void {
     for (let i = 0; i < arr.length; i++) {
-      this.removeChild(arr[i]);
+      this.removeChild(arr[i], false);
     }
+    this._dirty = true;
   }
 
   public clearAll() {
@@ -207,8 +212,6 @@ class ICE {
     setTimeout(() => {
       this.eventBridge.stopped = false;
     }, 300);
-
-    this._dirty = true;
 
     let endTime = Date.now();
     console.log(`fromJSON> ${endTime - startTime} ms`);
