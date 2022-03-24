@@ -4159,7 +4159,11 @@
 
     doRender() {
       this.ctx.beginPath();
-      this.createPathObject();
+      this.createPathObject(); //FIXME:想办法减少已下3条指令的执行次数
+
+      if (this.state.closePath) {
+        this.ctx.closePath();
+      }
 
       if (this.state.fill) {
         this.ctx.fill(this.path2D);
@@ -4205,11 +4209,6 @@
     createPathObject() {
       this.path2D = new Path2D();
       this.path2D.rect(0 - this.state.localOrigin[0], 0 - this.state.localOrigin[1], this.state.width, this.state.height);
-
-      if (this.state.closePath) {
-        this.path2D.closePath();
-      }
-
       return this.path2D;
     }
 

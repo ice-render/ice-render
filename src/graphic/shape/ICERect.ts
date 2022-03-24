@@ -19,9 +19,6 @@ class ICERect extends ICEPath {
   protected createPathObject(): Path2D {
     this.path2D = new Path2D();
     this.path2D.rect(0 - this.state.localOrigin[0], 0 - this.state.localOrigin[1], this.state.width, this.state.height);
-    if (this.state.closePath) {
-      this.path2D.closePath();
-    }
     return this.path2D;
   }
 }
