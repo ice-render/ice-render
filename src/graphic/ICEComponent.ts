@@ -140,7 +140,10 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   protected applyStyle(): void {
-    Object.assign(this.ctx, { ...this.props.style, ...this.state.style });
+    const _style = { ...this.props.style, ...this.state.style };
+    for (let p in _style) {
+      this.ctx[p] = _style[p];
+    }
   }
 
   /**

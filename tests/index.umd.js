@@ -3461,9 +3461,13 @@
 	  }
 
 	  applyStyle() {
-	    Object.assign(this.ctx, { ...this.props.style,
+	    const _style = { ...this.props.style,
 	      ...this.state.style
-	    });
+	    };
+
+	    for (let p in _style) {
+	      this.ctx[p] = _style[p];
+	    }
 	  }
 	  /**
 	   * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
