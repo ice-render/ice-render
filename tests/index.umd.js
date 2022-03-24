@@ -9388,25 +9388,25 @@
 	});
 	ice.addChild(visioLink2);
 
-	// for (let i = 0; i < 2000; i++) {
-	//   let rect = new ICERect({
-	//     left: Math.random() * 1024,
-	//     top: Math.random() * 768,
-	//     width: 50,
-	//     height: 50,
-	//     // fill: false,
-	//     // stroke: false,
-	//     style: {
-	//       strokeStyle: '#0c09d4',
-	//       fillStyle: '#f5d106',
-	//       lineWidth: 1,
-	//     },
-	//     transform: {
-	//       rotate: Math.random() * 360,
-	//     },
-	//   });
-	//   ice.addChild(rect);
-	// }
+	for (let i = 0; i < 100; i++) {
+	  let rect = new ICERect({
+	    left: Math.random() * 1024,
+	    top: Math.random() * 768,
+	    width: 50,
+	    height: 50,
+	    // fill: false,
+	    // stroke: false,
+	    style: {
+	      strokeStyle: '#0c09d4',
+	      fillStyle: '#f5d106',
+	      lineWidth: 1,
+	    },
+	    transform: {
+	      rotate: Math.random() * 360,
+	    },
+	  });
+	  ice.addChild(rect);
+	}
 
 	// let polyLine = new ICEPolyLine({
 	//   left: 0,
