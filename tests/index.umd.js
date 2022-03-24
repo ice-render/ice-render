@@ -6509,8 +6509,7 @@
 
   class RotateControl extends ICECircle {
     constructor(props) {
-      super({
-        props,
+      super({ ...props,
         linkable: false
       });
     }
