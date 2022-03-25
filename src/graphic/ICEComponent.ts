@@ -79,6 +79,8 @@ abstract class ICEComponent extends ICEEventTarget {
     width: 0,
     height: 0,
     style: { fillStyle: 'red', strokeStyle: 'blue', lineWidth: 1 },
+    fill: true,
+    stroke: true,
     animations: {},
     transform: {
       translate: [0, 0],
