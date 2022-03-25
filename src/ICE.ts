@@ -23,6 +23,7 @@ import ICELinkSlotManager from './graphic/link/ICELinkSlotManager';
 import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
 import CanvasRenderer from './renderer/CanvasRenderer';
+import ImageCache from './util/ImageCache';
 
 /**
  * @class ICE
@@ -53,6 +54,7 @@ class ICE {
   public linkSlotManager: ICELinkSlotManager;
   public serializer: Serializer;
   public deserializer: Deserializer;
+  public imageCache: ImageCache;
 
   public _dirty: boolean = true; //如果此标志位为 true ，所有组件都会全部被重新绘制
 
@@ -103,6 +105,7 @@ class ICE {
     this.linkSlotManager = new ICELinkSlotManager(this).start(); //linkSlotManager 内部会监听 renderer 上的事件，所以 linkSlotManager 需要在 renderer 后面实例化。
     this.serializer = new Serializer(this);
     this.deserializer = new Deserializer(this);
+    this.imageCache = new ImageCache(this);
 
     return this;
   }
