@@ -132,7 +132,7 @@ class ICEPolyLine extends ICEDotPath {
     this.once(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.afterAddHandler, this);
   }
 
-  protected afterAddHandler(evt: ICEEvent) {
+  protected afterAddHandler(evt?: ICEEvent) {
     //连接线的两端分别与一个组件关联，因此需要等待渲染器完成一轮渲染之后才能建立连接，否则需要连接的对象可能还没有渲染出来。
     this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
   }

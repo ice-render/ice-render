@@ -9,7 +9,7 @@ import ICEVisioLink from '../src/graphic/link/ICEVisioLink';
 import ICERect from '../src/graphic/shape/ICERect';
 // import ICERose from '../src/graphic/shape/ICERose';
 // import ICEStar from '../src/graphic/shape/ICEStar';
-// import ICEText from '../src/graphic/text/ICEText';
+import ICEText from '../src/graphic/text/ICEText';
 import ICE from '../src/ICE';
 
 let ice = new ICE().init('canvas-1');
@@ -26,7 +26,7 @@ document.querySelector('#btn-3').addEventListener('click', (evt) => {
   ice.clearAll();
 });
 
-for (let i = 0; i < 10; i++) {
+for (let i = 0; i < 1; i++) {
   let img = new ICEImage({
     left: 1024 * Math.random(),
     top: 768 * Math.random(),
@@ -127,7 +127,7 @@ let visioLink2 = new ICEVisioLink({
 });
 ice.addChild(visioLink2);
 
-for (let i = 0; i < 5; i++) {
+for (let i = 0; i < 1; i++) {
   let rect = new ICERect({
     left: Math.random() * 1024,
     top: Math.random() * 768,
@@ -253,18 +253,19 @@ for (let i = 0; i < 5; i++) {
 // star1.on('click', (evt) => {});
 // ice.addChild(star1);
 
-// let text = new ICEText({
-//   left: 0,
-//   top: 400,
-//   text: 'Test long long long text...',
-//   style: {
-//     lineWidth: 5,
-//     font: '48px serif',
-//     strokeStyle: '#ff3300',
-//     fillStyle: '#00ff00',
-//   },
-// });
-// ice.addChild(text);
+let text = new ICEText({
+  left: 0,
+  top: 400,
+  text: 'Test long long long text...',
+  style: {
+    strokeStyle: '#ff3300',
+    fillStyle: '#00ff00',
+    // lineWidth: 5,
+  },
+  // stroke: false,
+  // fill: false,
+});
+ice.addChild(text);
 
 // let g = new ICEGroup({
 //   left: 100,

@@ -26,7 +26,7 @@ abstract class ICEPath extends ICEComponent {
    * @param props
    */
   constructor(props: any = {}) {
-    super({ closePath: true, fill: true, stroke: true, ...props });
+    super({ closePath: true, ...props });
   }
 
   /**
