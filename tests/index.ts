@@ -26,7 +26,7 @@ document.querySelector('#btn-3').addEventListener('click', (evt) => {
   ice.clearAll();
 });
 
-for (let i = 0; i < 100; i++) {
+for (let i = 0; i < 10; i++) {
   let img = new ICEImage({
     left: 1024 * Math.random(),
     top: 768 * Math.random(),
@@ -127,7 +127,7 @@ let visioLink2 = new ICEVisioLink({
 });
 ice.addChild(visioLink2);
 
-for (let i = 0; i < 10; i++) {
+for (let i = 0; i < 5; i++) {
   let rect = new ICERect({
     left: Math.random() * 1024,
     top: Math.random() * 768,

@@ -8055,7 +8055,8 @@
     findTargetComponent(clientX, clientY) {
       if (this._stopped) return null;
       let x = clientX - this.ice.canvasBoundingClientRect.left;
-      let y = clientY - this.ice.canvasBoundingClientRect.top;
+      let y = clientY - this.ice.canvasBoundingClientRect.top; //FIXME:由于组件之间的 tree 形结构，这里的 sort 操作可能会导致组件的点击顺序错乱。
+
       let arr = [...this.ice.childNodes];
       arr.sort((a, b) => {
         return a.zIndex - b.zIndex;
@@ -9346,7 +9347,7 @@
     ice.clearAll();
   });
 
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 10; i++) {
     let img = new ICEImage({
       left: 1024 * Math.random(),
       top: 768 * Math.random(),
@@ -9447,7 +9448,7 @@
   });
   ice.addChild(visioLink2);
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 5; i++) {
     let rect = new ICERect({
       left: Math.random() * 1024,
       top: Math.random() * 768,
