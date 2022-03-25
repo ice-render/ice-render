@@ -242,18 +242,19 @@ class ICEBoundingBox {
     return this.center;
   }
 
+  //FIXME:这里的计算方法有问题，需要重新实现
   public get topCenter() {
     return [this.tl[0] + (this.tr[0] - this.tl[0]) / 2, this.tl[1] + (this.tr[1] - this.tl[1]) / 2];
   }
-
+  //FIXME:这里的计算方法有问题，需要重新实现
   public get rightCenter() {
     return [this.tr[0] + (this.br[0] - this.tr[0]) / 2, this.tr[1] + (this.br[1] - this.tr[1]) / 2];
   }
-
+  //FIXME:这里的计算方法有问题，需要重新实现
   public get bottomCenter() {
     return [this.bl[0] + (this.br[0] - this.bl[0]) / 2, this.bl[1] + (this.br[1] - this.bl[1]) / 2];
   }
-
+  //FIXME:这里的计算方法有问题，需要重新实现
   public get leftCenter() {
     return [this.tl[0] + (this.bl[0] - this.tl[0]) / 2, this.tl[1] + (this.bl[1] - this.tl[1]) / 2];
   }

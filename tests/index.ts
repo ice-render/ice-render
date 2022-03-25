@@ -1,5 +1,5 @@
 // import ICEGroup from '../src/graphic/container/ICEGroup';
-// import ICEImage from '../src/graphic/ICEImage';
+import ICEImage from '../src/graphic/ICEImage';
 // import ICEPolyLine from '../src/graphic/line/ICEPolyLine';
 import ICEVisioLink from '../src/graphic/link/ICEVisioLink';
 // import ICECircle from '../src/graphic/shape/ICECircle';
@@ -26,11 +26,14 @@ document.querySelector('#btn-3').addEventListener('click', (evt) => {
   ice.clearAll();
 });
 
-// let img = new ICEImage({
-//   left: 500,
-//   top: 300,
-// });
-// ice.addChild(img);
+for (let i = 0; i < 100; i++) {
+  let img = new ICEImage({
+    left: 1024 * Math.random(),
+    top: 768 * Math.random(),
+    src: './ice-render.png',
+  });
+  ice.addChild(img);
+}
 
 // let heart = new ICEHeart();
 // ice.addChild(heart);
@@ -124,7 +127,7 @@ let visioLink2 = new ICEVisioLink({
 });
 ice.addChild(visioLink2);
 
-for (let i = 0; i < 100; i++) {
+for (let i = 0; i < 10; i++) {
   let rect = new ICERect({
     left: Math.random() * 1024,
     top: Math.random() * 768,
