@@ -22,7 +22,8 @@ import ICE from '../ICE';
 class CanvasRenderer extends ICEEventTarget {
   private ice: ICE;
   private stopped: boolean = false;
-  private renderQueue = []; //等待渲染的组件队列，FIFO
+  private componentQueue = []; //等待渲染的组件队列，FIFO
+  private toolsQueue = []; //等待渲染的工具组件队列，FIFO
 
   constructor(ice: ICE) {
     super();
@@ -49,34 +50,41 @@ class CanvasRenderer extends ICEEventTarget {
     }
   }
 
-  private refreshRenderQueue() {
-    this.renderQueue = [...this.ice.childNodes];
-    //FIXME:树形结构会导致 zIndex 排序无效
-    //FIXME:根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
-    this.renderQueue.sort((firstEl, secondEl) => {
+  private refreshQueue() {
+    this.componentQueue = CanvasRenderer.flattenTree([], this.ice.childNodes);
+    this.componentQueue.sort((firstEl, secondEl) => {
       return firstEl.state.zIndex - secondEl.state.zIndex;
     });
+    console.log(`Component Queue length> ${this.componentQueue.length}`);
+
+    this.toolsQueue = CanvasRenderer.flattenTree([], this.ice.toolNodes);
+    console.log(`Tool Queue length> ${this.ice.toolNodes.length}`);
   }
 
   private doRender() {
     const startTime = Date.now();
 
-    this.refreshRenderQueue();
-    console.log(`Render Queue length> ${this.renderQueue.length}`);
+    this.refreshQueue();
 
     //渲染组件
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
-    for (let i = 0; i < this.renderQueue.length; i++) {
-      const component = this.renderQueue[i];
-      this.renderRecursively(component);
+    for (let i = 0; i < this.componentQueue.length; i++) {
+      const component = this.componentQueue[i];
+      component.root = this.ice.root;
+      component.ctx = this.ice.ctx;
+      component.evtBus = this.ice.evtBus;
+      component.ice = this.ice;
+      component.render();
     }
 
-    console.log(`Tool length> ${this.ice.toolNodes.length}`);
     //渲染工具节点
-    const tools = [...this.ice.toolNodes];
-    for (let i = 0; i < tools.length; i++) {
-      const tool = tools[i];
-      this.renderRecursively(tool);
+    for (let i = 0; i < this.toolsQueue.length; i++) {
+      const tool = this.toolsQueue[i];
+      tool.root = this.ice.root;
+      tool.ctx = this.ice.ctx;
+      tool.evtBus = this.ice.evtBus;
+      tool.ice = this.ice;
+      tool.render();
     }
 
     //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
@@ -86,26 +94,26 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   /**
-   * 如果有子组件，递归渲染。
-   * @param component
+   * @static
+   * @method flattenTree
+   *
+   * 把 tree 形结构拉平成数组结构。
+   *
+   * @param result
+   * @param childNodes
+   * @param level
+   * @param pid
    * @returns
    */
-  private renderRecursively(component) {
-    //先渲染自己
-    component.render();
-
-    //如果有子节点，递归
-    if (component.childNodes && component.childNodes.length) {
-      for (let i = 0; i < component.childNodes.length; i++) {
-        const child = component.childNodes[i];
-        //子组件的 root/ctx/evtBus/ice/renderer 总是和父组件保持一致
-        child.root = component.root;
-        child.ctx = component.ctx;
-        child.evtBus = component.evtBus;
-        child.ice = component.ice;
-        this.renderRecursively(child);
-      }
+  public static flattenTree(result = [], childNodes = [], level = 1, pid = null) {
+    for (let i = 0; i < childNodes.length; i++) {
+      const node = childNodes[i];
+      node._level = level;
+      node._pid = pid;
+      result.push(node);
+      CanvasRenderer.flattenTree(result, node.childNodes || [], level + 1, node.id);
     }
+    return result;
   }
 }
 
