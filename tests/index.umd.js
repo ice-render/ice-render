@@ -3885,6 +3885,7 @@
       this.ctx = void 0;
       this.evtBus = void 0;
       this.parentNode = void 0;
+      this.__dirty = true;
       this.props = {
         id: 'ICE_' + uuid(),
         left: 0,
@@ -3950,6 +3951,7 @@
       this.applyTransformToCtx();
       this.doRender();
       this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER);
+      this.dirty = false;
     }
 
     applyStyleToCtx() {
@@ -4097,7 +4099,8 @@
 
 
     applyTransformToCtx() {
-      this.ctx.setTransform(...this.composeMatrix());
+      let matrix = this.dirty ? this.composeMatrix() : this.state.composedMatrix;
+      this.ctx.setTransform(...matrix);
     }
     /**
      * 所有子类都应该提供具体的实现。
@@ -4186,10 +4189,19 @@
 
     setState(newState) {
       merge_1(this.state, newState);
+      this.dirty = true;
 
       if (this.ice) {
-        this.ice._dirty = true;
+        this.ice.dirty = true;
       }
+    }
+
+    set dirty(flag) {
+      this.__dirty = flag; //FIXME:加上时间控制，避免过度绘制
+    }
+
+    get dirty() {
+      return this.__dirty;
     }
     /**
      * 相对于父组件的坐标系和原点。
@@ -5020,8 +5032,11 @@
 
 
     doRender() {
-      this.ctx.beginPath();
-      this.createPathObject(); //FIXME:想办法减少已下3条指令的执行次数
+      if (this.dirty) {
+        this.ctx.beginPath();
+        this.createPathObject();
+      } //FIXME:想办法减少已下3条指令的执行次数
+
 
       if (this.state.closePath) {
         this.ctx.closePath();
@@ -5090,7 +5105,14 @@
 
 
     calcComponentParams() {
-      //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
+      if (!this.dirty) {
+        return {
+          width: this.state.width,
+          height: this.state.height
+        };
+      } //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
+
+
       this.calcDots();
       let points = this.calc4VertexPoints();
       let width = Math.abs(points[1][0] - points[0][0]); //maxX-minX
@@ -5204,6 +5226,11 @@
 
     applyTransformToCtx() {
       super.applyTransformToCtx();
+
+      if (!this.dirty) {
+        return;
+      }
+
       const matrix = this.state.composedMatrix;
       const dots = this.state.dots;
       this.state.transformedDots = [];
@@ -5377,7 +5404,7 @@
         }
       }
 
-      this.ice._dirty = true;
+      this.ice.dirty = true;
     }
 
     setLink(terminal, component, position) {
@@ -5549,6 +5576,13 @@
 
 
     calcComponentParams() {
+      if (!this.dirty) {
+        return {
+          width: this.state.width,
+          height: this.state.height
+        };
+      }
+
       this.calcDots();
       let points = this.calc4VertexPoints(); //最小包围盒的4个顶点
 
@@ -9265,7 +9299,7 @@
     }
 
     frameEvtHandler(evt) {
-      if (this.ice._dirty) {
+      if (this.ice.dirty) {
         this.doRender();
       } else {
         console.log('没有需要渲染的组件...');
@@ -9309,7 +9343,7 @@
 
 
       console.log(`Render time ${Date.now() - startTime} ms.`);
-      this.ice._dirty = false;
+      this.ice.dirty = false;
       this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
     }
 
@@ -9334,7 +9368,7 @@
         image = new Image();
 
         image.onload = () => {
-          this.ice._dirty = true;
+          this.ice.dirty = true;
         };
 
         image.onerror = () => {
@@ -9410,7 +9444,8 @@
       this.serializer = void 0;
       this.deserializer = void 0;
       this.imageCache = void 0;
-      this._dirty = true;
+      this.__dirty = true;
+      this._lastUpdateTime = Date.now();
     }
     /**
      * @param ctx DOM id or CanvasContext
@@ -9483,7 +9518,7 @@
       tool.ctx = this.ctx;
       tool.evtBus = this.evtBus;
       this.toolNodes.push(tool);
-      this._dirty = true;
+      this.dirty = true;
       this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, {
         component: tool
       });
@@ -9503,7 +9538,7 @@
       });
       tool.destory();
       this.toolNodes.splice(this.toolNodes.indexOf(tool), 1);
-      this._dirty = true;
+      this.dirty = true;
     }
     /**
      *
@@ -9532,7 +9567,7 @@
         this.animationManager.add(component);
       }
 
-      this._dirty = markDirty;
+      this.dirty = markDirty;
       this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, {
         component: component
       });
@@ -9544,7 +9579,7 @@
         this.addChild(arr[i], false);
       }
 
-      this._dirty = true;
+      this.dirty = true;
     }
 
     removeChild(component) {
@@ -9554,7 +9589,7 @@
       });
       component.destory();
       this.childNodes.splice(this.childNodes.indexOf(component), 1);
-      this._dirty = markDirty;
+      this.dirty = markDirty;
     }
 
     removeChildren(arr) {
@@ -9562,7 +9597,7 @@
         this.removeChild(arr[i], false);
       }
 
-      this._dirty = true;
+      this.dirty = true;
     }
 
     clearAll() {
@@ -9571,6 +9606,14 @@
 
     findComponent(id) {
       return this.childNodes.filter(item => item.props.id === id)[0];
+    }
+
+    set dirty(flag) {
+      this.__dirty = flag;
+    }
+
+    get dirty() {
+      return this.__dirty;
     }
     /**
      * 把对象序列化成 JSON 字符串：

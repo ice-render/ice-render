@@ -19,7 +19,7 @@ export default class ImageCache {
     if (!image) {
       image = new Image();
       image.onload = () => {
-        this.ice._dirty = true;
+        this.ice.dirty = true;
       };
       image.onerror = () => {
         console.error('ImageCache: 图片加载失败：', url);

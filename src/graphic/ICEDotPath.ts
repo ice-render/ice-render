@@ -38,6 +38,10 @@ export default abstract class ICEDotPath extends ICEPath {
    * @returns
    */
   public calcComponentParams() {
+    if (!this.dirty) {
+      return { width: this.state.width, height: this.state.height };
+    }
+
     //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
     this.calcDots();
     let points = this.calc4VertexPoints();
@@ -142,6 +146,9 @@ export default abstract class ICEDotPath extends ICEPath {
 
   protected applyTransformToCtx(): void {
     super.applyTransformToCtx();
+    if (!this.dirty) {
+      return;
+    }
 
     const matrix = this.state.composedMatrix;
     const dots = this.state.dots;
