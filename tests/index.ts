@@ -26,7 +26,7 @@ document.querySelector('#btn-3').addEventListener('click', (evt) => {
   ice.clearAll();
 });
 
-for (let i = 0; i < 1; i++) {
+for (let i = 0; i < 5; i++) {
   let img = new ICEImage({
     left: 1024 * Math.random(),
     top: 768 * Math.random(),
@@ -260,6 +260,7 @@ let text = new ICEText({
   style: {
     strokeStyle: '#ff3300',
     fillStyle: '#00ff00',
+    fontSize: 64,
     // lineWidth: 5,
   },
   // stroke: false,
