@@ -4938,11 +4938,11 @@
 
 
     static calcRotateAngle(x, y, originX, originY) {
-      let offsetX = x - originX;
-      let offsetY = y - originY;
-      const temp = Math.hypot(offsetX, offsetY);
-      let cos = offsetX / temp;
-      let sin = offsetY / temp; //Math.acos 的返回值处于 [0,PI] 之间，根据 sin 的正负号进行判断之后， rotateAngle 处于 [-180,180] 度之间
+      let deltaX = x - originX;
+      let deltaY = y - originY;
+      const temp = Math.hypot(deltaX, deltaY);
+      let cos = deltaX / temp;
+      let sin = deltaY / temp; //Math.acos 的返回值处于 [0,PI] 之间，根据 sin 的正负号进行判断之后， rotateAngle 处于 [-180,180] 度之间
       //先加 360 度，保证 rotateAngle 为正值，再对 360 取模，最终让 rotateAngle 的返回值始终处于 [0,360] 度之间
 
       let sign = sin < 0 ? -1 : 1;
@@ -5667,18 +5667,18 @@
       }
 
       if (!isNil_1(newState.left)) {
-        let offsetX = newState.left - this.state.points[0][0];
+        let deltaX = newState.left - this.state.points[0][0];
 
         for (let i = 0; i < this.state.points.length; i++) {
-          this.state.points[i][0] += offsetX;
+          this.state.points[i][0] += deltaX;
         }
       }
 
       if (!isNil_1(newState.top)) {
-        let offsetY = newState.top - this.state.points[0][1];
+        let deltaY = newState.top - this.state.points[0][1];
 
         for (let i = 0; i < this.state.points.length; i++) {
-          this.state.points[i][1] += offsetY;
+          this.state.points[i][1] += deltaY;
         }
       }
 
@@ -8361,7 +8361,7 @@
 
 
           if (iceEvtName !== 'ICE_MOUSEMOVE') {
-            componentCache = this.findTargetComponent(evt.clientX, evt.clientY); //FIXME:需要把 clientX/clientY 转换成 canvas 内部的坐标
+            componentCache = this.findTargetComponent(evt);
           }
 
           if (componentCache) {
@@ -8384,19 +8384,23 @@
       return this._stopped;
     }
     /**
+     * @method findTargetComponent
+     *
      * 找到被点击的对象，用代码触发 click 事件。
      * 在点击状态下，每次只能点击一个对象，当前不支持 DOM 冒泡特性。
      *
-     * @param clientX
-     * @param clientY
      * @returns
      */
 
 
-    findTargetComponent(clientX, clientY) {
+    findTargetComponent(evt) {
       if (this._stopped) return null;
-      let x = clientX - this.ice.canvasBoundingClientRect.left;
-      let y = clientY - this.ice.canvasBoundingClientRect.top; //FIXME:由于组件之间的 tree 形结构，这里的 sort 操作可能会导致组件的点击顺序错乱。
+      let {
+        offsetX,
+        offsetY
+      } = evt;
+      let x = offsetX;
+      let y = offsetY; //FIXME:由于组件之间的 tree 形结构，这里的 sort 操作可能会导致组件的点击顺序错乱。
 
       let arr = [...this.ice.childNodes];
       arr.sort((a, b) => {

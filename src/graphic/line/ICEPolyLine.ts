@@ -456,16 +456,16 @@ class ICEPolyLine extends ICEDotPath {
     }
 
     if (!isNil(newState.left)) {
-      let offsetX = newState.left - this.state.points[0][0];
+      let deltaX = newState.left - this.state.points[0][0];
       for (let i = 0; i < this.state.points.length; i++) {
-        this.state.points[i][0] += offsetX;
+        this.state.points[i][0] += deltaX;
       }
     }
 
     if (!isNil(newState.top)) {
-      let offsetY = newState.top - this.state.points[0][1];
+      let deltaY = newState.top - this.state.points[0][1];
       for (let i = 0; i < this.state.points.length; i++) {
-        this.state.points[i][1] += offsetY;
+        this.state.points[i][1] += deltaY;
       }
     }
 

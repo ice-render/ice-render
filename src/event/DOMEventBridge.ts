@@ -39,7 +39,7 @@ class DOMEventBridge {
 
         //! mousemove 事件的触发频率非常高，对于 mousemove 事件不执行 findTargetComponent() 操作
         if (iceEvtName !== 'ICE_MOUSEMOVE') {
-          componentCache = this.findTargetComponent(evt.clientX, evt.clientY); //FIXME:需要把 clientX/clientY 转换成 canvas 内部的坐标
+          componentCache = this.findTargetComponent(evt);
         }
 
         if (componentCache) {
@@ -62,18 +62,19 @@ class DOMEventBridge {
   }
 
   /**
+   * @method findTargetComponent
+   *
    * 找到被点击的对象，用代码触发 click 事件。
    * 在点击状态下，每次只能点击一个对象，当前不支持 DOM 冒泡特性。
    *
-   * @param clientX
-   * @param clientY
    * @returns
    */
-  private findTargetComponent(clientX, clientY) {
+  private findTargetComponent(evt) {
     if (this._stopped) return null;
 
-    let x = clientX - this.ice.canvasBoundingClientRect.left;
-    let y = clientY - this.ice.canvasBoundingClientRect.top;
+    let { offsetX, offsetY } = evt;
+    let x = offsetX;
+    let y = offsetY;
 
     //FIXME:由于组件之间的 tree 形结构，这里的 sort 操作可能会导致组件的点击顺序错乱。
     let arr = [...this.ice.childNodes];

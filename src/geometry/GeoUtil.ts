@@ -26,11 +26,11 @@ export default class GeoUtil {
    * @returns
    */
   public static calcRotateAngle(x, y, originX, originY): number {
-    let offsetX = x - originX;
-    let offsetY = y - originY;
-    const temp = Math.hypot(offsetX, offsetY);
-    let cos = offsetX / temp;
-    let sin = offsetY / temp;
+    let deltaX = x - originX;
+    let deltaY = y - originY;
+    const temp = Math.hypot(deltaX, deltaY);
+    let cos = deltaX / temp;
+    let sin = deltaY / temp;
 
     //Math.acos 的返回值处于 [0,PI] 之间，根据 sin 的正负号进行判断之后， rotateAngle 处于 [-180,180] 度之间
     //先加 360 度，保证 rotateAngle 为正值，再对 360 取模，最终让 rotateAngle 的返回值始终处于 [0,360] 度之间
