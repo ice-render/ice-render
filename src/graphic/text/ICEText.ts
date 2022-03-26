@@ -37,39 +37,45 @@ class ICEText extends ICEComponent {
         top: 0,
         width: 10,
         height: 10,
-        style: { fontWeight: 'bold', fontSize: 32, fontFamily: 'Arial', lineWidth: 1 },
+        style: {
+          fontWeight: 'bold',
+          fontSize: 32,
+          fontFamily: 'Arial',
+          lineWidth: 1,
+        },
       },
       props
     );
     param.style = {
       ...param.style,
       font: `${param.style.fontWeight} ${param.style.fontSize}px ${param.style.fontFamily}`, //CanvasRenderingContext2D 只支持 font 属性，这里手动拼接
+      textBaseline: 'bottom', //@see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/textBaseline
     };
     super(param);
   }
 
   protected initEvents(): void {
-    this.on(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.afterAddHandler, this);
+    this.on(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.measureText, this);
   }
 
   /**
-   * @method afterAddHandler
+   * @method measureText
    *
    * - Canvas 中没有提供原生的计算文本高度的有效方法，文本宽高的计算需要使用特殊的方法，这里使用的方法来自 https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
    * - 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
    * - 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    *
    * FIXME:某些运行时环境可能不支持动态插入 HTML 标签，以上测量文本宽高的方法可能存在兼容性问题。
-   * FIXME:边界盒子的高度与字体高度之间存在误差。
+   * FIXME:对文本位置的控制需要更精细的计算方法。
    */
-  private afterAddHandler(evt?: ICEEvent) {
+  private measureText(evt?: ICEEvent) {
     const div = this.root.document.createElement('div');
     const styleObj = {
       padding: '0',
       margin: '0',
       border: 'none',
       position: 'absolute',
-      top: '200px',
+      top: '0',
       left: '0',
       fontFamily: this.state.style.fontFamily,
       fontWeight: this.state.style.fontWeight,
@@ -83,7 +89,8 @@ class ICEText extends ICEComponent {
 
     this.root.document.body.appendChild(div);
     let cssSize = { width: div.offsetWidth, height: div.offsetHeight };
-    this.root.document.body.removeChild(div);
+    console.log(cssSize);
+    // this.root.document.body.removeChild(div);
 
     //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
     this.props.width = cssSize.width;
