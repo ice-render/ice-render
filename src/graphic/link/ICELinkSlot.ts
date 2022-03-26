@@ -209,6 +209,17 @@ class ICELinkSlot extends ICECircle {
     this._hostComponent = component;
     this._hostComponent && this._hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
     this._hostComponent &&
+      this._hostComponent.once(
+        ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE,
+        () => {
+          this._hostComponent = null;
+          this.setState({
+            display: false,
+          });
+        },
+        this
+      );
+    this._hostComponent &&
       this.setState({
         display: true,
       });

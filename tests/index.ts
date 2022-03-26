@@ -23,10 +23,11 @@ document.querySelector('#btn-2').addEventListener('click', (evt) => {
   ice.fromJSON(jsonStr);
 });
 document.querySelector('#btn-3').addEventListener('click', (evt) => {
+  console.log('ice.clearAll()');
   ice.clearAll();
 });
 
-for (let i = 0; i < 5; i++) {
+for (let i = 0; i < 1000; i++) {
   let img = new ICEImage({
     left: 1024 * Math.random(),
     top: 768 * Math.random(),

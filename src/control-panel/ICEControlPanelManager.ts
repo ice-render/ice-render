@@ -49,7 +49,7 @@ class ICEControlPanelManager {
         rotate: 45,
       },
     });
-    this.ice.addChild(this.transformControlPanel);
+    this.ice.addTool(this.transformControlPanel);
     this.transformControlPanel.disable(); //默认处于禁用状态
 
     this.lineControlPanel = new LineControlPanel({
@@ -63,7 +63,7 @@ class ICEControlPanelManager {
         lineWidth: 1,
       },
     });
-    this.ice.addChild(this.lineControlPanel);
+    this.ice.addTool(this.lineControlPanel);
     this.lineControlPanel.disable(); //默认处于禁用状态
   }
 

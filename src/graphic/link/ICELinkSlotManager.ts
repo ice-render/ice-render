@@ -84,7 +84,7 @@ export default class ICELinkSlotManager {
         lineWidth: 1,
       },
     });
-    this.ice.addChild(slot_1);
+    this.ice.addTool(slot_1);
 
     let slot_2 = new ICELinkSlot({
       zIndex: bigZIndexNum,
@@ -99,7 +99,7 @@ export default class ICELinkSlotManager {
         lineWidth: 1,
       },
     });
-    this.ice.addChild(slot_2);
+    this.ice.addTool(slot_2);
 
     let slot_3 = new ICELinkSlot({
       zIndex: bigZIndexNum,
@@ -114,7 +114,7 @@ export default class ICELinkSlotManager {
         lineWidth: 1,
       },
     });
-    this.ice.addChild(slot_3);
+    this.ice.addTool(slot_3);
 
     let slot_4 = new ICELinkSlot({
       zIndex: bigZIndexNum,
@@ -129,7 +129,7 @@ export default class ICELinkSlotManager {
         lineWidth: 1,
       },
     });
-    this.ice.addChild(slot_4);
+    this.ice.addTool(slot_4);
 
     this.ice._linkSlots = [slot_1, slot_2, slot_3, slot_4];
   }
