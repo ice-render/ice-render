@@ -6965,6 +6965,7 @@
 
     addChild(child) {
       child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
+      child.parentNode = this;
       this.childNodes.push(child);
       child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
     }
@@ -9317,7 +9318,6 @@
           child.ctx = component.ctx;
           child.evtBus = component.evtBus;
           child.ice = component.ice;
-          child.parentNode = component;
           this.renderRecursively(child);
         }
       }
@@ -9535,6 +9535,7 @@
       component.root = this.root;
       component.ctx = this.ctx;
       component.evtBus = this.evtBus;
+      component.parentNode = null;
       this.childNodes.push(component);
 
       if (Object.keys(component.props.animations).length) {

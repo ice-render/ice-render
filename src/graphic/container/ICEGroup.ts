@@ -32,6 +32,7 @@ class ICEGroup extends ICERect {
    */
   public addChild(child: ICEComponent): void {
     child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
+    child.parentNode = this;
     this.childNodes.push(child);
     child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
   }

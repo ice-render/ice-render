@@ -161,6 +161,7 @@ class ICE {
     component.root = this.root;
     component.ctx = this.ctx;
     component.evtBus = this.evtBus;
+    component.parentNode = null;
     this.childNodes.push(component);
     if (Object.keys(component.props.animations).length) {
       this.animationManager.add(component);
