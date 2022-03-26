@@ -6342,37 +6342,41 @@
 
 
     measureText(evt) {
-      const div = this.root.document.createElement('div');
-      const styleObj = {
-        padding: '0',
-        margin: '0',
-        border: 'none',
-        position: 'absolute',
-        top: '0',
-        left: '0',
-        fontFamily: this.state.style.fontFamily,
-        fontWeight: this.state.style.fontWeight,
-        fontSize: this.state.style.fontSize + 'px'
-      };
+      let div;
 
-      for (const key in styleObj) {
-        div.style[key] = styleObj[key];
+      try {
+        div = this.root.document.createElement('div');
+        const styleObj = {
+          padding: '0',
+          margin: '0',
+          border: 'none',
+          position: 'absolute',
+          top: '0',
+          left: '0',
+          fontFamily: this.state.style.fontFamily,
+          fontWeight: this.state.style.fontWeight,
+          fontSize: this.state.style.fontSize + 'px'
+        };
+
+        for (const key in styleObj) {
+          div.style[key] = styleObj[key];
+        }
+
+        div.contenteditable = false;
+        div.innerHTML = this.state.text;
+        this.root.document.body.appendChild(div);
+        let cssSize = {
+          width: div.offsetWidth,
+          height: div.offsetHeight
+        }; //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
+
+        this.props.width = cssSize.width;
+        this.props.height = cssSize.height;
+        this.state.width = cssSize.width;
+        this.state.height = cssSize.height;
+      } finally {
+        this.root.document.body.removeChild(div);
       }
-
-      div.contenteditable = false;
-      div.innerHTML = this.state.text;
-      this.root.document.body.appendChild(div);
-      let cssSize = {
-        width: div.offsetWidth,
-        height: div.offsetHeight
-      };
-      console.log(cssSize); // this.root.document.body.removeChild(div);
-      //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
-
-      this.props.width = cssSize.width;
-      this.props.height = cssSize.height;
-      this.state.width = cssSize.width;
-      this.state.height = cssSize.height;
     }
     /**
      * @method doRender
