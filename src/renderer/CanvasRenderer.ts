@@ -9,6 +9,7 @@ import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../event/ICEEvent';
 import ICEEventTarget from '../event/ICEEventTarget';
 import ICE from '../ICE';
+import { flattenTree } from '../util/data-util';
 
 /**
  * @class CanvasRenderer
@@ -51,13 +52,13 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   private refreshQueue() {
-    this.componentQueue = CanvasRenderer.flattenTree([], this.ice.childNodes);
+    this.componentQueue = flattenTree([], this.ice.childNodes);
     this.componentQueue.sort((firstEl, secondEl) => {
       return firstEl.state.zIndex - secondEl.state.zIndex;
     });
     console.log(`Component Queue length> ${this.componentQueue.length}`);
 
-    this.toolsQueue = CanvasRenderer.flattenTree([], this.ice.toolNodes);
+    this.toolsQueue = flattenTree([], this.ice.toolNodes);
     console.log(`Tool Queue length> ${this.ice.toolNodes.length}`);
   }
 
@@ -91,29 +92,6 @@ class CanvasRenderer extends ICEEventTarget {
     console.log(`Render time ${Date.now() - startTime} ms.`);
     this.ice._dirty = false;
     this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
-  }
-
-  /**
-   * @static
-   * @method flattenTree
-   *
-   * 把 tree 形结构拉平成数组结构。
-   *
-   * @param result
-   * @param childNodes
-   * @param level
-   * @param pid
-   * @returns
-   */
-  public static flattenTree(result = [], childNodes = [], level = 1, pid = null) {
-    for (let i = 0; i < childNodes.length; i++) {
-      const node = childNodes[i];
-      node._level = level;
-      node._pid = pid;
-      result.push(node);
-      CanvasRenderer.flattenTree(result, node.childNodes || [], level + 1, node.id);
-    }
-    return result;
   }
 }
 

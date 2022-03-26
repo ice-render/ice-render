@@ -3743,6 +3743,34 @@
   function getVal(object, path) {
     return path.split('.').reduce((res, prop) => res[prop], object);
   }
+  /**
+   * @method flattenTree
+   *
+   * 把 tree 形结构拉平成数组结构。
+   *
+   * @param result
+   * @param childNodes
+   * @param level
+   * @param pid
+   * @returns
+   */
+
+  function flattenTree() {
+    let result = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+    let childNodes = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+    let level = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 1;
+    let pid = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
+
+    for (let i = 0; i < childNodes.length; i++) {
+      const node = childNodes[i];
+      node._level = level;
+      node._pid = pid;
+      result.push(node);
+      flattenTree(result, node.childNodes || [], level + 1, node.id);
+    }
+
+    return result;
+  }
 
   /**
    * !gl-matrix 的当前版本中没有提供 skew 函数，需要手动合 https://github.com/toji/gl-matrix/pull/293
@@ -8410,6 +8438,7 @@
       } = evt;
       let x = offsetX;
       let y = offsetY; //FIXME:由于组件之间的 tree 形结构，这里的 sort 操作可能会导致组件的点击顺序错乱。
+      //FIXME:用 flattenTree() 工具方法替换。
 
       let arr = [...this.ice.toolNodes, ...this.ice.childNodes];
       arr.sort((a, b) => {
@@ -9224,7 +9253,6 @@
    * LICENSE file in the root directory of this source tree.
    *
    */
-
   /**
    * @class CanvasRenderer
    *
@@ -9234,6 +9262,7 @@
    *
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
+
   class CanvasRenderer extends ICEEventTarget {
     //等待渲染的组件队列，FIFO
     //等待渲染的工具组件队列，FIFO
@@ -9267,12 +9296,12 @@
     }
 
     refreshQueue() {
-      this.componentQueue = CanvasRenderer.flattenTree([], this.ice.childNodes);
+      this.componentQueue = flattenTree([], this.ice.childNodes);
       this.componentQueue.sort((firstEl, secondEl) => {
         return firstEl.state.zIndex - secondEl.state.zIndex;
       });
       console.log(`Component Queue length> ${this.componentQueue.length}`);
-      this.toolsQueue = CanvasRenderer.flattenTree([], this.ice.toolNodes);
+      this.toolsQueue = flattenTree([], this.ice.toolNodes);
       console.log(`Tool Queue length> ${this.ice.toolNodes.length}`);
     }
 
@@ -9305,36 +9334,6 @@
       console.log(`Render time ${Date.now() - startTime} ms.`);
       this.ice._dirty = false;
       this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
-    }
-    /**
-     * @static
-     * @method flattenTree
-     *
-     * 把 tree 形结构拉平成数组结构。
-     *
-     * @param result
-     * @param childNodes
-     * @param level
-     * @param pid
-     * @returns
-     */
-
-
-    static flattenTree() {
-      let result = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
-      let childNodes = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
-      let level = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 1;
-      let pid = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
-
-      for (let i = 0; i < childNodes.length; i++) {
-        const node = childNodes[i];
-        node._level = level;
-        node._pid = pid;
-        result.push(node);
-        CanvasRenderer.flattenTree(result, node.childNodes || [], level + 1, node.id);
-      }
-
-      return result;
     }
 
   }
