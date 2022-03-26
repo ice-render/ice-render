@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import isEmpty from 'lodash/isEmpty';
 import root from '../cross-platform/root.js';
 import ICEEvent from './ICEEvent';
 
@@ -52,6 +53,7 @@ abstract class ICEEventTarget {
   constructor() {}
 
   /**
+   * @method on
    * 添加事件监听
    * @param eventName
    * @param fn
@@ -66,6 +68,7 @@ abstract class ICEEventTarget {
   }
 
   /**
+   * @method off
    * 删除事件监听
    * @param eventName
    * @param fn
@@ -86,6 +89,7 @@ abstract class ICEEventTarget {
   }
 
   /**
+   * @method once
    * 一次性事件，触发一次就自动删除自己。
    * @param eventName
    * @param fn
@@ -102,22 +106,25 @@ abstract class ICEEventTarget {
   }
 
   /**
+   * @method dispatchEvent
+   *
    * 触发事件。
+   *
+   * 所有事件都会被转换成 ICEEvent 实例。
+   *
    * @param eventName
    * @param originalEvent
    * @param param
    * @returns
    */
   public trigger(eventName: string, originalEvent: any = null, param = {}) {
-    if (!this.listeners[eventName] || !this.listeners[eventName].length) return false;
+    if (isEmpty(this.listeners[eventName])) return false;
     if (this.suspendedEventNames.includes(eventName)) return false;
 
-    //DOM 事件和代码触发的事件都会被转换成 ICEEvent
-    //FIXME:这里需要判断传递了 originalEvent 且类型为 ICEEvent 的情况。
     let iceEvent: ICEEvent;
     if (originalEvent) {
       iceEvent = new ICEEvent(originalEvent);
-      iceEvent.originalEvent = originalEvent;
+      iceEvent.originalEvent = originalEvent.originalEvent ? originalEvent.originalEvent : originalEvent;
       iceEvent.param = { ...param };
     } else {
       iceEvent = new ICEEvent({
@@ -130,14 +137,13 @@ abstract class ICEEventTarget {
     let arr = this.listeners[eventName];
     for (let i = 0; i < arr.length; i++) {
       let item = arr[i];
-      let fn = item.callback;
-      let scope = item.scope;
-      fn.call(scope, iceEvent);
+      item.callback.call(item.scope, iceEvent);
     }
     return true;
   }
 
   /**
+   * @method suspend
    * 挂起事件。
    * @param eventName
    */
@@ -148,6 +154,7 @@ abstract class ICEEventTarget {
   }
 
   /**
+   * @method resume
    * 恢复事件。
    * @param eventName
    */
@@ -159,6 +166,7 @@ abstract class ICEEventTarget {
   }
 
   /**
+   * @method purgeEvents
    * 清除所有事件。
    */
   public purgeEvents() {
@@ -167,6 +175,7 @@ abstract class ICEEventTarget {
   }
 
   /**
+   * @method hasListener
    * 查询是否带有某个事件监听器。
    * @param eventName
    * @param fn

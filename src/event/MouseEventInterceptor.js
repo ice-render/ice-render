@@ -27,8 +27,8 @@ const MouseEventInterceptor = {
         const evtBus = MouseEventInterceptor.evtBuses[i];
         for (let j = 0; j < mouseEvents.length; j++) {
           const item = mouseEvents[j];
-          root.addEventListener(item[0], (evt) => {
-            evtBus.trigger(item[1], evt);
+          root.addEventListener(item[0], (domEvt) => {
+            evtBus.trigger(item[1], domEvt);
           });
         }
       }
