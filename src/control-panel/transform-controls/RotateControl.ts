@@ -30,7 +30,7 @@ export default class RotateControl extends ICECircle {
     this.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.rotateEvtHandler, this);
   }
 
-  private rotateEvtHandler(evt) {
+  private rotateEvtHandler(evt): void {
     if (!this.parentNode) {
       //parentNode 是 TransformPanel
       return;
