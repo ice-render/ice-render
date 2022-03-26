@@ -40,6 +40,8 @@ abstract class ICEComponent extends ICEEventTarget {
   //静态属性，实例计数器
   protected static instanceCounter: number = 0;
 
+  protected __dirty: boolean = true;
+
   /**
    * @cfg
    * {
@@ -139,6 +141,7 @@ abstract class ICEComponent extends ICEEventTarget {
     this.doRender();
 
     this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER);
+    this.dirty = false;
   }
 
   protected applyStyleToCtx(): void {
@@ -277,7 +280,8 @@ abstract class ICEComponent extends ICEEventTarget {
    * 把变换矩阵应用到 this.ctx 上
    */
   protected applyTransformToCtx(): void {
-    this.ctx.setTransform(...this.composeMatrix());
+    let matrix = this.dirty ? this.composeMatrix() : this.state.composedMatrix;
+    this.ctx.setTransform(...matrix);
   }
 
   /**
@@ -367,9 +371,19 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   public setState(newState: any) {
     merge(this.state, newState);
+    this.dirty = true;
     if (this.ice) {
-      this.ice._dirty = true;
+      this.ice.dirty = true;
     }
+  }
+
+  public set dirty(flag: boolean) {
+    this.__dirty = flag;
+    //FIXME:加上时间控制，避免过度绘制
+  }
+
+  public get dirty() {
+    return this.__dirty;
   }
 
   /**

@@ -54,7 +54,7 @@ class ICE {
   public deserializer: Deserializer;
   public imageCache: ImageCache;
 
-  public _dirty: boolean = true; //如果此标志位为 true ，所有组件都会全部被重新绘制
+  private __dirty: boolean = true; //如果此标志位为 true ，所有组件都会全部被重新绘制
 
   constructor() {}
 
@@ -125,7 +125,7 @@ class ICE {
     tool.ctx = this.ctx;
     tool.evtBus = this.evtBus;
     this.toolNodes.push(tool);
-    this._dirty = true;
+    this.dirty = true;
 
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: tool });
     tool.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
@@ -141,7 +141,7 @@ class ICE {
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: tool });
     tool.destory();
     this.toolNodes.splice(this.toolNodes.indexOf(tool), 1);
-    this._dirty = true;
+    this.dirty = true;
   }
 
   /**
@@ -167,7 +167,7 @@ class ICE {
       this.animationManager.add(component);
     }
 
-    this._dirty = markDirty;
+    this.dirty = markDirty;
 
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
@@ -177,21 +177,21 @@ class ICE {
     for (let i = 0; i < arr.length; i++) {
       this.addChild(arr[i], false);
     }
-    this._dirty = true;
+    this.dirty = true;
   }
 
   public removeChild(component: ICEComponent, markDirty: boolean = true) {
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: component });
     component.destory();
     this.childNodes.splice(this.childNodes.indexOf(component), 1);
-    this._dirty = markDirty;
+    this.dirty = markDirty;
   }
 
   public removeChildren(arr: Array<ICEComponent>): void {
     for (let i = 0; i < arr.length; i++) {
       this.removeChild(arr[i], false);
     }
-    this._dirty = true;
+    this.dirty = true;
   }
 
   public clearAll() {
@@ -200,6 +200,16 @@ class ICE {
 
   public findComponent(id: string) {
     return this.childNodes.filter((item) => item.props.id === id)[0];
+  }
+
+  protected _lastUpdateTime = Date.now();
+
+  public set dirty(flag: boolean) {
+    this.__dirty = flag;
+  }
+
+  public get dirty() {
+    return this.__dirty;
   }
 
   /**

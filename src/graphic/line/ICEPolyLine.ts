@@ -158,7 +158,7 @@ class ICEPolyLine extends ICEDotPath {
       }
     }
 
-    this.ice._dirty = true;
+    this.ice.dirty = true;
   }
 
   public setLink(terminal: string, component: ICEComponent, position: string) {
@@ -310,6 +310,10 @@ class ICEPolyLine extends ICEDotPath {
    * @returns
    */
   public calcComponentParams() {
+    if (!this.dirty) {
+      return { width: this.state.width, height: this.state.height };
+    }
+
     this.calcDots();
 
     let points = this.calc4VertexPoints(); //最小包围盒的4个顶点

@@ -34,9 +34,10 @@ abstract class ICEPath extends ICEComponent {
    * @overwrite
    */
   protected doRender(): void {
-    this.ctx.beginPath();
-
-    this.createPathObject();
+    if (this.dirty) {
+      this.ctx.beginPath();
+      this.createPathObject();
+    }
 
     //FIXME:想办法减少已下3条指令的执行次数
     if (this.state.closePath) {
