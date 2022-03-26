@@ -103,7 +103,6 @@ class CanvasRenderer extends ICEEventTarget {
         child.ctx = component.ctx;
         child.evtBus = component.evtBus;
         child.ice = component.ice;
-        child.parentNode = component;
         this.renderRecursively(child);
       }
     }
