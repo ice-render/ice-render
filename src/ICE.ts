@@ -9,7 +9,6 @@ import isString from 'lodash/isString';
 import AnimationManager from './animation/AnimationManager';
 import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';
 import DDManager from './control-panel/DDManager';
-import ICEControlPanel from './control-panel/ICEControlPanel';
 import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
 import root from './cross-platform/root.js';
 import DOMEventBridge from './event/DOMEventBridge';
@@ -17,8 +16,6 @@ import EventBus from './event/EventBus';
 import MouseEventInterceptor from './event/MouseEventInterceptor.js';
 import FrameManager from './FrameManager';
 import ICEComponent from './graphic/ICEComponent';
-import ICELinkHook from './graphic/link/ICELinkHook';
-import ICELinkSlot from './graphic/link/ICELinkSlot';
 import ICELinkSlotManager from './graphic/link/ICELinkSlotManager';
 import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
@@ -36,7 +33,8 @@ import ImageCache from './util/ImageCache';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICE {
-  public childNodes = []; //所有直接添加到 canvas 的对象都在此结构中
+  public childNodes = []; //根节点
+  public toolNodes = []; //工具组件，如变换工具，这些组件不会被序列化，并且在整个生命周期中不会被删除。
   public evtBus: EventBus; //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
   public root; //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
   public canvasEl; // canvas 标签元素
@@ -111,6 +109,42 @@ class ICE {
   }
 
   /**
+   * @method addChild
+   * 添加交互工具组件。
+   * 工具组件不触发事件，不产生动画效果。
+   * @param {ICEComponent} tool
+   */
+  public addTool(tool: ICEComponent) {
+    if (this.childNodes.indexOf(tool) !== -1) return;
+
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD, null, { component: tool });
+    tool.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
+
+    tool.ice = this;
+    tool.root = this.root;
+    tool.ctx = this.ctx;
+    tool.evtBus = this.evtBus;
+    this.toolNodes.push(tool);
+    this._dirty = true;
+
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: tool });
+    tool.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
+  }
+
+  /**
+   * @methos removeTool
+   * 删除交互工具组件。
+   * 工具组件不触发事件，不产生动画效果。
+   * @param tool
+   */
+  public removeTool(tool: ICEComponent) {
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: tool });
+    tool.destory();
+    this.toolNodes.splice(this.toolNodes.indexOf(tool), 1);
+    this._dirty = true;
+  }
+
+  /**
    *
    * 调用 ICE.addChild() 方法，会直接把对象画在 canvas 上。
    * 如果需要在容器中画组件，参见 @see ICEGroup.addChild() 方法
@@ -127,7 +161,6 @@ class ICE {
     component.root = this.root;
     component.ctx = this.ctx;
     component.evtBus = this.evtBus;
-    component.renderer = this.renderer;
     this.childNodes.push(component);
     if (Object.keys(component.props.animations).length) {
       this.animationManager.add(component);
@@ -147,16 +180,6 @@ class ICE {
   }
 
   public removeChild(component: ICEComponent, markDirty: boolean = true) {
-    if (
-      component instanceof ICEControlPanel ||
-      component.parentNode instanceof ICEControlPanel ||
-      component instanceof ICELinkSlot ||
-      component instanceof ICELinkHook
-    ) {
-      console.warn('控制手柄类型的组件不能删除...', component);
-      return;
-    }
-
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: component });
     component.destory();
     this.childNodes.splice(this.childNodes.indexOf(component), 1);

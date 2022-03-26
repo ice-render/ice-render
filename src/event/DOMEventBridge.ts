@@ -77,7 +77,7 @@ class DOMEventBridge {
     let y = offsetY;
 
     //FIXME:由于组件之间的 tree 形结构，这里的 sort 操作可能会导致组件的点击顺序错乱。
-    let arr = [...this.ice.childNodes];
+    let arr = [...this.ice.toolNodes, ...this.ice.childNodes];
     arr.sort((a, b) => {
       return a.zIndex - b.zIndex;
     });

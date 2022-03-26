@@ -7403,46 +7403,50 @@
     }
 
     updatePosition() {
-      if (this.targetComponent) {
-        //ICEPolyLine 的处理方式与其它组件不同，这里 LineControPanel 本身的外观不重要，只要变换手柄能自由移动就可以
-        //设置 LineControlPanel 自身的位置
-        this.setState({
-          left: 0,
-          top: -5,
-          width: 3,
-          height: 3,
-          transform: {
-            translate: [0, 0],
-            scale: [1, 1],
-            skew: [0, 0],
-            rotate: 0 //degree
+      if (!this.targetComponent) {
+        return;
+      } //ICEPolyLine 的处理方式与其它组件不同，这里 LineControPanel 本身的外观不重要，只要变换手柄能自由移动就可以
+      //设置 LineControlPanel 自身的位置
 
-          }
-        }); //设置 LineControlPanel 内部手柄的位置
 
-        let halfControlSize = this.controlSize / 2;
-        let len = this.targetComponent.state.points.length;
-        let start = this.targetComponent.state.points[0];
-        let end = this.targetComponent.state.points[len - 1];
-        let startPoint = [start[0], start[1]];
-        let endPoint = [end[0], end[1]];
-        this.startControl.setState({
-          left: startPoint[0] - halfControlSize,
-          top: startPoint[1] - halfControlSize
-        });
-        this.endControl.setState({
-          left: endPoint[0] - halfControlSize,
-          top: endPoint[1] - halfControlSize
-        });
-      }
+      this.setState({
+        left: 0,
+        top: -5,
+        width: 3,
+        height: 3,
+        transform: {
+          translate: [0, 0],
+          scale: [1, 1],
+          skew: [0, 0],
+          rotate: 0 //degree
+
+        }
+      }); //设置 LineControlPanel 内部手柄的位置
+
+      let halfControlSize = this.controlSize / 2;
+      let len = this.targetComponent.state.points.length;
+      let start = this.targetComponent.state.points[0];
+      let end = this.targetComponent.state.points[len - 1];
+      let startPoint = [start[0], start[1]];
+      let endPoint = [end[0], end[1]];
+      this.startControl.setState({
+        left: startPoint[0] - halfControlSize,
+        top: startPoint[1] - halfControlSize
+      });
+      this.endControl.setState({
+        left: endPoint[0] - halfControlSize,
+        top: endPoint[1] - halfControlSize
+      });
     }
 
     set targetComponent(component) {
       this._targetComponent && this._targetComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
       this._targetComponent = component;
-
-      this._targetComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
-
+      this._targetComponent && this._targetComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
+      this._targetComponent && this._targetComponent.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, () => {
+        this.targetComponent = null;
+        this.disable();
+      }, this);
       this.updatePosition();
     }
 
@@ -8115,32 +8119,36 @@
     }
 
     updatePanel() {
-      if (this.targetComponent) {
-        let angle = this.targetComponent.getRotateAngle();
-        let {
-          left,
-          top,
-          width,
-          height
-        } = this.targetComponent.getLocalLeftTop();
-        this.setState({
-          left,
-          top,
-          width,
-          height,
-          transform: {
-            rotate: angle
-          }
-        });
+      if (!this.targetComponent) {
+        return;
       }
+
+      let angle = this.targetComponent.getRotateAngle();
+      let {
+        left,
+        top,
+        width,
+        height
+      } = this.targetComponent.getLocalLeftTop();
+      this.setState({
+        left,
+        top,
+        width,
+        height,
+        transform: {
+          rotate: angle
+        }
+      });
     }
 
     set targetComponent(component) {
       this._targetComponent && this._targetComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
       this._targetComponent = component;
-
-      this._targetComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
-
+      this._targetComponent && this._targetComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
+      this._targetComponent && this._targetComponent.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, () => {
+        this.targetComponent = null;
+        this.disable();
+      }, this);
       this.updatePanel();
     }
 
@@ -8251,7 +8259,7 @@
           rotate: 45
         }
       });
-      this.ice.addChild(this.transformControlPanel);
+      this.ice.addTool(this.transformControlPanel);
       this.transformControlPanel.disable(); //默认处于禁用状态
 
       this.lineControlPanel = new LineControlPanel({
@@ -8265,7 +8273,7 @@
           lineWidth: 1
         }
       });
-      this.ice.addChild(this.lineControlPanel);
+      this.ice.addTool(this.lineControlPanel);
       this.lineControlPanel.disable(); //默认处于禁用状态
     }
 
@@ -8402,7 +8410,7 @@
       let x = offsetX;
       let y = offsetY; //FIXME:由于组件之间的 tree 形结构，这里的 sort 操作可能会导致组件的点击顺序错乱。
 
-      let arr = [...this.ice.childNodes];
+      let arr = [...this.ice.toolNodes, ...this.ice.childNodes];
       arr.sort((a, b) => {
         return a.zIndex - b.zIndex;
       });
@@ -8812,6 +8820,12 @@
       this._hostComponent && this._hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
       this._hostComponent = component;
       this._hostComponent && this._hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
+      this._hostComponent && this._hostComponent.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, () => {
+        this._hostComponent = null;
+        this.setState({
+          display: false
+        });
+      }, this);
       this._hostComponent && this.setState({
         display: true
       });
@@ -8906,7 +8920,7 @@
           lineWidth: 1
         }
       });
-      this.ice.addChild(slot_1);
+      this.ice.addTool(slot_1);
       let slot_2 = new ICELinkSlot({
         zIndex: bigZIndexNum,
         display: false,
@@ -8920,7 +8934,7 @@
           lineWidth: 1
         }
       });
-      this.ice.addChild(slot_2);
+      this.ice.addTool(slot_2);
       let slot_3 = new ICELinkSlot({
         zIndex: bigZIndexNum,
         display: false,
@@ -8934,7 +8948,7 @@
           lineWidth: 1
         }
       });
-      this.ice.addChild(slot_3);
+      this.ice.addTool(slot_3);
       let slot_4 = new ICELinkSlot({
         zIndex: bigZIndexNum,
         display: false,
@@ -8948,7 +8962,7 @@
           lineWidth: 1
         }
       });
-      this.ice.addChild(slot_4);
+      this.ice.addTool(slot_4);
       this.ice._linkSlots = [slot_1, slot_2, slot_3, slot_4];
     }
 
@@ -9177,12 +9191,6 @@
 
       for (let i = 0; i < this.ice.childNodes.length; i++) {
         const child = this.ice.childNodes[i];
-
-        if (child instanceof ICEControlPanel || child.parentNode instanceof ICEControlPanel || child instanceof ICELinkSlot || child instanceof ICELinkHook) {
-          console.warn('控制手柄类型的组件不需要存储...', child);
-          continue;
-        }
-
         this.encodeRecursively(child, result);
       }
 
@@ -9248,26 +9256,15 @@
     }
 
     frameEvtHandler(evt) {
-      if (this.needUpdate()) {
+      if (this.ice._dirty) {
         this.doRender();
       } else {
         console.log('没有需要渲染的组件...');
       }
     }
-    /**
-     * 判断是否需要刷新
-     * @returns
-     */
-
-
-    needUpdate() {
-      if (!this.ice.childNodes || !this.ice.childNodes.length) return false;
-      return this.ice._dirty;
-    }
 
     refreshRenderQueue() {
-      this.renderQueue = Array.from(this.ice.childNodes);
-      console.log(`Render Queue length> ${this.renderQueue.length}`); //FIXME:树形结构会导致 zIndex 排序无效
+      this.renderQueue = [...this.ice.childNodes]; //FIXME:树形结构会导致 zIndex 排序无效
       //FIXME:根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
 
       this.renderQueue.sort((firstEl, secondEl) => {
@@ -9278,11 +9275,22 @@
     doRender() {
       const startTime = Date.now();
       this.refreshRenderQueue();
+      console.log(`Render Queue length> ${this.renderQueue.length}`); //渲染组件
+
       this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
 
       for (let i = 0; i < this.renderQueue.length; i++) {
         const component = this.renderQueue[i];
         this.renderRecursively(component);
+      }
+
+      console.log(`Tool length> ${this.ice.toolNodes.length}`); //渲染工具节点
+
+      const tools = [...this.ice.toolNodes];
+
+      for (let i = 0; i < tools.length; i++) {
+        const tool = tools[i];
+        this.renderRecursively(tool);
       } //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
 
 
@@ -9384,7 +9392,8 @@
    */
 
   class ICE {
-    //所有直接添加到 canvas 的对象都在此结构中
+    //根节点
+    //工具组件，如变换工具，这些组件不会被序列化，并且在整个生命周期中不会被删除。
     //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
     //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
     // canvas 标签元素
@@ -9393,6 +9402,7 @@
     //如果此标志位为 true ，所有组件都会全部被重新绘制
     constructor() {
       this.childNodes = [];
+      this.toolNodes = [];
       this.evtBus = void 0;
       this.root = void 0;
       this.canvasEl = void 0;
@@ -9465,6 +9475,47 @@
       return this;
     }
     /**
+     * @method addChild
+     * 添加交互工具组件。
+     * 工具组件不触发事件，不产生动画效果。
+     * @param {ICEComponent} tool
+     */
+
+
+    addTool(tool) {
+      if (this.childNodes.indexOf(tool) !== -1) return;
+      this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD, null, {
+        component: tool
+      });
+      tool.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
+      tool.ice = this;
+      tool.root = this.root;
+      tool.ctx = this.ctx;
+      tool.evtBus = this.evtBus;
+      this.toolNodes.push(tool);
+      this._dirty = true;
+      this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, {
+        component: tool
+      });
+      tool.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
+    }
+    /**
+     * @methos removeTool
+     * 删除交互工具组件。
+     * 工具组件不触发事件，不产生动画效果。
+     * @param tool
+     */
+
+
+    removeTool(tool) {
+      this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, {
+        component: tool
+      });
+      tool.destory();
+      this.toolNodes.splice(this.toolNodes.indexOf(tool), 1);
+      this._dirty = true;
+    }
+    /**
      *
      * 调用 ICE.addChild() 方法，会直接把对象画在 canvas 上。
      * 如果需要在容器中画组件，参见 @see ICEGroup.addChild() 方法
@@ -9484,7 +9535,6 @@
       component.root = this.root;
       component.ctx = this.ctx;
       component.evtBus = this.evtBus;
-      component.renderer = this.renderer;
       this.childNodes.push(component);
 
       if (Object.keys(component.props.animations).length) {
@@ -9508,12 +9558,6 @@
 
     removeChild(component) {
       let markDirty = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
-
-      if (component instanceof ICEControlPanel || component.parentNode instanceof ICEControlPanel || component instanceof ICELinkSlot || component instanceof ICELinkHook) {
-        console.warn('控制手柄类型的组件不能删除...', component);
-        return;
-      }
-
       this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, {
         component: component
       });
@@ -9592,10 +9636,11 @@
     ice.fromJSON(jsonStr);
   });
   document.querySelector('#btn-3').addEventListener('click', (evt) => {
+    console.log('ice.clearAll()');
     ice.clearAll();
   });
 
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 1000; i++) {
     let img = new ICEImage({
       left: 1024 * Math.random(),
       top: 768 * Math.random(),

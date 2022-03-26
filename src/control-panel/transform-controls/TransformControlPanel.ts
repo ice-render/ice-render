@@ -314,25 +314,35 @@ export default class TransformControlPanel extends ICEControlPanel {
   }
 
   protected updatePanel() {
-    if (this.targetComponent) {
-      let angle = this.targetComponent.getRotateAngle();
-      let { left, top, width, height } = this.targetComponent.getLocalLeftTop();
-      this.setState({
-        left,
-        top,
-        width,
-        height,
-        transform: {
-          rotate: angle,
-        },
-      });
+    if (!this.targetComponent) {
+      return;
     }
+    let angle = this.targetComponent.getRotateAngle();
+    let { left, top, width, height } = this.targetComponent.getLocalLeftTop();
+    this.setState({
+      left,
+      top,
+      width,
+      height,
+      transform: {
+        rotate: angle,
+      },
+    });
   }
 
   public set targetComponent(component: ICEComponent) {
     this._targetComponent && this._targetComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
     this._targetComponent = component;
-    this._targetComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
+    this._targetComponent && this._targetComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
+    this._targetComponent &&
+      this._targetComponent.once(
+        ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE,
+        () => {
+          this.targetComponent = null;
+          this.disable();
+        },
+        this
+      );
     this.updatePanel();
   }
 

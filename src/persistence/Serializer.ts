@@ -5,9 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICEControlPanel from '../control-panel/ICEControlPanel';
-import ICELinkHook from '../graphic/link/ICELinkHook';
-import ICELinkSlot from '../graphic/link/ICELinkSlot';
 import ICE from '../ICE';
 
 /**
@@ -39,15 +36,6 @@ export default class Serializer {
 
     for (let i = 0; i < this.ice.childNodes.length; i++) {
       const child = this.ice.childNodes[i];
-      if (
-        child instanceof ICEControlPanel ||
-        child.parentNode instanceof ICEControlPanel ||
-        child instanceof ICELinkSlot ||
-        child instanceof ICELinkHook
-      ) {
-        console.warn('控制手柄类型的组件不需要存储...', child);
-        continue;
-      }
       this.encodeRecursively(child, result);
     }
     console.log(result);

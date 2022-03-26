@@ -42,25 +42,15 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   private frameEvtHandler(evt: ICEEvent) {
-    if (this.needUpdate()) {
+    if (this.ice._dirty) {
       this.doRender();
     } else {
       console.log('没有需要渲染的组件...');
     }
   }
 
-  /**
-   * 判断是否需要刷新
-   * @returns
-   */
-  private needUpdate(): boolean {
-    if (!this.ice.childNodes || !this.ice.childNodes.length) return false;
-    return this.ice._dirty;
-  }
-
   private refreshRenderQueue() {
-    this.renderQueue = Array.from(this.ice.childNodes);
-    console.log(`Render Queue length> ${this.renderQueue.length}`);
+    this.renderQueue = [...this.ice.childNodes];
     //FIXME:树形结构会导致 zIndex 排序无效
     //FIXME:根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
     this.renderQueue.sort((firstEl, secondEl) => {
@@ -72,11 +62,21 @@ class CanvasRenderer extends ICEEventTarget {
     const startTime = Date.now();
 
     this.refreshRenderQueue();
+    console.log(`Render Queue length> ${this.renderQueue.length}`);
 
+    //渲染组件
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
     for (let i = 0; i < this.renderQueue.length; i++) {
       const component = this.renderQueue[i];
       this.renderRecursively(component);
+    }
+
+    console.log(`Tool length> ${this.ice.toolNodes.length}`);
+    //渲染工具节点
+    const tools = [...this.ice.toolNodes];
+    for (let i = 0; i < tools.length; i++) {
+      const tool = tools[i];
+      this.renderRecursively(tool);
     }
 
     //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。

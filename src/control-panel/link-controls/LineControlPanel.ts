@@ -148,44 +148,54 @@ export default class LineControlPanel extends ICEControlPanel {
   }
 
   protected updatePosition() {
-    if (this.targetComponent) {
-      //ICEPolyLine 的处理方式与其它组件不同，这里 LineControPanel 本身的外观不重要，只要变换手柄能自由移动就可以
-      //设置 LineControlPanel 自身的位置
-      this.setState({
-        left: 0,
-        top: -5,
-        width: 3,
-        height: 3,
-        transform: {
-          translate: [0, 0],
-          scale: [1, 1],
-          skew: [0, 0],
-          rotate: 0, //degree
-        },
-      });
-
-      //设置 LineControlPanel 内部手柄的位置
-      let halfControlSize = this.controlSize / 2;
-      let len = this.targetComponent.state.points.length;
-      let start = this.targetComponent.state.points[0];
-      let end = this.targetComponent.state.points[len - 1];
-      let startPoint = [start[0], start[1]];
-      let endPoint = [end[0], end[1]];
-      this.startControl.setState({
-        left: startPoint[0] - halfControlSize,
-        top: startPoint[1] - halfControlSize,
-      });
-      this.endControl.setState({
-        left: endPoint[0] - halfControlSize,
-        top: endPoint[1] - halfControlSize,
-      });
+    if (!this.targetComponent) {
+      return;
     }
+    //ICEPolyLine 的处理方式与其它组件不同，这里 LineControPanel 本身的外观不重要，只要变换手柄能自由移动就可以
+    //设置 LineControlPanel 自身的位置
+    this.setState({
+      left: 0,
+      top: -5,
+      width: 3,
+      height: 3,
+      transform: {
+        translate: [0, 0],
+        scale: [1, 1],
+        skew: [0, 0],
+        rotate: 0, //degree
+      },
+    });
+
+    //设置 LineControlPanel 内部手柄的位置
+    let halfControlSize = this.controlSize / 2;
+    let len = this.targetComponent.state.points.length;
+    let start = this.targetComponent.state.points[0];
+    let end = this.targetComponent.state.points[len - 1];
+    let startPoint = [start[0], start[1]];
+    let endPoint = [end[0], end[1]];
+    this.startControl.setState({
+      left: startPoint[0] - halfControlSize,
+      top: startPoint[1] - halfControlSize,
+    });
+    this.endControl.setState({
+      left: endPoint[0] - halfControlSize,
+      top: endPoint[1] - halfControlSize,
+    });
   }
 
   public set targetComponent(component: ICEComponent) {
     this._targetComponent && this._targetComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
     this._targetComponent = component;
-    this._targetComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
+    this._targetComponent && this._targetComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePosition, this);
+    this._targetComponent &&
+      this._targetComponent.once(
+        ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE,
+        () => {
+          this.targetComponent = null;
+          this.disable();
+        },
+        this
+      );
     this.updatePosition();
   }
 
