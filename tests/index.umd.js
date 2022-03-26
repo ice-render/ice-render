@@ -8385,7 +8385,7 @@
     }
 
     start() {
-      let componentCache = null; //缓存上次位于鼠标位置的组件
+      let componentCache = null; //缓存上次被点击的组件
 
       for (let i = 0; i < mouseEvents.length; i++) {
         const evtMapping = mouseEvents[i];
@@ -8437,53 +8437,30 @@
         offsetY
       } = evt;
       let x = offsetX;
-      let y = offsetY; //FIXME:由于组件之间的 tree 形结构，这里的 sort 操作可能会导致组件的点击顺序错乱。
-      //FIXME:用 flattenTree() 工具方法替换。
-
-      let arr = [...this.ice.toolNodes, ...this.ice.childNodes];
+      let y = offsetY;
+      let arr1 = flattenTree([], this.ice.toolNodes);
+      let arr2 = flattenTree([], this.ice.childNodes);
+      let arr = [...arr1, ...arr2];
       arr.sort((a, b) => {
-        return a.zIndex - b.zIndex;
+        return a.state.zIndex - b.state.zIndex;
       });
 
       for (let i = 0; i < arr.length; i++) {
         let component = arr[i];
-        this.traverse(x, y, component);
+        let {
+          interactive,
+          display
+        } = component.state;
+        let flag = component.containsPoint(x, y);
+
+        if (flag && interactive && display) {
+          this.selectionCandidates.push(component);
+        }
       }
 
-      this.selectionCandidates.sort((a, b) => {
-        return a.zIndex - b.zIndex;
-      });
-      let component = this.selectionCandidates[0];
+      let component = this.selectionCandidates.pop();
       this.selectionCandidates = [];
       return component;
-    }
-    /**
-     * @param x
-     * @param y
-     * @param component
-     */
-
-
-    traverse(x, y, component) {
-      if (this._stopped) return;
-
-      if (component.childNodes && component.childNodes.length) {
-        for (let i = 0; i < component.childNodes.length; i++) {
-          const child = component.childNodes[i];
-          this.traverse(x, y, child);
-        }
-      } //不可交互的组件、没有渲染的组件，不派发事件。
-
-
-      let {
-        interactive,
-        display
-      } = component.state;
-      let flag = component.containsPoint(x, y);
-
-      if (flag && interactive && display) {
-        this.selectionCandidates.push(component);
-      }
     }
 
   }
