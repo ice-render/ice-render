@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>basic-test</title>
+  <body>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script >
+    const canvas = document.querySelector('#canvas-1');
+    const ctx = canvas.getContext('2d');
+
+    ctx.strokeStyle = '#ff0000';
+    ctx.fillStyle = '#0000ff';
+    ctx.lineWidth = 5;
+
+    let startTime = Date.now();
+    for (let i = 0; i < 100; i++) {
+      // ctx.setTransform(Math.random() * 10, 0, 0, Math.random() * 10, 0, 0);
+      ctx.rect(Math.random() * 1024, Math.random() * 768, 50, 50);
+    }
+    ctx.stroke();
+    ctx.fill();
+    // ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    let endTime = Date.now();
+    console.log(`Time> ${endTime - startTime} ms.`);
+  </script>
+</html>
