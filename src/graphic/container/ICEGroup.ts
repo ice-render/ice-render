@@ -57,7 +57,7 @@ class ICEGroup extends ICERect {
   }
 
   /**
-   * @override
+   * @overwrite
    * @method destory
    * 销毁组件
    * - FIXME:立即停止组件上的所有动画效果

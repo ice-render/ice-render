@@ -104,7 +104,7 @@ class ICEText extends ICEComponent {
 
   /**
    * @method doRender
-   * @override
+   * @overwrite
    * 文本是基于 baseline 绘制的，文本是从 y 坐标向屏幕上方绘制的，48 是文本高度，这里需要补偿文本高度。
    * 同时把移动坐标轴原点的偏移量计算进去。
    */

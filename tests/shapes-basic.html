@@ -28,7 +28,7 @@
         ice.clearAll();
       });
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 5; i++) {
         let rect = new ICE.ICERect({
           left: 1024 * Math.random(),
           top: 768 * Math.random(),
@@ -42,7 +42,7 @@
         ice.addChild(rect);
       }
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 5; i++) {
         let circle = new ICE.ICECircle({
           left: 1024 * Math.random(),
           top: 768 * Math.random(),
@@ -51,7 +51,7 @@
         ice.addChild(circle);
       }
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 5; i++) {
         let ellipse = new ICE.ICEEllipse({
           left: 1024 * Math.random(),
           top: 768 * Math.random(),
@@ -64,6 +64,19 @@
         });
         ice.addChild(ellipse);
       }
+
+      let isogon=new ICE.ICEIsogon({
+        left:300,
+        top: 300,
+        radius:50,
+        edges:6,
+        
+        style:{
+          strokeStyle:'#ff3300',
+          fillStyle:'#00eeff',
+        }
+      });
+      ice.addChild(isogon);
 
     </script>
   </body>

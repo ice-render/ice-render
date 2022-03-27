@@ -122,7 +122,7 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
-   * @override
+   * @overwrite
    */
   protected initEvents() {
     super.initEvents();
