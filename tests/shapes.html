@@ -28,8 +28,8 @@
         ice.clearAll();
       });
 
-      for (let i = 0; i < 1000; i++) {
-        let img = new ICE.ICERect({
+      for (let i = 0; i < 10; i++) {
+        let rect = new ICE.ICERect({
           left: 1024 * Math.random(),
           top: 768 * Math.random(),
           width:50,
@@ -39,7 +39,30 @@
             fillStyle:'#00ff00',
           }
         });
-        ice.addChild(img);
+        ice.addChild(rect);
+      }
+
+      for (let i = 0; i < 10; i++) {
+        let circle = new ICE.ICECircle({
+          left: 1024 * Math.random(),
+          top: 768 * Math.random(),
+          radius:25
+        });
+        ice.addChild(circle);
+      }
+
+      for (let i = 0; i < 10; i++) {
+        let ellipse = new ICE.ICEEllipse({
+          left: 1024 * Math.random(),
+          top: 768 * Math.random(),
+          radiusX:50,
+          radiusY:25,
+          style:{
+            strokeStyle:'#ff3300',
+            fillStyle:'#00eeff',
+          }
+        });
+        ice.addChild(ellipse);
       }
 
     </script>
