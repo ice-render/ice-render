@@ -170,10 +170,8 @@ abstract class ICEComponent extends ICEEventTarget {
     let point = [0, 0];
     let position = this.state.origin;
     if (!position || position === 'localCenter') {
-      let halfWidth = this.state.width / 2;
-      let halfHeight = this.state.height / 2;
-      point[0] = halfWidth;
-      point[1] = halfHeight;
+      point[0] = this.state.width / 2;
+      point[1] = this.state.height / 2;
     }
     //FIXME:计算原点位于其它位置的情况
     this.state.localOrigin = point;
