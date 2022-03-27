@@ -2,7 +2,7 @@
 
 <html lang="en">
   <meta charset="utf-8" />
-  <title>ICERender-shapes-basic</title>
+  <title>ICERender-shapes-isogon</title>
   <body>
     <div>
       <button id="btn-1">保存</button>
@@ -28,41 +28,18 @@
         ice.clearAll();
       });
 
-      for (let i = 0; i < 5; i++) {
-        let rect = new ICE.ICERect({
-          left: 1024 * Math.random(),
-          top: 768 * Math.random(),
-          width:50,
-          height:50,
-          style:{
-            strokeStyle:'#ff3300',
-            fillStyle:'#00ff00',
-          }
-        });
-        ice.addChild(rect);
-      }
-
-      for (let i = 0; i < 5; i++) {
-        let circle = new ICE.ICECircle({
-          left: 1024 * Math.random(),
-          top: 768 * Math.random(),
-          radius:25
-        });
-        ice.addChild(circle);
-      }
-
-      for (let i = 0; i < 5; i++) {
-        let ellipse = new ICE.ICEEllipse({
-          left: 1024 * Math.random(),
-          top: 768 * Math.random(),
-          radiusX:50,
-          radiusY:25,
+      for(let i=0;i<20;i++){
+        let isogon=new ICE.ICEIsogon({
+          left:1024*Math.random(),
+          top: 768*Math.random(),
+          radius:50,
+          edges:i,
           style:{
             strokeStyle:'#ff3300',
             fillStyle:'#00eeff',
           }
         });
-        ice.addChild(ellipse);
+        ice.addChild(isogon);
       }
     </script>
   </body>

@@ -26,10 +26,11 @@ class ICEIsogon extends ICEDotPath {
   constructor(props: any = {}) {
     let param = {
       radius: 10, //外接圆的半径
-      edges: 3, //边数 N ，正整数
-      startAngle: 90, //开始点的角度
+      edges: 3, //边数 N ，正整数，大于等于3
+      startAngle: 90, //起始点的角度
       ...props,
     };
+    param.edges = Math.floor(param.edges >= 3 ? param.edges : 3);
     param.width = param.radius * 2;
     param.height = param.radius * 2;
 
