@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-animation-basic</title>
+  <script src="../../dist/index.umd.js"></script>
+  <body>
+    <br/>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+    
+    let rect = new ICE.ICERect({
+      left: 100,
+      top: 100,
+      width: 100,
+      height: 100,
+      style: {
+        strokeStyle: '#0c09d4',
+        fillStyle: '#f5d106',
+        lineWidth: 5,
+      },
+      animations: {
+        left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+        top: { from: 0, to: 200, duration: 1000 },
+        width: { from: 100, to: 150, duration: 3000 },
+        height: { from: 100, to: 150, duration: 3000 },
+      },
+    });
+    ice.addChild(rect);
+
+  </script>
+</html>
