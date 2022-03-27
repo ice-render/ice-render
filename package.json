@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "start": "rollup -c -w  --environment NODE_ENV:development",
-    "build": "npm run build:types && npm run build:js",
+    "build": "npm run clean && npm run build:js",
     "build:js": "rollup -c --environment NODE_ENV:production",
     "build:types": "tsc --emitDeclarationOnly",
     "clean": "rimraf dist",
