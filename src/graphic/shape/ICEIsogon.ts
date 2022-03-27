@@ -40,8 +40,8 @@ class ICEIsogon extends ICEDotPath {
 
     super(param);
 
-    this.radius = this.props.radius; //FIXME:delete?
-    this.edges = this.props.edges; //FIXME:delete?
+    this.radius = this.props.radius;
+    this.edges = this.props.edges;
   }
 
   /**

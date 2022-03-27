@@ -101,8 +101,8 @@ abstract class ICEComponent extends ICEEventTarget {
     transformable: true,
     interactive: true,
     linkable: true,
-    showMinBoundingBox: true,
-    showMaxBoundingBox: true,
+    showMinBoundingBox: false,
+    showMaxBoundingBox: false,
   };
 
   /**
