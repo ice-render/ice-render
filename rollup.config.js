@@ -64,7 +64,6 @@ const configs = [
       globals: { ...globals },
     },
     plugins: CommonPlugins,
-    external: [...external],
   },
   {
     input: 'src/index.ts',
@@ -74,29 +73,16 @@ const configs = [
       globals: { ...globals },
     },
     plugins: CommonPlugins,
-    external: [...external],
   },
   {
     input: 'src/index.ts',
     output: {
-      name: 'boilerplate',
+      name: 'ICE',
       file: pkg.browser,
       format: 'umd',
       globals: { ...globals },
     },
     plugins: CommonPlugins,
-    external: [...external],
-  },
-  {
-    input: 'tests/index.ts',
-    output: {
-      name: 'boilerplate',
-      file: 'tests/index.umd.js',
-      format: 'umd',
-      globals: { ...globals },
-    },
-    plugins: CommonPlugins,
-    external: [...external],
   },
 ];
 export default configs;

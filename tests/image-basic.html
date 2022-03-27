@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-Basic</title>
+  <body>
+    <div>
+      <button id="btn-1">保存</button>
+      <button id="btn-2">加载</button>
+      <button id="btn-3">清除所有</button>
+      <script src="../dist/index.umd.js"></script>
+    </div>
+    <br/>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+    <script type="text/javascript">
+      let ice = new ICE.ICE().init('canvas-1');
+
+      document.querySelector('#btn-1').addEventListener('click', (evt) => {
+        const jsonStr = ice.toJSON();
+        window.localStorage.setItem('json-data', jsonStr);
+      });
+      document.querySelector('#btn-2').addEventListener('click', (evt) => {
+        const jsonStr = window.localStorage.getItem('json-data');
+        ice.fromJSON(jsonStr);
+      });
+      document.querySelector('#btn-3').addEventListener('click', (evt) => {
+        console.log('ice.clearAll()');
+        ice.clearAll();
+      });
+
+      //1000 张图片
+      for (let i = 0; i < 1000; i++) {
+        let img = new ICE.ICEImage({
+          left: 1024 * Math.random(),
+          top: 768 * Math.random(),
+          src: './assets/ice-render.png',
+        });
+        ice.addChild(img);
+      }
+
+    </script>
+  </body>
+</html>
