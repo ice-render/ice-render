@@ -41,7 +41,7 @@ abstract class ICEPath extends ICEComponent {
 
     //FIXME:想办法减少已下3条指令的执行次数
     if (this.state.closePath) {
-      this.ctx.closePath();
+      this.path2D.closePath();
     }
     if (this.state.fill) {
       this.ctx.fill(this.path2D);
