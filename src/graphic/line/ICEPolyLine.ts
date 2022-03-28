@@ -612,7 +612,7 @@ class ICEPolyLine extends ICEDotPath {
 
   private getLines(): Array<any> {
     const result = [];
-    const dots = this.state.transformedDots;
+    const dots = this.getTransformedDots();
     if (!dots || dots.length < 2) {
       return result;
     }
