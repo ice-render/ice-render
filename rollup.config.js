@@ -59,8 +59,8 @@ const configs = [
   {
     input: 'src/index.ts',
     output: {
-      file: pkg.main,
-      format: 'cjs',
+      file: pkg.module,
+      format: 'esm',
       globals: { ...globals },
     },
     plugins: CommonPlugins,
@@ -68,8 +68,8 @@ const configs = [
   {
     input: 'src/index.ts',
     output: {
-      file: pkg.module,
-      format: 'esm',
+      file: pkg.main,
+      format: 'cjs',
       globals: { ...globals },
     },
     plugins: CommonPlugins,
