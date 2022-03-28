@@ -216,16 +216,16 @@ class ICEPolyLine extends ICEDotPath {
       let temp = [0, 0];
       switch (position) {
         case 'T':
-          temp = box.topCenter;
+          temp = box.tc;
           break;
         case 'R':
-          temp = box.rightCenter;
+          temp = box.rc;
           break;
         case 'B':
-          temp = box.bottomCenter;
+          temp = box.bc;
           break;
         case 'L':
-          temp = box.leftCenter;
+          temp = box.lc;
           break;
         default:
           break;

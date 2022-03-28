@@ -26,6 +26,14 @@ class ICEBoundingBox {
   public bl = [0, 0];
   //bottom-right
   public br = [0, 0];
+  //top-center
+  public tc = [0, 0];
+  //right-center
+  public rc = [0, 0];
+  //bottom-center
+  public bc = [0, 0];
+  //left-center
+  public lc = [0, 0];
   //center-point
   public center = [0, 0];
 
@@ -34,6 +42,10 @@ class ICEBoundingBox {
     this.tr = [props[2], props[3]];
     this.bl = [props[4], props[5]];
     this.br = [props[6], props[7]];
+    this.tc = [(this.tr[0] + this.tl[0]) / 2, (this.tr[1] + this.tl[1]) / 2];
+    this.bc = [(this.br[0] + this.bl[0]) / 2, (this.br[1] + this.bl[1]) / 2];
+    this.lc = [(this.bl[0] + this.tl[0]) / 2, (this.bl[1] + this.tl[1]) / 2];
+    this.rc = [(this.br[0] + this.tr[0]) / 2, (this.br[1] + this.tr[1]) / 2];
     this.center = [props[8], props[9]];
   }
 
@@ -240,23 +252,6 @@ class ICEBoundingBox {
 
   public get centerPoint() {
     return this.center;
-  }
-
-  //FIXME:这里的计算方法有问题，需要重新实现
-  public get topCenter() {
-    return [this.tl[0] + (this.tr[0] - this.tl[0]) / 2, this.tl[1] + (this.tr[1] - this.tl[1]) / 2];
-  }
-  //FIXME:这里的计算方法有问题，需要重新实现
-  public get rightCenter() {
-    return [this.tr[0] + (this.br[0] - this.tr[0]) / 2, this.tr[1] + (this.br[1] - this.tr[1]) / 2];
-  }
-  //FIXME:这里的计算方法有问题，需要重新实现
-  public get bottomCenter() {
-    return [this.bl[0] + (this.br[0] - this.bl[0]) / 2, this.bl[1] + (this.br[1] - this.bl[1]) / 2];
-  }
-  //FIXME:这里的计算方法有问题，需要重新实现
-  public get leftCenter() {
-    return [this.tl[0] + (this.bl[0] - this.tl[0]) / 2, this.tl[1] + (this.bl[1] - this.tl[1]) / 2];
   }
 }
 export default ICEBoundingBox;
