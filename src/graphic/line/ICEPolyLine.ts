@@ -273,6 +273,7 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
+   * @method calcDots
    * ICEPolyLine 有自己特殊的计算方式：
    * - 原点总是放在 startPoint 的位置。
    * - 数值相对于组件本地坐标系进行计算。
@@ -352,7 +353,10 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
-   * 动态向线条上增加一个点
+   * @method addDot 增加一个点
+   *
+   * 动态向线条上增加一个点。
+   *
    * @param point
    * @param index
    */
@@ -362,7 +366,10 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
+   * @method rmDot 删除一个点
+   *
    * 从线条上删掉一个点，如果线条上的点数已经小于等于 2 ，则什么都不做。
+   *
    * @param index
    */
   public rmDot(index: number): boolean {
@@ -375,11 +382,14 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
-   * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
-   * 由于点状路径可能是不规则的形状，所以宽高需要手动计算，特殊形状的子类需要覆盖此方法提供自己的实现。
-   * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * @method calcComponentParams
+   *
+   * - 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
+   * - 由于点状路径可能是不规则的形状，所以宽高需要手动计算，特殊形状的子类需要覆盖此方法提供自己的实现。
+   * - 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   *
    * @overwrite
-   * @returns
+   * @returns {ComponentParams}
    */
   public calcComponentParams() {
     if (!this.dirty) {
@@ -406,7 +416,10 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
-   * 进行共线判断，如果所有点都在同一条直线上，那么边界盒子的整体高度就等于线条的粗细
+   * @method isDotsOnSameLine 是否所有点都在同一条直线上
+   *
+   * 进行共线判断，如果所有点都在同一条直线上，那么边界盒子的整体高度就等于线条的粗细。
+   *
    * @returns
    */
   private isDotsOnSameLine(): boolean {
@@ -436,10 +449,12 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
-   * 计算4个顶点：
+   * @method calc4VertexPoints 计算4个顶点
+   *
    * - 相对于组件本地的坐标系，原点位于左上角，没有经过矩阵变换。
    * - 返回值用于计算组件的原始 width/height 。
-   * @returns
+   *
+   * @returns {Array}
    */
   protected calc4VertexPoints() {
     if (this.isDotsOnSameLine()) {
@@ -450,7 +465,10 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
+   * @method splitEndpointsTo4Points 将线条的起点和终点分成4个点，用于计算组件的原始 width/height
+   *
    * 把直线的2个端点分裂成4个点，把线条的粗细参数(lineWidth)当成高度看待，方便计算最小包围盒。
+   *
    * @returns
    */
   protected splitEndpointsTo4Points() {
@@ -477,7 +495,10 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
-   * 获取组件的最小包围盒，此盒子的变换矩阵与组件自身完全相同。
+   * @method getMinBoundingBox  获取最小包围盒
+   *
+   * 此盒子的变换矩阵与组件自身的变换矩阵完全相同。
+   *
    * @returns
    */
   public getMinBoundingBox(): ICEBoundingBox {
@@ -504,6 +525,7 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
+   * @method setState  更新组件状态
    * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
    *
    * ICEPolyLine 有自己特殊的处理方法：
@@ -514,7 +536,7 @@ class ICEPolyLine extends ICEDotPath {
    * - ICEPolyLine 的 left/top 数值可以直接修改，修改 left/top 时，会重新计算起点和终点坐标，保证 left/top 与 startPoint 始终保持在同一个点上。
    *
    * @overwrite
-   * @param newState
+   * @param newState 新的状态
    */
   public setState(newState: any) {
     //ICEPolyLine 的 width/height 属性总是计算出来的，不能直接修改，不接受 width/height 配置项。
@@ -561,8 +583,8 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
-   * 获取旋转角
-   * @returns
+   * @method getRotateAngle 获取组件的旋转角度
+   * @returns {number}
    */
   public getRotateAngle(): number {
     //先进行共线判断，如果所有点都共线，则旋转角等于直线斜率对应的旋转角。
@@ -584,15 +606,17 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
-   * 判断给定的坐标点是否位于线段上。
+   * @method containsPoint 判断点是否在线上
+   *
    * 计算方法：如果给点的坐标点到线段两端的距离之和等于线段长度，则表示点位于线段上，允许一定的误差范围，用 delta 参数进行调节。
    * 算法来源：http://www.jeffreythompson.org/collision-detection/line-point.php
+   *
    * @param x
    * @param y
-   * @returns
+   * @returns {boolean}
    */
   public containsPoint(x: number, y: number): boolean {
-    const delta = 3; //允许的浮点运算误差，正负区间内，调节此参数可以扩大或者缩小精确度。
+    const errorRange = 3; //像素值，表示允许的浮点运算误差，正负区间内，调节此参数可以扩大或者缩小精确度。
     const lines = this.getLines();
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -603,13 +627,17 @@ class ICEPolyLine extends ICEDotPath {
       const lineLength = Math.hypot(x2 - x1, y2 - y1);
       const len1 = Math.hypot(x1 - x, y1 - y);
       const len2 = Math.hypot(x2 - x, y2 - y);
-      if (len1 + len2 >= lineLength - delta && len1 + len2 <= lineLength + delta) {
+      if (len1 + len2 >= lineLength - errorRange && len1 + len2 <= lineLength + errorRange) {
         return true;
       }
     }
     return false;
   }
 
+  /**
+   * @method getLines 获取线段数组
+   * @returns {Array<any>}
+   */
   private getLines(): Array<any> {
     const result = [];
     const dots = this.getTransformedDots();
