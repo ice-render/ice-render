@@ -50,8 +50,14 @@ abstract class ICEComponent extends ICEEventTarget {
    *   top: 0,                                                 //y 坐标相对于父组件的偏移量
    *   width: 0,                                               //原始宽度，没有经过变换
    *   height: 0,                                              //原始高度，没有经过变换
-   *   style: { fillStyle: 'red', strokeStyle: 'blue', lineWidth: 1 },
-   *   animations: {},
+   *   style: {
+   *     fillStyle: 'red',
+   *     strokeStyle: 'blue',
+   *     lineWidth: 1,
+   *   },
+   *   fill:true,                                              //是否填充
+   *   stroke:true,                                            //是否描边
+   *   animations: {},                                         //动画
    *   transform: {                                            //组件自身的变换参数，不包含父组件
    *     translate: [0, 0],                                    //平移，像素
    *     scale: [1, 1],                                        //X轴缩放倍数，Y轴缩放倍数
