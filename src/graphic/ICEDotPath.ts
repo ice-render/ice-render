@@ -17,17 +17,17 @@ import ICEPath from './ICEPath';
  */
 export default abstract class ICEDotPath extends ICEPath {
   /**
-   * FIXME:编写完整的配置项描述
    * @cfg
    * {
-   *
+   *   dots: [],       //点状路径的点集
+   *   closePath:true, //是否闭合
    * }
    *
    * @param props
    */
   constructor(props) {
     //dots 是内部计算使用的属性
-    super({ dots: [], transformedDots: [], closePath: true, ...props });
+    super({ dots: [], closePath: true, ...props });
   }
 
   /**
@@ -144,19 +144,15 @@ export default abstract class ICEDotPath extends ICEPath {
     ];
   }
 
-  protected applyTransformToCtx(): void {
-    super.applyTransformToCtx();
-    if (!this.dirty) {
-      return;
-    }
-
+  protected getTransformedDots() {
     const matrix = this.state.composedMatrix;
     const dots = this.state.dots;
-    this.state.transformedDots = [];
+    const result = [];
     for (let i = 0; i < dots.length; i++) {
       const dot = dots[i];
       const point = vec2.transformMat2d([], dot, matrix);
-      this.state.transformedDots.push(point);
+      result.push(point);
     }
+    return result;
   }
 }

@@ -37,6 +37,7 @@ abstract class ICEComponent extends ICEEventTarget {
   public evtBus: EventBus;
   //所有组件都有父组件，但不一定都有子组件，只有容器型的组件才有子组件。如果父组件为 null ，说明直接添加在 canvas 中。
   public parentNode: any;
+  //@static
   //静态属性，实例计数器
   protected static instanceCounter: number = 0;
 
