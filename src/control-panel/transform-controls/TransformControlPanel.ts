@@ -239,6 +239,7 @@ export default class TransformControlPanel extends ICEControlPanel {
     }
     let { rotate } = this.state.transform;
     this.targetComponent.setGlobalRotate(rotate);
+    this.targetComponent.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE);
   }
 
   private resizeEvtHandler(evt: any) {
@@ -311,6 +312,7 @@ export default class TransformControlPanel extends ICEControlPanel {
       width: Math.abs(newWidth),
       height: Math.abs(newHeight),
     });
+    this.targetComponent.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
   }
 
   protected updatePanel() {
