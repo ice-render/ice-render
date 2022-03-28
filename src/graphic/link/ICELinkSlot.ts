@@ -183,20 +183,20 @@ class ICELinkSlot extends ICECircle {
     let top = 0;
     switch (this.state.position) {
       case 'T':
-        left = box.center[0] - this.state.radius;
-        top = box.tl[1] - this.state.radius;
+        left = box.tc[0] - this.state.radius;
+        top = box.tc[1] - this.state.radius;
         break;
       case 'R':
-        left = box.tr[0] - this.state.radius;
-        top = box.center[1] - this.state.radius;
+        left = box.rc[0] - this.state.radius;
+        top = box.rc[1] - this.state.radius;
         break;
       case 'B':
-        left = box.center[0] - this.state.radius;
-        top = box.br[1] - this.state.radius;
+        left = box.bc[0] - this.state.radius;
+        top = box.bc[1] - this.state.radius;
         break;
       case 'L':
-        left = box.bl[0] - this.state.radius;
-        top = box.center[1] - this.state.radius;
+        left = box.lc[0] - this.state.radius;
+        top = box.lc[1] - this.state.radius;
         break;
       default:
         break;

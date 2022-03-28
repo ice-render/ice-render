@@ -166,6 +166,8 @@ class ICEPolyLine extends ICEDotPath {
 
     this.links[terminal] = { component: component, position: position };
     component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
+    component.on(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.followComponent, this);
+    component.on(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, this.followComponent, this);
     component.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.followComponent, this);
     this.followComponent();
 
@@ -188,6 +190,8 @@ class ICEPolyLine extends ICEDotPath {
     const _position = this.links[terminal].position;
     if (_component === component && _position === position) {
       _component && _component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
+      _component && _component.off(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.followComponent, this);
+      _component && _component.off(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, this.followComponent, this);
       this.links[terminal] = {};
       this.state.links[terminal] = {};
     }
@@ -212,7 +216,7 @@ class ICEPolyLine extends ICEDotPath {
         continue;
       }
 
-      const box = component.getMaxBoundingBox();
+      const box = component.getMinBoundingBox();
       let temp = [0, 0];
       switch (position) {
         case 'T':
