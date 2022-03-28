@@ -42,23 +42,22 @@ class ICEPolyLine extends ICEDotPath {
   protected links: any = { start: {}, end: {} }; //记录连接到了哪个组件上
 
   /**
-   * FIXME:编写完整的配置项描述
    * @cfg
    * {
-   *  lineType: 'solid',         //solid, dashed
-   *  lineWidth:2,
-   *  arrowPosition: 'none',     //none, start, end ,both
-   *  arrowLength: 15,           //箭头长度
-   *  arrowAngel: 30,            //箭头角度
-   *  closePath:false,
-   *  points:[],                 //点的坐标
+   *   lineType: 'solid',         //solid, dashed
+   *   lineWidth:2,
+   *   arrowPosition: 'none',     //none, start, end ,both
+   *   arrowLength: 15,           //箭头长度
+   *   arrowAngel: 30,            //箭头角度
+   *   closePath:false,           //连线默认不闭合路径
+   *   points:[],                 //点的坐标
+   *   links:{start:{id,position},end:{id,position}}    //如果传递了连接关系参数，则在渲染器完成一轮渲染之后，自动建立连接关系。
    * }
    *
    * @param props
    */
   constructor(props: any = {}) {
     let param = ICEPolyLine.arrangeParam(props);
-    console.log(param);
     super(param);
   }
 
