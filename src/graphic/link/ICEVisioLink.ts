@@ -73,6 +73,8 @@ export default class ICEVisioLink extends ICEPolyLine {
       this.state.dots.push([item.x - left, item.y - top]);
     }
 
+    this.calcArrowPoints();
+
     return this.state.dots;
   }
 
