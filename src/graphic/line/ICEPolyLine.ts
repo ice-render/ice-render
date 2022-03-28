@@ -5,8 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { vec2 } from 'gl-matrix';
+import { glMatrix, vec2 } from 'gl-matrix';
 import isNil from 'lodash/isNil';
+import merge from 'lodash/merge';
 import round from 'lodash/round';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
@@ -44,17 +45,20 @@ class ICEPolyLine extends ICEDotPath {
    * FIXME:编写完整的配置项描述
    * @cfg
    * {
-   *  lineType: 'solid', //solid, dashed
+   *  lineType: 'solid',         //solid, dashed
    *  lineWidth:2,
-   *  arrow: 'none',     //none, start, end ,both
+   *  arrowPosition: 'none',     //none, start, end ,both
+   *  arrowLength: 15,           //箭头长度
+   *  arrowAngel: 30,            //箭头角度
    *  closePath:false,
-   *  points:[],         //点的坐标
+   *  points:[],                 //点的坐标
    * }
    *
    * @param props
    */
   constructor(props: any = {}) {
     let param = ICEPolyLine.arrangeParam(props);
+    console.log(param);
     super(param);
   }
 
@@ -69,25 +73,31 @@ class ICEPolyLine extends ICEDotPath {
   public static arrangeParam(props): any {
     //dots 是内部计算使用的属性，外部传参用 points 属性
     //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
-    let param = {
-      ...{
+    let param = merge(
+      {},
+      {
         lineType: 'solid',
-        lineWidth: 2,
-        arrow: 'none',
+        lineWidth: 1,
+        arrowPosition: 'both', //none, start, end ,both
+        arrowLength: 15, //箭头的长度
+        arrowAngel: glMatrix.toRadian(30), //箭头的角度
         points: [],
         showMinBoundingBox: false,
         showMaxBoundingBox: false,
         links: {},
+        style: {
+          lineJoin: 'round',
+        },
       },
-      ...props,
-      ...{
+      props,
+      {
         linkable: false, //所有线条类型的组件 linkable 都为 false ，因为在 ICE 中，用线条连接线条是没有意义的，线条之间不能互相连接。
-        closePath: false,
-        fill: false,
-      },
-    };
+        closePath: false, //线条不是闭合的，不能连接到自己的起点
+        fill: false, //线条不需要填充
+      }
+    );
 
-    //至少有2个点，如果点数少于2个，自动填充。
+    //线段至少有2个点，如果点数少于2个，自动填充。
     let len = param.points.length;
     if (len < 2) {
       if (len === 0) {
@@ -113,9 +123,9 @@ class ICEPolyLine extends ICEDotPath {
       },
     };
 
-    //保证 lineWidth 不小于0
-    if (param.style.lineWidth <= 0) {
-      param.style.lineWidth = 2;
+    //保证 lineWidth 不小于1
+    if (param.style.lineWidth < 1) {
+      param.style.lineWidth = 1;
     }
 
     return param;
@@ -280,7 +290,66 @@ class ICEPolyLine extends ICEDotPath {
       let y = p[1] - top;
       this.state.dots.push([x, y]);
     }
+
+    this.calcArrowPoints();
+
     return this.state.dots;
+  }
+
+  /**
+   * @method calcArrowPoints
+   * 计算箭头坐标
+   */
+  protected calcArrowPoints() {
+    //计算起点箭头坐标
+    if (this.state.arrowPosition === 'start' || this.state.arrowPosition === 'both') {
+      let firstPoint = [...this.state.dots[0]];
+      let points = [[...this.state.dots[0]], [...this.state.dots[1]]];
+      points = this.doCalcArrowPoints(points);
+      this.state.dots.unshift(...points);
+      this.state.dots.unshift([...firstPoint]);
+    }
+    //计算终点箭头坐标
+    if (this.state.arrowPosition === 'end' || this.state.arrowPosition === 'both') {
+      let len = this.state.dots.length;
+      let lastPoint = [...this.state.dots[len - 1]];
+      let points = [[...this.state.dots[len - 1]], [...this.state.dots[len - 2]]];
+      points = this.doCalcArrowPoints(points);
+      this.state.dots.push(...points);
+      this.state.dots.push([...lastPoint]);
+    }
+  }
+
+  protected doCalcArrowPoints(twoPoints) {
+    let p1 = twoPoints[0];
+    let p2 = twoPoints[1];
+
+    p2[0] = p2[0] - p1[0];
+    p2[1] = p2[1] - p1[1];
+
+    //极坐标计算箭头的两个点
+    let cosp2 = p2[0] / Math.hypot(...p2);
+    let sinp2 = p2[1] / Math.hypot(...p2);
+
+    let cosArrow = Math.cos(this.state.arrowAngel);
+    let sinArrow = Math.sin(this.state.arrowAngel);
+
+    let x1 = this.state.arrowLength * (cosp2 * cosArrow - sinp2 * sinArrow);
+    let y1 = this.state.arrowLength * (sinp2 * cosArrow + cosp2 * sinArrow);
+
+    let x2 = this.state.arrowLength * (cosp2 * cosArrow + sinp2 * sinArrow);
+    let y2 = this.state.arrowLength * (sinp2 * cosArrow - cosp2 * sinArrow);
+
+    x1 += p1[0];
+    y1 += p1[1];
+
+    x2 += p1[0];
+    y2 += p1[1];
+
+    return [
+      [x1, y1],
+      [x2, y2],
+    ];
   }
 
   /**
