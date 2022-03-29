@@ -62,7 +62,9 @@ export default class DDManager {
     // console.log('window.devicePixelRatio>', window.devicePixelRatio);
     // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
     // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+    //@ts-ignore
     let tx = evt.movementX;
+    //@ts-ignore
     let ty = evt.movementY;
     this.currentObj.moveGlobalPosition(tx, ty, evt);
     return true;

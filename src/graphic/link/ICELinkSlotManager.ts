@@ -43,7 +43,7 @@ export default class ICELinkSlotManager {
   }
 
   private hookMouseMoveHandler(evt: ICEEvent) {
-    let linkHook = evt.target;
+    let linkHook = evt.target as any;
     let hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
 
     const childNodes = [...this.ice.childNodes];
@@ -54,7 +54,9 @@ export default class ICELinkSlotManager {
       }
       let slotBounding: ICEBoundingBox = component.getMaxBoundingBox();
       if (slotBounding.isIntersect(hookBounding)) {
+        //@ts-ignore
         for (let i = 0; i < this.ice._linkSlots.length; i++) {
+          //@ts-ignore
           this.ice._linkSlots[i].hostComponent = component;
         }
         return;
@@ -67,6 +69,7 @@ export default class ICELinkSlotManager {
    * 有顺序，按照 TRBL 上右下左 创建，插槽的 ID 会被序列化。
    */
   protected createLinkSlots() {
+    //@ts-ignore
     if (this.ice._linkSlots && this.ice._linkSlots.length) {
       return;
     }
@@ -130,7 +133,7 @@ export default class ICELinkSlotManager {
       },
     });
     this.ice.addTool(slot_4);
-
+    //@ts-ignore
     this.ice._linkSlots = [slot_1, slot_2, slot_3, slot_4];
   }
 }

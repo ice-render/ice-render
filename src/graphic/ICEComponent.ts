@@ -202,9 +202,10 @@ abstract class ICEComponent extends ICEEventTarget {
     if (this.parentNode) {
       let pLocalX = this.parentNode.state.localOrigin[0];
       let pLocalY = this.parentNode.state.localOrigin[1];
+      //@ts-ignore
       point = vec2.transformMat2d([], point, [1, 0, 0, 1, -pLocalX, -pLocalY]);
-
       let pcm = this.parentNode.state.composedMatrix;
+      //@ts-ignore
       point = vec2.transformMat2d([], point, pcm);
     }
 
@@ -229,11 +230,13 @@ abstract class ICEComponent extends ICEEventTarget {
 
     //step2: rotate
     let angle = getVal(this, 'state.transform.rotate');
+    //@ts-ignore
     matrix = mat2d.rotate([], matrix, glMatrix.toRadian(angle));
 
     //step3: scale
     const scaleX = getVal(this, 'state.transform.scale.0');
     const scaleY = getVal(this, 'state.transform.scale.1');
+    //@ts-ignore
     matrix = mat2d.scale([], matrix, [scaleX, scaleY]);
 
     this.state.linearMatrix = matrix;
@@ -248,6 +251,7 @@ abstract class ICEComponent extends ICEEventTarget {
     let component = this;
     let matrix = component.calcLinearMatrix();
     while (component.parentNode) {
+      //@ts-ignore
       matrix = mat2d.multiply([], component.parentNode.state.linearMatrix, matrix);
       component = component.parentNode;
     }
@@ -276,6 +280,7 @@ abstract class ICEComponent extends ICEEventTarget {
     let linearMatrix = this.calcAbsoluteLinearMatrix();
 
     //step-3: 计算综合变换矩阵，相当于先在 canvas 默认原点（左上角位置）进行变换，然后在平移到计算出的原点位置。
+    //@ts-ignore
     let composedMatrix = mat2d.multiply([], translationMatrix, linearMatrix);
     this.state.composedMatrix = composedMatrix;
     return composedMatrix;
@@ -414,7 +419,9 @@ abstract class ICEComponent extends ICEEventTarget {
     //如果组件存在嵌套，需要先用逆矩阵抵消所有祖先节点 transform 导致的坐标偏移。
     if (this.parentNode) {
       let point = [tx, ty];
+      //@ts-ignore
       let matrix = mat2d.invert([], this.parentNode.state.absoluteLinearMatrix);
+      //@ts-ignore
       point = vec2.transformMat2d([], point, matrix);
       tx = point[0];
       ty = point[1];
@@ -433,7 +440,9 @@ abstract class ICEComponent extends ICEEventTarget {
     //如果组件存在嵌套，需要先用逆矩阵抵消所有祖先节点 transform 导致的坐标偏移。
     if (this.parentNode) {
       let point = [left, top];
+      //@ts-ignore
       let matrix = mat2d.invert([], this.parentNode.state.absoluteLinearMatrix);
+      //@ts-ignore
       point = vec2.transformMat2d([], point, matrix);
       left = point[0];
       top = point[1];
@@ -469,6 +478,7 @@ abstract class ICEComponent extends ICEEventTarget {
   public localToGlobal(localX: number, localY: number) {
     let point = [localX, localY];
     let matrix = this.state.composedMatrix;
+    //@ts-ignore
     point = vec2.transformMat2d([], point, matrix);
     return point;
   }
@@ -481,7 +491,9 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   public globalToLocal(globalX: number, globalY: number) {
     let point = [globalX, globalY];
+    //@ts-ignore
     let matrix = mat2d.invert([], this.state.composedMatrix);
+    //@ts-ignore
     point = vec2.transformMat2d([], point, matrix);
     return point;
   }

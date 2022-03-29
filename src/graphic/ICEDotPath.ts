@@ -62,6 +62,7 @@ export default abstract class ICEDotPath extends ICEPath {
 
     for (let i = 0; i < this.state.dots.length; i++) {
       let dot = this.state.dots[i];
+      //@ts-ignore
       dot = vec2.transformMat2d([], dot, [1, 0, 0, 1, -origin[0], -origin[1]]);
       this.state.dots[i] = dot;
     }
@@ -150,6 +151,7 @@ export default abstract class ICEDotPath extends ICEPath {
     const result = [];
     for (let i = 0; i < dots.length; i++) {
       const dot = dots[i];
+      //@ts-ignore
       const point = vec2.transformMat2d([], dot, matrix);
       result.push(point);
     }
