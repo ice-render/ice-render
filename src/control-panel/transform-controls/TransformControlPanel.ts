@@ -255,8 +255,9 @@ export default class TransformControlPanel extends ICEControlPanel {
     let newTop = targetState.top;
     let newWidth = targetState.width;
     let newHeight = targetState.height;
-
+    //@ts-ignore
     let matrix = mat2d.invert([], targetState.absoluteLinearMatrix);
+    //@ts-ignore
     let point = vec2.transformMat2d([], [movementX, movementY], matrix);
     movementX = point[0];
     movementY = point[1];

@@ -22,21 +22,19 @@ import ICEText from '../graphic/text/ICEText';
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  *
- * //FIXME:需要扩展一个注册方法，让外部使用方把自己扩展的组件注册进来，否则无法序列化和反解析。
+ * FIXME:需要扩展一个注册方法，让外部使用方把自己扩展的组件注册进来，否则无法序列化和反解析。
  */
-const componentTypeMap = Object.fromEntries(
-  new Map([
-    ['ICERect', ICERect],
-    ['ICECircle', ICECircle],
-    ['ICEEllipse', ICEEllipse],
-    ['ICEStar', ICEStar],
-    ['ICEIsogon', ICEIsogon],
-    ['ICEText', ICEText],
-    ['ICEImage', ICEImage],
-    ['ICEGroup', ICEGroup],
-    ['ICEVisioLink', ICEVisioLink],
-    ['ICEPolyLine', ICEPolyLine],
-  ])
-);
+const componentTypeMap = {
+  ICERect: ICERect,
+  ICECircle: ICECircle,
+  ICEEllipse: ICEEllipse,
+  ICEStar: ICEStar,
+  ICEIsogon: ICEIsogon,
+  ICEText: ICEText,
+  ICEImage: ICEImage,
+  ICEGroup: ICEGroup,
+  ICEVisioLink: ICEVisioLink,
+  ICEPolyLine: ICEPolyLine,
+};
 
 export default componentTypeMap;

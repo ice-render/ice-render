@@ -434,6 +434,7 @@ class ICEPolyLine extends ICEDotPath {
     for (let i = 0; i < len; i++) {
       let p = this.state.points[i];
       let vector2 = [p[0] - startX, p[1] - startY];
+      //@ts-ignore
       let crossProduct = vec2.cross([], vector1, vector2)[2];
       if (crossProduct === 0) {
         counter++;

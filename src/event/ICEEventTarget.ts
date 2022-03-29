@@ -199,8 +199,11 @@ abstract class ICEEventTarget {
 }
 
 //增加别名，模拟 W3C 的 EventTarget 接口
+//@ts-ignore
 ICEEventTarget.prototype.addEventListener = ICEEventTarget.prototype.on;
+//@ts-ignore
 ICEEventTarget.prototype.removeEventListener = ICEEventTarget.prototype.off;
+//@ts-ignore
 ICEEventTarget.prototype.dispatchEvent = ICEEventTarget.prototype.trigger;
 
 export default ICEEventTarget;

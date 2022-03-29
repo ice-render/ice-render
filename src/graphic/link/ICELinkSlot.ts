@@ -100,7 +100,7 @@ class ICELinkSlot extends ICECircle {
    * @param evt
    */
   protected hookMouseMoveHandler(evt: ICEEvent) {
-    let linkHook = evt.target;
+    let linkHook = evt.target as any;
     if (this.isIntersectWithHook(linkHook)) {
       //FIXME:鼠标划过时的样式移动到配置项里面去
       this.setState({
@@ -141,7 +141,7 @@ class ICELinkSlot extends ICECircle {
       return;
     }
 
-    let linkHook: ICELinkHook = evt.target;
+    let linkHook: ICELinkHook = evt.target as any;
     let linkLine: ICEPolyLine = linkHook.parentNode.targetComponent;
     let position: string = linkHook.state.position;
     if (this.isIntersectWithHook(linkHook)) {

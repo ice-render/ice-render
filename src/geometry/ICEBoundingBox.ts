@@ -196,10 +196,15 @@ class ICEBoundingBox {
    * @returns A new ICEBoundingBox instance.
    */
   public transform(matrix): ICEBoundingBox {
+    //@ts-ignore
     const tl = vec2.transformMat2d([], this.tl, matrix);
+    //@ts-ignore
     const tr = vec2.transformMat2d([], this.tr, matrix);
+    //@ts-ignore
     const bl = vec2.transformMat2d([], this.bl, matrix);
+    //@ts-ignore
     const br = vec2.transformMat2d([], this.br, matrix);
+    //@ts-ignore
     const center = vec2.transformMat2d([], this.center, matrix);
     return new ICEBoundingBox([...tl, ...tr, ...bl, ...br, ...center]);
   }
