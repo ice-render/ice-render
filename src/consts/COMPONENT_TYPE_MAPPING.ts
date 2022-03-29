@@ -19,10 +19,9 @@ import ICEText from '../graphic/text/ICEText';
 
 /**
  * 组件名称和构造函数引用之间的映射关系，把序列化之后的 JSON 字符串重新解析成图形时需要用到此映射关系。
+ * 默认采用 Class.constructor.name 作为 key 。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
- *
- * FIXME:需要扩展一个注册方法，让外部使用方把自己扩展的组件注册进来，否则无法序列化和反解析。
  */
 const componentTypeMap = {
   ICERect: ICERect,
