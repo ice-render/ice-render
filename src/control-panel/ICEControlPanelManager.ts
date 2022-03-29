@@ -6,10 +6,7 @@
  *
  */
 import ICEEvent from '../event/ICEEvent';
-import ICEComponent from '../graphic/ICEComponent';
-import ICEPolyLine from '../graphic/line/ICEPolyLine';
 import ICE from '../ICE';
-import ICEControlPanel from './ICEControlPanel';
 import LineControlPanel from './link-controls/LineControlPanel';
 import TransformControlPanel from './transform-controls/TransformControlPanel';
 
@@ -78,9 +75,9 @@ class ICEControlPanelManager {
   }
 
   private mouseDownHandler(evt: ICEEvent) {
-    let component = evt.target;
+    let component = evt.target as any;
 
-    if (!(component instanceof ICEComponent) || !component.state.interactive || !component.state.transformable) {
+    if (!component.ice || !component.state.interactive || !component.state.transformable) {
       this.lineControlPanel.disable();
       this.transformControlPanel.disable();
       return;
@@ -88,7 +85,9 @@ class ICEControlPanelManager {
 
     //只有 ICEControlPanel 和它内部的变换手柄才具备跟随鼠标移动的功能，其它组件都需要由 ICEControlPanel 驱动进行移动和变换。
     const isControlPanel =
-      component && (component instanceof ICEControlPanel || component.parentNode instanceof ICEControlPanel);
+      component &&
+      (component.__typeName === 'ICEControlPanel' ||
+        (component.parentNode && component.parentNode.__typeName === 'ICEControlPanel'));
     if (isControlPanel) {
       return;
     }
@@ -98,7 +97,7 @@ class ICEControlPanelManager {
     this.transformControlPanel.disable();
 
     //线条型的组件变换工具与其它组件不同
-    if (component instanceof ICEPolyLine) {
+    if (component.__typeName === 'ICEPolyline') {
       this.lineControlPanel.targetComponent = component;
       this.lineControlPanel.enable();
     } else {

@@ -9,17 +9,19 @@ import ICEGroup from '../graphic/container/ICEGroup';
 import ICEComponent from '../graphic/ICEComponent';
 
 /**
- * @class ICEControlPanel
+ * @class ICEControlPanel 控制面板
  *
- * 控制面板
- *
- * FIXME:所有 ControlPanel 类型的组件都需要处理组件的 REMOVE 事件，当组件被删除时，清理关联关系。
- *
+ * - ICEControlPanel 用来辅助用户操作图形，控制面板可以控制图形的属性，比如组件的属性，线条的属性，文本的属性等等。
  * - ICEControlPanel 本身总是直接画在 canvas 上，不是任何组件的孩子。
+ * - ICEControlPanel 本身不会被序列化。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default abstract class ICEControlPanel extends ICEGroup {
+  //用来解决 TypeScript 的 instanceof 兼容性问题， https://github.com/microsoft/TypeScript/issues/22585
+  //仅供内部使用，业务代码不可依赖此属性
+  public __typeName = 'ICEControlPanel';
+
   protected _targetComponent: ICEComponent;
 
   constructor(props: any) {

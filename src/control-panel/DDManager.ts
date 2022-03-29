@@ -6,7 +6,6 @@
  *
  */
 import ICEEvent from '../event/ICEEvent';
-import ICEComponent from '../graphic/ICEComponent';
 import ICE from '../ICE';
 
 /**
@@ -43,8 +42,9 @@ export default class DDManager {
   }
 
   private mouseDownHandler(evt: ICEEvent) {
-    let component = evt.target;
-    if (!(component instanceof ICEComponent)) {
+    let component = evt.target as any;
+    //TS instanceof 的问题 https://github.com/microsoft/TypeScript/issues/22585
+    if (!component.ice) {
       console.warn('DDManager: 点击在 canvas 画布上，没有点击任何图形。');
       return;
     }
