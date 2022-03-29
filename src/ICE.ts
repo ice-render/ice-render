@@ -7,6 +7,7 @@
  */
 import isString from 'lodash/isString';
 import AnimationManager from './animation/AnimationManager';
+import componentTypeMap from './consts/COMPONENT_TYPE_MAPPING';
 import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';
 import DDManager from './control-panel/DDManager';
 import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
@@ -43,6 +44,7 @@ class ICE {
   public canvasHeight: number = 0;
   public canvasBoundingClientRect;
   public selectionList: Array<any> = []; //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
+  public typeMapping = {}; //类型名称与构造函数之间的映射关系，在序列化和反序列化时需要根据此 mapping 来创建对应的类型的示例。
 
   public renderer: any;
   public animationManager: AnimationManager;
@@ -68,6 +70,11 @@ class ICE {
     if (this.ctx === ctx) {
       //FIXME:
       throw new Error('同一个 canvas 实例只能 init 一次...');
+    }
+
+    //把内置的类型映射拷贝到 typeMapping 上
+    for (let p in componentTypeMap) {
+      this.typeMapping[p] = componentTypeMap[p];
     }
 
     this.root = root;
@@ -213,6 +220,28 @@ class ICE {
   }
 
   /**
+   * @method registerType 注册组件类型
+   *
+   * - 需要在反序列化之前调用，否则无法反序列化。
+   * - ICE 内置的类型已经自动注册，不需要手动注册。
+   *
+   * @param className
+   * @param Clazz
+   */
+  public registerType(className: string, Clazz: Function) {
+    this.typeMapping[className] = Clazz;
+  }
+
+  /**
+   * @method getType 获取组件构造函数
+   * @param className
+   * @returns
+   */
+  public getType(className: string) {
+    return this.typeMapping[className];
+  }
+
+  /**
    * 把对象序列化成 JSON 字符串：
    * - 容器型组件需要负责子节点的序列化操作
    * - 如果组件不需要序列化，需要返回 null
@@ -222,7 +251,6 @@ class ICE {
     return this.serializer.toJSON();
   }
 
-  //FIXME:从 JSON 数据反序列化需要的处理时间可能会比较长，需要防止 fromJSON() 方法被高频调用导致的问题。
   public fromJSON(jsonStr: string) {
     let startTime = Date.now();
 

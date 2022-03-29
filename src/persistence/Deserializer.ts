@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import componentTypeMap from '../consts/COMPONENT_TYPE_MAPPING';
 import ICE from '../ICE';
 
 /**
@@ -32,7 +31,7 @@ export default class Deserializer {
 
   //递归
   private decodeRecursively(parentNode, nodeData) {
-    const Clazz = componentTypeMap[nodeData.type];
+    const Clazz = this.ice.getType(nodeData.type);
     const state = nodeData.state;
     const instance = new Clazz(state);
     parentNode.addChild(instance);
