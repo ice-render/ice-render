@@ -1,18 +1,15 @@
 {
   "author": "大漠穷秋",
   "name": "ice-render",
-  "version": "0.0.8",
+  "version": "0.0.10",
   "description": "A canvas engine for interactive graphics.",
   "repository": "https://gitee.com/ice-render/ice-render",
-  "browser": "dist/index.umd.js",
-  "main": "dist/index.cjs.js",
   "module": "dist/index.js",
   "types": "dist/types/index.d.ts",
+  "browser": "dist/index.umd.js",
+  "main": "dist/index.cjs.js",
   "files": [
-    "dist/*.js",
-    "dist/*.map",
-    "dist/**/*.js",
-    "dist/**/*.map"
+    "dist/**/*"
   ],
   "scripts": {
     "start": "rollup -c -w  --environment NODE_ENV:development",
@@ -58,21 +55,6 @@
     "rollup-plugin-uglify": "6.0.4",
     "rollup-plugin-visualizer": "5.5.0",
     "typescript": "4.6.2"
-  },
-  "commitlint": {
-    "extends": [
-      "@commitlint/config-conventional"
-    ]
-  },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
-      "eslint --fix",
-      "git add"
-    ],
-    "*.{json,md,yml}": [
-      "prettier --write",
-      "git add"
-    ]
   },
   "keywords": [
     "canvas",
