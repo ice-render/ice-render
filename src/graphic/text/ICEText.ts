@@ -6,7 +6,6 @@
  *
  */
 import merge from 'lodash/merge';
-import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
 import ICEComponent from '../ICEComponent';
 
@@ -54,9 +53,9 @@ class ICEText extends ICEComponent {
     super(param);
   }
 
-  protected initEvents(): void {
-    this.on(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.measureText, this);
-  }
+  // protected initEvents(): void {
+  //   this.on(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.measureText, this);
+  // }
 
   /**
    * @method measureText
@@ -109,6 +108,8 @@ class ICEText extends ICEComponent {
    * 同时把移动坐标轴原点的偏移量计算进去。
    */
   protected doRender() {
+    this.dirty && this.measureText();
+
     if (this.state.stroke) {
       this.ctx.strokeText(
         this.state.text,
