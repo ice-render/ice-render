@@ -2,7 +2,7 @@
 
 <html lang="en">
   <meta charset="utf-8" />
-  <title>ICERender-group-basic</title>
+  <title>ICERender-text-basic</title>
   <body>
     <div>
       <button id="btn-1">保存</button>
@@ -29,18 +29,33 @@
           ice.clearAll();
         });
 
-        for(let i=0;i<100;i++){
-          let group=new ICE.ICEGroup({
-            left:1024*Math.random(),
-            top: 768*Math.random(),
-            width:100,
-            height:100,
-            style:{
-              strokeStyle:'#ff3300',
-              fillStyle:'#00eeff',
+        let group=new ICE.ICEGroup({
+          left:0,
+          top: 0,
+          width:800,
+          height:800,
+          style:{
+            strokeStyle:'#ff3300',
+            fillStyle:'#00eeff',
+          },
+        });
+        ice.addChild(group);
+
+        for(let i=0;i<1000;i++){
+          let text = new ICE.ICEText({
+            left: 0,
+            top: 0,
+            text: 'Test long long long text...',
+            style: {
+              strokeStyle: '#ff3300',
+              fillStyle: '#ff3300',
+              // lineWidth: 5,
+              fontSize:18,
             },
+            stroke: false,
+            // fill: false,
           });
-          ice.addChild(group);
+          group.addChild(text);
         }
   </script>
 </html>
