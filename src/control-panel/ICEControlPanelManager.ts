@@ -97,7 +97,7 @@ class ICEControlPanelManager {
     this.transformControlPanel.disable();
 
     //线条型的组件变换工具与其它组件不同
-    if (component.__typeName === 'ICEPolyline') {
+    if (component.__typeName === 'ICEPolyLine') {
       this.lineControlPanel.targetComponent = component;
       this.lineControlPanel.enable();
     } else {
