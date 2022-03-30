@@ -23,6 +23,7 @@ const CommonPlugins = [
   env === 'production' && terser(),
   env === 'production' &&
     uglify({
+      keep_fnames: true,
       output: {
         comments: function (node, comment) {
           if (comment.type === 'comment2') {
