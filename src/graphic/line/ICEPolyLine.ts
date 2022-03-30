@@ -151,7 +151,7 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   protected makeConnection() {
-    const links = this.props.links;
+    const links = this.state.links;
     if (links) {
       if (links.start) {
         const id = links.start.id;
