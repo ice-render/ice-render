@@ -19,7 +19,6 @@ export { default as GeoLine } from './geometry/GeoLine';
 export { default as GeoPoint } from './geometry/GeoPoint';
 export { default as GeoUtil } from './geometry/GeoUtil';
 export { default as ICEBoundingBox } from './geometry/ICEBoundingBox';
-export { default as ICEMatrix } from './geometry/ICEMatrix';
 export { default as ICEGroup } from './graphic/container/ICEGroup';
 export { default as ICEComponent } from './graphic/ICEComponent';
 export { default as ICEDotPath } from './graphic/ICEDotPath';
