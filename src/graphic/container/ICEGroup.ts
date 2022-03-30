@@ -34,7 +34,7 @@ class ICEGroup extends ICERect {
 
   /**
    * @method afterAddHandler 当 ICEGroup 被添加到 ICE 实例中后触发的事件
-   * !注意：在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。所以此时 child.root, child.ctx, child.evtBus 都可能为空。
+   * !注意：在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。所以此时 child.ctx, child.evtBus 都可能为空。
    * !所以这里需要用事件来同步一次子节点的事件。
    */
   protected afterAddHandler(): void {
@@ -46,7 +46,6 @@ class ICEGroup extends ICERect {
 
   protected syncChildEvents(child): void {
     child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
-    child.root = this.ice.root;
     child.ctx = this.ice.ctx;
     child.evtBus = this.ice.evtBus;
     child.ice = this.ice;
@@ -59,7 +58,7 @@ class ICEGroup extends ICERect {
    * 添加子节点有两种情况：
    * - 情况一：ICEGroup 自身已经被添加到了 ICE 实例中，此时可以直接调用 this.syncChildEvents(child); 来触发子节点上的事件。
    * - 情况二：ICEGroup 自身还没有被添加到 ICE 实例中，此时需要用 ICE_EVENT_NAME_CONSTS.AFTER_ADD 事件来触发子节点上的事件。
-   * !注意：在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。所以此时 child.root, child.ctx, child.evtBus 都可能为空。
+   * !注意：在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。所以此时 child.ctx, child.evtBus 都可能为空。
    * @param child
    */
   public addChild(child: ICEComponent, markDirty: boolean = true): void {

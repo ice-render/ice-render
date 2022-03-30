@@ -37,7 +37,7 @@ export default abstract class ICEDotPath extends ICEPath {
    * @overwrite
    * @returns
    */
-  public calcComponentParams() {
+  protected calcComponentParams() {
     if (!this.dirty) {
       return { width: this.state.width, height: this.state.height };
     }

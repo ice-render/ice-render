@@ -395,7 +395,7 @@ class ICEPolyLine extends ICEDotPath {
    * @overwrite
    * @returns {ComponentParams}
    */
-  public calcComponentParams() {
+  protected calcComponentParams() {
     if (!this.dirty) {
       return { width: this.state.width, height: this.state.height };
     }
