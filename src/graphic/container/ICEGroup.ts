@@ -37,6 +37,9 @@ class ICEGroup extends ICERect {
     this.childNodes.push(child);
     child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
     this.dirty = markDirty;
+    if (this.ice) {
+      this.ice.dirty = markDirty;
+    }
   }
 
   public addChildren(arr: Array<ICEComponent>): void {
@@ -45,12 +48,18 @@ class ICEGroup extends ICERect {
       this.addChild(child, false);
     }
     this.dirty = true;
+    if (this.ice) {
+      this.ice.dirty = true;
+    }
   }
 
   public removeChild(child: ICEComponent, markDirty: boolean = true) {
     child.destory();
     this.childNodes.splice(this.childNodes.indexOf(child), 1);
     this.dirty = markDirty;
+    if (this.ice) {
+      this.ice.dirty = markDirty;
+    }
   }
 
   public removeChildren(arr: Array<ICEComponent>): void {
@@ -59,6 +68,9 @@ class ICEGroup extends ICERect {
       this.removeChild(child, false);
     }
     this.dirty = true;
+    if (this.ice) {
+      this.ice.dirty = true;
+    }
   }
 
   /**
