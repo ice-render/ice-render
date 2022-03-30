@@ -20,7 +20,11 @@ const CommonPlugins = [
     extensions,
     include: ['src/**/*'],
   }),
-  env === 'production' && terser(),
+  env === 'production' &&
+    terser({
+      keep_classnames: true,
+      keep_fnames: true,
+    }),
   env === 'production' &&
     uglify({
       keep_fnames: true,
