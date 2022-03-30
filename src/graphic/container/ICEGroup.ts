@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import merge from 'lodash/merge';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEComponent from '../ICEComponent';
 import ICERect from '../shape/ICERect';
@@ -30,29 +31,59 @@ class ICEGroup extends ICERect {
    * !注意：在调用 ICEGroup.addChild() 方法时， ICEGroup 自身可能还没有被添加到 ICE 实例中去。所以此时 child.root, child.ctx, child.evtBus 都可能为空。
    * @param child
    */
-  public addChild(child: ICEComponent): void {
+  public addChild(child: ICEComponent, markDirty: boolean = true): void {
     child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
     child.parentNode = this;
     this.childNodes.push(child);
     child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
+    this.dirty = markDirty;
   }
 
   public addChildren(arr: Array<ICEComponent>): void {
     for (let i = 0; i < arr.length; i++) {
       const child = arr[i];
-      this.addChild(child);
+      this.addChild(child, false);
     }
+    this.dirty = true;
   }
 
-  public removeChild(child: ICEComponent) {
+  public removeChild(child: ICEComponent, markDirty: boolean = true) {
     child.destory();
     this.childNodes.splice(this.childNodes.indexOf(child), 1);
+    this.dirty = markDirty;
   }
 
   public removeChildren(arr: Array<ICEComponent>): void {
     for (let i = 0; i < arr.length; i++) {
       const child = arr[i];
-      this.removeChild(child);
+      this.removeChild(child, false);
+    }
+    this.dirty = true;
+  }
+
+  /**
+   * @overwrite
+   * @method setState
+   * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
+   * @param newState
+   */
+  public setState(newState: any) {
+    merge(this.state, newState);
+    this.dirty = true;
+
+    //容器型组件自身的状态发生变化时，需要把所有层级上的子节点都标记为 dirty
+    function setRecursively(component) {
+      component.dirty = true;
+      if (component.childNodes && component.childNodes.length) {
+        for (let i = 0; i < component.childNodes.length; i++) {
+          setRecursively(component.childNodes[i]);
+        }
+      }
+    }
+    setRecursively(this);
+
+    if (this.ice) {
+      this.ice.dirty = true;
     }
   }
 

@@ -11,8 +11,8 @@ import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import EventBus from '../event/EventBus';
 import ICEEvent from '../event/ICEEvent';
 import ICEEventTarget from '../event/ICEEventTarget';
+import GeoUtil from '../geometry/GeoUtil';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
-import ICEMatrix from '../geometry/ICEMatrix';
 import ICE from '../ICE';
 import { getVal } from '../util/data-util';
 import { skew } from '../util/gl-matrix-skew';
@@ -393,7 +393,6 @@ abstract class ICEComponent extends ICEEventTarget {
 
   public set dirty(flag: boolean) {
     this.__dirty = flag;
-    //FIXME:加上时间控制，避免过度绘制
   }
 
   public get dirty() {
@@ -463,7 +462,7 @@ abstract class ICEComponent extends ICEEventTarget {
     if (this.parentNode) {
       //组件存在嵌套的情况下，减掉所有祖先节点旋转角的总和。
       let matrix = this.parentNode.state.absoluteLinearMatrix;
-      let angle = ICEMatrix.calcRotateAngleFromMatrix(matrix);
+      let angle = GeoUtil.calcRotateAngleFromMatrix(matrix);
       rotateAngle -= angle;
     }
     this.setState({
@@ -508,7 +507,7 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   public getRotateAngle(): number {
     let matrix = this.state.composedMatrix;
-    return ICEMatrix.calcRotateAngleFromMatrix(matrix);
+    return GeoUtil.calcRotateAngleFromMatrix(matrix);
   }
 
   public getLocalLeftTop() {
