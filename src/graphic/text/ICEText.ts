@@ -6,6 +6,7 @@
  *
  */
 import merge from 'lodash/merge';
+import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
 import ICEComponent from '../ICEComponent';
 
@@ -53,6 +54,10 @@ class ICEText extends ICEComponent {
     super(param);
   }
 
+  protected initEvents(): void {
+    this.on(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.measureText, this);
+  }
+
   /**
    * @method measureText
    *
@@ -60,14 +65,20 @@ class ICEText extends ICEComponent {
    * - 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
    * - 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    *
-   * FIXME:这里有性能瓶颈
+   * FIXME:这里有性能瓶颈，需要进一步优化
    * FIXME:某些运行时环境可能不支持动态插入 HTML 标签，以上测量文本宽高的方法可能存在兼容性问题。
    * FIXME:对文本位置的控制需要更精细的计算方法。
    */
   private measureText(evt?: ICEEvent) {
     let div;
     try {
-      div = this.root.document.createElement('div');
+      div = this.root.document.getElementById('__ICE_UTILS_TEXT_MEASURE_DIV__');
+      if (!div) {
+        div = this.root.document.createElement('div');
+        div.setAttribute('id', '__ICE_UTILS_TEXT_MEASURE_DIV__');
+        this.root.document.body.appendChild(div);
+      }
+
       const styleObj = {
         padding: '0',
         margin: '0',
@@ -78,6 +89,7 @@ class ICEText extends ICEComponent {
         fontFamily: this.state.style.fontFamily,
         fontWeight: this.state.style.fontWeight,
         fontSize: this.state.style.fontSize + 'px',
+        visibility: 'hidden',
       };
       for (const key in styleObj) {
         div.style[key] = styleObj[key];
@@ -85,16 +97,14 @@ class ICEText extends ICEComponent {
       div.contenteditable = false;
       div.innerHTML = this.state.text;
 
-      this.root.document.body.appendChild(div);
       let cssSize = { width: div.offsetWidth, height: div.offsetHeight };
-
       //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
       this.props.width = cssSize.width;
       this.props.height = cssSize.height;
       this.state.width = cssSize.width;
       this.state.height = cssSize.height;
-    } finally {
-      this.root.document.body.removeChild(div);
+    } catch (err) {
+      console.error(err);
     }
   }
 
