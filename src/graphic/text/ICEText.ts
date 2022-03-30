@@ -53,10 +53,6 @@ class ICEText extends ICEComponent {
     super(param);
   }
 
-  // protected initEvents(): void {
-  //   this.on(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.measureText, this);
-  // }
-
   /**
    * @method measureText
    *
@@ -64,6 +60,7 @@ class ICEText extends ICEComponent {
    * - 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
    * - 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    *
+   * FIXME:这里有性能瓶颈
    * FIXME:某些运行时环境可能不支持动态插入 HTML 标签，以上测量文本宽高的方法可能存在兼容性问题。
    * FIXME:对文本位置的控制需要更精细的计算方法。
    */
