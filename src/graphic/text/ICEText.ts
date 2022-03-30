@@ -6,7 +6,6 @@
  *
  */
 import merge from 'lodash/merge';
-import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
 import ICEComponent from '../ICEComponent';
 
@@ -52,10 +51,22 @@ class ICEText extends ICEComponent {
       textBaseline: 'bottom', //@see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/textBaseline
     };
     super(param);
+
+    this.measureText();
   }
 
-  protected initEvents(): void {
-    this.on(ICE_EVENT_NAME_CONSTS.AFTER_ADD, this.measureText, this);
+  /**
+   * @overwrite
+   * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
+   * 此方法不能依赖原点位置和 transform 矩阵。
+   * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * @returns
+   */
+  protected calcComponentParams() {
+    if (!this.dirty) {
+      return { width: this.state.width, height: this.state.height };
+    }
+    return this.measureText();
   }
 
   /**
@@ -103,6 +114,7 @@ class ICEText extends ICEComponent {
       this.props.height = cssSize.height;
       this.state.width = cssSize.width;
       this.state.height = cssSize.height;
+      return { width: this.state.width, height: this.state.height };
     } catch (err) {
       console.error(err);
     }

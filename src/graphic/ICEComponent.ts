@@ -8,6 +8,7 @@
 import { glMatrix, mat2d, vec2 } from 'gl-matrix';
 import merge from 'lodash/merge';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
+import root from '../cross-platform/root';
 import EventBus from '../event/EventBus';
 import ICEEvent from '../event/ICEEvent';
 import ICEEventTarget from '../event/ICEEventTarget';
@@ -127,7 +128,7 @@ abstract class ICEComponent extends ICEEventTarget {
     super();
     this.props = merge(this.props, props);
     this.state = JSON.parse(JSON.stringify(this.props));
-
+    this.root = root;
     this.initEvents();
   }
 
@@ -168,7 +169,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    * @returns
    */
-  public calcComponentParams() {
+  protected calcComponentParams() {
     return { width: this.state.width, height: this.state.height };
   }
 

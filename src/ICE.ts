@@ -128,7 +128,6 @@ class ICE {
     tool.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
 
     tool.ice = this;
-    tool.root = this.root;
     tool.ctx = this.ctx;
     tool.evtBus = this.evtBus;
     this.toolNodes.push(tool);
@@ -165,7 +164,6 @@ class ICE {
     component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
 
     component.ice = this;
-    component.root = this.root;
     component.ctx = this.ctx;
     component.evtBus = this.evtBus;
     component.parentNode = null;
