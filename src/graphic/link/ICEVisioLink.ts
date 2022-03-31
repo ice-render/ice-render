@@ -9,7 +9,7 @@ import isNil from 'lodash/isNil';
 import GeoLine from '../../geometry/GeoLine';
 import GeoPoint from '../../geometry/GeoPoint';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
-import ICEPolyLine from '../line/ICEPolyLine';
+import ICEPolyLine from './ICEPolyLine';
 
 /**
  * ! FIXME: 删掉对 GeoPoint/GeoLine/GeoUtil 的依赖

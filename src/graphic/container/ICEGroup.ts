@@ -46,9 +46,9 @@ class ICEGroup extends ICERect {
 
   protected syncChildEvents(child): void {
     child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
+    child.ice = this.ice;
     child.ctx = this.ice.ctx;
     child.evtBus = this.ice.evtBus;
-    child.ice = this.ice;
     child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
   }
 

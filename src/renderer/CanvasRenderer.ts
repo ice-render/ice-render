@@ -70,12 +70,22 @@ class CanvasRenderer extends ICEEventTarget {
     //渲染组件
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
     for (let i = 0; i < this.componentQueue.length; i++) {
-      this.componentQueue[i].render();
+      const component = this.componentQueue[i];
+      component.root = this.ice.root;
+      component.ctx = this.ice.ctx;
+      component.evtBus = this.ice.evtBus;
+      component.ice = this.ice;
+      component.render();
     }
 
     //渲染工具节点
     for (let i = 0; i < this.toolsQueue.length; i++) {
-      this.toolsQueue[i].render();
+      const tool = this.toolsQueue[i];
+      tool.root = this.ice.root;
+      tool.ctx = this.ice.ctx;
+      tool.evtBus = this.ice.evtBus;
+      tool.ice = this.ice;
+      tool.render();
     }
 
     //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。

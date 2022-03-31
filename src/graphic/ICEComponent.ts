@@ -381,7 +381,12 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   /**
-   * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
+   * @method setState 更新组件状态
+   *
+   * - setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
+   * - state 上的所有数据是随时可能发生变化的，而 props 构造参数是不可变的，这一特性与 React 框架保持一致。 @see https://reactjs.org/docs/components-and-props.html
+   * - state 上的所有参数默认都会被序列化。
+   *
    * @param newState
    */
   public setState(newState: any) {
