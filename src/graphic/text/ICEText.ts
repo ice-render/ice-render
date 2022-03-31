@@ -37,6 +37,12 @@ class ICEText extends ICEComponent {
    * @param props
    */
   constructor(props: any = {}) {
+    let param = ICEText.arrangeParam(props);
+    super(param);
+    this.measureText();
+  }
+
+  protected static arrangeParam(props) {
     const param = merge(
       {
         text: '',
@@ -62,9 +68,7 @@ class ICEText extends ICEComponent {
       ...param.style,
       font: `${param.style.fontWeight} ${param.style.fontSize}px ${param.style.fontFamily}`, //CanvasRenderingContext2D 只支持 font 属性，这里手动拼接
     };
-    super(param);
-
-    this.measureText();
+    return param;
   }
 
   /**

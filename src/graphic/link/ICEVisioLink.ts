@@ -40,7 +40,7 @@ export default class ICEVisioLink extends ICEPolyLine {
     super(props);
   }
 
-  public static arrangeParam(props) {
+  protected static arrangeParam(props) {
     if (isNil(props.startPoint)) {
       props.startPoint = [0, 0];
     }

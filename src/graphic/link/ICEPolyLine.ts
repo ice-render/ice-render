@@ -74,7 +74,7 @@ class ICEPolyLine extends ICEDotPath {
    * @param props
    * @returns
    */
-  public static arrangeParam(props): any {
+  protected static arrangeParam(props): any {
     //dots 是内部计算使用的属性，外部传参用 points 属性
     //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
     let param = merge(
