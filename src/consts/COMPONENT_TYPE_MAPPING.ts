@@ -8,7 +8,7 @@
 
 import ICEGroup from '../graphic/container/ICEGroup';
 import ICEImage from '../graphic/ICEImage';
-import ICEPolyLine from '../graphic/line/ICEPolyLine';
+import ICEPolyLine from '../graphic/link/ICEPolyLine';
 import ICEVisioLink from '../graphic/link/ICEVisioLink';
 import ICECircle from '../graphic/shape/ICECircle';
 import ICEEllipse from '../graphic/shape/ICEEllipse';

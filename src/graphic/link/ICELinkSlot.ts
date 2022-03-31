@@ -8,7 +8,7 @@
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
-import ICEPolyLine from '../line/ICEPolyLine';
+import ICEPolyLine from './ICEPolyLine';
 import ICECircle from '../shape/ICECircle';
 import ICELinkHook from './ICELinkHook';
 

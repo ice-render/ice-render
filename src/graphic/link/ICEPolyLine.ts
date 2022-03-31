@@ -18,17 +18,15 @@ import ICEDotPath from '../ICEDotPath';
 
 /**
  *
- * @class ICEPolyLine
- *
- * 折线
+ * @class ICEPolyLine  折线
  *
  * 基本特征：
  *
- * - ICEPolyLine 由多个点构成，如果折线上的所有点共线，则折线在外观上退化成直线。
- * - ICEPolyLine 上至少存在 2 个点，否则无法画线。如果点数恰好为 2 ，折线退化成一条直线。
- * - ICEPolyLine 以及所有子类不能进行 transform 操作。
- * - ICEPolyLine 以及所有子类的 left/top 总是被设置为 startPoint 。
- * - ICEPolyLine 以及所有子类的原点都在 startPoint 上，而不在几何中心点。
+ * - ICEPolyLine 上至少存在 2 个点，否则 ICEPolyLine 自动填充。
+ * - ICEPolyLine 由多个点构成，如果折线上的所有点共线，则折线在外观上退化成直线。如果点数恰好为 2 ，折线退化成一条直线。
+ * - ICEPolyLine 以及所有子类不能进行 transform 操作，在 ICE 中，对线条进行矩阵变换是没有意义的。
+ * - ICEPolyLine 以及所有子类的 left/top 总是被设置为第 0 个点。
+ * - ICEPolyLine 以及所有子类的原点都在第 0 个点上，而不在几何中心点，这一特性与普通的 Component 不同。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
@@ -48,14 +46,17 @@ class ICEPolyLine extends ICEDotPath {
   /**
    * @cfg
    * {
-   *   lineType: 'solid',         //solid, dashed
-   *   lineWidth:2,
-   *   arrowPosition: 'none',     //none, start, end ,both
+   *   lineType: 'solid',         //可能的取值：solid, dashed
+   *   arrowPosition: 'none',     //可能的取值：none, start, end ,both
    *   arrowLength: 15,           //箭头长度
    *   arrowAngel: 30,            //箭头角度
+   *   lineWidth:2,               //线条宽度
    *   closePath:false,           //连线默认不闭合路径
-   *   points:[],                 //点的坐标
-   *   links:{start:{id,position},end:{id,position}}    //如果传递了连接关系参数，则在渲染器完成一轮渲染之后，自动建立连接关系。
+   *   points:[],                 //线条上所有点的坐标
+   *   links:{                    //如果传递了连接关系参数，则在渲染器完成一轮渲染之后，会自动与指定的组件建立连接关系。
+   *     start:{id,position},
+   *     end:{id,position}
+   *   }
    * }
    *
    * @param props
