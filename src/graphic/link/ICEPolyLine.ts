@@ -219,6 +219,24 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
+   * @method getLinkFromId
+   * 获取起点组件 id ，如果没有建立连接，则返回 null
+   * @returns
+   */
+  public getLinkFromId(): string {
+    return this.state.links.start.id;
+  }
+
+  /**
+   * @method getLinkToId
+   * 获取终点组件 id ，如果没有建立连接，则返回 null
+   * @returns
+   */
+  public getLinkToId(): string {
+    return this.state.links.end.id;
+  }
+
+  /**
    * @method
    * 连接的组件位置发生移动之后，重新计算连接线的起点和终点。
    */
