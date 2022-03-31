@@ -23,9 +23,15 @@ class ICEText extends ICEComponent {
    *   left:0,
    *   top:0,
    *   style:{
+   *       fontWeight:24,
    *       fontSize:48,
    *       fontFamily:'Arial',
-   *       fontWeight:24,
+   *       lineWidth:1,
+   *       textBaseline:'bottom',
+   *       paddingTop:0,    //number 型，不可加单位
+   *       paddingBottom:0, //number 型，不可加单位
+   *       paddingLeft:0,   //number 型，不可加单位
+   *       paddingRight:0,  //number 型，不可加单位
    *   }
    * }
    * @param props
@@ -43,6 +49,11 @@ class ICEText extends ICEComponent {
           fontSize: 32,
           fontFamily: 'Arial',
           lineWidth: 1,
+          textBaseline: 'bottom', //@see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/textBaseline
+          paddingTop: 0,
+          paddingBottom: 0,
+          paddingLeft: 0,
+          paddingRight: 0,
         },
       },
       props
@@ -50,7 +61,6 @@ class ICEText extends ICEComponent {
     param.style = {
       ...param.style,
       font: `${param.style.fontWeight} ${param.style.fontSize}px ${param.style.fontFamily}`, //CanvasRenderingContext2D 只支持 font 属性，这里手动拼接
-      textBaseline: 'bottom', //@see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/textBaseline
     };
     super(param);
 
@@ -110,7 +120,14 @@ class ICEText extends ICEComponent {
 
       div.innerHTML = this.state.text;
 
-      let cssSize = { width: div.offsetWidth, height: div.offsetHeight };
+      const { paddingTop, paddingBottom, paddingLeft, paddingRight } = this.state.style;
+      let cssSize = {
+        width: div.offsetWidth + paddingLeft + paddingRight,
+        height: div.offsetHeight + paddingTop + paddingBottom,
+      };
+      console.log('div.offsetWidth', div.offsetWidth);
+      console.log('div.offsetHeight', div.offsetHeight);
+      console.log('measureText', cssSize);
       //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
       this.props.width = cssSize.width;
       this.props.height = cssSize.height;
@@ -130,20 +147,20 @@ class ICEText extends ICEComponent {
    */
   protected doRender() {
     this.dirty && this.measureText();
-
+    const { paddingTop, paddingBottom, paddingLeft, paddingRight } = this.state.style;
     if (this.state.stroke) {
       this.ctx.strokeText(
         this.state.text,
-        0 - this.state.localOrigin[0],
-        0 - this.state.localOrigin[1] + this.state.height,
+        0 - this.state.localOrigin[0] + paddingLeft,
+        0 - this.state.localOrigin[1] + this.state.height - paddingBottom,
         this.state.width
       );
     }
     if (this.state.fill) {
       this.ctx.fillText(
         this.state.text,
-        0 - this.state.localOrigin[0],
-        0 - this.state.localOrigin[1] + this.state.height,
+        0 - this.state.localOrigin[0] + paddingLeft,
+        0 - this.state.localOrigin[1] + this.state.height - paddingBottom,
         this.state.width
       );
     }

@@ -29,16 +29,19 @@
           ice.clearAll();
         });
 
-        for(let i=0;i<100;i++){
           let text = new ICE.ICEText({
-            left: Math.random()*1024,
-            top: Math.random()*768,
+            left:100,
+            top:100,
             text: 'Test long long long text...',
             style: {
               strokeStyle: '#ff3300',
               fillStyle: '#ff3300',
               // lineWidth: 5,
-              fontSize:18,
+              fontSize:64,
+              paddingLeft:30,
+              paddingTop:30,
+              paddingRight:45,
+              paddingBottom:45,
             },
             stroke: false,
             // fill: false,
@@ -46,6 +49,5 @@
             showMaxBoundingBox: true,
           });
           ice.addChild(text);
-        }
   </script>
 </html>
