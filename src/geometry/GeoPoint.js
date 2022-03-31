@@ -33,7 +33,7 @@ export default class GeoPoint {
    *
    *
    * 从 JSON 对象创建 {GeoPoint} 实例。
-   * @param {JSONObject} o the JSON parsed object
+   * @param {Object} o the JSON parsed object
    * @return {GeoPoint} a newly constructed GeoPoint
    */
   static load(o) {
