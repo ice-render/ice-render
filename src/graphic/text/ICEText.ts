@@ -9,6 +9,8 @@ import merge from 'lodash/merge';
 import ICEEvent from '../../event/ICEEvent';
 import ICEComponent from '../ICEComponent';
 
+const utilDivId = '__ICE_UTILS_TEXT_MEASURE_DIV__';
+
 /**
  * TODO:draw text along Path2D
  * @author 大漠穷秋<damoqiongqiu@126.com>
@@ -83,21 +85,21 @@ class ICEText extends ICEComponent {
   private measureText(evt?: ICEEvent) {
     let div;
     try {
-      div = this.root.document.getElementById('__ICE_UTILS_TEXT_MEASURE_DIV__');
+      div = this.root.document.getElementById(utilDivId);
       if (!div) {
         div = this.root.document.createElement('div');
-        div.setAttribute('id', '__ICE_UTILS_TEXT_MEASURE_DIV__');
+        div.setAttribute('id', utilDivId);
         const styleObj = {
-          padding: '0',
-          margin: '0',
-          border: 'none',
+          visibility: 'hidden',
           position: 'absolute',
           top: '0',
           left: '0',
+          padding: '0',
+          margin: '0',
+          border: 'none',
           fontFamily: this.state.style.fontFamily,
           fontWeight: this.state.style.fontWeight,
           fontSize: this.state.style.fontSize + 'px',
-          visibility: 'hidden',
         };
         for (const key in styleObj) {
           div.style[key] = styleObj[key];
