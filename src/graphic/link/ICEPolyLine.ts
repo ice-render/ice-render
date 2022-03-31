@@ -47,7 +47,7 @@ class ICEPolyLine extends ICEDotPath {
    * @cfg
    * {
    *   lineType: 'solid',         //可能的取值：solid, dashed
-   *   arrowPosition: 'none',     //可能的取值：none, start, end ,both
+   *   arrow: 'none',             //可能的取值：none, start, end ,both
    *   arrowLength: 15,           //箭头长度
    *   arrowAngel: 30,            //箭头角度
    *   lineWidth:2,               //线条宽度
@@ -82,9 +82,9 @@ class ICEPolyLine extends ICEDotPath {
       {
         lineType: 'solid',
         lineWidth: 1,
-        arrowPosition: 'both', //none, start, end ,both
-        arrowLength: 15, //箭头的长度
-        arrowAngel: glMatrix.toRadian(30), //箭头的角度
+        arrow: 'none',
+        arrowLength: 15,
+        arrowAngel: glMatrix.toRadian(30),
         points: [],
         showMinBoundingBox: false,
         showMaxBoundingBox: false,
@@ -307,7 +307,7 @@ class ICEPolyLine extends ICEDotPath {
    */
   protected calcArrowPoints() {
     //计算起点箭头坐标
-    if (this.state.arrowPosition === 'start' || this.state.arrowPosition === 'both') {
+    if (this.state.arrow === 'start' || this.state.arrow === 'both') {
       let firstPoint = [...this.state.dots[0]];
       let points = [[...this.state.dots[0]], [...this.state.dots[1]]];
       points = this.doCalcArrowPoints(points);
@@ -315,7 +315,7 @@ class ICEPolyLine extends ICEDotPath {
       this.state.dots.unshift([...firstPoint]);
     }
     //计算终点箭头坐标
-    if (this.state.arrowPosition === 'end' || this.state.arrowPosition === 'both') {
+    if (this.state.arrow === 'end' || this.state.arrow === 'both') {
       let len = this.state.dots.length;
       let lastPoint = [...this.state.dots[len - 1]];
       let points = [[...this.state.dots[len - 1]], [...this.state.dots[len - 2]]];
