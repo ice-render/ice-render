@@ -1,7 +1,7 @@
 {
   "author": "大漠穷秋",
   "name": "ice-render",
-  "version": "0.0.32",
+  "version": "0.0.33",
   "description": "A canvas engine for interactive graphics.",
   "repository": "https://gitee.com/ice-render/ice-render",
   "module": "dist/index.js",
