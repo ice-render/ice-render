@@ -125,9 +125,6 @@ class ICEText extends ICEComponent {
         width: div.offsetWidth + paddingLeft + paddingRight,
         height: div.offsetHeight + paddingTop + paddingBottom,
       };
-      console.log('div.offsetWidth', div.offsetWidth);
-      console.log('div.offsetHeight', div.offsetHeight);
-      console.log('measureText', cssSize);
       //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
       this.props.width = cssSize.width;
       this.props.height = cssSize.height;
