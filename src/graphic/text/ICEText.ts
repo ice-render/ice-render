@@ -87,25 +87,25 @@ class ICEText extends ICEComponent {
       if (!div) {
         div = this.root.document.createElement('div');
         div.setAttribute('id', '__ICE_UTILS_TEXT_MEASURE_DIV__');
+        const styleObj = {
+          padding: '0',
+          margin: '0',
+          border: 'none',
+          position: 'absolute',
+          top: '0',
+          left: '0',
+          fontFamily: this.state.style.fontFamily,
+          fontWeight: this.state.style.fontWeight,
+          fontSize: this.state.style.fontSize + 'px',
+          visibility: 'hidden',
+        };
+        for (const key in styleObj) {
+          div.style[key] = styleObj[key];
+        }
+        div.contenteditable = false;
         this.root.document.body.appendChild(div);
       }
 
-      const styleObj = {
-        padding: '0',
-        margin: '0',
-        border: 'none',
-        position: 'absolute',
-        top: '0',
-        left: '0',
-        fontFamily: this.state.style.fontFamily,
-        fontWeight: this.state.style.fontWeight,
-        fontSize: this.state.style.fontSize + 'px',
-        visibility: 'hidden',
-      };
-      for (const key in styleObj) {
-        div.style[key] = styleObj[key];
-      }
-      div.contenteditable = false;
       div.innerHTML = this.state.text;
 
       let cssSize = { width: div.offsetWidth, height: div.offsetHeight };
