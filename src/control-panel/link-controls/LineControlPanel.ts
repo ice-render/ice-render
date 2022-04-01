@@ -104,7 +104,7 @@ export default class LineControlPanel extends ICEControlPanel {
    * 设置所有手柄在父组件中的位置，相对于父组件的本地坐标系。
    * LineControlPanel 不强制操作手柄的位置，操作手柄可以自由移动。
    */
-  protected setControlPositions() {}
+  protected updateControlPositions() {}
 
   private resizeEvtHandler(evt: any) {
     if (!this.targetComponent) {

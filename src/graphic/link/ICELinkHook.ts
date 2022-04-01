@@ -36,6 +36,16 @@ export default class ICELinkHook extends ICECircle {
   }
 
   /**
+   * @overwrite
+   * @method keyboardEvtHandler 键盘事件处理
+   * !ICELinkHook 不响应键盘事件。
+   * @see {ICEComponent.keyboardEvtHandler}
+   * @param evt
+   * @returns
+   */
+  protected keyboardEvtHandler(evt: any) {}
+
+  /**
    *
    * 在 mousedown 事件处理器里面可以直接访问 this.evtBus ，因为能接收到 mousedown 事件说明组件已经渲染出来了。
    * 在 this.evtBus 上触发事件，相当于全局广播，所有监听了 ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN 事件的组件都会收到消息。
