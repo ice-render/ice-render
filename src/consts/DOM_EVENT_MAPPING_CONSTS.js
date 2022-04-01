@@ -8,7 +8,6 @@
 /**
  * 原生 DOM 鼠标事件与 ICE 内部转发事件之间的对应关系。
  * 原生 DOM 事件的名称在 ICE 中不变。
- * FIXME:修改转发器，原生 DOM 事件不进行名称映射。
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export const mouseEvents = [
@@ -23,7 +22,6 @@ export const mouseEvents = [
 /**
  * 原生 DOM 键盘事件与 ICE 内部转发事件之间的对应关系。
  * 原生 DOM 事件的名称在 ICE 中不变。
- * FIXME:修改转发器，原生 DOM 事件不进行名称映射。
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export const keyboardEvents = [
