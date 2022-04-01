@@ -85,9 +85,7 @@ class ICEControlPanelManager {
 
     //只有 ICEControlPanel 和它内部的变换手柄才具备跟随鼠标移动的功能，其它组件都需要由 ICEControlPanel 驱动进行移动和变换。
     const isControlPanel =
-      component &&
-      (component.__typeName === 'ICEControlPanel' ||
-        (component.parentNode && component.parentNode.__typeName === 'ICEControlPanel'));
+      component && (component.isControlPanel || (component.parentNode && component.parentNode.isControlPanel));
     if (isControlPanel) {
       return;
     }
@@ -97,7 +95,7 @@ class ICEControlPanelManager {
     this.transformControlPanel.disable();
 
     //线条型的组件变换工具与其它组件不同
-    if (component.__typeName === 'ICEPolyLine') {
+    if (component.isLine) {
       this.lineControlPanel.targetComponent = component;
       this.lineControlPanel.enable();
     } else {
