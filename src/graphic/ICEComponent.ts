@@ -129,15 +129,42 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   /**
-   * @method initEvents 注册事件
+   * @method initEvents 注册默认支持的事件
    *
-   * 子类可以提供自己的实现，也可以把此方法覆盖成空函数。
+   * - ICEComponent 是顶级类，这里注册的事件所有子类都会响应。
+   * - 子类可以提供自己特殊的实现，也可以把此方法覆盖成空函数。
    *
    * @see {ICEComponent.keyboardEvtHandler}
    */
   protected initEvents() {
+    this.on('mousedown', this.mouseDownEvtHandler, this);
     this.on('keydown', this.keyboardEvtHandler, this);
     this.on('keyup', this.keyboardEvtHandler, this);
+  }
+
+  protected mouseDownEvtHandler(evt?: any) {
+    if (!this.state.interactive || !this.state.draggable) {
+      return;
+    }
+    this.on('mousemove', this.mouseMoveEvtHandler, this);
+    this.on('mouseup', this.mouseUpEvtHandler, this);
+  }
+
+  protected mouseMoveEvtHandler(evt: any) {
+    // console.log('window.devicePixelRatio>', window.devicePixelRatio);
+    // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+    // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+    //@ts-ignore
+    let tx = evt.movementX;
+    //@ts-ignore
+    let ty = evt.movementY;
+    this.moveGlobalPosition(tx, ty, evt);
+    return true;
+  }
+
+  protected mouseUpEvtHandler(evt?: any) {
+    this.off('mousemove', this.mouseMoveEvtHandler, this);
+    this.off('mouseup', this.mouseUpEvtHandler, this);
   }
 
   /**
