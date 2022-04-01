@@ -9,7 +9,6 @@ import isString from 'lodash/isString';
 import AnimationManager from './animation/AnimationManager';
 import componentTypeMap from './consts/COMPONENT_TYPE_MAPPING';
 import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';
-import DDManager from './control-panel/DDManager';
 import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
 import root from './cross-platform/root.js';
 import DOMEventDispatcher from './event/DOMEventDispatcher';
@@ -49,7 +48,6 @@ class ICE {
   public renderer: any;
   public animationManager: AnimationManager;
   public eventDispatcher: DOMEventDispatcher;
-  public ddManager: DDManager;
   public controlPanelManager: ICEControlPanelManager;
   public linkSlotManager: ICELinkSlotManager;
   public serializer: Serializer;
@@ -95,7 +93,7 @@ class ICE {
       this.ctx = ctx;
     }
 
-    //启动当前 ICE 实例上的所有 Manager
+    //启动当前 ICE 实例上的所有 Manager，有顺序
     this.evtBus = new EventBus(); //后续所有 Manager 都依赖事件总线，所以 this.evtBus 需要最先初始化。
     FrameManager.regitserEvtBus(this.evtBus);
     FrameManager.start();
@@ -104,7 +102,6 @@ class ICE {
     DOMEventInterceptor.start();
     this.eventDispatcher = new DOMEventDispatcher(this).start();
     this.animationManager = new AnimationManager(this).start();
-    this.ddManager = new DDManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
     this.linkSlotManager = new ICELinkSlotManager(this).start(); //linkSlotManager 内部会监听 renderer 上的事件，所以 linkSlotManager 需要在 renderer 后面实例化。
@@ -257,7 +254,6 @@ class ICE {
     this.renderer.stop();
     this.eventDispatcher.stopped = true;
     this.animationManager.stop();
-    this.ddManager.stop();
     this.controlPanelManager.stop();
     this.linkSlotManager.stop();
 
@@ -269,7 +265,6 @@ class ICE {
     FrameManager.start();
     this.renderer.start();
     this.animationManager.start();
-    this.ddManager.start();
     this.controlPanelManager.start();
     this.linkSlotManager.start();
     setTimeout(() => {

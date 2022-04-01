@@ -33,8 +33,8 @@ class DOMEventDispatcher {
     let domEvts = [...mouseEvents, ...keyboardEvents]; //鼠标事件和键盘事件合并在一起处理
     for (let i = 0; i < domEvts.length; i++) {
       const evtMapping = domEvts[i];
-      const iceEvtName = evtMapping[1];
       const domEvtName = evtMapping[0];
+      const iceEvtName = evtMapping[1];
       this.ice.evtBus.on(iceEvtName, (evt: ICEEvent) => {
         if (this._stopped) {
           return;
@@ -49,6 +49,8 @@ class DOMEventDispatcher {
         if (componentCache) {
           evt.target = componentCache;
           componentCache.trigger(domEvtName, evt);
+        } else {
+          console.warn('没有点中任何组件，不需要给组件派发事件...');
         }
         this.ice.evtBus.trigger(domEvtName, evt); //this.ice.evtBus 本身一定会触发一次鼠标和键盘事件。
       });
