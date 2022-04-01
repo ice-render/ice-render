@@ -7,7 +7,7 @@
  */
 /**
  * 原生 DOM 鼠标事件与 ICE 内部转发事件之间的对应关系。
- * 原生 DOM 事件的名称在 ICE 中不变。
+ * 原生 DOM 事件的名称在 ICE 中不变，ICE 自定义事件名仅仅用来在事件总线中进行转发。
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export const mouseEvents = [
@@ -21,7 +21,7 @@ export const mouseEvents = [
 
 /**
  * 原生 DOM 键盘事件与 ICE 内部转发事件之间的对应关系。
- * 原生 DOM 事件的名称在 ICE 中不变。
+ * 原生 DOM 事件的名称在 ICE 中不变，ICE 自定义事件名仅仅用来在事件总线中进行转发。
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export const keyboardEvents = [
