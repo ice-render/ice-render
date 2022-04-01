@@ -34,7 +34,7 @@ class DOMEventDispatcher {
     for (let i = 0; i < domEvts.length; i++) {
       const evtMapping = domEvts[i];
       const iceEvtName = evtMapping[1];
-      const originEvtName = evtMapping[0];
+      const domEvtName = evtMapping[0];
       this.ice.evtBus.on(iceEvtName, (evt: ICEEvent) => {
         if (this._stopped) {
           return;
@@ -48,9 +48,9 @@ class DOMEventDispatcher {
 
         if (componentCache) {
           evt.target = componentCache;
-          componentCache.trigger(originEvtName, evt);
+          componentCache.trigger(domEvtName, evt);
         }
-        this.ice.evtBus.trigger(originEvtName, evt); //this.ice.evtBus 本身一定会触发一次鼠标和键盘事件。
+        this.ice.evtBus.trigger(domEvtName, evt); //this.ice.evtBus 本身一定会触发一次鼠标和键盘事件。
       });
     }
     return this;
