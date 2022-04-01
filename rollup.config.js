@@ -1,6 +1,7 @@
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import nodeResolve from '@rollup/plugin-node-resolve';
+import strip from '@rollup/plugin-strip';
 import babel from 'rollup-plugin-babel';
 import { terser } from 'rollup-plugin-terser';
 import { uglify } from 'rollup-plugin-uglify';
@@ -20,6 +21,12 @@ const CommonPlugins = [
     extensions,
     include: ['src/**/*'],
   }),
+  env === 'production' &&
+    strip({
+      include: ['src/**/*.(mjs|js|jsx|ts|tsx)'],
+      debugger: false,
+      labels: ['console'],
+    }),
   env === 'production' &&
     terser({
       keep_classnames: true,
