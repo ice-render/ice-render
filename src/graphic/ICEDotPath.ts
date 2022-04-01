@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import { vec2 } from 'gl-matrix';
 import ICEPath from './ICEPath';
 
 /**
@@ -16,17 +17,17 @@ import ICEPath from './ICEPath';
  */
 export default abstract class ICEDotPath extends ICEPath {
   /**
-   * FIXME:编写完整的配置项描述
    * @cfg
    * {
-   *
+   *   dots: [],       //点状路径的点集
+   *   closePath:true, //是否闭合
    * }
    *
    * @param props
    */
   constructor(props) {
     //dots 是内部计算使用的属性
-    super({ dots: [], transformedDots: [], closePath: true, ...props });
+    super({ dots: [], closePath: true, ...props });
   }
 
   /**
@@ -36,12 +37,16 @@ export default abstract class ICEDotPath extends ICEPath {
    * @overwrite
    * @returns
    */
-  public calcOriginalDimension() {
+  protected calcComponentParams() {
+    if (!this.dirty) {
+      return { width: this.state.width, height: this.state.height };
+    }
+
     //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
     this.calcDots();
     let points = this.calc4VertexPoints();
-    let width = Math.abs(points[1].x - points[0].x); //maxX-minX
-    let height = Math.abs(points[2].y - points[0].y); //maxY-minY
+    let width = Math.abs(points[1][0] - points[0][0]); //maxX-minX
+    let height = Math.abs(points[2][1] - points[0][1]); //maxY-minY
     this.state.width = width;
     this.state.height = height;
     return { width: this.state.width, height: this.state.height };
@@ -52,12 +57,13 @@ export default abstract class ICEDotPath extends ICEPath {
    * @overwrite
    * @returns
    */
-  protected calcLocalOrigin(): DOMPoint {
+  protected calcLocalOrigin() {
     let origin = super.calcLocalOrigin();
 
     for (let i = 0; i < this.state.dots.length; i++) {
       let dot = this.state.dots[i];
-      dot = dot.matrixTransform(new DOMMatrix([1, 0, 0, 1, -origin.x, -origin.y]));
+      //@ts-ignore
+      dot = vec2.transformMat2d([], dot, [1, 0, 0, 1, -origin[0], -origin[1]]);
       this.state.dots[i] = dot;
     }
 
@@ -69,17 +75,10 @@ export default abstract class ICEDotPath extends ICEPath {
    */
   protected createPathObject(): Path2D {
     this.path2D = new Path2D();
-    for (let i = 0; i < this.state.dots.length; i++) {
+    this.path2D.moveTo(this.state.dots[0][0], this.state.dots[0][1]);
+    for (let i = 1; i < this.state.dots.length; i++) {
       const dot = this.state.dots[i];
-      if (i === 0) {
-        this.path2D.moveTo(dot.x, dot.y);
-      } else {
-        this.path2D.lineTo(dot.x, dot.y);
-      }
-    }
-
-    if (this.state.closePath) {
-      this.path2D.closePath();
+      this.path2D.lineTo(dot[0], dot[1]);
     }
     return this.path2D;
   }
@@ -88,10 +87,10 @@ export default abstract class ICEDotPath extends ICEPath {
    * 计算路径上的关键点:
    * - 默认的坐标原点是 (0,0) 位置。
    * - 这些点没有经过 transform 矩阵变换。
-   * this.calcOriginalDimension() 会依赖此方法，在计算尺寸时还没有确定原点坐标，所以 calcDots() 方法内部不能依赖原点坐标，只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * this.calcComponentParams() 会依赖此方法，在计算尺寸时还没有确定原点坐标，所以 calcDots() 方法内部不能依赖原点坐标，只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    * @returns
    */
-  protected calcDots(): Array<DOMPoint> {
+  protected calcDots() {
     this.state.dots = [];
     return this.state.dots;
   }
@@ -102,33 +101,27 @@ export default abstract class ICEDotPath extends ICEPath {
    * - 相对于组件本地的坐标系，原点位于左上角，没有经过矩阵变换。
    * - 返回值用于计算组件的原始 width/height 。
    *
-   * @returns Array<DOMPoint>
+   * @returns
    */
-  protected calc4VertexPoints(): Array<DOMPoint> {
-    let minX = 0;
-    let minY = 0;
-    let maxX = 0;
-    let maxY = 0;
-    for (let i = 0; i < this.state.dots.length; i++) {
-      let point = this.state.dots[i];
-      if (i === 0) {
-        minX = point.x;
-        maxX = point.x;
-        minY = point.y;
-        maxY = point.y;
-      } else {
-        if (point.x < minX) {
-          minX = point.x;
-        }
-        if (point.x > maxX) {
-          maxX = point.x;
-        }
-        if (point.y < minY) {
-          minY = point.y;
-        }
-        if (point.y > maxY) {
-          maxY = point.y;
-        }
+  protected calc4VertexPoints() {
+    let minX = this.state.dots[0][0];
+    let minY = this.state.dots[0][1];
+    let maxX = this.state.dots[0][0];
+    let maxY = this.state.dots[0][1];
+
+    for (let i = 1; i < this.state.dots.length; i++) {
+      let dot = this.state.dots[i];
+      if (dot[0] < minX) {
+        minX = dot[0];
+      }
+      if (dot[0] > maxX) {
+        maxX = dot[0];
+      }
+      if (dot[1] < minY) {
+        minY = dot[1];
+      }
+      if (dot[1] > maxY) {
+        maxY = dot[1];
       }
     }
 
@@ -144,20 +137,24 @@ export default abstract class ICEDotPath extends ICEPath {
     //bottom-right point
     const x4 = maxX;
     const y4 = maxY;
-
-    return [new DOMPoint(x1, y1), new DOMPoint(x2, y2), new DOMPoint(x3, y3), new DOMPoint(x4, y4)];
+    return [
+      [x1, y1],
+      [x2, y2],
+      [x3, y3],
+      [x4, y4],
+    ];
   }
 
-  protected applyTransformToCtx(): void {
-    super.applyTransformToCtx();
-
+  protected getTransformedDots() {
     const matrix = this.state.composedMatrix;
     const dots = this.state.dots;
-    this.state.transformedDots = [];
+    const result = [];
     for (let i = 0; i < dots.length; i++) {
       const dot = dots[i];
-      const point = DOMPoint.fromPoint(dot).matrixTransform(matrix);
-      this.state.transformedDots.push(point);
+      //@ts-ignore
+      const point = vec2.transformMat2d([], dot, matrix);
+      result.push(point);
     }
+    return result;
   }
 }

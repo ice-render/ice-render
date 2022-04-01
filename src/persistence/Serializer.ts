@@ -5,8 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import ICEControlPanel from '../actions/ICEControlPanel';
-import ICEBaseComponent from '../graphic/ICEBaseComponent';
 import ICE from '../ICE';
 
 /**
@@ -27,7 +25,7 @@ export default class Serializer {
    * 把对象序列化成 JSON 字符串：
    * - 容器型组件需要负责子节点的序列化操作
    * - 如果组件不需要序列化，需要返回 null
-   * @returns JSONObject
+   * @returns Object
    */
   public toJSON(): string {
     let result = {
@@ -35,16 +33,29 @@ export default class Serializer {
       lastModifyTime: new Date().toLocaleString(),
       childNodes: [],
     };
-    this.ice.childNodes.forEach((child: ICEBaseComponent) => {
-      if (child instanceof ICEControlPanel) {
-        console.warn('控制手柄类型的组件不需要存储...', child);
-        return;
-      }
-      if (child.toJSON()) {
-        result.childNodes.push(child.toJSON());
-      }
-    });
+
+    for (let i = 0; i < this.ice.childNodes.length; i++) {
+      const child = this.ice.childNodes[i];
+      this.encodeRecursively(child, result);
+    }
     console.log(result);
     return JSON.stringify(result);
+  }
+
+  //递归序列化
+  private encodeRecursively(component, parentData) {
+    let currentData = {
+      state: component.state,
+      type: component.constructor.name,
+      childNodes: [],
+    };
+
+    parentData.childNodes.push(currentData);
+
+    if (component.childNodes && component.childNodes.length) {
+      for (let i = 0; i < component.childNodes.length; i++) {
+        this.encodeRecursively(component.childNodes[i], currentData);
+      }
+    }
   }
 }

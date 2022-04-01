@@ -6,58 +6,57 @@
  *
  */
 import isString from 'lodash/isString';
-import pkg from '../package.json';
-import DDManager from './actions/DDManager';
-import ICEControlPanelManager from './actions/ICEControlPanelManager';
 import AnimationManager from './animation/AnimationManager';
-import FrameManager from './animation/FrameManager';
+import componentTypeMap from './consts/COMPONENT_TYPE_MAPPING';
+import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';
+import DDManager from './control-panel/DDManager';
+import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
 import root from './cross-platform/root.js';
-import DOMEventBridge from './event/DOMEventBridge';
+import DOMEventDispatcher from './event/DOMEventDispatcher';
+import DOMEventInterceptor from './event/DOMEventInterceptor.js';
 import EventBus from './event/EventBus';
-import MouseEventInterceptor from './event/MouseEventInterceptor.js';
-import ICEBaseComponent from './graphic/ICEBaseComponent';
-import ICELinkSlotManager from './graphic/linkable/ICELinkSlotManager';
-import { ICE_CONSTS } from './ICE_CONSTS';
+import FrameManager from './FrameManager';
+import ICEComponent from './graphic/ICEComponent';
+import ICELinkSlotManager from './graphic/link/ICELinkSlotManager';
 import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
 import CanvasRenderer from './renderer/CanvasRenderer';
+import ImageCache from './util/ImageCache';
 
 /**
  * @class ICE
  *
  * ICE: Interactive Canvas Engine ， 交互式 canvas 渲染引擎。
  *
- * 同一个 &lt;canvas&gt; 标签上只能初始化一个 ICE 实例。
+ * - ICE 是整个引擎的主入口类。
+ * - 同一个 &lt;canvas&gt; 标签上只能初始化一个 ICE 实例。
  *
- * FIXME:使用 TS 的 namespance 机制进行改造
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICE {
-  public version = pkg.version;
-  //所有直接添加到 canvas 的对象都在此结构中
-  public childNodes = [];
-  //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
-  public evtBus: EventBus;
-  //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
-  public root;
-  //&lt;canvas&gt; tag
-  public canvasEl;
-  //CanvasRenderingContext2D, @see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D
-  public ctx;
+  public childNodes = []; //根节点
+  public toolNodes = []; //工具组件，如变换工具，这些组件不会被序列化，并且在整个生命周期中不会被删除。
+  public evtBus: EventBus; //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
+  public root; //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
+  public canvasEl; // canvas 标签元素
+  public ctx; //CanvasRenderingContext2D, @see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D
   public canvasWidth: number = 0;
   public canvasHeight: number = 0;
   public canvasBoundingClientRect;
-  //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
-  public selectionList: Array<any> = [];
+  public selectionList: Array<any> = []; //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
+  public typeMapping = {}; //类型名称与构造函数之间的映射关系，在序列化和反序列化时需要根据此 mapping 来创建对应的类型的示例。
 
   public renderer: any;
   public animationManager: AnimationManager;
-  public eventBridge: DOMEventBridge;
+  public eventDispatcher: DOMEventDispatcher;
   public ddManager: DDManager;
   public controlPanelManager: ICEControlPanelManager;
   public linkSlotManager: ICELinkSlotManager;
   public serializer: Serializer;
   public deserializer: Deserializer;
+  public imageCache: ImageCache;
+
+  private __dirty: boolean = true; //如果此标志位为 true ，所有组件都会全部被重新绘制
 
   constructor() {}
 
@@ -71,6 +70,11 @@ class ICE {
     if (this.ctx === ctx) {
       //FIXME:
       throw new Error('同一个 canvas 实例只能 init 一次...');
+    }
+
+    //把内置的类型映射拷贝到 typeMapping 上
+    for (let p in componentTypeMap) {
+      this.typeMapping[p] = componentTypeMap[p];
     }
 
     this.root = root;
@@ -96,18 +100,54 @@ class ICE {
     FrameManager.regitserEvtBus(this.evtBus);
     FrameManager.start();
 
-    MouseEventInterceptor.regitserEvtBus(this.evtBus);
-    MouseEventInterceptor.start();
+    DOMEventInterceptor.regitserEvtBus(this.evtBus);
+    DOMEventInterceptor.start();
+    this.eventDispatcher = new DOMEventDispatcher(this).start();
     this.animationManager = new AnimationManager(this).start();
-    this.eventBridge = new DOMEventBridge(this).start();
     this.ddManager = new DDManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
     this.linkSlotManager = new ICELinkSlotManager(this).start(); //linkSlotManager 内部会监听 renderer 上的事件，所以 linkSlotManager 需要在 renderer 后面实例化。
     this.serializer = new Serializer(this);
     this.deserializer = new Deserializer(this);
+    this.imageCache = new ImageCache(this);
 
     return this;
+  }
+
+  /**
+   * @method addChild
+   * 添加交互工具组件。
+   * 工具组件不触发事件，不产生动画效果。
+   * @param {ICEComponent} tool
+   */
+  public addTool(tool: ICEComponent) {
+    if (this.childNodes.indexOf(tool) !== -1) return;
+
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD, null, { component: tool });
+    tool.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
+
+    tool.ice = this;
+    tool.ctx = this.ctx;
+    tool.evtBus = this.evtBus;
+    this.toolNodes.push(tool);
+    this.dirty = true;
+
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: tool });
+    tool.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
+  }
+
+  /**
+   * @methos removeTool
+   * 删除交互工具组件。
+   * 工具组件不触发事件，不产生动画效果。
+   * @param tool
+   */
+  public removeTool(tool: ICEComponent) {
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: tool });
+    tool.destory();
+    this.toolNodes.splice(this.toolNodes.indexOf(tool), 1);
+    this.dirty = true;
   }
 
   /**
@@ -117,75 +157,128 @@ class ICE {
    *
    * @param component
    */
-  public addChild(component) {
+  public addChild(component, markDirty: boolean = true) {
     if (this.childNodes.indexOf(component) !== -1) return;
 
-    component.trigger(ICE_CONSTS.BEFORE_ADD);
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD, null, { component: component });
+    component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
 
     component.ice = this;
-    component.root = this.root;
     component.ctx = this.ctx;
     component.evtBus = this.evtBus;
-
+    component.parentNode = null;
     this.childNodes.push(component);
-
     if (Object.keys(component.props.animations).length) {
       this.animationManager.add(component);
     }
 
-    component.trigger(ICE_CONSTS.AFTER_ADD);
+    this.dirty = markDirty;
+
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: component });
+    component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
   }
 
-  public addChildren(arr: Array<ICEBaseComponent>): void {
-    arr.forEach((child) => {
-      this.addChild(child);
-    });
+  public addChildren(arr: Array<ICEComponent>): void {
+    for (let i = 0; i < arr.length; i++) {
+      this.addChild(arr[i], false);
+    }
+    this.dirty = true;
   }
 
-  public removeChild(component) {
-    component.trigger(ICE_CONSTS.BEFORE_REMOVE);
-
-    component.ice = null;
-    component.ctx = null;
-    component.root = null;
-    component.evtBus = null;
-
+  public removeChild(component: ICEComponent, markDirty: boolean = true) {
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: component });
+    component.destory();
     this.childNodes.splice(this.childNodes.indexOf(component), 1);
-
-    //FIXME:如果被移除的是容器型组件，先移除并清理其子节点，然后再移除容器自身
-    //FIXME:立即停止组件上的所有动画效果
-    //FIXME:清理所有事件监听，然后再从结构中删除
-
-    component.trigger(ICE_CONSTS.AFTER_REMOVE);
+    this.dirty = markDirty;
   }
 
-  public removeChildren(arr: Array<ICEBaseComponent>): void {
-    arr.forEach((child) => {
-      this.removeChild(child);
-    });
+  public removeChildren(arr: Array<ICEComponent>): void {
+    for (let i = 0; i < arr.length; i++) {
+      this.removeChild(arr[i], false);
+    }
+    this.dirty = true;
   }
 
-  public clearRenderMap() {
-    this.removeChildren(this.childNodes);
+  public clearAll() {
+    this.removeChildren([...this.childNodes]);
+  }
+
+  public findComponent(id: string) {
+    return this.childNodes.filter((item) => item.props.id === id)[0];
+  }
+
+  protected _lastUpdateTime = Date.now();
+
+  public set dirty(flag: boolean) {
+    this.__dirty = flag;
+  }
+
+  public get dirty() {
+    return this.__dirty;
+  }
+
+  /**
+   * @method registerType 注册组件类型
+   *
+   * - 需要在反序列化之前调用，否则无法反序列化。
+   * - ICE 内置的类型已经自动注册，不需要手动注册。
+   *
+   * @param className
+   * @param Clazz
+   */
+  public registerType(className: string, Clazz: Function) {
+    this.typeMapping[className] = Clazz;
+  }
+
+  /**
+   * @method getType 获取组件构造函数
+   * @param className
+   * @returns
+   */
+  public getType(className: string) {
+    return this.typeMapping[className];
   }
 
   /**
    * 把对象序列化成 JSON 字符串：
    * - 容器型组件需要负责子节点的序列化操作
    * - 如果组件不需要序列化，需要返回 null
-   * @returns JSONObject
+   * @returns Object
    */
   public toJSON(): string {
-    //FIXME:在序列化时，用来操控的组件不需要存储。
     return this.serializer.toJSON();
   }
 
-  public fromJSON(jsonStr: string): object {
-    return this.deserializer.fromJSON(jsonStr);
-  }
+  public fromJSON(jsonStr: string) {
+    let startTime = Date.now();
 
-  //FIXME:实现销毁 ICE 实例的过程
-  public destory(): void {}
+    //先停止关键的管理器
+    FrameManager.stop();
+    this.renderer.stop();
+    this.eventDispatcher.stopped = true;
+    this.animationManager.stop();
+    this.ddManager.stop();
+    this.controlPanelManager.stop();
+    this.linkSlotManager.stop();
+
+    this.clearAll();
+    //反序列化，创建组件实例
+    this.deserializer.fromJSON(jsonStr);
+
+    //重新启动关键管理器
+    FrameManager.start();
+    this.renderer.start();
+    this.animationManager.start();
+    this.ddManager.start();
+    this.controlPanelManager.start();
+    this.linkSlotManager.start();
+    setTimeout(() => {
+      this.eventDispatcher.stopped = false;
+    }, 300);
+
+    let endTime = Date.now();
+    console.log(`fromJSON> ${endTime - startTime} ms`);
+  }
 }
 
 export default ICE;

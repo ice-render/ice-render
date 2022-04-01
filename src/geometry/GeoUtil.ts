@@ -5,43 +5,10 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import round from 'lodash/round';
-import ICEBaseComponent from '../graphic/ICEBaseComponent';
 
 export default class GeoUtil {
   constructor() {
     throw new Error('GeoUtil is a static util class.');
-  }
-
-  /**
-   * 判断一个坐标点是否包含在图元内部。
-   * @param component
-   * @param point
-   * @returns
-   */
-  public static containsPoint(component: ICEBaseComponent, point: any): boolean {
-    return false;
-  }
-
-  /**
-   * 判断两个图元是否相交。
-   * @param a 第一个图元
-   * @param b 第二个图元
-   * @returns
-   */
-  public static isIntersect(a: ICEBaseComponent, b: ICEBaseComponent): boolean {
-    return false;
-  }
-
-  /**
-   * 已知两点坐标，求线段长度。
-   * @param x1
-   * @param y1
-   * @param x2
-   * @param y2
-   */
-  public static getLength(x1, y1, x2, y2): number {
-    return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
   }
 
   /**
@@ -59,10 +26,11 @@ export default class GeoUtil {
    * @returns
    */
   public static calcRotateAngle(x, y, originX, originY): number {
-    let offsetX = x - originX;
-    let offsetY = y - originY;
-    let cos = offsetX / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-    let sin = offsetY / Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+    let deltaX = x - originX;
+    let deltaY = y - originY;
+    const temp = Math.hypot(deltaX, deltaY);
+    let cos = deltaX / temp;
+    let sin = deltaY / temp;
 
     //Math.acos 的返回值处于 [0,PI] 之间，根据 sin 的正负号进行判断之后， rotateAngle 处于 [-180,180] 度之间
     //先加 360 度，保证 rotateAngle 为正值，再对 360 取模，最终让 rotateAngle 的返回值始终处于 [0,360] 度之间
@@ -73,35 +41,36 @@ export default class GeoUtil {
   }
 
   /**
-   * 2D 向量叉乘。
-   *
-   * 两个点需要处于同一个坐标系中。
-   *
-   * @param x1
-   * @param y1
-   * @param x2
-   * @param y2
-   * @returns
+   * 从变换矩阵计算旋转角度。
+   * @param matrix
+   * @returns 角度
    */
-  public static crossProduct(x1, y1, x2, y2): number {
-    //FIXME:需要确认计算公式是否正确
-    let result = x1 * y2 - x2 * y1;
-    return round(result, 2);
+  public static calcRotateAngleFromMatrix(matrix): number {
+    let radians = 0;
+    let a = matrix[0];
+    let b = matrix[1];
+    const temp = Math.hypot(a, b);
+    let sin = b / temp;
+    let cos = a / temp;
+    radians = Math.acos(cos);
+    if (sin < 0) {
+      radians += Math.PI / 2;
+    }
+    return radians * (180 / Math.PI);
   }
 
   /**
-   * 2D 向量点乘。
-   *
-   * 两个点需要处于同一个坐标系中。
-   *
-   * @param x1
-   * @param y1
-   * @param x2
-   * @param y2
-   * @returns
+   * 从变换矩阵计算缩放参数。
+   * @param matrix
+   * @returns 缩放数组
    */
-  public static dotProduct(x1, y1, x2, y2): number {
-    let result = x1 * x2 + y1 * y2;
-    return round(result, 2);
+  public static calcScaleFromMatrix(matrix): Array<number> {
+    let a = matrix[0];
+    let b = matrix[1];
+    let c = matrix[2];
+    let d = matrix[3];
+    const scaleX = Math.hypot(a, b) / a;
+    const scaleY = Math.hypot(c, d) / d;
+    return [scaleX, scaleY];
   }
 }

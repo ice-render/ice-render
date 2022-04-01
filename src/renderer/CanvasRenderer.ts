@@ -5,76 +5,96 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../event/ICEEvent';
 import ICEEventTarget from '../event/ICEEventTarget';
-import ICEBaseComponent from '../graphic/ICEBaseComponent';
 import ICE from '../ICE';
-import { ICE_CONSTS } from '../ICE_CONSTS';
+import { flattenTree } from '../util/data-util';
 
 /**
  * @class CanvasRenderer
- * Canvas 渲染器，全局单例。
+ *
+ * Canvas 渲染器
+ *
+ * - 一个 ICE 实例上，只能有一个渲染器实例。
+ *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class CanvasRenderer extends ICEEventTarget {
   private ice: ICE;
+  private stopped: boolean = false;
+  private componentQueue = []; //等待渲染的组件队列，FIFO
+  private toolsQueue = []; //等待渲染的工具组件队列，FIFO
 
   constructor(ice: ICE) {
     super();
     this.ice = ice;
   }
 
-  private renderRecursively(component: ICEBaseComponent) {
-    this.trigger(ICE_CONSTS.BEFORE_RENDER, null, { component: component });
-    component.trigger(ICE_CONSTS.BEFORE_RENDER);
-
-    if (component.state.isRendering) {
-      return;
-    }
-    if (!component.state.display) {
-      return;
-    }
-
-    //先渲染自己
-    component.render();
-
-    //如果有子节点，递归
-    if (component.childNodes && component.childNodes.length) {
-      component.childNodes.forEach((child: ICEBaseComponent) => {
-        //子组件的 root/ctx/evtBus/ice 这4个属性总是和父组件保持一致
-        child.root = component.root;
-        child.ctx = component.ctx;
-        child.evtBus = component.evtBus;
-        child.ice = component.ice;
-        this.renderRecursively(child);
-      });
-    }
-
-    component.trigger(ICE_CONSTS.AFTER_RENDER);
-    this.trigger(ICE_CONSTS.AFTER_RENDER, null, { component: component });
-  }
-
   public start() {
-    this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, (evt: ICEEvent) => {
-      //FIXME:fix this when using increamental rendering
-      //FIXME:动画有闪烁
-      this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
-      if (!this.ice.childNodes || !this.ice.childNodes.length) return;
-
-      //根据组件的 zIndex 升序排列，保证 zIndex 大的组件在后面绘制。
-      let arr = Array.from(this.ice.childNodes);
-      arr.sort((firstEl, secondEl) => {
-        return firstEl.state.zIndex - secondEl.state.zIndex;
-      });
-      arr.forEach((component: ICEBaseComponent) => {
-        this.renderRecursively(component);
-      });
-    });
+    this.stopped = false;
+    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
     return this;
   }
 
-  public stop(): void {
-    throw new Error('Method not implemented.');
+  public stop() {
+    this.stopped = true;
+    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEvtHandler, this);
+    return this;
+  }
+
+  private frameEvtHandler(evt: ICEEvent) {
+    if (this.ice.dirty) {
+      this.doRender();
+    } else {
+      console.log('没有需要渲染的组件...');
+    }
+  }
+
+  private refreshQueue() {
+    this.componentQueue = flattenTree([], this.ice.childNodes);
+    this.componentQueue.sort((firstEl, secondEl) => {
+      return firstEl.state.zIndex - secondEl.state.zIndex;
+    });
+    console.log(`Component Queue length> ${this.componentQueue.length}`);
+
+    this.toolsQueue = flattenTree([], this.ice.toolNodes);
+    this.toolsQueue.sort((firstEl, secondEl) => {
+      return firstEl.state.zIndex - secondEl.state.zIndex;
+    });
+    console.log(`Tool Queue length> ${this.ice.toolNodes.length}`);
+  }
+
+  private doRender() {
+    const startTime = Date.now();
+
+    this.refreshQueue();
+
+    //渲染组件
+    this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
+    for (let i = 0; i < this.componentQueue.length; i++) {
+      const component = this.componentQueue[i];
+      component.root = this.ice.root;
+      component.ctx = this.ice.ctx;
+      component.evtBus = this.ice.evtBus;
+      component.ice = this.ice;
+      component.render();
+    }
+
+    //渲染工具节点
+    for (let i = 0; i < this.toolsQueue.length; i++) {
+      const tool = this.toolsQueue[i];
+      tool.root = this.ice.root;
+      tool.ctx = this.ice.ctx;
+      tool.evtBus = this.ice.evtBus;
+      tool.ice = this.ice;
+      tool.render();
+    }
+
+    //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
+    console.log(`Render time ${Date.now() - startTime} ms.`);
+    this.ice.dirty = false;
+    this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
   }
 }
 

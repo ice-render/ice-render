@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-group-nested</title>
+  <body>
+    <div>
+      <button id="btn-1">保存</button>
+      <button id="btn-2">加载</button>
+      <button id="btn-3">清除所有</button>
+      <script src="../dist/index.umd.js"></script>
+    </div>
+    <br/>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script type="text/javascript">
+        let ice = new ICE.ICE().init('canvas-1');
+
+        document.querySelector('#btn-1').addEventListener('click', (evt) => {
+          const jsonStr = ice.toJSON();
+          window.localStorage.setItem('json-data', jsonStr);
+        });
+        document.querySelector('#btn-2').addEventListener('click', (evt) => {
+          const jsonStr = window.localStorage.getItem('json-data');
+          ice.fromJSON(jsonStr);
+        });
+        document.querySelector('#btn-3').addEventListener('click', (evt) => {
+          console.log('ice.clearAll()');
+          ice.clearAll();
+        });
+
+        let g = new ICE.ICEGroup({
+          left: 100,
+          top: 100,
+          width: 300,
+          height: 200,
+          style: {
+            strokeStyle: '#fa0404',
+            fillStyle: '#beffff',
+            lineWidth: 1,
+          },
+          transform: {
+            // translate: [10, -10],
+            scale: [1.5, 1.5],
+            // skew: [50, 0],
+            rotate: 45,
+          },
+        });
+        ice.addChild(g);
+        g.setState({
+          transform: {
+            scale: [1.3, 1.3],
+          },
+        });
+
+        let group1 = new ICE.ICEGroup({
+          left: 10,
+          top: 10,
+          width: 200,
+          height: 100,
+          style: {
+            strokeStyle: '#fa0404',
+            fillStyle: '#37dd0d',
+            lineWidth: 1,
+          },
+          transform: {
+            // translate: [10, -10],
+            // scale: [1, 1],
+            rotate: 0,
+          },
+        });
+        g.addChild(group1);
+
+        let group2 = new ICE.ICEGroup({
+          left: 10,
+          top: 10,
+          width: 100,
+          height: 50,
+          style: {
+            strokeStyle: '#fa0404',
+            fillStyle: '#08b2dd',
+            lineWidth: 1,
+          },
+          transform: {
+            // translate: [10, -10],
+            // scale: [1, 1],
+            rotate: 10,
+          },
+        });
+        group1.addChild(group2);
+
+        group2.addChild(
+          new ICE.ICECircle({
+            left: 20,
+            top: 10,
+            radius: 10,
+            transform: {
+              rotate: 45,
+            },
+          })
+        );
+
+        group2.addChild(
+          new ICE.ICERect({
+            left: 60,
+            top: 10,
+            width: 30,
+            height: 20,
+            transform: {
+              rotate: 0,
+            },
+          })
+        );
+
+  </script>
+</html>

@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import componentTypeMap from '../COMPONENT_TYPE_MAPPING';
 import ICE from '../ICE';
 
 /**
@@ -23,24 +22,25 @@ export default class Deserializer {
   }
 
   public fromJSON(jsonStr: string) {
-    console.log(componentTypeMap);
-    console.log(jsonStr);
     const jsonObj = JSON.parse(jsonStr);
-    console.log(jsonObj);
     const childNodes = jsonObj.childNodes;
     for (let i = 0; i < childNodes.length; i++) {
-      const node = childNodes[i];
-      const Clazz = componentTypeMap[node.type];
-      console.log('Clazz>', Clazz);
-      const props = node.props;
-      const state = node.state;
-      const instance = new Clazz(props);
-      console.log('instance>', instance);
-      // instance.setState(state);
-      this.ice.clearRenderMap();
-      // this.ice.addChild(instance);
-      // console.log('instance>', instance);
+      this.decodeRecursively(this.ice, childNodes[i]);
     }
-    return {};
+  }
+
+  //递归
+  private decodeRecursively(parentNode, nodeData) {
+    const Clazz = this.ice.getType(nodeData.type);
+    const state = nodeData.state;
+    const instance = new Clazz(state);
+    parentNode.addChild(instance);
+
+    let childNodes = nodeData.childNodes;
+    if (childNodes && childNodes.length) {
+      for (let i = 0; i < childNodes.length; i++) {
+        this.decodeRecursively(instance, childNodes[i]);
+      }
+    }
   }
 }

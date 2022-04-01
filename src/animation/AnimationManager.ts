@@ -7,10 +7,10 @@
  */
 import isString from 'lodash/isString';
 import isUndefined from 'lodash/isUndefined';
+import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../event/ICEEvent';
-import ICEBaseComponent from '../graphic/ICEBaseComponent';
+import ICEComponent from '../graphic/ICEComponent';
 import ICE from '../ICE';
-import { ICE_CONSTS } from '../ICE_CONSTS';
 import Easing from './Easing';
 
 /**
@@ -32,21 +32,30 @@ class AnimationManager {
     this.ice = ice;
   }
 
-  start() {
-    this.ice.evtBus.on(ICE_CONSTS.ICE_FRAME_EVENT, (evt: ICEEvent) => {
-      this.animationMap.forEach((el: ICEBaseComponent) => {
-        //在动画过程中，对象不响应鼠标或者触摸交互，防止影响属性值的计算。
-        el.state.interactive = false;
-        this.tween(el);
-        el.state.interactive = true;
-      });
-    });
+  public start() {
+    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
     return this;
+  }
+
+  public stop() {
+    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
+    return this;
+  }
+
+  private frameEventHandler(evt: ICEEvent) {
+    let arr = [...this.animationMap.values()];
+    for (let i = 0; i < arr.length; i++) {
+      let el = arr[i];
+      //在动画过程中，对象不响应所有交互事件，防止影响属性值的计算。
+      el.state.interactive = false;
+      this.tween(el);
+      el.state.interactive = true;
+    }
   }
 
   //TODO:处理无限循环播放的情况，处理播放次数的情况
   //TODO:每一个属性变化的持续时间不同，需要做同步处理，所有动画都执行完毕之后，需要把对象从动画列表中删除
-  tween(el: ICEBaseComponent) {
+  private tween(el: ICEComponent) {
     let newState: any = {};
     let animations = el.props.animations;
     let finishCounter = 1;
@@ -83,20 +92,17 @@ class AnimationManager {
     return el;
   }
 
-  add(component: ICEBaseComponent) {
+  public add(component: ICEComponent) {
     this.animationMap.set(component.props.id, component);
   }
 
-  remove(el: any) {
+  public remove(el: any) {
     if (isString(el)) {
       this.animationMap.delete(el);
     } else {
       this.animationMap.delete(el.props.id);
     }
   }
-
-  //FIXME:
-  stop() {}
 }
 
 export default AnimationManager;

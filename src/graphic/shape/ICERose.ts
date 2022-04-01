@@ -1,5 +1,3 @@
-import ICEPath from '../ICEPath';
-
 /**
  * Copyright (c) 2022 大漠穷秋.
  *
@@ -7,56 +5,95 @@ import ICEPath from '../ICEPath';
  * LICENSE file in the root directory of this source tree.
  *
  */
+import isNil from 'lodash/isNil';
+import ICEDotPath from '../ICEDotPath';
 
-const sin = Math.sin;
-const cos = Math.cos;
-const radian = Math.PI / 180;
-
-class ICERose extends ICEPath {
-  /**
-   * @required
-   * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-   */
-  public static type: string = 'ICERose';
-
+class ICERose extends ICEDotPath {
   constructor(props: any = {}) {
-    super({ r: [10], n: 1, k: 0, ...props });
+    let param = {
+      radius: 50,
+      leafNum: 2,
+      pointNumber: 100,
+      ...props,
+    };
+    param.leafNum = Math.floor(param.leafNum >= 2 ? param.leafNum : 2);
+    param.width = param.radius * 2;
+    param.height = param.radius * 2;
+    super(param);
   }
 
-  protected createPathObject(): Path2D {
-    this.path2D = new Path2D();
-    const R = this.state.r;
-    const k = this.state.k;
-    const n = this.state.n;
-    const x0 = this.state.localOrigin.x;
-    const y0 = this.state.localOrigin.y;
-    let x;
-    let y;
-    let r;
+  /**
+   * @overwrite
+   * @method calcDots
+   *
+   * 计算路径上的关键点:
+   * - 默认的坐标原点是 (0,0) 位置。
+   * - 这些点没有经过 transform 矩阵变换。
+   *
+   * @returns
+   */
+  protected calcDots() {
+    const radius = this.state.radius;
+    const leafNum = this.state.leafNum;
+    this.state.dots = [];
+    let deltaAngle = Math.PI / this.state.pointNumber;
+    let x = 0;
+    let y = 0;
+    let angle = 0;
 
-    this.path2D.moveTo(x0, y0);
-    for (let i = 0, len = R.length; i < len; i++) {
-      r = R[i];
-      for (let j = 0; j <= 360 * n; j++) {
-        x = r * sin((((k / n) * j) % 360) * radian) * cos(j * radian) + x0;
-        y = r * sin((((k / n) * j) % 360) * radian) * sin(j * radian) + y0;
-        this.path2D.lineTo(x, y);
+    while (true) {
+      x = radius + radius * Math.sin(leafNum * angle) * Math.cos(angle);
+      y = radius + radius * Math.sin(leafNum * angle) * Math.sin(angle);
+      this.state.dots.push([x, y]);
+      angle = angle + deltaAngle;
+      if (angle >= 2 * Math.PI) {
+        break;
       }
     }
-
-    this.path2D.closePath();
-    return this.path2D;
+    return this.state.dots;
   }
 
   /**
-   * 把对象序列化成 JSON 字符串：
-   * - 容器型组件需要负责子节点的序列化操作
-   * - 如果组件不需要序列化，需要返回 null
-   * @returns JSONObject
+   * @overwrite
+   * @method calcComponentParams
+   * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
+   * 由于点状路径可能是不规则的形状，所以宽高需要手动计算，特殊形状的子类需要覆盖此方法提供自己的实现。
+   * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * @returns
    */
-  public toJSON(): object {
-    let result = { ...super.toJSON(), type: ICERose.type };
-    return result;
+  protected calcComponentParams() {
+    if (!this.dirty) {
+      return { width: this.state.width, height: this.state.height };
+    }
+
+    //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
+    this.calcDots();
+    this.state.width = this.state.radius * 2;
+    this.state.height = this.state.radius * 2;
+    return { width: this.state.width, height: this.state.height };
+  }
+
+  /**
+   * @overwrite
+   * @method setState
+   * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
+   *
+   * - 如果 setState 时指定了 radius 参数，则 width 会被重新计算，如果指定了 radius 参数则 height 会被重新计算。
+   * - 如果 setState 时仅仅指定 width 参数，则 radius 会被重新计算，如果仅仅指定了 height 参数，则 radius 会被重新计算。
+   * @param newState
+   */
+  public setState(newState: any) {
+    if (!isNil(newState.radius)) {
+      newState.width = 2 * newState.radius;
+      newState.height = 2 * newState.radius;
+    } else if (!isNil(newState.width)) {
+      newState.radius = newState.width / 2;
+      newState.height = newState.width;
+    } else if (!isNil(newState.height)) {
+      newState.radius = newState.height / 2;
+      newState.width = newState.height;
+    }
+    super.setState(newState);
   }
 }
 

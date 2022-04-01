@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import isEmpty from 'lodash/isEmpty';
 import root from '../cross-platform/root.js';
 import ICEEvent from './ICEEvent';
 
@@ -51,7 +52,14 @@ abstract class ICEEventTarget {
 
   constructor() {}
 
-  on(eventName: string, fn: Function, scope: any = root) {
+  /**
+   * @method on
+   * 添加事件监听
+   * @param eventName
+   * @param fn
+   * @param scope
+   */
+  public on(eventName: string, fn: Function, scope: any = root) {
     if (!this.listeners[eventName]) {
       this.listeners[eventName] = [];
     }
@@ -59,9 +67,18 @@ abstract class ICEEventTarget {
     this.listeners[eventName].push({ callback: fn, scope: scope });
   }
 
-  off(eventName: string, fn: Function, scope: any = root) {
+  /**
+   * @method off
+   * 删除事件监听
+   * @param eventName
+   * @param fn
+   * @param scope
+   * @returns
+   */
+  public off(eventName: string, fn: Function, scope: any = root) {
     let arr = this.listeners[eventName];
     if (!arr) return;
+    arr = [...arr];
     for (let i = 0; i < arr.length; i++) {
       let item = arr[i];
       if (item.callback === fn && item.scope === scope) {
@@ -72,66 +89,100 @@ abstract class ICEEventTarget {
   }
 
   /**
-   * FIXME:有 bug ，需要重新实现
-   * 一次性回调，调用一次就自动删除。
+   * @method once
+   * 一次性事件，触发一次就自动删除自己。
    * @param eventName
    * @param fn
    */
-  once(eventName: string, fn: Function, scope: any = root) {
+  public once(eventName: string, fn: Function, scope: any = root) {
+    const that = this;
+
     function callback(evt: ICEEvent) {
-      this.off(eventName, callback, scope);
+      that.off(eventName, callback, scope);
       fn.call(scope, evt);
     }
 
-    this.on(eventName, callback, scope);
+    that.on(eventName, callback, scope);
   }
 
-  trigger(eventName: string, originalEvent: any = null, param = {}) {
-    if (!this.listeners[eventName]) return false;
+  /**
+   * @method dispatchEvent
+   *
+   * 触发事件。
+   *
+   * 所有事件都会被转换成 ICEEvent 实例。
+   *
+   * @param eventName
+   * @param originalEvent
+   * @param param
+   * @returns
+   */
+  public trigger(eventName: string, originalEvent: any = null, param = {}) {
+    if (isEmpty(this.listeners[eventName])) return false;
     if (this.suspendedEventNames.includes(eventName)) return false;
 
-    //DOM 事件和代码触发的事件都会被转换成 ICEEvent
-    //FIXME:这里需要判断传递了 originalEvent 且类型为 ICEEvent 的情况。
     let iceEvent: ICEEvent;
     if (originalEvent) {
       iceEvent = new ICEEvent(originalEvent);
-      iceEvent.originalEvent = originalEvent;
+      iceEvent.originalEvent = originalEvent.originalEvent ? originalEvent.originalEvent : originalEvent;
       iceEvent.param = { ...param };
     } else {
       iceEvent = new ICEEvent({
         type: eventName,
-        timeStamp: new Date().getTime(),
+        timeStamp: Date.now(),
         param: { ...param },
       });
     }
 
-    this.listeners[eventName].forEach((item: any) => {
-      let fn = item.callback;
-      let scope = item.scope;
-      fn.call(scope, iceEvent);
-    });
+    let arr = this.listeners[eventName];
+    for (let i = 0; i < arr.length; i++) {
+      let item = arr[i];
+      item.callback.call(item.scope, iceEvent);
+    }
     return true;
   }
 
-  suspend(eventName: string) {
+  /**
+   * @method suspend
+   * 挂起事件。
+   * @param eventName
+   */
+  public suspend(eventName: string) {
     if (eventName && !this.suspendedEventNames.includes(eventName)) {
       this.suspendedEventNames.push(eventName);
     }
   }
 
-  resume(eventName: string) {
+  /**
+   * @method resume
+   * 恢复事件。
+   * @param eventName
+   */
+  public resume(eventName: string) {
     this.suspendedEventNames.splice(
       this.suspendedEventNames.findIndex((el) => el === eventName),
       1
     );
   }
 
-  purgeEvents() {
+  /**
+   * @method purgeEvents
+   * 清除所有事件。
+   */
+  public purgeEvents() {
     this.listeners = {};
     this.suspendedEventNames = [];
   }
 
-  hasListener(eventName: string, fn: Function, scope: any = root): boolean {
+  /**
+   * @method hasListener
+   * 查询是否带有某个事件监听器。
+   * @param eventName
+   * @param fn
+   * @param scope
+   * @returns
+   */
+  public hasListener(eventName: string, fn: Function, scope: any = root): boolean {
     if (!this.listeners[eventName]) {
       return false;
     }
@@ -148,8 +199,11 @@ abstract class ICEEventTarget {
 }
 
 //增加别名，模拟 W3C 的 EventTarget 接口
+//@ts-ignore
 ICEEventTarget.prototype.addEventListener = ICEEventTarget.prototype.on;
+//@ts-ignore
 ICEEventTarget.prototype.removeEventListener = ICEEventTarget.prototype.off;
+//@ts-ignore
 ICEEventTarget.prototype.dispatchEvent = ICEEventTarget.prototype.trigger;
 
 export default ICEEventTarget;
