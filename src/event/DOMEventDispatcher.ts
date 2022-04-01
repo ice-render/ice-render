@@ -5,19 +5,21 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import mouseEvents from '../consts/MOUSE_EVENT_MAPPING_CONSTS';
+import { keyboardEvents, mouseEvents } from '../consts/DOM_EVENT_MAPPING_CONSTS';
 import ICE from '../ICE';
 import { flattenTree } from '../util/data-util';
 import ICEEvent from './ICEEvent';
 
 /**
- * @class DOMEventBridge
+ * @class DOMEventDispatcher
  *
- * 事件桥接器，把原生 DOM 事件转发给 canvas 内部的组件。
+ * - DOM 事件转发器，监听事件总线上的事件，转发给 canvas 内部指定的组件。
+ * - 原生的鼠标和键盘事件都通过此工具类进行转发。
  *
+ * @see {DOMEventInterceptor}
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-class DOMEventBridge {
+class DOMEventDispatcher {
   private selectionCandidates: Array<any> = [];
   private ice: ICE;
   private _stopped: boolean = false;
@@ -28,9 +30,9 @@ class DOMEventBridge {
 
   start() {
     let componentCache = null; //缓存上次被点击的组件
-
-    for (let i = 0; i < mouseEvents.length; i++) {
-      const evtMapping = mouseEvents[i];
+    let domEvts = [...mouseEvents, ...keyboardEvents]; //鼠标事件和键盘事件合并在一起处理
+    for (let i = 0; i < domEvts.length; i++) {
+      const evtMapping = domEvts[i];
       const iceEvtName = evtMapping[1];
       const originEvtName = evtMapping[0];
       this.ice.evtBus.on(iceEvtName, (evt: ICEEvent) => {
@@ -38,8 +40,9 @@ class DOMEventBridge {
           return;
         }
 
-        //! mousemove 事件的触发频率非常高，对于 mousemove 事件不执行 findTargetComponent() 操作
-        if (iceEvtName !== 'ICE_MOUSEMOVE') {
+        //! mousemove 事件的触发频率非常高，对于 mousemove 事件不执行 findTargetComponent() 操作。
+        //! 键盘事件不需要执行 findTargetComponent() 操作，必须先选中一个组件，再把键盘事件派发给它才有意义。
+        if (iceEvtName !== 'ICE_MOUSEMOVE' && iceEvtName.indexOf('KEY') === -1) {
           componentCache = this.findTargetComponent(evt);
         }
 
@@ -47,10 +50,9 @@ class DOMEventBridge {
           evt.target = componentCache;
           componentCache.trigger(originEvtName, evt);
         }
-        this.ice.evtBus.trigger(originEvtName, evt); //this.ice.evtBus 本身一定会触发一次事件。
+        this.ice.evtBus.trigger(originEvtName, evt); //this.ice.evtBus 本身一定会触发一次鼠标和键盘事件。
       });
     }
-
     return this;
   }
 
@@ -99,4 +101,4 @@ class DOMEventBridge {
   }
 }
 
-export default DOMEventBridge;
+export default DOMEventDispatcher;

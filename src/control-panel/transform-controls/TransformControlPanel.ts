@@ -157,6 +157,8 @@ export default class TransformControlPanel extends ICEControlPanel {
     super.initEvents();
     this.on(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.resizeEvtHandler, this);
     this.on(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, this.rotateEvtHandler, this);
+    this.on('keydown', this.keyboardEvtHandler, this);
+    this.on('keyup', this.keyboardEvtHandler, this);
   }
 
   public enable() {
@@ -168,6 +170,8 @@ export default class TransformControlPanel extends ICEControlPanel {
     this.setState({ display: true });
     this.resume(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
     this.resume(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE);
+    this.resume('keydown');
+    this.resume('keyup');
   }
 
   public disable() {
@@ -179,61 +183,28 @@ export default class TransformControlPanel extends ICEControlPanel {
     this.setState({ display: false });
     this.suspend(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
     this.suspend(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE);
+    this.suspend('keydown');
+    this.suspend('keyup');
   }
 
-  protected setControlPositions() {
-    //重新计算所有 ResizeControl 的位置，共8个
-    let width = this.state.width;
-    let height = this.state.height;
-    let halfWidth = width / 2;
-    let halfHeight = height / 2;
-    let halfControlSize = this.resizeControlSize / 2;
-
-    for (let i = 0; i < this.resizeControlInstanceCache.length; i++) {
-      const resizeControl = this.resizeControlInstanceCache[i];
-      let quadrant = resizeControl.state.quadrant;
-      let point = [0, 0];
-      switch (quadrant) {
-        case 1:
-          point = [width - halfControlSize, -halfControlSize];
-          break;
-        case 2:
-          point = [-halfControlSize, -halfControlSize];
-          break;
-        case 3:
-          point = [-halfControlSize, height - halfControlSize];
-          break;
-        case 4:
-          point = [width - halfControlSize, height - halfControlSize];
-          break;
-        case 5:
-          point = [halfWidth - halfControlSize, -halfControlSize];
-          break;
-        case 6:
-          point = [halfWidth - halfControlSize, height - halfControlSize];
-          break;
-        case 7:
-          point = [-halfControlSize, halfHeight - halfControlSize];
-          break;
-        case 8:
-          point = [width - halfControlSize, halfHeight - halfControlSize];
-          break;
-        default:
-          break;
-      }
-      resizeControl.setState({
-        left: point[0],
-        top: point[1],
-      });
+  /**
+   * @overwrite
+   * @method keyboardEvtHandler 键盘事件处理
+   * !ICEControlPanel 的 zIndex 总是大于其它组件，当 ICEControlPanel 显示时，总是会优先判定为被选中的组件，会导致对应的 _targetComponent 收不到鼠标和键盘事件，所以 ICEControlPanel 的实现类需要自己考虑是否需要进行事件转发。
+   * !如果当前的 targetComponent 不为空，转发键盘事件。
+   * @see {ICEControlPanel}
+   * @see {ICEComponent}
+   * @param evt
+   * @returns
+   */
+  protected keyboardEvtHandler(evt: any) {
+    if (!this.targetComponent) {
+      return;
     }
-
-    //重新计算 RotateControl 的位置
-    let left = this.state.width / 2 - this.rotateControlSize;
-    let top = -this.rotateControlffsetY;
-    this.rotateControlInstance.setState({ left, top });
+    this.targetComponent.trigger(evt.type, evt, { component: this.targetComponent });
   }
 
-  private rotateEvtHandler(evt: any) {
+  private rotateEvtHandler(evt?: any) {
     if (!this.targetComponent) {
       return;
     }
@@ -314,6 +285,65 @@ export default class TransformControlPanel extends ICEControlPanel {
       height: Math.abs(newHeight),
     });
     this.targetComponent.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
+  }
+
+  /**
+   * @overwrite
+   * @method updateControlPositions 更新内部控制手柄的位置
+   *
+   * 控制面板每次重绘时，会在 doRender() 方法内部会调用 updateControlPositions() 来 更新控制手柄的位置。
+   * @see ICEConrolPanel.doRender()
+   */
+  protected updateControlPositions() {
+    //重新计算所有 ResizeControl 的位置，共8个
+    let width = this.state.width;
+    let height = this.state.height;
+    let halfWidth = width / 2;
+    let halfHeight = height / 2;
+    let halfControlSize = this.resizeControlSize / 2;
+
+    for (let i = 0; i < this.resizeControlInstanceCache.length; i++) {
+      const resizeControl = this.resizeControlInstanceCache[i];
+      let quadrant = resizeControl.state.quadrant;
+      let point = [0, 0];
+      switch (quadrant) {
+        case 1:
+          point = [width - halfControlSize, -halfControlSize];
+          break;
+        case 2:
+          point = [-halfControlSize, -halfControlSize];
+          break;
+        case 3:
+          point = [-halfControlSize, height - halfControlSize];
+          break;
+        case 4:
+          point = [width - halfControlSize, height - halfControlSize];
+          break;
+        case 5:
+          point = [halfWidth - halfControlSize, -halfControlSize];
+          break;
+        case 6:
+          point = [halfWidth - halfControlSize, height - halfControlSize];
+          break;
+        case 7:
+          point = [-halfControlSize, halfHeight - halfControlSize];
+          break;
+        case 8:
+          point = [width - halfControlSize, halfHeight - halfControlSize];
+          break;
+        default:
+          break;
+      }
+      resizeControl.setState({
+        left: point[0],
+        top: point[1],
+      });
+    }
+
+    //重新计算 RotateControl 的位置
+    let left = this.state.width / 2 - this.rotateControlSize;
+    let top = -this.rotateControlffsetY;
+    this.rotateControlInstance.setState({ left, top });
   }
 
   protected updatePanel() {

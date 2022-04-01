@@ -12,9 +12,9 @@ import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';
 import DDManager from './control-panel/DDManager';
 import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
 import root from './cross-platform/root.js';
-import DOMEventBridge from './event/DOMEventBridge';
+import DOMEventDispatcher from './event/DOMEventDispatcher';
+import DOMEventInterceptor from './event/DOMEventInterceptor.js';
 import EventBus from './event/EventBus';
-import MouseEventInterceptor from './event/MouseEventInterceptor.js';
 import FrameManager from './FrameManager';
 import ICEComponent from './graphic/ICEComponent';
 import ICELinkSlotManager from './graphic/link/ICELinkSlotManager';
@@ -48,7 +48,7 @@ class ICE {
 
   public renderer: any;
   public animationManager: AnimationManager;
-  public eventBridge: DOMEventBridge;
+  public eventDispatcher: DOMEventDispatcher;
   public ddManager: DDManager;
   public controlPanelManager: ICEControlPanelManager;
   public linkSlotManager: ICELinkSlotManager;
@@ -100,9 +100,9 @@ class ICE {
     FrameManager.regitserEvtBus(this.evtBus);
     FrameManager.start();
 
-    MouseEventInterceptor.regitserEvtBus(this.evtBus);
-    MouseEventInterceptor.start();
-    this.eventBridge = new DOMEventBridge(this).start();
+    DOMEventInterceptor.regitserEvtBus(this.evtBus);
+    DOMEventInterceptor.start();
+    this.eventDispatcher = new DOMEventDispatcher(this).start();
     this.animationManager = new AnimationManager(this).start();
     this.ddManager = new DDManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
@@ -255,7 +255,7 @@ class ICE {
     //先停止关键的管理器
     FrameManager.stop();
     this.renderer.stop();
-    this.eventBridge.stopped = true;
+    this.eventDispatcher.stopped = true;
     this.animationManager.stop();
     this.ddManager.stop();
     this.controlPanelManager.stop();
@@ -273,7 +273,7 @@ class ICE {
     this.controlPanelManager.start();
     this.linkSlotManager.start();
     setTimeout(() => {
-      this.eventBridge.stopped = false;
+      this.eventDispatcher.stopped = false;
     }, 300);
 
     let endTime = Date.now();

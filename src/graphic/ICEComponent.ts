@@ -129,9 +129,55 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   /**
-   * 子类需要提供自己的实现。
+   * @method initEvents 注册事件
+   *
+   * 子类可以提供自己的实现，也可以把此方法覆盖成空函数。
+   *
+   * @see {ICEComponent.keyboardEvtHandler}
    */
-  protected initEvents() {}
+  protected initEvents() {
+    this.on('keydown', this.keyboardEvtHandler, this);
+    this.on('keyup', this.keyboardEvtHandler, this);
+  }
+
+  /**
+   * @method keyboardEvtHandler 默认键盘事件处理
+   *
+   * - ICE 中的所有组件默认都可以接收键盘事件，子类可以覆盖此方法提供自己的实现。
+   * - 子类如果不需要响应键盘事件，可以覆盖一个空实现，或者在构造完成之后删掉对键盘事件的监听。
+   *
+   * !注意，这里只支持标准写法，不再兼容历史的 charCode 和 keyCode 写法。
+   * !W3C 标准按键值定义 https://www.w3.org/TR/uievents-key/#key-attribute-value
+   * @param evt
+   * @returns
+   */
+  protected keyboardEvtHandler(evt: any) {
+    const MOVE_STEP = 2; //每按键一次移动的步长，像素值
+    const keyName = evt.key;
+    switch (keyName) {
+      case 'ArrowUp':
+        this.moveGlobalPosition(0, -MOVE_STEP, evt);
+        break;
+      case 'ArrowDown':
+        this.moveGlobalPosition(0, MOVE_STEP, evt);
+        break;
+      case 'ArrowLeft':
+        this.moveGlobalPosition(-MOVE_STEP, 0, evt);
+        break;
+      case 'ArrowRight':
+        this.moveGlobalPosition(MOVE_STEP, 0, evt);
+        break;
+      case 'Delete':
+        if (this.parentNode && this.parentNode.removeChild) {
+          this.parentNode.removeChild(this);
+        } else {
+          this.ice.removeChild(this);
+        }
+        break;
+      default:
+        break;
+    }
+  }
 
   /**
    * !Important: 核心方法，FrameManager 会调度此方法进行实际的渲染操作。
@@ -531,6 +577,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * - FIXME:立即停止组件上的所有动画效果
    * - 需要清理绑定的事件
    * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
+   * - 子类需要覆盖此方法，释放自己占有的资源。
    */
   public destory(): void {
     this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: this });

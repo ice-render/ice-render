@@ -55,6 +55,16 @@ class ICELinkSlot extends ICECircle {
     this.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
   }
 
+  /**
+   * @overwrite
+   * @method keyboardEvtHandler 键盘事件处理
+   * !ICELinkSlot 不响应键盘事件。
+   * @see {ICEComponent.keyboardEvtHandler}
+   * @param evt
+   * @returns
+   */
+  protected keyboardEvtHandler(evt: any) {}
+
   protected beforeRenderHandler(evt: ICEEvent) {
     this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
     this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
@@ -67,7 +77,7 @@ class ICELinkSlot extends ICECircle {
     this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
     this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
     this.evtBus.off('mouseup', this.globalMouseUpHandler, this);
-    this._hostComponent = null;
+    this.hostComponent = null;
   }
 
   /**

@@ -31,15 +31,20 @@ import ICEDotPath from '../ICEDotPath';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICEPolyLine extends ICEDotPath {
-  //用来解决 TypeScript 的 instanceof 兼容性问题， https://github.com/microsoft/TypeScript/issues/22585
-  //仅供内部使用，业务代码不可依赖此属性
+  /**
+   * 类型标识
+   * 用来解决 TypeScript 的 instanceof 兼容性问题， https://github.com/microsoft/TypeScript/issues/22585
+   * 仅供内部使用，业务代码不可依赖此属性
+   */
   public isLine = true;
 
   /**
+   * 数据结构：
    * {
    *  start:{componnet:ICEComponent,position:'T'},
    *  end:{component:ICEComponent,position:'B'}
    * }
+   * !注意：此结构与 state 上的 links 结构不同，state.links 只存 id，position 信息，而且会被序列化，此结构不会被序列化。
    */
   protected links: any = { start: {}, end: {} }; //记录连接到了哪个组件上
 
@@ -677,6 +682,20 @@ class ICEPolyLine extends ICEDotPath {
       result.push(line);
     }
     return result;
+  }
+
+  /**
+   * @overwrite
+   * @method destory
+   */
+  public destory(): void {
+    if (this.links.start) {
+      this.removeLink('start', this.links.start.component, this.links.start.position);
+    }
+    if (this.links.end) {
+      this.removeLink('end', this.links.end.component, this.links.end.position);
+    }
+    super.destory();
   }
 }
 
