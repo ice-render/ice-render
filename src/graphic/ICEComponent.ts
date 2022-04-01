@@ -118,12 +118,12 @@ abstract class ICEComponent extends ICEEventTarget {
    * props 与 state 之间的关系与行为模式借鉴自 React 框架，概念模型完全一致。
    * @see https://reactjs.org/docs/components-and-props.html
    */
-  public state: any = { ...this.props };
+  public state: any = {};
 
   constructor(props: any = {}) {
     super();
     this.props = merge(this.props, props);
-    this.state = JSON.parse(JSON.stringify(this.props));
+    this.state = merge({}, this.props);
     this.root = root;
     this.initEvents();
   }
