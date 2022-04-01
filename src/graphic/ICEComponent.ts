@@ -28,10 +28,6 @@ import { uuid } from '../util/uuid';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 abstract class ICEComponent extends ICEEventTarget {
-  //用来解决 TypeScript 的 instanceof 兼容性问题， https://github.com/microsoft/TypeScript/issues/22585
-  //仅供内部使用，业务代码不可依赖此属性
-  public __typeName = 'ICEComponent';
-
   //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
   public ice: ICE;
   //当对象被添加到 canvas 中时，ICE 会自动设置 root 的值，没有被添加到 canvas 中的对象 root 为 null 。

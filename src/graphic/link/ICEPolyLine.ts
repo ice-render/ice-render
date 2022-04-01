@@ -33,7 +33,7 @@ import ICEDotPath from '../ICEDotPath';
 class ICEPolyLine extends ICEDotPath {
   //用来解决 TypeScript 的 instanceof 兼容性问题， https://github.com/microsoft/TypeScript/issues/22585
   //仅供内部使用，业务代码不可依赖此属性
-  public __typeName = 'ICEPolyLine';
+  public isLine = true;
 
   /**
    * {
