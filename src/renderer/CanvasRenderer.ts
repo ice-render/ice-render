@@ -59,6 +59,9 @@ class CanvasRenderer extends ICEEventTarget {
     console.log(`Component Queue length> ${this.componentQueue.length}`);
 
     this.toolsQueue = flattenTree([], this.ice.toolNodes);
+    this.toolsQueue.sort((firstEl, secondEl) => {
+      return firstEl.state.zIndex - secondEl.state.zIndex;
+    });
     console.log(`Tool Queue length> ${this.ice.toolNodes.length}`);
   }
 

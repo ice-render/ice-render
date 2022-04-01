@@ -36,7 +36,7 @@ export default class LineControlPanel extends ICEControlPanel {
   constructor(props) {
     super({
       ...props,
-      zIndex: bigZIndexNum + 10,
+      zIndex: bigZIndexNum + 1000,
       linkable: false,
       showMinBoundingBox: false,
       showMaxBoundingBox: false,
@@ -50,7 +50,7 @@ export default class LineControlPanel extends ICEControlPanel {
     let halfControlSize = this.controlSize / 2;
 
     this.startControl = new ICELinkHook({
-      zIndex: bigZIndexNum + 11,
+      zIndex: bigZIndexNum + 1001,
       display: false,
       left: -halfControlSize,
       top: -halfControlSize,
@@ -67,7 +67,7 @@ export default class LineControlPanel extends ICEControlPanel {
     this.addChild(this.startControl);
 
     this.endControl = new ICELinkHook({
-      zIndex: bigZIndexNum + 12,
+      zIndex: bigZIndexNum + 1002,
       display: false,
       left: width - halfControlSize,
       top: height - halfControlSize,

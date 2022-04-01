@@ -8,9 +8,9 @@
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
-import ICEPolyLine from './ICEPolyLine';
 import ICECircle from '../shape/ICECircle';
 import ICELinkHook from './ICELinkHook';
+import ICEPolyLine from './ICEPolyLine';
 
 /**
  * @class ICELinkSlot
@@ -84,8 +84,6 @@ class ICELinkSlot extends ICECircle {
    * @param evt
    */
   protected hookMouseDownHandler(evt: ICEEvent) {
-    console.log('linkslot, hook mousedown event...');
-
     if (!this._hostComponent) {
       return;
     }
@@ -176,8 +174,6 @@ class ICELinkSlot extends ICECircle {
   //FIXME:这里位置计算有问题
   //FIXME:这里需要采用 TransformControlPanel 中的算法来计算插槽位置。
   protected updatePosition() {
-    console.log('link slot update position ...');
-
     let box = this._hostComponent.getMinBoundingBox();
     let left = 0;
     let top = 0;
