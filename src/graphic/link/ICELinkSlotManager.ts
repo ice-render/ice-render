@@ -46,6 +46,7 @@ export default class ICELinkSlotManager {
     let linkHook = evt.target as any;
     let hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
 
+    let collision = null;
     const childNodes = [...this.ice.childNodes];
     for (let i = 0; i < childNodes.length; i++) {
       const component = childNodes[i];
@@ -54,12 +55,17 @@ export default class ICELinkSlotManager {
       }
       let slotBounding: ICEBoundingBox = component.getMaxBoundingBox();
       if (slotBounding.isIntersect(hookBounding)) {
-        //@ts-ignore
-        for (let i = 0; i < this.ice._linkSlots.length; i++) {
-          //@ts-ignore
-          this.ice._linkSlots[i].hostComponent = component;
-        }
-        return;
+        collision = component;
+        break;
+      }
+    }
+
+    //@ts-ignore
+    for (let i = 0; i < this.ice._linkSlots.length; i++) {
+      //@ts-ignore
+      let slot = this.ice._linkSlots[i];
+      if (slot.hostComponent !== collision) {
+        slot.hostComponent = collision;
       }
     }
   }
@@ -75,7 +81,7 @@ export default class ICELinkSlotManager {
     }
 
     let slot_1 = new ICELinkSlot({
-      zIndex: bigZIndexNum,
+      zIndex: bigZIndexNum + 10,
       display: false,
       transformable: false,
       draggable: false,
@@ -90,7 +96,7 @@ export default class ICELinkSlotManager {
     this.ice.addTool(slot_1);
 
     let slot_2 = new ICELinkSlot({
-      zIndex: bigZIndexNum,
+      zIndex: bigZIndexNum + 11,
       display: false,
       transformable: false,
       draggable: false,
@@ -105,7 +111,7 @@ export default class ICELinkSlotManager {
     this.ice.addTool(slot_2);
 
     let slot_3 = new ICELinkSlot({
-      zIndex: bigZIndexNum,
+      zIndex: bigZIndexNum + 12,
       display: false,
       transformable: false,
       draggable: false,
@@ -120,7 +126,7 @@ export default class ICELinkSlotManager {
     this.ice.addTool(slot_3);
 
     let slot_4 = new ICELinkSlot({
-      zIndex: bigZIndexNum,
+      zIndex: bigZIndexNum + 13,
       display: false,
       transformable: false,
       draggable: false,
