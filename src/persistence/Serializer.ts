@@ -27,7 +27,17 @@ export default class Serializer {
    * - 如果组件不需要序列化，需要返回 null
    * @returns Object
    */
-  public toJSON(): string {
+  public toJSONString(): string {
+    return JSON.stringify(this.toJSONObject());
+  }
+
+  /**
+   * 把对象序列化成 JSON 对象：
+   * - 容器型组件需要负责子节点的序列化操作
+   * - 如果组件不需要序列化，需要返回 null
+   * @returns Object
+   */
+  public toJSONObject(): object {
     let result = {
       createTime: new Date().toLocaleString(),
       lastModifyTime: new Date().toLocaleString(),
@@ -38,8 +48,7 @@ export default class Serializer {
       const child = this.ice.childNodes[i];
       this.encodeRecursively(child, result);
     }
-    console.log(result);
-    return JSON.stringify(result);
+    return result;
   }
 
   //递归序列化
