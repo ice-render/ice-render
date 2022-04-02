@@ -43,14 +43,14 @@ class DOMEventDispatcher {
         //! mousemove 事件的触发频率非常高，对于 mousemove 事件不执行 findTargetComponent() 操作。
         //! 键盘事件不需要执行 findTargetComponent() 操作，必须先选中一个组件，再把键盘事件派发给它才有意义。
         if (iceEvtName !== 'ICE_MOUSEMOVE' && iceEvtName.indexOf('KEY') === -1) {
-          componentCache = this.findTargetComponent(evt);
+          componentCache = this.findTargetComponent(evt); //FIXME: TransformControlPanel 会遮挡住组件，导致组件收不到鼠标事件，需要做一些处理。
         }
 
         if (componentCache) {
           evt.target = componentCache;
           componentCache.trigger(domEvtName, evt);
         } else {
-          console.warn('没有点中任何组件，不需要给组件派发事件...');
+          // console.warn('没有点中任何组件，不需要给组件派发事件...');
         }
 
         //this.ice.evtBus 本身一定会触发一次鼠标和键盘事件。
@@ -83,8 +83,8 @@ class DOMEventDispatcher {
     let x = offsetX;
     let y = offsetY;
 
-    let arr1 = flattenTree([], this.ice.toolNodes);
-    let arr2 = flattenTree([], this.ice.childNodes);
+    let arr1 = flattenTree([], this.ice.childNodes);
+    let arr2 = flattenTree([], this.ice.toolNodes);
     let arr = [...arr1, ...arr2];
     arr.sort((a, b) => {
       return a.state.zIndex - b.state.zIndex;

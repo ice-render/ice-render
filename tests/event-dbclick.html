@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-event-dblclick</title>
+  <body>
+    <div>
+      <button id="btn-1">保存</button>
+      <button id="btn-2">加载</button>
+      <button id="btn-3">清除所有</button>
+      <script src="../dist/index.umd.js"></script>
+    </div>
+    <br/>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+    <script type="text/javascript">
+      let ice = new ICE.ICE().init('canvas-1');
+
+      document.querySelector('#btn-1').addEventListener('click', (evt) => {
+        const jsonStr = ice.toJSONString();
+        window.localStorage.setItem('json-data', jsonStr);
+      });
+      document.querySelector('#btn-2').addEventListener('click', (evt) => {
+        const jsonStr = window.localStorage.getItem('json-data');
+        ice.fromJSONString(jsonStr);
+      });
+      document.querySelector('#btn-3').addEventListener('click', (evt) => {
+        console.log('ice.clearAll()');
+        ice.clearAll();
+      });
+
+      let rect = new ICE.ICERect({
+        left: 300,
+        top: 300,
+        width:300,
+        height:300,
+        style:{
+          strokeStyle:'#ff3300',
+          fillStyle:'#00ff00',
+        },
+        transformable:false,//!出现了变换工具，鼠标事件不会转发到组件上。
+      });
+      ice.addChild(rect);
+
+      //监听组件上的事件
+      rect.on("dblclick",(evt)=>{
+        console.log("dblclick",evt);
+      },rect);
+      rect.on("click",(evt)=>{
+        console.log("click",evt);
+      },rect);
+
+      //监听总线上的事件
+      ice.evtBus.on("dblclick",()=>{
+        console.log("ice.evtBus.on(dblclick)");
+      });
+    </script>
+  </body>
+</html>

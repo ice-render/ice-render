@@ -46,8 +46,6 @@ class CanvasRenderer extends ICEEventTarget {
   private frameEvtHandler(evt: ICEEvent) {
     if (this.ice.dirty) {
       this.doRender();
-    } else {
-      console.log('没有需要渲染的组件...');
     }
   }
 
@@ -56,13 +54,11 @@ class CanvasRenderer extends ICEEventTarget {
     this.componentQueue.sort((firstEl, secondEl) => {
       return firstEl.state.zIndex - secondEl.state.zIndex;
     });
-    console.log(`Component Queue length> ${this.componentQueue.length}`);
 
     this.toolsQueue = flattenTree([], this.ice.toolNodes);
     this.toolsQueue.sort((firstEl, secondEl) => {
       return firstEl.state.zIndex - secondEl.state.zIndex;
     });
-    console.log(`Tool Queue length> ${this.ice.toolNodes.length}`);
   }
 
   private doRender() {
@@ -92,7 +88,6 @@ class CanvasRenderer extends ICEEventTarget {
     }
 
     //完成一轮渲染时，在总线上触发一个 ROUND_FINISH 事件。
-    console.log(`Render time ${Date.now() - startTime} ms.`);
     this.ice.dirty = false;
     this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
   }

@@ -15,7 +15,7 @@ export const mouseEvents = [
   ['mouseup', 'ICE_MOUSEUP'],
   ['mousemove', 'ICE_MOUSEMOVE'],
   ['click', 'ICE_CLICK'],
-  ['dbclick', 'ICE_DBCLICK'],
+  ['dblclick', 'ICE_DBCLICK'],
   ['contextmenu', 'ICE_CONTEXTMENU'],
 ];
 
