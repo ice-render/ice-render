@@ -52,7 +52,9 @@ class DOMEventDispatcher {
         } else {
           console.warn('没有点中任何组件，不需要给组件派发事件...');
         }
-        this.ice.evtBus.trigger(domEvtName, evt); //this.ice.evtBus 本身一定会触发一次鼠标和键盘事件。
+
+        //this.ice.evtBus 本身一定会触发一次鼠标和键盘事件。
+        this.ice.evtBus.trigger(domEvtName, evt, { component: componentCache });
       });
     }
     return this;
