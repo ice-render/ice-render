@@ -242,11 +242,21 @@ class ICE {
    * - 如果组件不需要序列化，需要返回 null
    * @returns Object
    */
-  public toJSON(): string {
-    return this.serializer.toJSON();
+  public toJSONString(): string {
+    return this.serializer.toJSONString();
   }
 
-  public fromJSON(jsonStr: string) {
+  /**
+   * 把对象序列化成 JSON 对象：
+   * - 容器型组件需要负责子节点的序列化操作
+   * - 如果组件不需要序列化，需要返回 null
+   * @returns Object
+   */
+  public toJSONObject(): object {
+    return this.serializer.toJSONObject();
+  }
+
+  public fromJSONObject(jsonObject) {
     let startTime = Date.now();
 
     //先停止关键的管理器
@@ -259,7 +269,7 @@ class ICE {
 
     this.clearAll();
     //反序列化，创建组件实例
-    this.deserializer.fromJSON(jsonStr);
+    this.deserializer.fromJSONObject(jsonObject);
 
     //重新启动关键管理器
     FrameManager.start();
@@ -272,7 +282,12 @@ class ICE {
     }, 300);
 
     let endTime = Date.now();
-    console.log(`fromJSON> ${endTime - startTime} ms`);
+    console.log(`fromJSONString> ${endTime - startTime} ms`);
+  }
+
+  public fromJSONString(jsonStr: string) {
+    const jsonObj = JSON.parse(jsonStr);
+    this.fromJSONObject(jsonObj);
   }
 }
 

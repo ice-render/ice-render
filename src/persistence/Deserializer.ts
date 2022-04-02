@@ -21,12 +21,16 @@ export default class Deserializer {
     this.ice = ice;
   }
 
-  public fromJSON(jsonStr: string) {
-    const jsonObj = JSON.parse(jsonStr);
+  public fromJSONObject(jsonObj) {
     const childNodes = jsonObj.childNodes;
     for (let i = 0; i < childNodes.length; i++) {
       this.decodeRecursively(this.ice, childNodes[i]);
     }
+  }
+
+  public fromJSONString(jsonStr: string) {
+    const jsonObj = JSON.parse(jsonStr);
+    this.fromJSONObject(jsonObj);
   }
 
   //递归

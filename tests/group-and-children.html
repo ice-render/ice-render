@@ -17,12 +17,12 @@
         let ice = new ICE.ICE().init('canvas-1');
 
         document.querySelector('#btn-1').addEventListener('click', (evt) => {
-          const jsonStr = ice.toJSON();
+          const jsonStr = ice.toJSONString();
           window.localStorage.setItem('json-data', jsonStr);
         });
         document.querySelector('#btn-2').addEventListener('click', (evt) => {
           const jsonStr = window.localStorage.getItem('json-data');
-          ice.fromJSON(jsonStr);
+          ice.fromJSONString(jsonStr);
         });
         document.querySelector('#btn-3').addEventListener('click', (evt) => {
           console.log('ice.clearAll()');
