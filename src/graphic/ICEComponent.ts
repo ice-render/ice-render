@@ -6,6 +6,7 @@
  *
  */
 import { glMatrix, mat2d, vec2 } from 'gl-matrix';
+import cloneDeep from 'lodash/cloneDeep';
 import merge from 'lodash/merge';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import root from '../cross-platform/root';
@@ -123,7 +124,7 @@ abstract class ICEComponent extends ICEEventTarget {
   constructor(props: any = {}) {
     super();
     this.props = merge(this.props, props);
-    this.state = merge({}, this.props);
+    this.state = cloneDeep(this.props);
     this.root = root;
     this.initEvents();
   }
