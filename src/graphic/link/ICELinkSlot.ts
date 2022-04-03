@@ -153,9 +153,9 @@ class ICELinkSlot extends ICECircle {
     let linkLine: ICEPolyLine = linkHook.parentNode.targetComponent;
     let position: string = linkHook.state.position;
     if (this.isIntersectWithHook(linkHook)) {
-      linkLine && linkLine.setLink(position, this._hostComponent, this.props.position);
+      linkLine && linkLine.setLink(position, this._hostComponent.state.id, this.props.position);
     } else {
-      linkLine && linkLine.removeLink(position, this._hostComponent, this.props.position);
+      linkLine && linkLine.removeLink(position, this._hostComponent.state.id, this.props.position);
     }
 
     this.setState({
