@@ -47,7 +47,7 @@ import ICEEvent from './ICEEvent';
  * @see https://developer.mozilla.org/en-US/docs/Web/API/EventTarget
  */
 abstract class ICEEventTarget {
-  protected listeners: any = {}; //TODO:用 fasthash 的方式存储回调函数，提高查找性能。
+  protected listeners: any = {};
   protected suspendedEventNames: any = [];
 
   constructor() {}
