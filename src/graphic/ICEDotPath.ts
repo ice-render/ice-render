@@ -31,10 +31,14 @@ export default abstract class ICEDotPath extends ICEPath {
   }
 
   /**
-   * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
-   * 由于点状路径可能是不规则的形状，所以宽高需要手动计算，特殊形状的子类需要覆盖此方法提供自己的实现。
-   * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    * @overwrite
+   * @method calcComponentParams
+   * - 计算组件最原始的宽高和位置，此时没有经过任何变换，也没有移动坐标原点。
+   * - 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * - 此方法不能依赖原点位置和 transform 矩阵。
+   * - 此方法会在 render() 中调用，所以不需要在构造函数中调用。
+   * - 此方法中不能使用 setState() ，如果需要修改状态，直接赋值，如：this.state.width = 100;
+   * - 子类可以覆盖此方法，实现自己的计算逻辑。
    * @returns
    */
   protected calcComponentParams() {
@@ -87,7 +91,7 @@ export default abstract class ICEDotPath extends ICEPath {
    * 计算路径上的关键点:
    * - 默认的坐标原点是 (0,0) 位置。
    * - 这些点没有经过 transform 矩阵变换。
-   * this.calcComponentParams() 会依赖此方法，在计算尺寸时还没有确定原点坐标，所以 calcDots() 方法内部不能依赖原点坐标，只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * - this.calcComponentParams() 会依赖此方法来计算位置和尺寸，此时还没有确定原点坐标，所以 calcDots() 方法内部不能依赖原点坐标，只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    * @returns
    */
   protected calcDots() {
