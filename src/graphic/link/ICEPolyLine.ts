@@ -163,16 +163,14 @@ class ICEPolyLine extends ICEDotPath {
         const id = links.start.id;
         const position = links.start.position;
         if (id && position) {
-          const component = this.ice.findComponent(id);
-          this.setLink('start', component, position);
+          this.setLink('start', id, position);
         }
       }
       if (links.end) {
         const id = links.end.id;
         const position = links.end.position;
         if (id && position) {
-          const component = this.ice.findComponent(id);
-          this.setLink('end', component, position);
+          this.setLink('end', id, position);
         }
       }
     }
@@ -180,9 +178,9 @@ class ICEPolyLine extends ICEDotPath {
     this.ice.dirty = true;
   }
 
-  public setLink(terminal: string, component: ICEComponent, position: string) {
-    this.removeLink(terminal, component, position);
-
+  public setLink(terminal: string, id: string, position: string) {
+    this.removeLink(terminal, id, position);
+    const component = this.ice.findComponent(id);
     this.links[terminal] = { component: component, position: position };
     component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
     component.on(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.followComponent, this);
@@ -204,7 +202,8 @@ class ICEPolyLine extends ICEDotPath {
     });
   }
 
-  public removeLink(terminal: string, component: ICEComponent, position: string) {
+  public removeLink(terminal: string, id: string, position: string) {
+    const component = this.ice.findComponent(id);
     const _component = this.links[terminal].component;
     const _position = this.links[terminal].position;
     if (_component === component && _position === position) {
