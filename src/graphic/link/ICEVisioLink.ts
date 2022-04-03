@@ -101,7 +101,10 @@ export default class ICEVisioLink extends ICEPolyLine {
     let endBounding = new ICEBoundingBox();
 
     //find start exit point
-    const startComponent = this.links.start.component;
+    let startComponent;
+    if (this.ice && this.state.links && this.state.links.start && this.state.links.start.id) {
+      startComponent = this.ice.findComponent(this.state.links.start.id);
+    }
     if (startComponent) {
       startBounding = startComponent.getMinBoundingBox();
       potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl[1] - this.state.escapeDistance); //north
@@ -118,7 +121,10 @@ export default class ICEVisioLink extends ICEPolyLine {
     }
 
     //find end exit point
-    const endComponent = this.links.end.component;
+    let endComponent;
+    if (this.ice && this.state.links && this.state.links.end && this.state.links.end.id) {
+      endComponent = this.ice.findComponent(this.state.links.end.id);
+    }
     if (endComponent) {
       endBounding = endComponent.getMinBoundingBox();
       potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl[1] - this.state.escapeDistance); //north

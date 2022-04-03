@@ -11,6 +11,7 @@ import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICE from '../../ICE';
 import ICELinkSlot from './ICELinkSlot';
+import ICEPolyLine from './ICEPolyLine';
 
 /**
  * @class ICELinkSlotManager
@@ -34,11 +35,15 @@ export default class ICELinkSlotManager {
   start() {
     this.createLinkSlots();
     this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
+    this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
+    this.ice.evtBus.on('mouseup', this.globalMouseUpHandler, this);
     return this;
   }
 
   stop() {
     this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
+    this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
+    this.ice.evtBus.off('mouseup', this.globalMouseUpHandler, this);
     return this;
   }
 
@@ -46,6 +51,7 @@ export default class ICELinkSlotManager {
     let linkHook = evt.target as any;
     let hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
 
+    //连接钩子是否碰到了某个可连接组件的边缘
     let collision = null;
     const childNodes = [...this.ice.childNodes];
     for (let i = 0; i < childNodes.length; i++) {
@@ -53,11 +59,15 @@ export default class ICELinkSlotManager {
       if (!component || !component.state.linkable) {
         continue;
       }
-      let slotBounding: ICEBoundingBox = component.getMaxBoundingBox();
-      if (slotBounding.isIntersect(hookBounding)) {
+      let componentBounding: ICEBoundingBox = component.getMaxBoundingBox();
+      if (componentBounding.isIntersect(hookBounding)) {
         collision = component;
         break;
       }
+    }
+
+    if (!collision) {
+      return;
     }
 
     //@ts-ignore
@@ -67,6 +77,89 @@ export default class ICELinkSlotManager {
       if (slot.hostComponent !== collision) {
         slot.hostComponent = collision;
       }
+
+      slot.setState({
+        display: true,
+        style: {
+          fillStyle: '#3ce92c',
+        },
+      });
+
+      linkHook.setState({
+        style: {
+          fillStyle: '#3ce92c',
+        },
+      });
+
+      //判断连接钩子是否碰到了某个 linkSlot
+      let slotBox: ICEBoundingBox = slot.getMaxBoundingBox();
+      if (slotBox.isIntersect(hookBounding)) {
+        slot.setState({
+          style: {
+            fillStyle: '#fffb00',
+          },
+        });
+
+        linkHook.setState({
+          style: {
+            fillStyle: '#fffb00',
+          },
+        });
+      }
+    }
+  }
+
+  private hookMouseUpHandler(evt: ICEEvent) {
+    let linkHook = evt.target as any;
+    let position: string = linkHook.state.position;
+    let linkLine: ICEPolyLine = linkHook.parentNode.targetComponent;
+    let hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
+
+    let isIntersect = false;
+    //@ts-ignore
+    for (let i = 0; i < this.ice._linkSlots.length; i++) {
+      //@ts-ignore
+      let slot = this.ice._linkSlots[i];
+      //判断连接钩子是否碰到了某个 linkSlot
+      let slotBox: ICEBoundingBox = slot.getMaxBoundingBox();
+      if (slotBox.isIntersect(hookBounding)) {
+        isIntersect = true;
+        //建立连接关系
+        let param = {};
+        param[position] = {
+          id: slot.hostComponent.state.id,
+          position: slot.state.position,
+        };
+        linkLine && linkLine.setState({ links: param });
+      }
+
+      slot.setState({
+        display: false,
+        style: {
+          fillStyle: '#3ce92c',
+        },
+      });
+    }
+
+    //如果钩子与所有插槽都没有发生碰撞，则删掉对应线条上的连接关系
+    if (!isIntersect) {
+      let param = {};
+      param[position] = null;
+      linkLine && linkLine.setState({ links: param });
+    }
+  }
+
+  protected globalMouseUpHandler(evt?: ICEEvent) {
+    //@ts-ignore
+    for (let i = 0; i < this.ice._linkSlots.length; i++) {
+      //@ts-ignore
+      let slot = this.ice._linkSlots[i];
+      slot.setState({
+        display: false,
+        style: {
+          fillStyle: '#3ce92c',
+        },
+      });
     }
   }
 

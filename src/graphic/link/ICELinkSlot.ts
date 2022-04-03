@@ -6,11 +6,7 @@
  *
  */
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
-import ICEEvent from '../../event/ICEEvent';
-import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICECircle from '../shape/ICECircle';
-import ICELinkHook from './ICELinkHook';
-import ICEPolyLine from './ICEPolyLine';
 
 /**
  * @class ICELinkSlot
@@ -46,139 +42,19 @@ class ICELinkSlot extends ICECircle {
     super({ linkable: false, draggable: false, position: 'T', ...props });
   }
 
-  protected initEvents() {
-    super.initEvents();
-
-    //由于 ICELinkSlot 默认不可见，实例的 display 为 false ，所以不会触发 AFTER_RENDER 事件，这里只能监听 BEFORE_RENDER
-    //不能在 initEvents() 方法中访问 this.evtBus ，在 initEvents() 被调用时 this.evtBus 为空，因为对象在进入到渲染阶段时才会被设置 evtBus 实例。 @see ICE.evtBus
-    this.once(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER, this.beforeRenderHandler, this);
-    this.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.beforeRemoveHandler, this);
-  }
-
   /**
    * @overwrite
    * @method keyboardEvtHandler 键盘事件处理
-   * !ICELinkSlot 不响应键盘事件。
+   * !ICELinkSlot 不响应键盘事件，覆盖成空实现。
    * @see {ICEComponent.keyboardEvtHandler}
    * @param evt
    * @returns
    */
   protected keyboardEvtHandler(evt: any) {}
 
-  protected beforeRenderHandler(evt: ICEEvent) {
-    this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
-    this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
-    this.evtBus.on(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
-    this.evtBus.on('mouseup', this.globalMouseUpHandler, this);
-  }
-
-  protected beforeRemoveHandler(evt: ICEEvent) {
-    this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEDOWN, this.hookMouseDownHandler, this);
-    this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEMOVE, this.hookMouseMoveHandler, this);
-    this.evtBus.off(ICE_EVENT_NAME_CONSTS.HOOK_MOUSEUP, this.hookMouseUpHandler, this);
-    this.evtBus.off('mouseup', this.globalMouseUpHandler, this);
+  public destory(): void {
     this.hostComponent = null;
-  }
-
-  /**
-   * 只要鼠标弹起，连接插槽总是变成不可见状态。
-   */
-  protected globalMouseUpHandler() {
-    this.setState({
-      display: false,
-    });
-  }
-
-  /**
-   * 监听 EventBus 上连接钩子鼠标按下事件
-   * @param evt
-   */
-  protected hookMouseDownHandler(evt: ICEEvent) {
-    if (!this._hostComponent) {
-      return;
-    }
-    this.setState({
-      display: true,
-    });
-  }
-
-  /**
-   * 监听 EventBus 上连接钩子鼠标移动事件，判断钩子是否与插槽发生了碰撞。
-   * FIXME:这里需要更好的碰撞检测算法，与所有插槽进行比对的方式效率太低。
-   * @param evt
-   */
-  protected hookMouseMoveHandler(evt: ICEEvent) {
-    let linkHook = evt.target as any;
-    if (this.isIntersectWithHook(linkHook)) {
-      //FIXME:鼠标划过时的样式移动到配置项里面去
-      this.setState({
-        style: {
-          fillStyle: '#fffb00',
-        },
-      });
-
-      linkHook._currentAboveSlot = this;
-      linkHook.setState({
-        style: {
-          fillStyle: '#fffb00',
-        },
-      });
-    } else {
-      this.setState({
-        style: {
-          fillStyle: '#3ce92c',
-        },
-      });
-
-      if (linkHook._currentAboveSlot === this) {
-        linkHook.setState({
-          style: {
-            fillStyle: '#3ce92c',
-          },
-        });
-      }
-    }
-  }
-
-  /**
-   * 处理 EventBus 上连接钩子鼠标弹起事件
-   * @param evt
-   */
-  protected hookMouseUpHandler(evt: ICEEvent) {
-    if (!this._hostComponent) {
-      return;
-    }
-
-    let linkHook: ICELinkHook = evt.target as any;
-    let linkLine: ICEPolyLine = linkHook.parentNode.targetComponent;
-    let position: string = linkHook.state.position;
-    if (this.isIntersectWithHook(linkHook)) {
-      linkLine && linkLine.setLink(position, this._hostComponent.state.id, this.props.position);
-    } else {
-      linkLine && linkLine.removeLink(position, this._hostComponent.state.id, this.props.position);
-    }
-
-    this.setState({
-      display: false,
-      style: {
-        fillStyle: '#3ce92c',
-      },
-    });
-
-    linkHook.setState({
-      style: {
-        fillStyle: '#3ce92c',
-      },
-    });
-  }
-
-  private isIntersectWithHook(linkHook: ICELinkHook) {
-    let slotBounding: ICEBoundingBox = this.getMaxBoundingBox();
-    let hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
-    if (slotBounding.isIntersect(hookBounding)) {
-      return true;
-    }
-    return false;
+    super.destory();
   }
 
   //FIXME:这里位置计算有问题
