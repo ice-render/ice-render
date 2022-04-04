@@ -67,9 +67,27 @@ export default class ICELinkSlotManager {
     }
 
     if (!collision) {
+      //@ts-ignore
+      for (let i = 0; i < this.ice._linkSlots.length; i++) {
+        //@ts-ignore
+        let slot = this.ice._linkSlots[i];
+        slot.setState({
+          display: false,
+          style: {
+            fillStyle: '#3ce92c',
+          },
+        });
+      }
+
+      linkHook.setState({
+        style: {
+          fillStyle: '#3ce92c',
+        },
+      });
       return;
     }
 
+    let isIntersect = false;
     //@ts-ignore
     for (let i = 0; i < this.ice._linkSlots.length; i++) {
       //@ts-ignore
@@ -94,18 +112,20 @@ export default class ICELinkSlotManager {
       //判断连接钩子是否碰到了某个 linkSlot
       let slotBox: ICEBoundingBox = slot.getMaxBoundingBox();
       if (slotBox.isIntersect(hookBounding)) {
+        isIntersect = true;
         slot.setState({
           style: {
             fillStyle: '#fffb00',
           },
         });
-
-        linkHook.setState({
-          style: {
-            fillStyle: '#fffb00',
-          },
-        });
       }
+    }
+    if (isIntersect) {
+      linkHook.setState({
+        style: {
+          fillStyle: '#fffb00',
+        },
+      });
     }
   }
 
@@ -146,6 +166,13 @@ export default class ICELinkSlotManager {
       let param = {};
       param[position] = null;
       linkLine && linkLine.setState({ links: param });
+    } else {
+      linkHook.setState({
+        display: false,
+        style: {
+          fillStyle: '#3ce92c',
+        },
+      });
     }
   }
 
