@@ -9,7 +9,6 @@ import isString from 'lodash/isString';
 import AnimationManager from './animation/AnimationManager';
 import componentTypeMap from './consts/COMPONENT_TYPE_MAPPING';
 import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';
-import DDManager from './control-panel/DDManager';
 import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
 import root from './cross-platform/root.js';
 import DOMEventDispatcher from './event/DOMEventDispatcher';
@@ -49,7 +48,6 @@ class ICE {
   public renderer: any;
   public animationManager: AnimationManager;
   public eventDispatcher: DOMEventDispatcher;
-  public ddManager: DDManager;
   public controlPanelManager: ICEControlPanelManager;
   public linkSlotManager: ICELinkSlotManager;
   public serializer: Serializer;
@@ -95,7 +93,7 @@ class ICE {
       this.ctx = ctx;
     }
 
-    //启动当前 ICE 实例上的所有 Manager
+    //启动当前 ICE 实例上的所有 Manager，有顺序
     this.evtBus = new EventBus(); //后续所有 Manager 都依赖事件总线，所以 this.evtBus 需要最先初始化。
     FrameManager.regitserEvtBus(this.evtBus);
     FrameManager.start();
@@ -104,7 +102,6 @@ class ICE {
     DOMEventInterceptor.start();
     this.eventDispatcher = new DOMEventDispatcher(this).start();
     this.animationManager = new AnimationManager(this).start();
-    this.ddManager = new DDManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
     this.renderer = new CanvasRenderer(this).start();
     this.linkSlotManager = new ICELinkSlotManager(this).start(); //linkSlotManager 内部会监听 renderer 上的事件，所以 linkSlotManager 需要在 renderer 后面实例化。
@@ -245,11 +242,21 @@ class ICE {
    * - 如果组件不需要序列化，需要返回 null
    * @returns Object
    */
-  public toJSON(): string {
-    return this.serializer.toJSON();
+  public toJSONString(): string {
+    return this.serializer.toJSONString();
   }
 
-  public fromJSON(jsonStr: string) {
+  /**
+   * 把对象序列化成 JSON 对象：
+   * - 容器型组件需要负责子节点的序列化操作
+   * - 如果组件不需要序列化，需要返回 null
+   * @returns Object
+   */
+  public toJSONObject(): object {
+    return this.serializer.toJSONObject();
+  }
+
+  public fromJSONObject(jsonObject) {
     let startTime = Date.now();
 
     //先停止关键的管理器
@@ -257,19 +264,17 @@ class ICE {
     this.renderer.stop();
     this.eventDispatcher.stopped = true;
     this.animationManager.stop();
-    this.ddManager.stop();
     this.controlPanelManager.stop();
     this.linkSlotManager.stop();
 
     this.clearAll();
     //反序列化，创建组件实例
-    this.deserializer.fromJSON(jsonStr);
+    this.deserializer.fromJSONObject(jsonObject);
 
     //重新启动关键管理器
     FrameManager.start();
     this.renderer.start();
     this.animationManager.start();
-    this.ddManager.start();
     this.controlPanelManager.start();
     this.linkSlotManager.start();
     setTimeout(() => {
@@ -277,7 +282,12 @@ class ICE {
     }, 300);
 
     let endTime = Date.now();
-    console.log(`fromJSON> ${endTime - startTime} ms`);
+    console.log(`fromJSONString> ${endTime - startTime} ms`);
+  }
+
+  public fromJSONString(jsonStr: string) {
+    const jsonObj = JSON.parse(jsonStr);
+    this.fromJSONObject(jsonObj);
   }
 }
 

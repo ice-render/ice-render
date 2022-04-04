@@ -2,7 +2,7 @@
 
 <html lang="en">
   <meta charset="utf-8" />
-  <title>ICERender-keyboard-event</title>
+  <title>ICERender-event-dblclick</title>
   <body>
     <div>
       <button id="btn-1">保存</button>
@@ -28,50 +28,31 @@
         ice.clearAll();
       });
 
-
-      function keyboardEvtHandler(evt){
-        console.log("------");
-        console.log(evt);
-        console.log("------");
-      }
-
       let rect = new ICE.ICERect({
         left: 300,
         top: 300,
-        width:50,
-        height:50,
+        width:300,
+        height:300,
         style:{
           strokeStyle:'#ff3300',
           fillStyle:'#00ff00',
         },
-        transformable:true,
+        transformable:false,//!出现了变换工具，鼠标事件不会转发到组件上。
       });
-      rect.on("keyup", keyboardEvtHandler,rect);
       ice.addChild(rect);
 
-      let circle = new ICE.ICECircle({
-        left: 500,
-        top: 500,
-        radius:25,
-        transformable:true,
-      });
-      circle.on("keyup", keyboardEvtHandler,circle);
-      ice.addChild(circle);
+      //监听组件上的事件
+      rect.on("dblclick",(evt)=>{
+        console.log("dblclick",evt);
+      },rect);
+      rect.on("click",(evt)=>{
+        console.log("click",evt);
+      },rect);
 
-      let line1 = new ICE.ICEPolyLine({
-        left: 0,
-        top: 0,
-        points: [[500, 500],[600, 600]],
-        style: {
-          strokeStyle: '#08ee00',
-          fillStyle: '#008000',
-          lineWidth: 2,
-        },
-        arrow:'both',//none,start,end,both
+      //监听总线上的事件
+      ice.evtBus.on("dblclick",()=>{
+        console.log("ice.evtBus.on(dblclick)");
       });
-      line1.on("keyup", keyboardEvtHandler,line1);
-      ice.addChild(line1);
-
     </script>
   </body>
 </html>

@@ -73,9 +73,13 @@ class ICEText extends ICEComponent {
 
   /**
    * @overwrite
-   * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
-   * 此方法不能依赖原点位置和 transform 矩阵。
-   * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * @method calcComponentParams
+   * - 计算组件最原始的宽高和位置，此时没有经过任何变换，也没有移动坐标原点。
+   * - 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * - 此方法不能依赖原点位置和 transform 矩阵。
+   * - 此方法会在 render() 中调用，所以不需要在构造函数中调用。
+   * - 此方法中不能使用 setState() ，如果需要修改状态，直接赋值，如：this.state.width = 100;
+   * - 子类可以覆盖此方法，实现自己的计算逻辑。
    * @returns
    */
   protected calcComponentParams() {

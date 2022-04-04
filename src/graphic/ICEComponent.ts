@@ -6,6 +6,7 @@
  *
  */
 import { glMatrix, mat2d, vec2 } from 'gl-matrix';
+import cloneDeep from 'lodash/cloneDeep';
 import merge from 'lodash/merge';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import root from '../cross-platform/root';
@@ -118,26 +119,53 @@ abstract class ICEComponent extends ICEEventTarget {
    * props 与 state 之间的关系与行为模式借鉴自 React 框架，概念模型完全一致。
    * @see https://reactjs.org/docs/components-and-props.html
    */
-  public state: any = { ...this.props };
+  public state: any = {};
 
   constructor(props: any = {}) {
     super();
     this.props = merge(this.props, props);
-    this.state = JSON.parse(JSON.stringify(this.props));
+    this.state = cloneDeep(this.props);
     this.root = root;
     this.initEvents();
   }
 
   /**
-   * @method initEvents 注册事件
+   * @method initEvents 注册默认支持的事件
    *
-   * 子类可以提供自己的实现，也可以把此方法覆盖成空函数。
+   * - ICEComponent 是顶级类，这里注册的事件所有子类都会响应。
+   * - 子类可以提供自己特殊的实现，也可以把此方法覆盖成空函数。
    *
    * @see {ICEComponent.keyboardEvtHandler}
    */
   protected initEvents() {
+    this.on('mousedown', this.mouseDownEvtHandler, this);
     this.on('keydown', this.keyboardEvtHandler, this);
     this.on('keyup', this.keyboardEvtHandler, this);
+  }
+
+  protected mouseDownEvtHandler(evt?: any) {
+    if (!this.state.interactive || !this.state.draggable) {
+      return;
+    }
+    this.on('mousemove', this.mouseMoveEvtHandler, this);
+    this.on('mouseup', this.mouseUpEvtHandler, this);
+  }
+
+  protected mouseMoveEvtHandler(evt: any) {
+    // console.log('window.devicePixelRatio>', window.devicePixelRatio);
+    // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+    // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+    //@ts-ignore
+    let tx = evt.movementX;
+    //@ts-ignore
+    let ty = evt.movementY;
+    this.moveGlobalPosition(tx, ty, evt);
+    return true;
+  }
+
+  protected mouseUpEvtHandler(evt?: any) {
+    this.off('mousemove', this.mouseMoveEvtHandler, this);
+    this.off('mouseup', this.mouseUpEvtHandler, this);
   }
 
   /**
@@ -206,9 +234,13 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   /**
-   * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
-   * 此方法不能依赖原点位置和 transform 矩阵。
-   * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * @method calcComponentParams
+   * - 计算组件最原始的宽高和位置，此时没有经过任何变换，也没有移动坐标原点。
+   * - 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * - 此方法不能依赖原点位置和 transform 矩阵。
+   * - 此方法会在 render() 中调用，所以不需要在构造函数中调用。
+   * - 此方法中不能使用 setState() ，如果需要修改状态，直接赋值，如：this.state.width = 100;
+   * - 子类可以覆盖此方法，实现自己的计算逻辑。
    * @returns
    */
   protected calcComponentParams() {

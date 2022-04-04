@@ -39,28 +39,18 @@ class ICEPolyLine extends ICEDotPath {
   public isLine = true;
 
   /**
-   * 数据结构：
-   * {
-   *  start:{componnet:ICEComponent,position:'T'},
-   *  end:{component:ICEComponent,position:'B'}
-   * }
-   * !注意：此结构与 state 上的 links 结构不同，state.links 只存 id，position 信息，而且会被序列化，此结构不会被序列化。
-   */
-  protected links: any = { start: {}, end: {} }; //记录连接到了哪个组件上
-
-  /**
    * @cfg
    * {
-   *   lineType: 'solid',         //可能的取值：solid, dashed
-   *   arrow: 'none',             //可能的取值：none, start, end ,both
-   *   arrowLength: 15,           //箭头长度
-   *   arrowAngel: 30,            //箭头角度
-   *   lineWidth:2,               //线条宽度
-   *   closePath:false,           //连线默认不闭合路径
-   *   points:[],                 //线条上所有点的坐标
-   *   links:{                    //如果传递了连接关系参数，则在渲染器完成一轮渲染之后，会自动与指定的组件建立连接关系。
-   *     start:{id,position},
-   *     end:{id,position}
+   *   lineType: 'solid',                 //可能的取值：solid, dashed
+   *   arrow: 'none',                     //可能的取值：none, start, end ,both
+   *   arrowLength: 15,                   //箭头长度
+   *   arrowAngel: 30,                    //箭头角度
+   *   lineWidth:2,                       //线条宽度
+   *   closePath:false,                   //连线默认不闭合路径
+   *   points:[],                         //线条上所有点的坐标
+   *   links:{                            //如果传递了连接关系参数，ICEPolyLine 会自动与指定的组件建立连接关系。
+   *     start:{id:null,position:null},
+   *     end:{id:null,position:null}
    *   }
    * }
    *
@@ -153,74 +143,81 @@ class ICEPolyLine extends ICEDotPath {
 
   protected afterAddHandler(evt?: ICEEvent) {
     //连接线的两端分别与一个组件关联，因此需要等待渲染器完成一轮渲染之后才能建立连接，否则需要连接的对象可能还没有渲染出来。
-    this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
+    this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.syncConnections, this);
   }
 
-  protected makeConnection() {
+  /**
+   * @method syncConnections 同步连接关系
+   *
+   * - 根据 this.state.links 的数据结构，建立或者删除连接关系。
+   * - 此方法会在 setState() 中被调用，所以此方法内部不能调用 setState()，否则会死循环。如果需要修改 state ，直接赋值。
+   *
+   */
+  protected syncConnections() {
+    //在尝试建立连接之前首先尝试删除当前的所有连接关系。
+    this.removeLink('start');
+    this.removeLink('end');
+
     const links = this.state.links;
     if (links) {
-      if (links.start) {
-        const id = links.start.id;
-        const position = links.start.position;
-        if (id && position) {
-          const component = this.ice.findComponent(id);
-          this.setLink('start', component, position);
-        }
+      if (links.start && links.start.id && links.start.position) {
+        this.createLink(links.start.id, links.start.position);
       }
-      if (links.end) {
-        const id = links.end.id;
-        const position = links.end.position;
-        if (id && position) {
-          const component = this.ice.findComponent(id);
-          this.setLink('end', component, position);
-        }
+      if (links.end && links.end.id && links.end.position) {
+        this.createLink(links.end.id, links.end.position);
       }
     }
 
+    this.dirty = true;
     this.ice.dirty = true;
   }
 
-  public setLink(terminal: string, component: ICEComponent, position: string) {
-    this.removeLink(terminal, component, position);
-
-    this.links[terminal] = { component: component, position: position };
-    component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
-    component.on(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.followComponent, this);
-    component.on(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, this.followComponent, this);
-    component.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.followComponent, this);
-    this.followComponent();
-
-    //重新设置连接信息，连接线连接到组件上之后，自身不再能拖拽
-    const _temp = {};
-    for (let p in this.links) {
-      let obj = this.links[p];
-      if (obj.component && obj.position) {
-        _temp[p] = { id: obj.component.props.id, position: obj.position };
-      }
-    }
-    this.setState({
-      links: { ..._temp },
-      draggable: false,
-    });
+  protected createLink(id: string, position: string) {
+    const component = this.ice.findComponent(id);
+    component && component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
+    component && component.on(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.followComponent, this);
+    component && component.on(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, this.followComponent, this);
+    component && component.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.followComponent, this);
+    component && this.followComponent();
+    this.state.draggable = false;
   }
 
-  public removeLink(terminal: string, component: ICEComponent, position: string) {
-    const _component = this.links[terminal].component;
-    const _position = this.links[terminal].position;
-    if (_component === component && _position === position) {
-      _component && _component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
-      _component && _component.off(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.followComponent, this);
-      _component && _component.off(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, this.followComponent, this);
-      this.links[terminal] = {};
-      this.state.links[terminal] = {};
+  /**
+   * @method removeLink 删除连接关系
+   * @param terminal 可以为 start 或者 end ，如果只提供了 terminal 参数，则删除此端点上的所有连接关系。
+   * @param id 连接终点的组件 id
+   * @param position 连接终点的组件的位置，可以为 TRBL
+   */
+  protected removeLink(terminal: string, id?: string, position?: string) {
+    if (!this.state.links || !this.state.links[terminal]) {
+      //当前线条上没有建立任何连接，什么都不需要做。
+      return;
+    }
+
+    let currentId = this.state.links[terminal].id;
+    let currentPosition = this.state.links[terminal].position;
+    if (!id) {
+      id = currentId;
+    }
+    if (!position) {
+      position = currentPosition;
+    }
+    if (currentId === id && currentPosition === position) {
+      const component = this.ice.findComponent(currentId);
+      component && component.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
+      component && component.off(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.followComponent, this);
+      component && component.off(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, this.followComponent, this);
     }
 
     //如果两端都没有连接的组件，连接线自身变成可拖动
-    if (!this.links.start.component && !this.links.end.component) {
-      this.setState({
-        draggable: true,
-      });
+    let draggable = true;
+    if (this.state.links.start && this.state.links.start.id) {
+      draggable = false;
     }
+    if (this.state.links.end && this.state.links.end.id) {
+      draggable = false;
+    }
+    this.state.draggable = draggable;
   }
 
   /**
@@ -246,10 +243,14 @@ class ICEPolyLine extends ICEDotPath {
    * 连接的组件位置发生移动之后，重新计算连接线的起点和终点。
    */
   private followComponent(evt?: ICEEvent) {
-    for (let terminal in this.links) {
-      const position = this.links[terminal].position;
-      const component: ICEComponent = this.links[terminal].component;
-      if (!position || !component) {
+    for (let p in this.state.links) {
+      if (!this.state.links[p] || !this.state.links[p].id || !this.state.links[p].position) {
+        continue;
+      }
+      const id = this.state.links[p].id;
+      const position = this.state.links[p].position;
+      const component: ICEComponent = this.ice.findComponent(id);
+      if (!component) {
         continue;
       }
 
@@ -272,7 +273,7 @@ class ICEPolyLine extends ICEDotPath {
           break;
       }
 
-      switch (terminal) {
+      switch (p) {
         case 'start':
           this.setState({
             startPoint: [...temp],
@@ -410,14 +411,15 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
-   * @method calcComponentParams
-   *
-   * - 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
-   * - 由于点状路径可能是不规则的形状，所以宽高需要手动计算，特殊形状的子类需要覆盖此方法提供自己的实现。
-   * - 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
-   *
    * @overwrite
-   * @returns {ComponentParams}
+   * @method calcComponentParams
+   * - 计算组件最原始的宽高和位置，此时没有经过任何变换，也没有移动坐标原点。
+   * - 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * - 此方法不能依赖原点位置和 transform 矩阵。
+   * - 此方法会在 render() 中调用，所以不需要在构造函数中调用。
+   * - 此方法中不能使用 setState() ，如果需要修改状态，直接赋值，如：this.state.width = 100;
+   * - 子类可以覆盖此方法，实现自己的计算逻辑。
+   * @returns
    */
   protected calcComponentParams() {
     if (!this.dirty) {
@@ -608,6 +610,12 @@ class ICEPolyLine extends ICEDotPath {
       this.state.points[len - 1] = [...newState.endPoint];
     }
 
+    //如果传递了 links 属性，会重新计算连接关系。
+    if (!isNil(newState.links)) {
+      merge(this.state.links, newState.links);
+      this.syncConnections();
+    }
+
     super.setState(newState);
   }
 
@@ -689,12 +697,8 @@ class ICEPolyLine extends ICEDotPath {
    * @method destory
    */
   public destory(): void {
-    if (this.links.start) {
-      this.removeLink('start', this.links.start.component, this.links.start.position);
-    }
-    if (this.links.end) {
-      this.removeLink('end', this.links.end.component, this.links.end.position);
-    }
+    this.removeLink('start');
+    this.removeLink('end');
     super.destory();
   }
 }

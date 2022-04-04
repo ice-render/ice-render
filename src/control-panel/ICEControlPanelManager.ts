@@ -17,7 +17,6 @@ import TransformControlPanel from './transform-controls/TransformControlPanel';
  *
  * - ICEControlPanelManager 负责管理所有类型的控制面板（ControlPanel）。
  * - ICEControlPanelManager 是全局单例的，一个 ICE 实例上只能有一个实例。
- * - ICEControlPanelManager 只需要设置 targetComponent 即可，拖拽移位操作由  DDManager 完成。
  * - ICEControlPanelManager 是纯逻辑组件，没有外观。
  *
  * @see ICE
