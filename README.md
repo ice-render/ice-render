@@ -55,9 +55,7 @@ ice.addChild(rect);
 在你的项目中安装依赖：
 
 ```shell
-
-    npm i ice-render --save
-
+npm i ice-render --save
 ```
 
 基于 ice-render 提供的类和接口二次开发，示例：
@@ -110,6 +108,10 @@ export default class Relation extends ICEVisioLink {
 ice-entity-designer 是一款基于 ice-render 开发的 ER 设计器，完整示范了如何基于 ice-render 引擎进行二次开发， https://github.com/ice-render/ice-entity-designer 。
 
 ice-entity-designer 已经用在了 craft-codeless-designer 低代码项目中， https://github.com/craft-codeless-designer 。
+
+<img src="./tests/assets/11.png">
+
+如需更详细的架构文档，请联系我。
 
 ### 3.3 在 NodeJS 环境中使用
 
