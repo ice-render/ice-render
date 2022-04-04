@@ -166,6 +166,13 @@ export default class ICELinkSlotManager {
       let param = {};
       param[position] = null;
       linkLine && linkLine.setState({ links: param });
+    } else {
+      linkHook.setState({
+        display: false,
+        style: {
+          fillStyle: '#3ce92c',
+        },
+      });
     }
   }
 
