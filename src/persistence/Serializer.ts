@@ -54,7 +54,7 @@ export default class Serializer {
   //递归序列化
   private encodeRecursively(component, parentData) {
     let currentData = {
-      state: component.state,
+      state: component.state, //FIXME:只把 props 上的属性序列化，其它属性忽略。
       type: component.constructor.name,
       childNodes: [],
     };
