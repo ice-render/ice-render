@@ -29,7 +29,7 @@ class ICELinkSlot extends ICECircle {
   private _hostComponent;
 
   /**
-   * position 有4个取值，分别位于宿主边界盒子的4个边的几何中点上：
+   * position 的取值：
    * - T: 宿主边界盒子的顶边中点
    * - R: 宿主边界盒子的右边中点
    * - B: 宿主边界盒子的底边中点
