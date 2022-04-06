@@ -51,6 +51,7 @@
             skew: [10, 0],
             // scale: [1, 1],
           },
+          transformable:false,
         });
         baseRect1.on('click', (evt) => {
           console.log('baseRect1');
@@ -77,6 +78,7 @@
           //   width: { from: 100, to: 200, duration: 5000 },
           //   height: { from: 100, to: 200, duration: 5000 },
           // },
+          transformable:false,
         });
         ice.addChild(rect1);
 
@@ -92,18 +94,5 @@
           arrow:'end',//none,start,end,both
         });
         ice.addChild(line1);
-
-        let line2 = new ICE.ICEPolyLine({
-          left: 0,
-          top: 0,
-          points: [[300, 300],[400, 400]],
-          style: {
-            strokeStyle: '#08ee00',
-            fillStyle: '#008000',
-            lineWidth: 2,
-          },
-          arrow:'end',//none,start,end,both
-        });
-        ice.addChild(line2);
   </script>
 </html>

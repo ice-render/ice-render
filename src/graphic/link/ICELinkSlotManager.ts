@@ -191,8 +191,8 @@ export default class ICELinkSlotManager {
   }
 
   /**
-   * 创建连接插槽，插槽默认分布在组件最小边界盒子的4条边几何中点位置。
-   * 有顺序，按照 TRBL 上右下左 创建，插槽的 ID 会被序列化。
+   * @method createLinkSlots
+   * 创建5个连接插槽，插槽默认分布在组件最小边界盒子的4条边中点和几何中心点。
    */
   protected createLinkSlots() {
     //@ts-ignore
@@ -259,7 +259,23 @@ export default class ICELinkSlotManager {
       },
     });
     this.ice.addTool(slot_4);
+
+    let slot_5 = new ICELinkSlot({
+      zIndex: bigZIndexNum + 14,
+      display: false,
+      transformable: false,
+      draggable: false,
+      radius: this.slotRadius,
+      position: 'C',
+      style: {
+        strokeStyle: '#0c09d4',
+        fillStyle: '#3ce92c',
+        lineWidth: 1,
+      },
+    });
+    this.ice.addTool(slot_5);
+
     //@ts-ignore
-    this.ice._linkSlots = [slot_1, slot_2, slot_3, slot_4];
+    this.ice._linkSlots = [slot_1, slot_2, slot_3, slot_4, slot_5];
   }
 }

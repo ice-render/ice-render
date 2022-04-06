@@ -257,17 +257,20 @@ class ICEPolyLine extends ICEDotPath {
       const box = component.getMinBoundingBox();
       let temp = [0, 0];
       switch (position) {
-        case 'T':
+        case 'T': //顶边中点
           temp = box.tc;
           break;
-        case 'R':
+        case 'R': //右边中点
           temp = box.rc;
           break;
-        case 'B':
+        case 'B': //底边中点
           temp = box.bc;
           break;
-        case 'L':
+        case 'L': //左边中点
           temp = box.lc;
+          break;
+        case 'C': //几何中点
+          temp = box.center;
           break;
         default:
           break;
