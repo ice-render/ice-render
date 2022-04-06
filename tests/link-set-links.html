@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-link-setlinks</title>
+  <body>
+    <div>
+      <button id="btn-1">保存</button>
+      <button id="btn-2">加载</button>
+      <button id="btn-3">清除所有</button>
+      <script src="../dist/index.umd.js"></script>
+    </div>
+    <br/>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script type="text/javascript">
+        let ice = new ICE.ICE().init('canvas-1');
+
+        document.querySelector('#btn-1').addEventListener('click', (evt) => {
+          const jsonStr = ice.toJSONString();
+          window.localStorage.setItem('json-data', jsonStr);
+        });
+        document.querySelector('#btn-2').addEventListener('click', (evt) => {
+          const jsonStr = window.localStorage.getItem('json-data');
+          ice.fromJSONString(jsonStr);
+        });
+        document.querySelector('#btn-3').addEventListener('click', (evt) => {
+          console.log('ice.clearAll()');
+          ice.clearAll();
+        });
+
+        let centerCircle=new ICE.ICECircle({
+          left:300,
+          top:300,
+          radius:10,
+          style:{
+            strokeStyle:'#ff3300',
+            fillStyle:'#ff3300',
+          },
+          transformable:false,
+        });
+        ice.addChild(centerCircle);
+
+        const num=6;
+        const angle=Math.PI*2/num;
+        const radius=200;
+        for(let i=0;i<num;i++){
+          let circle=new ICE.ICECircle({
+            left:300+radius*Math.cos(angle*i),
+            top:300+radius*Math.sin(angle*i),
+            radius:10,
+            style:{
+              strokeStyle:'#ff3300',
+              fillStyle:'#0000ff',
+            },
+            transformable:false,
+          });
+          ice.addChild(circle);
+
+          let line1 = new ICE.ICEPolyLine({
+            left: 0,
+            top: 0,
+            points: [[500, 500],[600, 600]],
+            style: {
+              strokeStyle: '#08ee00',
+              fillStyle: '#008000',
+              lineWidth: 2,
+            },
+            arrow:'end',//none,start,end,both
+            links:{start:{id:centerCircle.state.id,position:"C"},end:{id:circle.state.id,position:"C"}},
+            interactive:false,
+          });
+          ice.addChild(line1);
+        }
+  </script>
+</html>
