@@ -10,6 +10,7 @@ import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICE from '../../ICE';
+import ICEComponent from '../ICEComponent';
 import ICELinkSlot from './ICELinkSlot';
 import ICEPolyLine from './ICEPolyLine';
 
@@ -27,6 +28,7 @@ import ICEPolyLine from './ICEPolyLine';
 export default class ICELinkSlotManager {
   private slotRadius = 10;
   private ice: ICE;
+  private collision: ICEComponent; //用来缓存鼠标移动过程中碰撞到的组件，鼠标弹起之后会清空
 
   constructor(ice: ICE) {
     this.ice = ice;
@@ -52,7 +54,7 @@ export default class ICELinkSlotManager {
     let hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
 
     //连接钩子是否碰到了某个可连接组件的边缘
-    let collision = null;
+    // let collision = null;
     const childNodes = [...this.ice.childNodes];
     for (let i = 0; i < childNodes.length; i++) {
       const component = childNodes[i];
@@ -61,12 +63,12 @@ export default class ICELinkSlotManager {
       }
       let componentBounding: ICEBoundingBox = component.getMaxBoundingBox();
       if (componentBounding.isIntersect(hookBounding)) {
-        collision = component;
+        this.collision = component;
         break;
       }
     }
 
-    if (!collision) {
+    if (!this.collision) {
       //@ts-ignore
       for (let i = 0; i < this.ice._linkSlots.length; i++) {
         //@ts-ignore
@@ -92,8 +94,8 @@ export default class ICELinkSlotManager {
     for (let i = 0; i < this.ice._linkSlots.length; i++) {
       //@ts-ignore
       let slot = this.ice._linkSlots[i];
-      if (slot.hostComponent !== collision) {
-        slot.hostComponent = collision;
+      if (slot.hostComponent !== this.collision) {
+        slot.hostComponent = this.collision;
       }
 
       slot.setState({
@@ -136,29 +138,32 @@ export default class ICELinkSlotManager {
     let hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
 
     let isIntersect = false;
-    //@ts-ignore
-    for (let i = 0; i < this.ice._linkSlots.length; i++) {
+    if (this.collision) {
       //@ts-ignore
-      let slot = this.ice._linkSlots[i];
-      //判断连接钩子是否碰到了某个 linkSlot
-      let slotBox: ICEBoundingBox = slot.getMaxBoundingBox();
-      if (slotBox.isIntersect(hookBounding)) {
-        isIntersect = true;
-        //建立连接关系
-        let param = {};
-        param[position] = {
-          id: slot.hostComponent.state.id,
-          position: slot.state.position,
-        };
-        linkLine && linkLine.setState({ links: param });
-      }
+      for (let i = 0; i < this.ice._linkSlots.length; i++) {
+        //@ts-ignore
+        let slot = this.ice._linkSlots[i];
+        slot.setState({
+          display: false,
+          style: {
+            fillStyle: '#3ce92c',
+          },
+        });
 
-      slot.setState({
-        display: false,
-        style: {
-          fillStyle: '#3ce92c',
-        },
-      });
+        //判断连接钩子是否碰到了某个 linkSlot
+        let slotBox: ICEBoundingBox = slot.getMaxBoundingBox();
+        if (slotBox.isIntersect(hookBounding)) {
+          isIntersect = true;
+          //建立连接关系
+          let param = {};
+          param[position] = {
+            id: slot.hostComponent.state.id,
+            position: slot.state.position,
+          };
+          linkLine && linkLine.setState({ links: param });
+          break;
+        }
+      }
     }
 
     //如果钩子与所有插槽都没有发生碰撞，则删掉对应线条上的连接关系
@@ -174,6 +179,8 @@ export default class ICELinkSlotManager {
         },
       });
     }
+
+    this.collision = null;
   }
 
   protected globalMouseUpHandler(evt?: ICEEvent) {
@@ -275,6 +282,7 @@ export default class ICELinkSlotManager {
     });
     this.ice.addTool(slot_5);
 
+    //缓存一份，方便操作
     //@ts-ignore
     this.ice._linkSlots = [slot_1, slot_2, slot_3, slot_4, slot_5];
   }
