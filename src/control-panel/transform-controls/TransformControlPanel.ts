@@ -350,8 +350,8 @@ export default class TransformControlPanel extends ICEControlPanel {
     if (!this.targetComponent) {
       return;
     }
-    let angle = this.targetComponent.getRotateAngle();
-    let { left, top, width, height } = this.targetComponent.getLocalLeftTop();
+    let angle = this.targetComponent.getRotateAngle(true);
+    let { left, top, width, height } = this.targetComponent.getLocalLeftTop(true);
     this.setState({
       left,
       top,
