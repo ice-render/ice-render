@@ -582,16 +582,23 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   /**
+   * @method getRotateAngle 获取组件的旋转角度。
    * 根据变换矩阵计算组件在全局空间(canvas)中的旋转角度。
+   * @param refresh 如果为 true ，则重新计算变换矩阵，否则使用缓存的变换矩阵。
    * @returns
    */
-  public getRotateAngle(): number {
-    let matrix = this.state.composedMatrix;
+  public getRotateAngle(refresh: boolean = false): number {
+    let matrix = refresh ? this.composeMatrix() : this.state.composedMatrix;
     return GeoUtil.calcRotateAngleFromMatrix(matrix);
   }
 
-  public getLocalLeftTop() {
-    let box = this.getMinBoundingBox(true);
+  /**
+   * @method getLocalLeftTop 得到组件在局部坐标系中的左上角坐标。
+   * @param refresh 如果为 true ，则重新计算变换矩阵，否则使用缓存的变换矩阵。
+   * @returns
+   */
+  public getLocalLeftTop(refresh: boolean = false) {
+    let box = this.getMinBoundingBox(refresh);
     let width = box.width;
     let height = box.height;
     let left = box.centerX - box.width / 2;
