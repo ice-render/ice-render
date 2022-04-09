@@ -1,8 +1,10 @@
 import ICE from '../ICE';
 
 /**
- * @class ImageCache
- * 图片缓存类
+ * @class ImageCache 图片缓存器
+ *
+ * 以图片的 url 作为 key，图片对象作为 value，缓存图片。
+ *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default class ImageCache {

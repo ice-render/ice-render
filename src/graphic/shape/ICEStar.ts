@@ -10,10 +10,7 @@ import isNil from 'lodash/isNil';
 import ICEDotPath from '../ICEDotPath';
 
 /**
- * @class ICEStar
- *
- * 正 N 角星
- *
+ * @class ICEStar 正N角星
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICEStar extends ICEDotPath {

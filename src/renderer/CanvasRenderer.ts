@@ -12,9 +12,7 @@ import ICE from '../ICE';
 import { flattenTree } from '../util/data-util';
 
 /**
- * @class CanvasRenderer
- *
- * Canvas 渲染器
+ * @class CanvasRenderer Canvas 渲染器
  *
  * - 一个 ICE 实例上，只能有一个渲染器实例。
  *

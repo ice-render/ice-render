@@ -13,6 +13,7 @@ const utilDivId = '__ICE_UTILS_TEXT_MEASURE_DIV__';
 
 /**
  * TODO:draw text along Path2D
+ * @class ICEText 文本
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICEText extends ICEComponent {

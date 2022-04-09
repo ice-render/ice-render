@@ -8,11 +8,8 @@
 import ICEComponent from './ICEComponent';
 
 /**
- * @class ICEPath
- *
- * 路径
- *
  * @abstract
+ * @class ICEPath 路径
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 abstract class ICEPath extends ICEComponent {

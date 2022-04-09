@@ -11,9 +11,7 @@ import ICEDotPath from '../ICEDotPath';
 
 /**
  *
- * @class ICEIsogon
- *
- * 正N边形
+ * @class ICEIsogon 正N边形
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
