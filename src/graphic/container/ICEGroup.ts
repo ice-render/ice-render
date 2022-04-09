@@ -11,11 +11,10 @@ import ICEComponent from '../ICEComponent';
 import ICERect from '../shape/ICERect';
 
 /**
- * @class ICEGroup
+ * @class ICEGroup 容器型组件
  *
- * 容器型组件
- *
- * ICEGroup 可以包含自身，利用此组件可以构造出树形的对象结构。
+ * - ICEGroup 可以带有子组件，所有容器型的组件都应该继承 ICEGroup
+ * - ICEGroup 可以包含自身，利用此组件可以构造出树形的组件结构。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
