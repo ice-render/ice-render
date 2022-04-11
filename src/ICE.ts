@@ -25,16 +25,15 @@ import ImageCache from './util/ImageCache';
 /**
  * @class ICE
  *
- * ICE: Interactive Canvas Engine ， 交互式 canvas 渲染引擎。
- *
  * - ICE 是整个引擎的主入口类。
- * - 同一个 &lt;canvas&gt; 标签上只能初始化一个 ICE 实例。
+ * - 同一个 canvas 标签上只能初始化一个 ICE 实例。
+ * - 同一个页面上可以存在多幅图。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 class ICE {
-  public childNodes = []; //根节点
-  public toolNodes = []; //工具组件，如变换工具，这些组件不会被序列化，并且在整个生命周期中不会被删除。
+  public childNodes = []; //直接渲染在 canvas 上的组件集合
+  public toolNodes = []; //工具组件集合，如变换工具，这些组件不会被序列化，并且在整个生命周期中不会被删除。
   public evtBus: EventBus; //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
   public root; //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
   public canvasEl; // canvas 标签元素
@@ -45,7 +44,7 @@ class ICE {
   public selectionList: Array<any> = []; //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
   public typeMapping = {}; //类型名称与构造函数之间的映射关系，在序列化和反序列化时需要根据此 mapping 来创建对应的类型的示例。
 
-  public renderer: any;
+  public renderer: any; //渲染器实例
   public animationManager: AnimationManager;
   public eventDispatcher: DOMEventDispatcher;
   public controlPanelManager: ICEControlPanelManager;
@@ -66,7 +65,6 @@ class ICE {
       throw new Error('ICE.init() failed...');
     }
     if (this.ctx === ctx) {
-      //FIXME:
       throw new Error('同一个 canvas 实例只能 init 一次...');
     }
 
@@ -203,8 +201,6 @@ class ICE {
   public findComponent(id: string) {
     return this.childNodes.filter((item) => item.props.id === id)[0];
   }
-
-  protected _lastUpdateTime = Date.now();
 
   public set dirty(flag: boolean) {
     this.__dirty = flag;

@@ -8,9 +8,9 @@
 import ICEEllipse from './ICEEllipse';
 
 /**
- * @class ICECircle
+ * @class ICECircle 正圆形
  *
- * 正圆形，采用椭圆绘制方法，正圆形作为椭圆的特殊情况。
+ * 采用椭圆绘制方法，正圆形作为椭圆的特殊情况。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */

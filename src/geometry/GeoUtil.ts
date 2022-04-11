@@ -46,16 +46,9 @@ export default class GeoUtil {
    * @returns 角度
    */
   public static calcRotateAngleFromMatrix(matrix): number {
-    let radians = 0;
     let a = matrix[0];
     let b = matrix[1];
-    const temp = Math.hypot(a, b);
-    let sin = b / temp;
-    let cos = a / temp;
-    radians = Math.acos(cos);
-    if (sin < 0) {
-      radians += Math.PI / 2;
-    }
+    let radians = Math.atan2(b, a);
     return radians * (180 / Math.PI);
   }
 

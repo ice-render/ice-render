@@ -29,11 +29,12 @@ class ICELinkSlot extends ICECircle {
   private _hostComponent;
 
   /**
-   * position 有4个取值，分别位于宿主边界盒子的4个边的几何中点上：
-   * - T: 顶部
-   * - R: 右侧
-   * - B: 底部
-   * - L: 左侧
+   * position 的取值：
+   * - T: 宿主边界盒子的顶边中点
+   * - R: 宿主边界盒子的右边中点
+   * - B: 宿主边界盒子的底边中点
+   * - L: 宿主边界盒子的左边中点
+   * - C: 宿主边界盒子的几何中心点
    *
    * 连接插槽自身不可拖拽、不可连接。
    * @param props
@@ -79,6 +80,10 @@ class ICELinkSlot extends ICECircle {
       case 'L':
         left = box.lc[0] - this.state.radius;
         top = box.lc[1] - this.state.radius;
+        break;
+      case 'C':
+        left = box.center[0] - this.state.radius;
+        top = box.center[1] - this.state.radius;
         break;
       default:
         break;
