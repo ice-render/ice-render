@@ -8,6 +8,8 @@
 
 ICERender 是一款 canvas 渲染引擎。
 
+一个概要介绍的视频：https://www.bilibili.com/video/BV1hT4y1v7G5
+
 ## 2.核心特性
 
 - 只依赖 loadash 和 gl-matrix 两个库，无其它依赖。
