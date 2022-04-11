@@ -3,55 +3,6 @@
   factory();
 }((function () { 'use strict';
 
-  function _defineProperty(obj, key, value) {
-    if (key in obj) {
-      Object.defineProperty(obj, key, {
-        value: value,
-        enumerable: true,
-        configurable: true,
-        writable: true
-      });
-    } else {
-      obj[key] = value;
-    }
-
-    return obj;
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  //ICE 自定的事件名称常量，原生 DOM 事件的名称不变。
-  const ICE_EVENT_NAME_CONSTS = {
-    ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
-    BEFORE_RENDER: 'BEFORE_RENDER',
-    AFTER_RENDER: 'AFTER_RENDER',
-    ICE_CLICK: 'ICE_CLICK',
-    BEFORE_ADD: 'BEFORE_ADD',
-    //在 addChild() 方法中的第一行执行
-    AFTER_ADD: 'AFTER_ADD',
-    //在 addChild() 方法返回之前执行
-    BEFORE_REMOVE: 'BEFORE_REMOVE',
-    //在 removeChild() 方法中的第一行执行
-    AFTER_REMOVE: 'AFTER_REMOVE',
-    //在 removeChild() 方法返回之前执行
-    ROUND_FINISH: 'ROUND_FINISH',
-    //当渲染器完成一轮渲染时，会触发此事件
-    HOOK_MOUSEDOWN: 'HOOK_MOUSEDOWN',
-    HOOK_MOUSEMOVE: 'HOOK_MOUSEMOVE',
-    HOOK_MOUSEUP: 'HOOK_MOUSEUP',
-    BEFORE_RESIZE: 'BEFORE_RESIZE',
-    AFTER_RESIZE: 'AFTER_RESIZE',
-    BEFORE_ROTATE: 'BEFORE_ROTATE',
-    AFTER_ROTATE: 'AFTER_ROTATE',
-    BEFORE_MOVE: 'BEFORE_MOVE',
-    AFTER_MOVE: 'AFTER_MOVE'
-  };
-
   /**
    * Common utilities
    * @module glMatrix
@@ -310,6 +261,21 @@
       return a;
     };
   }();
+
+  function _defineProperty(obj, key, value) {
+    if (key in obj) {
+      Object.defineProperty(obj, key, {
+        value: value,
+        enumerable: true,
+        configurable: true,
+        writable: true
+      });
+    } else {
+      obj[key] = value;
+    }
+
+    return obj;
+  }
 
   var IDX=256, HEX=[], BUFFER;
   while (IDX--) HEX[IDX] = (IDX + 256).toString(16).substring(1);
@@ -2998,6 +2964,40 @@
    * LICENSE file in the root directory of this source tree.
    *
    */
+  //ICE 自定的事件名称常量，原生 DOM 事件的名称不变。
+  const ICE_EVENT_NAME_CONSTS = {
+    ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
+    BEFORE_RENDER: 'BEFORE_RENDER',
+    AFTER_RENDER: 'AFTER_RENDER',
+    ICE_CLICK: 'ICE_CLICK',
+    BEFORE_ADD: 'BEFORE_ADD',
+    //在 addChild() 方法中的第一行执行
+    AFTER_ADD: 'AFTER_ADD',
+    //在 addChild() 方法返回之前执行
+    BEFORE_REMOVE: 'BEFORE_REMOVE',
+    //在 removeChild() 方法中的第一行执行
+    AFTER_REMOVE: 'AFTER_REMOVE',
+    //在 removeChild() 方法返回之前执行
+    ROUND_FINISH: 'ROUND_FINISH',
+    //当渲染器完成一轮渲染时，会触发此事件
+    HOOK_MOUSEDOWN: 'HOOK_MOUSEDOWN',
+    HOOK_MOUSEMOVE: 'HOOK_MOUSEMOVE',
+    HOOK_MOUSEUP: 'HOOK_MOUSEUP',
+    BEFORE_RESIZE: 'BEFORE_RESIZE',
+    AFTER_RESIZE: 'AFTER_RESIZE',
+    BEFORE_ROTATE: 'BEFORE_ROTATE',
+    AFTER_ROTATE: 'AFTER_ROTATE',
+    BEFORE_MOVE: 'BEFORE_MOVE',
+    AFTER_MOVE: 'AFTER_MOVE'
+  };
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
 
   /**
    * @class ICEEvent
@@ -4422,6 +4422,305 @@
 
   }
 
+  /** `Object#toString` result references. */
+  var stringTag$1 = '[object String]';
+
+  /**
+   * Checks if `value` is classified as a `String` primitive or object.
+   *
+   * @static
+   * @since 0.1.0
+   * @memberOf _
+   * @category Lang
+   * @param {*} value The value to check.
+   * @returns {boolean} Returns `true` if `value` is a string, else `false`.
+   * @example
+   *
+   * _.isString('abc');
+   * // => true
+   *
+   * _.isString(1);
+   * // => false
+   */
+  function isString(value) {
+    return typeof value == 'string' ||
+      (!isArray_1(value) && isObjectLike_1(value) && _baseGetTag(value) == stringTag$1);
+  }
+
+  var isString_1 = isString;
+
+  /**
+   * Checks if `value` is `undefined`.
+   *
+   * @static
+   * @since 0.1.0
+   * @memberOf _
+   * @category Lang
+   * @param {*} value The value to check.
+   * @returns {boolean} Returns `true` if `value` is `undefined`, else `false`.
+   * @example
+   *
+   * _.isUndefined(void 0);
+   * // => true
+   *
+   * _.isUndefined(null);
+   * // => false
+   */
+  function isUndefined(value) {
+    return value === undefined;
+  }
+
+  var isUndefined_1 = isUndefined;
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+
+  /**
+   * 来源：https://github.com/AndrewRayCode/easing-utils/blob/master/src/easing.js
+   * 一组缓动工具函数
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+  const Easing = {
+    /**
+     * 线性变化
+     * @param from 起始值
+     * @param to  终止值
+     * @param duration 持续时间，ms
+     * @param startTime 动画开始时间
+     */
+    linear: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return from + deltaValue / duration * deltaT;
+    },
+    easeInQuad: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return from + deltaValue / duration * (deltaT / duration) * deltaT;
+    },
+    easeOutQuad: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return -deltaValue * (deltaT /= duration) * (deltaT - 2) + from;
+    },
+    easeInOutQuad: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT + from;
+      return -deltaValue / 2 * (--deltaT * (deltaT - 2) - 1) + from;
+    },
+    easeInQuart: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return deltaValue * (deltaT /= duration) * deltaT * deltaT * deltaT + from;
+    },
+    easeOutQuart: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return -deltaValue * ((deltaT = deltaT / duration - 1) * deltaT * deltaT * deltaT - 1) + from;
+    },
+    easeInOutQuart: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT * deltaT * deltaT + from;
+      return -deltaValue / 2 * ((deltaT -= 2) * deltaT * deltaT * deltaT - 2) + from;
+    },
+    easeInCubic: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return deltaValue * (deltaT /= duration) * deltaT * deltaT + from;
+    },
+    easeOutCubic: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      return deltaValue * ((deltaT = deltaT / duration - 1) * deltaT * deltaT + 1) + from;
+    },
+    easeInOutCubic: function (from, to, duration, startTime) {
+      let deltaT = Date.now() - startTime;
+      let deltaValue = to - from;
+      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT * deltaT + from;
+      return deltaValue / 2 * ((deltaT -= 2) * deltaT * deltaT + 2) + from;
+    } //TODO:增加更多缓动算法
+
+  };
+
+  /**
+   * @class AnimationManager
+   *
+   * 动画管理器
+   *
+   * - 全局单例，一个 ICE 实例上只能有一个 AnimationManager 的实例。
+   *
+   * @singleton
+   * @see ICE
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class AnimationManager {
+    //所有需要执行动画的元素都会被自动存入此列表中
+    constructor(ice) {
+      _defineProperty(this, "animationMap", new Map());
+
+      _defineProperty(this, "ice", void 0);
+
+      this.ice = ice;
+    }
+
+    start() {
+      this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
+      return this;
+    }
+
+    stop() {
+      this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
+      return this;
+    }
+
+    frameEventHandler(evt) {
+      this.animationMap.forEach(el => {
+        //在动画过程中，对象不响应鼠标或者触摸交互，防止影响属性值的计算。
+        el.state.interactive = false;
+        this.tween(el);
+        el.state.interactive = true;
+      });
+    } //TODO:处理无限循环播放的情况，处理播放次数的情况
+    //TODO:每一个属性变化的持续时间不同，需要做同步处理，所有动画都执行完毕之后，需要把对象从动画列表中删除
+
+
+    tween(el) {
+      let newState = {};
+      let animations = el.props.animations;
+      let finishCounter = 1;
+
+      for (let key in animations) {
+        let animation = animations[key];
+
+        if (animation.finished) {
+          finishCounter++; //元素上的所有动画效果都已经执行完毕，从动画列表中删除， FIXME: 处理无限循环动画的问题
+
+          if (finishCounter === Object.keys(animations).length) {
+            this.remove(el);
+            break;
+          }
+
+          continue;
+        }
+
+        let from = animation.from;
+        let to = animation.to;
+        let duration = animation.duration;
+
+        if (isUndefined_1(animation.startTime)) {
+          animation.startTime = Date.now();
+        }
+
+        if (isUndefined_1(animation.easing)) {
+          animation.easing = 'linear';
+        }
+
+        let newValue = Easing[animation.easing](from, to, duration, animation.startTime);
+
+        if (newValue > to) {
+          newValue = to;
+          animation.finished = true;
+        }
+
+        newState[key] = Math.floor(newValue); //使用整数个像素点
+      }
+
+      el.setState({ ...newState
+      });
+      return el;
+    }
+
+    add(component) {
+      this.animationMap.set(component.props.id, component);
+    }
+
+    remove(el) {
+      if (isString_1(el)) {
+        this.animationMap.delete(el);
+      } else {
+        this.animationMap.delete(el.props.id);
+      }
+    }
+
+  }
+
+  /**
+   * @class DDManager
+   *
+   *  拖拽管理器
+   *
+   * - ICE Render 中所有组件的拖动都由 DDManager 管理。
+   * - 拖拽管理器是纯逻辑组件，没有外观。
+   * - DDManager 只负责拖拽和移动位置，不进行其它操作。
+   * - 全局单例，一个 ICE 实例上只能有一个 DDManager 实例。
+   *
+   * @see ICE
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+  class DDManager {
+    //当前正在拖动的组件，FIXME:同时拖动多个组件？
+    constructor(ice) {
+      _defineProperty(this, "ice", void 0);
+
+      _defineProperty(this, "currentObj", void 0);
+
+      this.ice = ice;
+    }
+
+    start() {
+      this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
+      return this;
+    }
+
+    stop() {
+      this.ice.evtBus.off('mousedown', this.mouseDownHandler, this);
+      this.ice.evtBus.off('mousemove', this.mouseMoveHandler, this);
+      this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
+      return this;
+    }
+
+    mouseDownHandler(evt) {
+      let component = evt.target;
+
+      if (!(component instanceof ICEComponent)) {
+        console.warn('DDManager: 点击在 canvas 画布上，没有点击任何图形。');
+        return;
+      }
+
+      if (!component.state.interactive || !component.state.draggable) {
+        return;
+      }
+
+      this.currentObj = component;
+      this.ice.evtBus.on('mousemove', this.mouseMoveHandler, this);
+      this.ice.evtBus.on('mouseup', this.mouseUpHandler, this);
+    }
+
+    mouseMoveHandler(evt) {
+      // console.log('window.devicePixelRatio>', window.devicePixelRatio);
+      // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+      // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
+      let tx = evt.movementX;
+      let ty = evt.movementY;
+      this.currentObj.moveGlobalPosition(tx, ty, evt);
+      return true;
+    }
+
+    mouseUpHandler(evt) {
+      this.ice.evtBus.off('mousemove', this.mouseMoveHandler, this);
+      this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
+    }
+
+  }
+
   /**
    * @class ICEGroup
    *
@@ -4486,40 +4785,36 @@
   }
 
   /**
-   * Copyright (c) 2022 大漠穷秋.
+   * @class ICEControlPanel
    *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
+   * 控制面板
    *
-   */
-  /**
-   * @class ICEImage
-   * TODO:支持以下几种图片类型：jpg/jpeg/png/gif
-   * TODO:ICEImage 来源的几种方式
+   * FIXME:所有 ControlPanel 类型的组件都需要处理组件的 REMOVE 事件，当组件被删除时，清理关联关系。
+   *
+   * - ICEControlPanel 本身总是直接画在 canvas 上，不是任何组件的孩子。
+   *
    * @author 大漠穷秋<damoqiongqiu@126.com>
    */
-
-  class ICEImage extends ICEComponent {
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        width: 100,
-        height: 100,
-        ...props
+  class ICEControlPanel extends ICEGroup {
+    constructor(props) {
+      super({ ...props,
+        linkable: false
       });
+
+      _defineProperty(this, "_targetComponent", void 0);
     }
-    /**
-     * 空实现。
-     */
-
-
-    initEvents() {}
 
     doRender() {
-      let img = new Image();
-      img.src = 'data:image/png;base64,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';
-      this.ctx.drawImage(img, 0 - this.state.localOrigin[0], 0 - this.state.localOrigin[1], this.state.width, this.state.height);
       super.doRender();
+      this.setControlPositions();
+    }
+
+    moveGlobalPosition(tx, ty, evt) {
+      super.moveGlobalPosition(tx, ty, evt);
+
+      if (this._targetComponent) {
+        this._targetComponent.moveGlobalPosition(tx, ty, evt);
+      }
     }
 
   }
@@ -5325,1174 +5620,6 @@
    * LICENSE file in the root directory of this source tree.
    *
    */
-
-  /**
-   * @class GeoPoint
-   * A geometrically point, invisible, no dimension, just used for mathematical operations.
-   * This implementation is improved from http://diagramo.com/ .
-   *
-   *
-   * 几何学意义上的点，它不可见，没有大小，用来进行数学运算。此实现从 diagramo 改进而来：http://diagramo.com/ 。
-   *
-   * @docauthor 大漠穷秋 <damoqiongqiu@126.com>
-   */
-  class GeoPoint {
-    /**
-     * @constructor GeoPoint
-     * @param {*} x
-     * @param {*} y
-     */
-    constructor() {
-      let x = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
-      let y = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
-      this.x = x;
-      this.y = y;
-    }
-    /**
-     *
-     * @method load
-     * Creates a {GeoPoint} out of JSON parsed object.
-     *
-     *
-     * 从 JSON 对象创建 {GeoPoint} 实例。
-     * @param {JSONObject} o the JSON parsed object
-     * @return {GeoPoint} a newly constructed GeoPoint
-     */
-
-
-    static load(o) {
-      return new GeoPoint(Number(o.x), Number(o.y));
-    }
-    /**
-     *
-     * @method loadArray
-     * Creates an array of points from an array of {JSONObject}s.
-     *
-     *
-     * 从 {JSONObject} 数组创建实例。
-     * @param {Array} v the array of JSONObjects
-     * @return an {Array} of {GeoPoint}s
-     */
-
-
-    static loadArray(v) {
-      let newPoints = [];
-
-      for (let i = 0; i < v.length; i++) {
-        newPoints.push(GeoPoint.load(v[i]));
-      }
-
-      return newPoints;
-    }
-    /**
-     *
-     * @method cloneArray
-     * Clones an array of points.
-     *
-     *
-     * 克隆一组点。
-     * @param {Array} v - the array of {GeoPoint}s
-     * @return an {Array} of {GeoPoint}s
-     */
-
-
-    static cloneArray(v) {
-      let newPoints = [];
-
-      for (let i = 0; i < v.length; i++) {
-        newPoints.push(v[i].clone());
-      }
-
-      return newPoints;
-    }
-    /**
-     *
-     * @method pointsToArray
-     * @param {*} points
-     */
-
-
-    static pointsToArray(points) {
-      let result = [];
-
-      for (let i = 0; i < points.length; i++) {
-        result.push([points[i].x, points[i].y]);
-      }
-
-      return result;
-    }
-    /**
-     * @method toArray
-     */
-
-
-    toArray() {
-      return [this.x, this.y];
-    }
-    /**
-     * @method transform
-     * @param {*} matrix
-     */
-
-
-    transform(matrix) {
-      let oldX = this.x;
-      let oldY = this.y;
-      this.x = matrix[0][0] * oldX + matrix[0][1] * oldY + matrix[0][2];
-      this.y = matrix[1][0] * oldX + matrix[1][1] * oldY + matrix[1][2];
-    }
-    /**
-     * @method equals
-     * Tests if this point is equals to other point.
-     *
-     *
-     * 测试当前点是否与另一个点相等。
-     * @param {GeoPoint} anotherPoint - the other point
-     */
-
-
-    equals(anotherPoint) {
-      return this.x == anotherPoint.x && this.y == anotherPoint.y;
-    }
-    /**
-     * @method clone
-     * Clone current GeoPoint.
-     *
-     *
-     * 克隆当前点。
-     */
-
-
-    clone() {
-      let newPoint = new GeoPoint(this.x, this.y);
-      return newPoint;
-    }
-    /**
-     * @method add
-     * @param {*} point
-     */
-
-
-    add(point) {
-      this.x = this.x + point.x;
-      this.y = this.y + point.y;
-      return this;
-    }
-    /**
-     * @method near
-     * Tests to see if a point (x, y) is within a range of current GeoPoint.
-     *
-     *
-     * 测试某个点 (x,y) 是否处于当前 GeoPoint 的某个范围内。
-     * @param {Numeric} x - the x coordinate of tested point
-     * @param {Numeric} y - the x coordinate of tested point
-     * @param {Numeric} radius - the radius of the vicinity
-     */
-
-
-    near(x, y, radius) {
-      let distance = Math.hypot(this.x - x, this.y - y);
-      return distance <= radius;
-    }
-    /**
-     * @method toString
-     */
-
-
-    toString() {
-      return '[' + this.x + ',' + this.y + ']';
-    }
-
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  /**
-   * @class GeoLine
-   * A geometrically line, invisible, no dimension, just used for mathematical operations.
-   * This implementation is improved from http://diagramo.com/ .
-   *
-   *
-   * 几何学意义上的直线，它不可见，没有宽度，用来进行数学运算。此实现从 diagramo 改进而来：http://diagramo.com/ 。
-   *
-   * @docauthor 大漠穷秋 <damoqiongqiu@126.com>
-   */
-
-  class GeoLine {
-    constructor(startPoint, endPoint) {
-      this.startPoint = startPoint;
-      this.endPoint = endPoint;
-    }
-    /**
-     *
-     * @method load
-     * Creates a {GeoLine} out of JSON parsed object.
-     *
-     *
-     * 从 JSON 对象创建直线。
-     * @param {JSONObject} o - the JSON parsed object
-     * @return {GeoLine} a newly constructed GeoLine
-     */
-
-
-    static load(o) {
-      let newLine = new GeoLine(GeoPoint.load(o.startPoint), GeoPoint.load(o.endPoint));
-      return newLine;
-    }
-    /**
-     * @method constants
-     * Tests to see if a point belongs to this line (not as infinite line but more like a segment)
-     * Algorithm: Compute line's equation and see if (x, y) verifies it.
-     *
-     * 测试某个点是否位于直线上（这里不是数学意义上的无线延长直线，而是线段）。
-     * 算法：计算斜率，看(x,y)点是否位于线段上。
-     *
-     * @see http://www.jeffreythompson.org/collision-detection/line-point.php
-     * @param {Number} x - the X coordinates
-     * @param {Number} y - the Y coordinates
-     */
-
-
-    contains(x, y) {
-      // if the point is inside rectangle bounds of the segment
-      if (Math.min(this.startPoint.x, this.endPoint.x) <= x && x <= Math.max(this.startPoint.x, this.endPoint.x) && Math.min(this.startPoint.y, this.endPoint.y) <= y && y <= Math.max(this.startPoint.y, this.endPoint.y)) {
-        // check for vertical line
-        if (this.startPoint.x == this.endPoint.x) {
-          return x == this.startPoint.x;
-        } else {
-          // usual (not vertical) line can be represented as y = a * x + b
-          let a = (this.endPoint.y - this.startPoint.y) / (this.endPoint.x - this.startPoint.x);
-          let b = this.startPoint.y - a * this.startPoint.x;
-          return y == a * x + b;
-        }
-      } else {
-        return false;
-      }
-    }
-    /**
-     * @method near
-     * See if we are near a {GeoLine} by a certain radius (also includes the extremities into computation).
-     *
-     *
-     * 测试某个点是否在某个角度上接近 {GeoLine} （断点也计算在内）。
-     *
-     * @param {Number} x - the x coordinates
-     * @param {Number} y - the y coordinates
-     * @param {Number} radius - the radius to search for
-     * @see http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-     * @see "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
-     */
-
-
-    near(x, y, radius) {
-      if (this.endPoint.x === this.startPoint.x) {
-        //Vertical line, so the vicinity area is a rectangle
-        return (this.startPoint.y - radius <= y && this.endPoint.y + radius >= y || this.endPoint.y - radius <= y && this.startPoint.y + radius >= y) && x > this.startPoint.x - radius && x < this.startPoint.x + radius;
-      }
-
-      if (this.startPoint.y === this.endPoint.y) {
-        //Horizontal line, so the vicinity area is a rectangle
-        return (this.startPoint.x - radius <= x && this.endPoint.x + radius >= x || this.endPoint.x - radius <= x && this.startPoint.x + radius >= x) && y > this.startPoint.y - radius && y < this.startPoint.y + radius;
-      }
-
-      let startX = Math.min(this.endPoint.x, this.startPoint.x);
-      let startY = Math.min(this.endPoint.y, this.startPoint.y);
-      let endX = Math.max(this.endPoint.x, this.startPoint.x);
-      let endY = Math.max(this.endPoint.y, this.startPoint.y);
-      /*We will compute the distance from point to the line
-       * by using the algorithm from
-       * http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
-       * */
-      //First we need to find a,b,c of the line equation ax + by + c = 0
-
-      let a = this.endPoint.y - this.startPoint.y;
-      let b = this.startPoint.x - this.endPoint.x;
-      let c = -(this.startPoint.x * this.endPoint.y - this.endPoint.x * this.startPoint.y); //Secondly we get the distance "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
-
-      let d = Math.abs((a * x + b * y + c) / Math.hypot(a, b)); //Thirdly we get coordinates of closest line's point to target point
-      //http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Cartesian_coordinates
-
-      let closestX = (b * (b * x - a * y) - a * c) / (Math.pow(a, 2) + Math.pow(b, 2));
-      let closestY = (a * (-b * x + a * y) - b * c) / (Math.pow(a, 2) + Math.pow(b, 2));
-      let r = d <= radius && endX >= closestX && closestX >= startX && endY >= closestY && closestY >= startY || //the projection of the point falls INSIDE of the segment
-      this.startPoint.near(x, y, radius) || this.endPoint.near(x, y, radius); //the projection of the point falls OUTSIDE of the segment
-
-      return r;
-    }
-    /**
-     * @method getPoints
-     * Get an arry composed by the start point and end point of the line.
-     *
-     *
-     * 获取端点构成的数组。
-     */
-
-
-    getPoints() {
-      let points = [];
-      points.push(this.startPoint);
-      points.push(this.endPoint);
-      return points;
-    }
-    /**
-     * @method getPoint
-     * Return the {GeoPoint} corresponding the t certain t value.
-     *
-     *
-     * 获取指定百分比上的点，参数 t 是百分比。
-     * @param {Number} t the value of parameter t, where t in [0,1], t is like a percent
-     */
-
-
-    getPoint(t) {
-      let xp = t * (this.endPoint.x - this.startPoint.x) + this.startPoint.x;
-      let yp = t * (this.endPoint.y - this.startPoint.y) + this.startPoint.y;
-      return new GeoPoint(xp, yp);
-    }
-    /**
-     * @method clone
-     */
-
-
-    clone() {
-      let ret = new GeoLine(this.startPoint.clone(), this.endPoint.clone());
-      return ret;
-    }
-    /**
-     * @equals
-     * @param {*} anotherLine
-     */
-
-
-    equals(anotherLine) {
-      if (!(anotherLine instanceof GeoLine)) {
-        return false;
-      }
-
-      return this.startPoint.equals(anotherLine.startPoint) && this.endPoint.equals(anotherLine.endPoint);
-    }
-    /**
-     * @method toString
-     */
-
-
-    toString() {
-      return 'line(' + this.startPoint + ',' + this.endPoint + ')';
-    }
-
-  }
-
-  /**
-   * ! FIXME: 删掉对 GeoPoint/GeoLine/GeoUtil 的依赖
-   * @class ICEVisioLink
-   *
-   * Visio 型的连接线
-   *
-   * 模拟 Microsoft Visio 中的折线算法，此实现从 diagramo 改进而来：http://diagramo.com/ 。
-   *
-   * 基本特性：
-   *
-   * - ICEVisioLink 只有 2 个端点，起点和终点。
-   * - 除起始点和终点坐标之外，其它点会自动插值计算。
-   * - ICEVisioLink 只能连接 2 个非线条类的组件。
-   * - 线条互相之间不能连接，在 ICE 引擎中，不能用线条连接线条。
-   * - 每一个可以被连接的组件上都有 4 个插槽（Slot），4 个插槽分布在组件最小边界盒子 4 条边的几何中点位置上。
-   * - ICEVisioLink 的端点在移动时会判断是否与某个插槽发生碰撞，如果与某个插槽发生碰撞， ICEVisioLink 会连接到插槽所在的组件上。
-   * - 同一个插槽（Slot）上可以连 N 根线，Slot 与 ICEVisioLink 之间的关系是 1->N 。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-  class ICEVisioLink extends ICEPolyLine {
-    /**
-     * FIXME:补全 props 配置项的描述
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      props = ICEVisioLink.arrangeParam(props);
-      super(props);
-
-      _defineProperty(this, "startSlot", void 0);
-
-      _defineProperty(this, "endSlot", void 0);
-    }
-
-    static arrangeParam(props) {
-      if (isNil_1(props.startPoint)) {
-        props.startPoint = [0, 0];
-      }
-
-      if (isNil_1(props.endPoint)) {
-        props.endPoint = [10, 10];
-      }
-
-      props.points = [[...props.startPoint], [...props.endPoint]]; //escapeDistance 疏散距离，是 4 个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
-
-      props = {
-        escapeDistance: 30,
-        ...props
-      };
-      return props;
-    }
-    /**
-     * @override
-     */
-
-
-    initEvents() {
-      super.initEvents(); //如果 props 里面的 startSlotId 和 endSlotId 不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
-
-      this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
-    }
-
-    afterAddHandler(evt) {
-      this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
-    }
-
-    makeConnection() {
-      const {
-        startSlotId,
-        endSlotId
-      } = this.props;
-      const startSlot = this.ice.findComponent(startSlotId);
-      const endSlot = this.ice.findComponent(endSlotId);
-      startSlot && this.setSlot(startSlot, 'start');
-      endSlot && this.setSlot(endSlot, 'end');
-    }
-    /**
-     * ICEVisioLink 有自己特殊的计算方式。
-     *
-     * @overwrite
-     * @returns
-     */
-
-
-    calcDots() {
-      let solutions = this.interpolate();
-      let {
-        left,
-        top
-      } = this.state;
-      let arr = solutions[0][2];
-      this.state.points = [];
-      this.state.dots = [];
-      arr.forEach(item => {
-        this.state.points.push([item.x, item.y]);
-        this.state.dots.push([item.x - left, item.y - top]);
-      });
-      return this.state.dots;
-    }
-    /**
-     * 在起点和终点之间插值。
-     *
-     * @returns
-     */
-
-
-    interpolate() {
-      let len = this.state.points.length;
-      let startX = this.state.points[0][0];
-      let startY = this.state.points[0][1];
-      let endX = this.state.points[len - 1][0];
-      let endY = this.state.points[len - 1][1];
-      let startPoint = new GeoPoint(startX, startY);
-      let endPoint = new GeoPoint(endX, endY);
-      let potentialExits = [];
-      let startExitPoint = null;
-      let endExitPoint = null;
-      let solutions = [];
-      let startBounding = new ICEBoundingBox();
-      let endBounding = new ICEBoundingBox(); //find start exit point
-
-      if (this.startSlot) {
-        startBounding = this.startSlot.hostComponent.getMinBoundingBox();
-        potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl[1] - this.state.escapeDistance); //north
-
-        potentialExits[1] = new GeoPoint(startBounding.tr[0] + this.state.escapeDistance, startPoint.y); //east
-
-        potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br[1] + this.state.escapeDistance); //south
-
-        potentialExits[3] = new GeoPoint(startBounding.tl[0] - this.state.escapeDistance, startPoint.y); //west
-        //pick closest exit point
-
-        startExitPoint = potentialExits[0];
-
-        for (let i = 1; i < potentialExits.length; i++) {
-          if (this.distance(startPoint, potentialExits[i]) < this.distance(startPoint, startExitPoint)) {
-            startExitPoint = potentialExits[i];
-          }
-        }
-      } //find end exit point
-
-
-      if (this.endSlot) {
-        endBounding = this.endSlot.hostComponent.getMinBoundingBox();
-        potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl[1] - this.state.escapeDistance); //north
-
-        potentialExits[1] = new GeoPoint(endBounding.tr[0] + this.state.escapeDistance, endPoint.y); //east
-
-        potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br[1] + this.state.escapeDistance); //south
-
-        potentialExits[3] = new GeoPoint(endBounding.tl[0] - this.state.escapeDistance, endPoint.y); //west
-        //pick closest exit point
-
-        endExitPoint = potentialExits[0];
-
-        for (let i = 1; i < potentialExits.length; i++) {
-          if (this.distance(endPoint, potentialExits[i]) < this.distance(endPoint, endExitPoint)) {
-            endExitPoint = potentialExits[i];
-          }
-        }
-      } //the index of the gap (where do we need to insert new points) DO NOT CHANGE IT
-
-
-      let gapIndex = 0; //Basic solution
-
-      let s = [startPoint];
-
-      if (startExitPoint) {
-        s.push(startExitPoint);
-        gapIndex = 1;
-      }
-
-      endExitPoint && s.push(endExitPoint);
-      s.push(endPoint); //SO - no additional points
-
-      let s0 = GeoPoint.cloneArray(s);
-      solutions.push(['s0', 's0', s0]); //S1
-
-      let s1 = GeoPoint.cloneArray(s); //first variant
-
-      let s1_1 = GeoPoint.cloneArray(s1);
-      s1_1.splice(gapIndex + 1, 0, new GeoPoint(s1_1[gapIndex].x, s1_1[gapIndex + 1].y));
-      solutions.push(['s1', 's1_1', s1_1]); //second variant
-
-      let s1_2 = GeoPoint.cloneArray(s1);
-      s1_2.splice(gapIndex + 1, 0, new GeoPoint(s1_2[gapIndex + 1].x, s1_2[gapIndex].y));
-      solutions.push(['s1', 's1_2', s1_2]); //S2
-      //Variant I
-
-      let s2_1 = GeoPoint.cloneArray(s1);
-      let s2_1_1 = new GeoPoint((s2_1[gapIndex].x + s2_1[gapIndex + 1].x) / 2, s2_1[gapIndex].y);
-      let s2_1_2 = new GeoPoint((s2_1[gapIndex].x + s2_1[gapIndex + 1].x) / 2, s2_1[gapIndex + 1].y);
-      s2_1.splice(gapIndex + 1, 0, s2_1_1, s2_1_2);
-      solutions.push(['s2', 's2_1', s2_1]); //Variant II
-
-      let s2_2 = GeoPoint.cloneArray(s1);
-      let s2_2_1 = new GeoPoint(s2_2[gapIndex].x, (s2_2[gapIndex].y + s2_2[gapIndex + 1].y) / 2);
-      let s2_2_2 = new GeoPoint(s2_2[gapIndex + 1].x, (s2_2[gapIndex].y + s2_2[gapIndex + 1].y) / 2);
-      s2_2.splice(gapIndex + 1, 0, s2_2_1, s2_2_2);
-      solutions.push(['s2', 's2_2', s2_2]); //Variant III
-
-      let s2_3 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move right so no intersection with a figure will be present
-      //add points X coordinates to be able to generate Variant III even in the absence of figures :p
-
-      let eastExits = [s2_3[gapIndex].x + 20, s2_3[gapIndex + 1].x + 20];
-
-      if (startBounding) {
-        eastExits.push(startBounding.br[0] + 20);
-      }
-
-      if (endBounding) {
-        eastExits.push(endBounding.br[0] + 20);
-      }
-
-      let eastExit = this.max(eastExits);
-      let s2_3_1 = new GeoPoint(eastExit, s2_3[gapIndex].y);
-      let s2_3_2 = new GeoPoint(eastExit, s2_3[gapIndex + 1].y);
-      s2_3.splice(gapIndex + 1, 0, s2_3_1, s2_3_2);
-      solutions.push(['s2', 's2_3', s2_3]); //Variant IV
-
-      let s2_4 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move up so no intersection with a figure will be present
-      //add points y coordinates to be able to generate Variant III even in the absence of figures :p
-
-      let northExits = [s2_4[gapIndex].y - 20, s2_4[gapIndex + 1].y - 20];
-
-      if (startBounding) {
-        northExits.push(startBounding.tl[1] - 20);
-      }
-
-      if (endBounding) {
-        northExits.push(endBounding.tl[1] - 20);
-      }
-
-      let northExit = this.min(northExits);
-      let s2_4_1 = new GeoPoint(s2_4[gapIndex].x, northExit);
-      let s2_4_2 = new GeoPoint(s2_4[gapIndex + 1].x, northExit);
-      s2_4.splice(gapIndex + 1, 0, s2_4_1, s2_4_2);
-      solutions.push(['s2', 's2_4', s2_4]); //Variant V
-
-      let s2_5 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move left so no intersection with a figure will be present
-      //add points x coordinates to be able to generate Variant III even in the absence of figures :p
-
-      let westExits = [s2_5[gapIndex].x - 20, s2_5[gapIndex + 1].x - 20];
-
-      if (startBounding) {
-        westExits.push(startBounding.tl[0] - 20);
-      }
-
-      if (endBounding) {
-        westExits.push(endBounding.tl[0] - 20);
-      }
-
-      let westExit = this.min(westExits);
-      let s2_5_1 = new GeoPoint(westExit, s2_5[gapIndex].y);
-      let s2_5_2 = new GeoPoint(westExit, s2_5[gapIndex + 1].y);
-      s2_5.splice(gapIndex + 1, 0, s2_5_1, s2_5_2);
-      solutions.push(['s2', 's2_5', s2_5]); //Variant VI
-
-      let s2_6 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move down so no intersection with a figure will be present
-      //add points y coordinates to be able to generate Variant III even in the absence of figures :p
-
-      let southExits = [s2_6[gapIndex].y + 20, s2_6[gapIndex + 1].y + 20];
-
-      if (startBounding) {
-        southExits.push(startBounding.tl[1] + startBounding.height + 20);
-      }
-
-      if (endBounding) {
-        southExits.push(endBounding.tl[1] + endBounding.height + 20);
-      }
-
-      let southExit = this.max(southExits);
-      let s2_6_1 = new GeoPoint(s2_6[gapIndex].x, southExit);
-      let s2_6_2 = new GeoPoint(s2_6[gapIndex + 1].x, southExit);
-      s2_6.splice(gapIndex + 1, 0, s2_6_1, s2_6_2);
-      solutions.push(['s2', 's2_6', s2_6]); //FILTER solutions
-
-      /*
-       * Algorithm
-       * 0. solutions are ordered from minimmun nr of points to maximum >:)
-       * 1. remove all solutions that are not orthogonal (mainly s0 solution)
-       * 2. remove all solutions that go backward (we will not need them ever)
-       * 3. remove all solutions with intersections
-       * 4. pick first class of solutions with same nr of points (ex: 2)
-       * 5. pick the first solution with 90 degree angles (less turnarounds)
-       * (not interesteted) sort by length :p
-       */
-      //1. filter non ortogonal solutions
-
-      let orthogonalSolution = [];
-
-      for (let i = 0; i < solutions.length; i++) {
-        let solution = solutions[i][2];
-
-        if (this.orthogonalPath(solution)) {
-          orthogonalSolution.push(solutions[i]);
-        }
-      }
-
-      solutions = orthogonalSolution; //2. filter backward solutions, do not allow start and end points to coincide - ignore them
-
-      if (!startPoint.equals(endPoint)) {
-        let forwardSolutions = [];
-
-        for (let i = 0; i < solutions.length; i++) {
-          let solution = solutions[i][2];
-
-          if (this.forwardPath(solution)) {
-            forwardSolutions.push(solutions[i]);
-          }
-        }
-
-        solutions = forwardSolutions;
-
-        if (solutions.length == 0) ;
-      } //3. Filter non intersecting solutions
-
-
-      let nonIntersectionSolutions = [];
-
-      for (let i = 0; i < solutions.length; i++) {
-        let solution = solutions[i][2];
-        let intersect = false;
-        let innerLines = solution.slice(); //just a shallow copy
-
-        /*
-         * If any bounds just trim the solution. So we avoid the strange case when a connection
-         * startes from a point on a figure and ends inside of the same figure, but not on a connection point.
-         */
-
-        if (endBounding || startBounding) {
-          //i0nnerLines = innerLines.slice(0, innerLines.length - 1);
-          innerLines = innerLines.slice(1, innerLines.length - 1);
-        } //now test for intersection
-
-
-        if (startBounding) {
-          intersect = intersect || this.polylineIntersectsRectangle(innerLines, startBounding);
-        }
-
-        if (endBounding) {
-          intersect = intersect || this.polylineIntersectsRectangle(innerLines, endBounding);
-        }
-
-        if (!intersect) {
-          nonIntersectionSolutions.push(solutions[i]);
-        }
-      } //If all solutions intersect than this is destiny  :) and just ignore the intersection filter
-
-
-      if (nonIntersectionSolutions.length != 0) {
-        //reasign to solutions
-        solutions = nonIntersectionSolutions;
-      } //4. get first class of solutions with same nr of points
-
-
-      if (solutions.length == 0) ;
-
-      let firstSolution = solutions[0][2]; //pick first solution
-
-      let nrOfPoints = firstSolution.length;
-      let sameNrPointsSolution = [];
-
-      for (let i = 0; i < solutions.length; i++) {
-        let solution = solutions[i][2];
-
-        if (solution.length == nrOfPoints) {
-          sameNrPointsSolution.push(solutions[i]);
-        }
-      }
-
-      solutions = sameNrPointsSolution;
-      /*
-       * 5.Pick the first solution with 90 degree angles (less turnarounds)
-       * in case we have more than one solution in our class.
-       */
-
-      let solIndex = 0;
-
-      for (let i = 0; i < solutions.length; i++) {
-        if (this.scorePath(solutions[solIndex][2]) < this.scorePath(solutions[i][2])) {
-          solIndex = i;
-        }
-      }
-
-      solutions = [solutions[solIndex]];
-      return solutions;
-    }
-    /**
-     * Tests if a vector of points is an orthogonal path (moving in multiples of 90 degrees).
-     *
-     *
-     * 正交判定。Visio 连接线上的每一段要么平行于 X 轴，要么平行于 Y 轴。
-     * @param {Array} v - an {Array} of {Point}s
-     * @return {Boolean} - true if path is valid, false otherwise
-     */
-
-
-    orthogonalPath(v) {
-      if (v.length <= 1) {
-        return true;
-      }
-
-      for (let i = 0; i < v.length - 1; i++) {
-        if (v[i].x != v[i + 1].x && v[i].y != v[i + 1].y) {
-          return false;
-        }
-      }
-
-      return true;
-    }
-    /**
-     * FIXME: 用更好的数学方法进行计算。
-     * Test to see if 2 {Line}s intersects. They are considered finite segments
-     * and not the infinite lines from geometry
-     * @param {Line} l1 - fist line/segment
-     * @param {Line} l2 - last line/segment
-     * @return {Boolean} true - if the lines intersect or false if not
-     */
-
-
-    lineIntersectsLine(l1, l2) {
-      // check for two vertical lines
-      if (l1.startPoint.x == l1.endPoint.x && l2.startPoint.x == l2.endPoint.x) {
-        return l1.startPoint.x == l2.startPoint.x // if 'infinite 'lines do coincide,
-        ? // then check segment bounds for overlapping
-        l1.contains(l2.startPoint.x, l2.startPoint.y) || l1.contains(l2.endPoint.x, l2.endPoint.y) : // lines are paralel
-        false;
-      } // if one line is vertical, and another line is not vertical
-      else if (l1.startPoint.x == l1.endPoint.x || l2.startPoint.x == l2.endPoint.x) {
-        // let assume l2 is vertical, otherwise exchange them
-        if (l1.startPoint.x == l1.endPoint.x) {
-          let l = l1;
-          l1 = l2;
-          l2 = l;
-        } // finding intersection of 'infinite' lines
-        // equation of the first line is y = ax + b, second: x = c
-
-
-        let a = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
-        let b = l1.startPoint.y - a * l1.startPoint.x;
-        let x0 = l2.startPoint.x;
-        let y0 = a * x0 + b;
-        return l1.contains(x0, y0) && l2.contains(x0, y0);
-      } // check normal case - both lines are not vertical
-      else {
-        //line equation is : y = a*x + b, b = y - a * x
-        let a1 = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
-        let b1 = l1.startPoint.y - a1 * l1.startPoint.x;
-        let a2 = (l2.endPoint.y - l2.startPoint.y) / (l2.endPoint.x - l2.startPoint.x);
-        let b2 = l2.startPoint.y - a2 * l2.startPoint.x;
-
-        if (a1 == a2) {
-          //paralel lines
-          return b1 == b2 ? // for coincide lines, check for segment bounds overlapping
-          l1.contains(l2.startPoint.x, l2.startPoint.y) || l1.contains(l2.endPoint.x, l2.endPoint.y) : // not coincide paralel lines have no chance to intersect
-          false;
-        } else {
-          //usual case - non paralel, the 'infinite' lines intersects...we only need to know if inside the segment
-
-          /*
-           * if one of the lines are vertical, then x0 is equal to their x,
-           * otherwise:
-           * y1 = a1 * x + b1
-           * y2 = a2 * x + b2
-           * => x0 = (b2 - b1) / (a1 - a2)
-           * => y0 = a1 * x0 + b1
-           */
-          let x0 = (b2 - b1) / (a1 - a2);
-          let y0 = a1 * x0 + b1;
-          return l1.contains(x0, y0) && l2.contains(x0, y0);
-        }
-      }
-    }
-    /**
-     * Tests if a a polyline defined by a set of points intersects a rectangle
-     * @param {Array} points - and {Array} of {Point}s
-     * @param {Array} boundingRect - the boundingRect
-     * @param {Boolean} closedPolyline - incase polyline is closed figure then true, else false
-     * @return true - if line intersects the rectangle, false - if not
-     */
-
-
-    polylineIntersectsRectangle(points, boundingRect) {
-      let closedPolyline = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
-      //get the 4 lines/segments represented by the boundingRect
-      let lines = [];
-      lines.push(new GeoLine(new GeoPoint(boundingRect.x1, boundingRect.y1), new GeoPoint(boundingRect.x2, boundingRect.y1)));
-      lines.push(new GeoLine(new GeoPoint(boundingRect.x2, boundingRect.y1), new GeoPoint(boundingRect.x2, boundingRect.y2)));
-      lines.push(new GeoLine(new GeoPoint(boundingRect.x2, boundingRect.y2), new GeoPoint(boundingRect.x1, boundingRect.y2)));
-      lines.push(new GeoLine(new GeoPoint(boundingRect.x1, boundingRect.y2), new GeoPoint(boundingRect.x1, boundingRect.y1)));
-
-      for (let k = 0; k < points.length - 1; k++) {
-        //create a line out of each 2 consecutive points
-        let tempLine = new GeoLine(points[k], points[k + 1]); //see if that line intersect any of the line on boundingRect border
-
-        for (let i = 0; i < lines.length; i++) {
-          if (this.lineIntersectsLine(tempLine, lines[i])) {
-            return true;
-          }
-        }
-      } //check the closed figure - that is last point connected to the first
-
-
-      if (closedPolyline) {
-        //create a line out of each 2 consecutive points
-        let tempLine1 = new GeoLine(points[points.length - 1], points[0]); //see if that line intersect any of the line on boundingRect border
-
-        for (let j = 0; j < lines.length; j++) {
-          if (this.lineIntersectsLine(tempLine1, lines[j])) {
-            return true;
-          }
-        }
-      }
-
-      return false;
-    }
-    /**
-     * Score a ortogonal path made out of Points
-     * Iterates over a set of points (minimum 3)
-     * For each 3 points (i, i+1, i+2) :
-     *  - if the 3rd one is after the 2nd on the same line we add +1
-     *  - if the 3rd is up or down related to the 2nd we do not do anything +0
-     *  - if the 3rd goes back we imediatelly return -1
-     * @param {Array} v - an array of {Point}s
-     * @return {Number} - -1 if the path is wrong (goes back) or something >= 0 if is fine.The bigger the number the smooth the path is.
-     */
-
-
-    scorePath(v) {
-      if (v.length <= 2) {
-        return -1;
-      }
-
-      let score = 0;
-
-      for (let i = 1; i < v.length - 1; i++) {
-        if (v[i - 1].x == v[i].x && v[i].x == v[i + 1].x) {
-          //on the same vertical
-          if (this.signum(v[i + 1].y - v[i].y) == this.signum(v[i].y - v[i - 1].y)) {
-            //same direction
-            score++;
-          } else {
-            //going back - no good
-            return -1;
-          }
-        } else if (v[i - 1].y == v[i].y && v[i].y == v[i + 1].y) {
-          //on the same horizontal
-          if (this.signum(v[i + 1].x - v[i].x) == this.signum(v[i].x - v[i - 1].x)) {
-            //same direction
-            score++;
-          } else {
-            //going back - no good
-            return -1;
-          }
-        } else {
-          //not on same vertical nor horizontal
-          score--;
-        }
-      }
-
-      return score;
-    }
-    /**
-     * Returns the sign of a number
-     * @param {Number} x - the number
-     * @returns {Number}
-     * @see <a href="http://en.wikipedia.org/wiki/Sign_function">http://en.wikipedia.org/wiki/Sign_function</a>
-     */
-
-
-    signum(x) {
-      if (x > 0) return 1;else if (x < 0) return -1;else return 0;
-    }
-    /**
-     * Tests if a vector of points is a valid path (not going back)
-     * There are a few problems here. If you have p1, p2, p3 and p4 and p2 = p3 you need to ignore that
-     * @param {Array} v - an {Array} of {Point}s
-     * @return {Boolean} - true if path is valid, false otherwise
-     */
-
-
-    forwardPath(v) {
-      if (v.length <= 2) {
-        return true;
-      }
-
-      for (let i = 0; i < v.length - 2; i++) {
-        if (v[i].x == v[i + 1].x && v[i + 1].x == v[i + 2].x) {
-          //on the same vertical
-          if (this.signum(v[i + 1].y - v[i].y) != 0) {
-            //test only we have a progressing path
-            if (this.signum(v[i + 1].y - v[i].y) == -1 * this.signum(v[i + 2].y - v[i + 1].y)) {
-              //going back (ignore zero)
-              return false;
-            }
-          }
-        } else if (v[i].y == v[i + 1].y && v[i + 1].y == v[i + 2].y) {
-          //on the same horizontal
-          if (this.signum(v[i + 1].x - v[i].x) != 0) {
-            //test only we have a progressing path
-            if (this.signum(v[i + 1].x - v[i].x) == -1 * this.signum(v[i + 2].x - v[i + 1].x)) {
-              //going back (ignore zero)
-              return false;
-            }
-          }
-        }
-      }
-
-      return true;
-    }
-    /**
-     * @method distance
-     * Calculate the distance between two points.
-     *
-     *
-     * 计算两点之间的距离。
-     * @param {Point} p1 - first {Point}
-     * @param {Point} p2 - second {Point}
-     * @return {Number} - the distance between those 2 points. It is always positive.
-     */
-
-
-    distance(p1, p2) {
-      return Math.hypot(p2.x - p1.x, p2.y - p1.y);
-    }
-    /**
-     * Returns the max of a vector
-     * @param {Array} v - vector of {Number}s
-     * @return {Number} - the maximum number from the vector or NaN if vector is empty
-     */
-
-
-    max(v) {
-      if (v.lenght == 0) {
-        return NaN;
-      } else {
-        var m = v[0];
-
-        for (var i = 0; i < v.length; i++) {
-          if (m < v[i]) {
-            m = v[i];
-          }
-        }
-
-        return m;
-      }
-    }
-    /**
-     * Returns the min of a vector
-     * @param {Array} v - vector of {Number}s
-     * @return {Number} - the minimum number from the vector or NaN if vector is empty
-     * @author alex@scriptoid.com
-     */
-
-
-    min(v) {
-      if (v.lenght == 0) {
-        return NaN;
-      } else {
-        var m = v[0];
-
-        for (var i = 0; i < v.length; i++) {
-          if (m > v[i]) {
-            m = v[i];
-          }
-        }
-
-        return m;
-      }
-    }
-    /**
-     * ICEVisioLink 中的点都是自动计算出来的，手动添加点没有意义。
-     * @overwrite
-     * @param point
-     * @param index
-     */
-
-
-    addDot(point, index) {
-      throw new Error('Can NOT add dot to ICEVisioLink mannually.');
-    }
-    /**
-     * ICEVisioLink 中的点都是自动计算出来的，手动删除点没有意义。
-     * @overwrite
-     * @param index
-     */
-
-
-    rmDot(index) {
-      throw new Error('Can NOT remove dot from ICEVisioLink mannually.');
-    }
-    /**
-     *
-     * 当连线两头的组件发生移动时，触发连线重新绘制自身。
-     *
-     * @param slot
-     * @param position
-     */
-
-
-    syncPosition(slot, position) {
-      let slotBounding = slot.getMinBoundingBox();
-      let x = slotBounding.center[0];
-      let y = slotBounding.center[1];
-      let point = this.globalToLocal(x, y);
-      let {
-        left,
-        top
-      } = this.state;
-      point = transformMat2d([], point, [1, 0, 0, 1, left, top]);
-
-      if (position === 'start') {
-        this.setState({
-          startPoint: [point[0], point[1]]
-        });
-      } else if (position === 'end') {
-        this.setState({
-          endPoint: [point[0], point[1]]
-        });
-      }
-    }
-
-    followStartSlot(evt) {
-      this.syncPosition(this.startSlot, 'start');
-    }
-
-    followEndSlot(evt) {
-      this.syncPosition(this.endSlot, 'end');
-    } //当 Slot 被删除时，清理它与连接线、宿主组件之间的关联关系。
-
-
-    slotBeforeRemoveHandler(evt) {
-      const slot = evt.param.component;
-      if (!slot) return;
-
-      if (this.startSlot === slot) {
-        this.deleteSlot(slot, 'start');
-      } else if (this.endSlot === slot) {
-        this.deleteSlot(slot, 'end');
-      }
-    }
-    /**
-     * 设置连线与组件之间的逻辑关系
-     */
-
-
-    setSlot(slot, position) {
-      if (!slot || !position) return; //总是先尝试解除连接关系，然后再重新尝试连接
-
-      this.deleteSlot(slot, position); //设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
-
-      this.setState({
-        draggable: false
-      });
-
-      if (position === 'start') {
-        this.startSlot = slot;
-        this.state.startSlotId = slot.props.id;
-        this.syncPosition(this.startSlot, 'start');
-        this.startSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this); //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
-
-        this.startSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
-      } else if (position === 'end') {
-        this.endSlot = slot;
-        this.state.endSlotId = slot.props.id;
-        this.syncPosition(this.endSlot, 'end');
-        this.endSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this); //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
-
-        this.endSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
-      }
-    }
-    /**
-     * 解除连线与组件之间的连接关系。
-     * @param slot
-     */
-
-
-    deleteSlot(slot, position) {
-      if (position === 'start' && this.startSlot === slot) {
-        this.startSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this);
-        this.startSlot = null;
-        this.state.startSlotId = '';
-      } else if (position === 'end' && this.endSlot === slot) {
-        this.endSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this);
-        this.endSlot = null;
-        this.state.endSlotId = '';
-      } //如果两端都没有连接的组件，连接线自身变成可拖动
-
-
-      if (!this.startSlot && !this.endSlot) {
-        this.setState({
-          draggable: true
-        });
-      }
-    }
-
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
   /**
    * @class ICEEllipse
    *
@@ -6585,641 +5712,6 @@
       param.radiusX = param.radius;
       param.radiusY = param.radius;
       super(param);
-    }
-
-  }
-
-  /**
-   * i 代表角度 scale:放大比例
-   */
-
-  class ICEHeart extends ICEDotPath {
-    /**
-     * @required
-     * ICE 会根据 type 动态创建组件的实例， type 会被持久化，在同一个 ICE 实例中必须全局唯一，确定之后不可修改，否则 ICE 无法从 JSON 字符串反解析出实例。
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      let param = {
-        scale: 2,
-        ...props
-      };
-      super(param);
-    }
-
-    calcDots() {
-      this.state.dots = [];
-
-      for (let i = 0; i < 2 * Math.PI; i += 0.01) {
-        let scale = this.state.scale;
-        let x = scale * (12 * Math.sin(i) - 4 * Math.sin(3 * i)) + this.state.width / 2;
-        let y = -scale * (13 * Math.cos(i) - 5 * Math.cos(2 * i) - 2 * Math.cos(3 * i) - Math.cos(4 * i)) + this.state.height / 2;
-        this.state.dots.push([x, y]);
-      }
-
-      return this.state.dots;
-    }
-
-  }
-
-  _defineProperty(ICEHeart, "type", 'ICEHeart');
-
-  /**
-   *
-   * FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
-   *
-   * @class ICEIsogon
-   *
-   * 正多边形
-   *
-   * 用宽高描述法描述正多边形，方便传参。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEIsogon extends ICEDotPath {
-    //外接圆的半径
-    //边数 N ，正整数
-
-    /**
-     * radius, edges 会暴露给 AnimationManager ，可能会动态变化。
-     * @param props
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      let param = {
-        radius: 10,
-        edges: 3,
-        ...props
-      };
-      param.width = param.radius * 2;
-      param.height = param.radius * 2;
-      super(param);
-
-      _defineProperty(this, "radius", 10);
-
-      _defineProperty(this, "edges", 3);
-
-      this.radius = this.props.radius; //FIXME:delete?
-
-      this.edges = this.props.edges; //FIXME:delete?
-    }
-    /**
-     * 计算路径上的关键点:
-     * - 默认的坐标原点是 (0,0) 位置。
-     * - 这些点没有经过 transform 矩阵变换。
-     * @returns
-     */
-
-
-    calcDots() {
-      //求正 N 边形的顶点坐标，极坐标法。
-      this.state.dots = [];
-      let avgAngle = 2 * Math.PI / this.state.edges; //FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
-      //FIXME:这里需要重新设置起始角度
-      //FIXME:当边数为奇数时，把一个顶点放在正上方90度位置，当边数为偶数时，把一条边与 X 轴平行
-
-      for (let i = 0; i < this.state.edges; i++) {
-        let currentAngel = avgAngle * i;
-        let radius = this.state.radius;
-        let x = Math.floor(radius * Math.cos(currentAngel) + radius);
-        let y = Math.floor(radius * Math.sin(currentAngel) + radius);
-        this.state.dots.push([x, y]);
-      }
-
-      return this.state.dots;
-    }
-
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-
-  const sin = Math.sin;
-  const cos = Math.cos;
-  const radian = Math.PI / 180;
-
-  class ICERose extends ICEPath {
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        r: [10],
-        n: 1,
-        k: 0,
-        ...props
-      });
-    }
-
-    createPathObject() {
-      this.path2D = new Path2D();
-      const R = this.state.r;
-      const k = this.state.k;
-      const n = this.state.n;
-      const x0 = this.state.localOrigin[0];
-      const y0 = this.state.localOrigin[1];
-      let x;
-      let y;
-      let r;
-      this.path2D.moveTo(x0, y0);
-
-      for (let i = 0, len = R.length; i < len; i++) {
-        r = R[i];
-
-        for (let j = 0; j <= 360 * n; j++) {
-          x = r * sin(k / n * j % 360 * radian) * cos(j * radian) + x0;
-          y = r * sin(k / n * j % 360 * radian) * sin(j * radian) + y0;
-          this.path2D.lineTo(x, y);
-        }
-      }
-
-      this.path2D.closePath();
-      return this.path2D;
-    }
-
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  /**
-   * @class ICEStar 五角星
-   * TODO:实现正 N 角星
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEStar extends ICEIsogon {
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        radius: 10,
-        edges: 5,
-        ...props
-      });
-    }
-
-    doCreatePath() {
-      this.path2D = new Path2D();
-      let counter = 0;
-      let i = 0;
-
-      while (counter < this.state.edges) {
-        let j = (i + 2) % this.state.edges;
-        let v1 = this.state.dots[i];
-        let v2 = this.state.dots[j];
-
-        if (counter == 0) {
-          this.path2D.moveTo(v1[0], v1[1]);
-          this.path2D.lineTo(v2[0], v2[1]);
-        } else {
-          this.path2D.lineTo(v2[0], v2[1]);
-        }
-
-        i = j;
-        counter++;
-      }
-
-      this.path2D.closePath();
-      return this.path2D;
-    }
-
-  }
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-  /**
-   * TODO:draw text along Path2D
-   * @see https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class ICEText extends ICEComponent {
-    /**
-     * @cfg
-     * {
-     *   text:'文本内容',
-     *   left:0,
-     *   top:0,
-     *   fontSize:48,
-     *   fontFamily:'Arial',
-     *   fontWeight:24,
-     * }
-     * FIXME: fontSize/fontFamily/fontWeight 移动到 style 配置项中一起处理。
-     * @param props
-     */
-    constructor() {
-      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      super({
-        text: '',
-        left: 0,
-        top: 0,
-        fontSize: 48,
-        fontFamily: 'Arial',
-        fontWeight: 24,
-        ...props
-      });
-    }
-    /**
-     * 空实现。
-     */
-
-
-    initEvents() {}
-    /**
-     * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
-     * 文本尺寸的计算需要使用特殊的方法。
-     * 这里使用的方法来自 https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
-     *
-     * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
-     *
-     * FIXME:某些运行时环境可能不支持动态插入 HTML 标签，以上测量文本宽高的方法可能存在兼容性问题。
-     * FIXME:边界盒子的高度与字体高度之间存在误差。
-     * @returns
-     */
-
-
-    calcOriginalDimension() {
-      const div = this.root.document.createElement('div');
-      div.contenteditable = false;
-      div.innerHTML = this.state.text;
-      div.style.position = 'absolute';
-      div.style.top = '200px';
-      div.style.left = '0';
-      div.style.fontFamily = this.state.fontFamily;
-      div.style.fontWeight = this.state.fontWeight;
-      div.style.fontSize = this.state.fontSize + 'px';
-      this.root.document.body.appendChild(div);
-      let cssSize = {
-        width: div.offsetWidth,
-        height: div.offsetHeight
-      };
-      this.root.document.body.removeChild(div); //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
-
-      this.props.width = cssSize.width;
-      this.props.height = cssSize.height;
-      this.state.width = cssSize.width;
-      this.state.height = cssSize.height;
-      return {
-        width: this.state.width,
-        height: this.state.height
-      };
-    }
-    /**
-     * 文本是基于 baseline 绘制的，文本是从 y 坐标向屏幕上方绘制的，48 是文本高度，这里需要补偿文本高度。
-     * 同时把移动坐标轴原点的偏移量计算进去。
-     */
-
-
-    doRender() {
-      this.ctx.strokeText(this.state.text, 0 - this.state.localOrigin[0], 0 - this.state.localOrigin[1] + this.state.height, this.state.width);
-      this.ctx.fillText(this.state.text, 0 - this.state.localOrigin[0], 0 - this.state.localOrigin[1] + this.state.height, this.state.width);
-    }
-
-  }
-
-  /** `Object#toString` result references. */
-  var stringTag$1 = '[object String]';
-
-  /**
-   * Checks if `value` is classified as a `String` primitive or object.
-   *
-   * @static
-   * @since 0.1.0
-   * @memberOf _
-   * @category Lang
-   * @param {*} value The value to check.
-   * @returns {boolean} Returns `true` if `value` is a string, else `false`.
-   * @example
-   *
-   * _.isString('abc');
-   * // => true
-   *
-   * _.isString(1);
-   * // => false
-   */
-  function isString(value) {
-    return typeof value == 'string' ||
-      (!isArray_1(value) && isObjectLike_1(value) && _baseGetTag(value) == stringTag$1);
-  }
-
-  var isString_1 = isString;
-
-  /**
-   * Checks if `value` is `undefined`.
-   *
-   * @static
-   * @since 0.1.0
-   * @memberOf _
-   * @category Lang
-   * @param {*} value The value to check.
-   * @returns {boolean} Returns `true` if `value` is `undefined`, else `false`.
-   * @example
-   *
-   * _.isUndefined(void 0);
-   * // => true
-   *
-   * _.isUndefined(null);
-   * // => false
-   */
-  function isUndefined(value) {
-    return value === undefined;
-  }
-
-  var isUndefined_1 = isUndefined;
-
-  /**
-   * Copyright (c) 2022 大漠穷秋.
-   *
-   * This source code is licensed under the MIT license found in the
-   * LICENSE file in the root directory of this source tree.
-   *
-   */
-
-  /**
-   * 来源：https://github.com/AndrewRayCode/easing-utils/blob/master/src/easing.js
-   * 一组缓动工具函数
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-  const Easing = {
-    /**
-     * 线性变化
-     * @param from 起始值
-     * @param to  终止值
-     * @param duration 持续时间，ms
-     * @param startTime 动画开始时间
-     */
-    linear: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return from + deltaValue / duration * deltaT;
-    },
-    easeInQuad: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return from + deltaValue / duration * (deltaT / duration) * deltaT;
-    },
-    easeOutQuad: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return -deltaValue * (deltaT /= duration) * (deltaT - 2) + from;
-    },
-    easeInOutQuad: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT + from;
-      return -deltaValue / 2 * (--deltaT * (deltaT - 2) - 1) + from;
-    },
-    easeInQuart: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return deltaValue * (deltaT /= duration) * deltaT * deltaT * deltaT + from;
-    },
-    easeOutQuart: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return -deltaValue * ((deltaT = deltaT / duration - 1) * deltaT * deltaT * deltaT - 1) + from;
-    },
-    easeInOutQuart: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT * deltaT * deltaT + from;
-      return -deltaValue / 2 * ((deltaT -= 2) * deltaT * deltaT * deltaT - 2) + from;
-    },
-    easeInCubic: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return deltaValue * (deltaT /= duration) * deltaT * deltaT + from;
-    },
-    easeOutCubic: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      return deltaValue * ((deltaT = deltaT / duration - 1) * deltaT * deltaT + 1) + from;
-    },
-    easeInOutCubic: function (from, to, duration, startTime) {
-      let deltaT = Date.now() - startTime;
-      let deltaValue = to - from;
-      if ((deltaT /= duration / 2) < 1) return deltaValue / 2 * deltaT * deltaT * deltaT + from;
-      return deltaValue / 2 * ((deltaT -= 2) * deltaT * deltaT + 2) + from;
-    } //TODO:增加更多缓动算法
-
-  };
-
-  /**
-   * @class AnimationManager
-   *
-   * 动画管理器
-   *
-   * - 全局单例，一个 ICE 实例上只能有一个 AnimationManager 的实例。
-   *
-   * @singleton
-   * @see ICE
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-
-  class AnimationManager {
-    //所有需要执行动画的元素都会被自动存入此列表中
-    constructor(ice) {
-      _defineProperty(this, "animationMap", new Map());
-
-      _defineProperty(this, "ice", void 0);
-
-      this.ice = ice;
-    }
-
-    start() {
-      this.ice.evtBus.on(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
-      return this;
-    }
-
-    stop() {
-      this.ice.evtBus.off(ICE_EVENT_NAME_CONSTS.ICE_FRAME_EVENT, this.frameEventHandler, this);
-      return this;
-    }
-
-    frameEventHandler(evt) {
-      this.animationMap.forEach(el => {
-        //在动画过程中，对象不响应鼠标或者触摸交互，防止影响属性值的计算。
-        el.state.interactive = false;
-        this.tween(el);
-        el.state.interactive = true;
-      });
-    } //TODO:处理无限循环播放的情况，处理播放次数的情况
-    //TODO:每一个属性变化的持续时间不同，需要做同步处理，所有动画都执行完毕之后，需要把对象从动画列表中删除
-
-
-    tween(el) {
-      let newState = {};
-      let animations = el.props.animations;
-      let finishCounter = 1;
-
-      for (let key in animations) {
-        let animation = animations[key];
-
-        if (animation.finished) {
-          finishCounter++; //元素上的所有动画效果都已经执行完毕，从动画列表中删除， FIXME: 处理无限循环动画的问题
-
-          if (finishCounter === Object.keys(animations).length) {
-            this.remove(el);
-            break;
-          }
-
-          continue;
-        }
-
-        let from = animation.from;
-        let to = animation.to;
-        let duration = animation.duration;
-
-        if (isUndefined_1(animation.startTime)) {
-          animation.startTime = Date.now();
-        }
-
-        if (isUndefined_1(animation.easing)) {
-          animation.easing = 'linear';
-        }
-
-        let newValue = Easing[animation.easing](from, to, duration, animation.startTime);
-
-        if (newValue > to) {
-          newValue = to;
-          animation.finished = true;
-        }
-
-        newState[key] = Math.floor(newValue); //使用整数个像素点
-      }
-
-      el.setState({ ...newState
-      });
-      return el;
-    }
-
-    add(component) {
-      this.animationMap.set(component.props.id, component);
-    }
-
-    remove(el) {
-      if (isString_1(el)) {
-        this.animationMap.delete(el);
-      } else {
-        this.animationMap.delete(el.props.id);
-      }
-    }
-
-  }
-
-  /**
-   * @class DDManager
-   *
-   *  拖拽管理器
-   *
-   * - ICE Render 中所有组件的拖动都由 DDManager 管理。
-   * - 拖拽管理器是纯逻辑组件，没有外观。
-   * - DDManager 只负责拖拽和移动位置，不进行其它操作。
-   * - 全局单例，一个 ICE 实例上只能有一个 DDManager 实例。
-   *
-   * @see ICE
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-  class DDManager {
-    //当前正在拖动的组件，FIXME:同时拖动多个组件？
-    constructor(ice) {
-      _defineProperty(this, "ice", void 0);
-
-      _defineProperty(this, "currentObj", void 0);
-
-      this.ice = ice;
-    }
-
-    start() {
-      this.ice.evtBus.on('mousedown', this.mouseDownHandler, this);
-      return this;
-    }
-
-    stop() {
-      this.ice.evtBus.off('mousedown', this.mouseDownHandler, this);
-      this.ice.evtBus.off('mousemove', this.mouseMoveHandler, this);
-      this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
-      return this;
-    }
-
-    mouseDownHandler(evt) {
-      let component = evt.target;
-
-      if (!(component instanceof ICEComponent)) {
-        console.warn('DDManager: 点击在 canvas 画布上，没有点击任何图形。');
-        return;
-      }
-
-      if (!component.state.interactive || !component.state.draggable) {
-        return;
-      }
-
-      this.currentObj = component;
-      this.ice.evtBus.on('mousemove', this.mouseMoveHandler, this);
-      this.ice.evtBus.on('mouseup', this.mouseUpHandler, this);
-    }
-
-    mouseMoveHandler(evt) {
-      // console.log('window.devicePixelRatio>', window.devicePixelRatio);
-      // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-      // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-      let tx = evt.movementX;
-      let ty = evt.movementY;
-      this.currentObj.moveGlobalPosition(tx, ty, evt);
-      return true;
-    }
-
-    mouseUpHandler(evt) {
-      this.ice.evtBus.off('mousemove', this.mouseMoveHandler, this);
-      this.ice.evtBus.off('mouseup', this.mouseUpHandler, this);
-    }
-
-  }
-
-  /**
-   * @class ICEControlPanel
-   *
-   * 控制面板
-   *
-   * FIXME:所有 ControlPanel 类型的组件都需要处理组件的 REMOVE 事件，当组件被删除时，清理关联关系。
-   *
-   * - ICEControlPanel 本身总是直接画在 canvas 上，不是任何组件的孩子。
-   *
-   * @author 大漠穷秋<damoqiongqiu@126.com>
-   */
-  class ICEControlPanel extends ICEGroup {
-    constructor(props) {
-      super({ ...props,
-        linkable: false
-      });
-
-      _defineProperty(this, "_targetComponent", void 0);
-    }
-
-    doRender() {
-      super.doRender();
-      this.setControlPositions();
-    }
-
-    moveGlobalPosition(tx, ty, evt) {
-      super.moveGlobalPosition(tx, ty, evt);
-
-      if (this._targetComponent) {
-        this._targetComponent.moveGlobalPosition(tx, ty, evt);
-      }
     }
 
   }
@@ -8942,6 +7434,1428 @@
    *
    */
   /**
+   * @class ICEImage
+   * TODO:支持以下几种图片类型：jpg/jpeg/png/gif
+   * TODO:ICEImage 来源的几种方式
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEImage extends ICEComponent {
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        width: 100,
+        height: 100,
+        ...props
+      });
+    }
+    /**
+     * 空实现。
+     */
+
+
+    initEvents() {}
+
+    doRender() {
+      let img = new Image();
+      img.src = 'data:image/png;base64,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';
+      this.ctx.drawImage(img, 0 - this.state.localOrigin[0], 0 - this.state.localOrigin[1], this.state.width, this.state.height);
+      super.doRender();
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+
+  /**
+   * @class GeoPoint
+   * A geometrically point, invisible, no dimension, just used for mathematical operations.
+   * This implementation is improved from http://diagramo.com/ .
+   *
+   *
+   * 几何学意义上的点，它不可见，没有大小，用来进行数学运算。此实现从 diagramo 改进而来：http://diagramo.com/ 。
+   *
+   * @docauthor 大漠穷秋 <damoqiongqiu@126.com>
+   */
+  class GeoPoint {
+    /**
+     * @constructor GeoPoint
+     * @param {*} x
+     * @param {*} y
+     */
+    constructor() {
+      let x = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
+      let y = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+      this.x = x;
+      this.y = y;
+    }
+    /**
+     *
+     * @method load
+     * Creates a {GeoPoint} out of JSON parsed object.
+     *
+     *
+     * 从 JSON 对象创建 {GeoPoint} 实例。
+     * @param {JSONObject} o the JSON parsed object
+     * @return {GeoPoint} a newly constructed GeoPoint
+     */
+
+
+    static load(o) {
+      return new GeoPoint(Number(o.x), Number(o.y));
+    }
+    /**
+     *
+     * @method loadArray
+     * Creates an array of points from an array of {JSONObject}s.
+     *
+     *
+     * 从 {JSONObject} 数组创建实例。
+     * @param {Array} v the array of JSONObjects
+     * @return an {Array} of {GeoPoint}s
+     */
+
+
+    static loadArray(v) {
+      let newPoints = [];
+
+      for (let i = 0; i < v.length; i++) {
+        newPoints.push(GeoPoint.load(v[i]));
+      }
+
+      return newPoints;
+    }
+    /**
+     *
+     * @method cloneArray
+     * Clones an array of points.
+     *
+     *
+     * 克隆一组点。
+     * @param {Array} v - the array of {GeoPoint}s
+     * @return an {Array} of {GeoPoint}s
+     */
+
+
+    static cloneArray(v) {
+      let newPoints = [];
+
+      for (let i = 0; i < v.length; i++) {
+        newPoints.push(v[i].clone());
+      }
+
+      return newPoints;
+    }
+    /**
+     *
+     * @method pointsToArray
+     * @param {*} points
+     */
+
+
+    static pointsToArray(points) {
+      let result = [];
+
+      for (let i = 0; i < points.length; i++) {
+        result.push([points[i].x, points[i].y]);
+      }
+
+      return result;
+    }
+    /**
+     * @method toArray
+     */
+
+
+    toArray() {
+      return [this.x, this.y];
+    }
+    /**
+     * @method transform
+     * @param {*} matrix
+     */
+
+
+    transform(matrix) {
+      let oldX = this.x;
+      let oldY = this.y;
+      this.x = matrix[0][0] * oldX + matrix[0][1] * oldY + matrix[0][2];
+      this.y = matrix[1][0] * oldX + matrix[1][1] * oldY + matrix[1][2];
+    }
+    /**
+     * @method equals
+     * Tests if this point is equals to other point.
+     *
+     *
+     * 测试当前点是否与另一个点相等。
+     * @param {GeoPoint} anotherPoint - the other point
+     */
+
+
+    equals(anotherPoint) {
+      return this.x == anotherPoint.x && this.y == anotherPoint.y;
+    }
+    /**
+     * @method clone
+     * Clone current GeoPoint.
+     *
+     *
+     * 克隆当前点。
+     */
+
+
+    clone() {
+      let newPoint = new GeoPoint(this.x, this.y);
+      return newPoint;
+    }
+    /**
+     * @method add
+     * @param {*} point
+     */
+
+
+    add(point) {
+      this.x = this.x + point.x;
+      this.y = this.y + point.y;
+      return this;
+    }
+    /**
+     * @method near
+     * Tests to see if a point (x, y) is within a range of current GeoPoint.
+     *
+     *
+     * 测试某个点 (x,y) 是否处于当前 GeoPoint 的某个范围内。
+     * @param {Numeric} x - the x coordinate of tested point
+     * @param {Numeric} y - the x coordinate of tested point
+     * @param {Numeric} radius - the radius of the vicinity
+     */
+
+
+    near(x, y, radius) {
+      let distance = Math.hypot(this.x - x, this.y - y);
+      return distance <= radius;
+    }
+    /**
+     * @method toString
+     */
+
+
+    toString() {
+      return '[' + this.x + ',' + this.y + ']';
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
+   * @class GeoLine
+   * A geometrically line, invisible, no dimension, just used for mathematical operations.
+   * This implementation is improved from http://diagramo.com/ .
+   *
+   *
+   * 几何学意义上的直线，它不可见，没有宽度，用来进行数学运算。此实现从 diagramo 改进而来：http://diagramo.com/ 。
+   *
+   * @docauthor 大漠穷秋 <damoqiongqiu@126.com>
+   */
+
+  class GeoLine {
+    constructor(startPoint, endPoint) {
+      this.startPoint = startPoint;
+      this.endPoint = endPoint;
+    }
+    /**
+     *
+     * @method load
+     * Creates a {GeoLine} out of JSON parsed object.
+     *
+     *
+     * 从 JSON 对象创建直线。
+     * @param {JSONObject} o - the JSON parsed object
+     * @return {GeoLine} a newly constructed GeoLine
+     */
+
+
+    static load(o) {
+      let newLine = new GeoLine(GeoPoint.load(o.startPoint), GeoPoint.load(o.endPoint));
+      return newLine;
+    }
+    /**
+     * @method constants
+     * Tests to see if a point belongs to this line (not as infinite line but more like a segment)
+     * Algorithm: Compute line's equation and see if (x, y) verifies it.
+     *
+     * 测试某个点是否位于直线上（这里不是数学意义上的无线延长直线，而是线段）。
+     * 算法：计算斜率，看(x,y)点是否位于线段上。
+     *
+     * @see http://www.jeffreythompson.org/collision-detection/line-point.php
+     * @param {Number} x - the X coordinates
+     * @param {Number} y - the Y coordinates
+     */
+
+
+    contains(x, y) {
+      // if the point is inside rectangle bounds of the segment
+      if (Math.min(this.startPoint.x, this.endPoint.x) <= x && x <= Math.max(this.startPoint.x, this.endPoint.x) && Math.min(this.startPoint.y, this.endPoint.y) <= y && y <= Math.max(this.startPoint.y, this.endPoint.y)) {
+        // check for vertical line
+        if (this.startPoint.x == this.endPoint.x) {
+          return x == this.startPoint.x;
+        } else {
+          // usual (not vertical) line can be represented as y = a * x + b
+          let a = (this.endPoint.y - this.startPoint.y) / (this.endPoint.x - this.startPoint.x);
+          let b = this.startPoint.y - a * this.startPoint.x;
+          return y == a * x + b;
+        }
+      } else {
+        return false;
+      }
+    }
+    /**
+     * @method near
+     * See if we are near a {GeoLine} by a certain radius (also includes the extremities into computation).
+     *
+     *
+     * 测试某个点是否在某个角度上接近 {GeoLine} （断点也计算在内）。
+     *
+     * @param {Number} x - the x coordinates
+     * @param {Number} y - the y coordinates
+     * @param {Number} radius - the radius to search for
+     * @see http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+     * @see "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
+     */
+
+
+    near(x, y, radius) {
+      if (this.endPoint.x === this.startPoint.x) {
+        //Vertical line, so the vicinity area is a rectangle
+        return (this.startPoint.y - radius <= y && this.endPoint.y + radius >= y || this.endPoint.y - radius <= y && this.startPoint.y + radius >= y) && x > this.startPoint.x - radius && x < this.startPoint.x + radius;
+      }
+
+      if (this.startPoint.y === this.endPoint.y) {
+        //Horizontal line, so the vicinity area is a rectangle
+        return (this.startPoint.x - radius <= x && this.endPoint.x + radius >= x || this.endPoint.x - radius <= x && this.startPoint.x + radius >= x) && y > this.startPoint.y - radius && y < this.startPoint.y + radius;
+      }
+
+      let startX = Math.min(this.endPoint.x, this.startPoint.x);
+      let startY = Math.min(this.endPoint.y, this.startPoint.y);
+      let endX = Math.max(this.endPoint.x, this.startPoint.x);
+      let endY = Math.max(this.endPoint.y, this.startPoint.y);
+      /*We will compute the distance from point to the line
+       * by using the algorithm from
+       * http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line
+       * */
+      //First we need to find a,b,c of the line equation ax + by + c = 0
+
+      let a = this.endPoint.y - this.startPoint.y;
+      let b = this.startPoint.x - this.endPoint.x;
+      let c = -(this.startPoint.x * this.endPoint.y - this.endPoint.x * this.startPoint.y); //Secondly we get the distance "Mathematics for Computer Graphics, 2nd Ed., by John Vice, page 227"
+
+      let d = Math.abs((a * x + b * y + c) / Math.hypot(a, b)); //Thirdly we get coordinates of closest line's point to target point
+      //http://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Cartesian_coordinates
+
+      let closestX = (b * (b * x - a * y) - a * c) / (Math.pow(a, 2) + Math.pow(b, 2));
+      let closestY = (a * (-b * x + a * y) - b * c) / (Math.pow(a, 2) + Math.pow(b, 2));
+      let r = d <= radius && endX >= closestX && closestX >= startX && endY >= closestY && closestY >= startY || //the projection of the point falls INSIDE of the segment
+      this.startPoint.near(x, y, radius) || this.endPoint.near(x, y, radius); //the projection of the point falls OUTSIDE of the segment
+
+      return r;
+    }
+    /**
+     * @method getPoints
+     * Get an arry composed by the start point and end point of the line.
+     *
+     *
+     * 获取端点构成的数组。
+     */
+
+
+    getPoints() {
+      let points = [];
+      points.push(this.startPoint);
+      points.push(this.endPoint);
+      return points;
+    }
+    /**
+     * @method getPoint
+     * Return the {GeoPoint} corresponding the t certain t value.
+     *
+     *
+     * 获取指定百分比上的点，参数 t 是百分比。
+     * @param {Number} t the value of parameter t, where t in [0,1], t is like a percent
+     */
+
+
+    getPoint(t) {
+      let xp = t * (this.endPoint.x - this.startPoint.x) + this.startPoint.x;
+      let yp = t * (this.endPoint.y - this.startPoint.y) + this.startPoint.y;
+      return new GeoPoint(xp, yp);
+    }
+    /**
+     * @method clone
+     */
+
+
+    clone() {
+      let ret = new GeoLine(this.startPoint.clone(), this.endPoint.clone());
+      return ret;
+    }
+    /**
+     * @equals
+     * @param {*} anotherLine
+     */
+
+
+    equals(anotherLine) {
+      if (!(anotherLine instanceof GeoLine)) {
+        return false;
+      }
+
+      return this.startPoint.equals(anotherLine.startPoint) && this.endPoint.equals(anotherLine.endPoint);
+    }
+    /**
+     * @method toString
+     */
+
+
+    toString() {
+      return 'line(' + this.startPoint + ',' + this.endPoint + ')';
+    }
+
+  }
+
+  /**
+   * ! FIXME: 删掉对 GeoPoint/GeoLine/GeoUtil 的依赖
+   * @class ICEVisioLink
+   *
+   * Visio 型的连接线
+   *
+   * 模拟 Microsoft Visio 中的折线算法，此实现从 diagramo 改进而来：http://diagramo.com/ 。
+   *
+   * 基本特性：
+   *
+   * - ICEVisioLink 只有 2 个端点，起点和终点。
+   * - 除起始点和终点坐标之外，其它点会自动插值计算。
+   * - ICEVisioLink 只能连接 2 个非线条类的组件。
+   * - 线条互相之间不能连接，在 ICE 引擎中，不能用线条连接线条。
+   * - 每一个可以被连接的组件上都有 4 个插槽（Slot），4 个插槽分布在组件最小边界盒子 4 条边的几何中点位置上。
+   * - ICEVisioLink 的端点在移动时会判断是否与某个插槽发生碰撞，如果与某个插槽发生碰撞， ICEVisioLink 会连接到插槽所在的组件上。
+   * - 同一个插槽（Slot）上可以连 N 根线，Slot 与 ICEVisioLink 之间的关系是 1->N 。
+   *
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+  class ICEVisioLink extends ICEPolyLine {
+    /**
+     * FIXME:补全 props 配置项的描述
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      props = ICEVisioLink.arrangeParam(props);
+      super(props);
+
+      _defineProperty(this, "startSlot", void 0);
+
+      _defineProperty(this, "endSlot", void 0);
+    }
+
+    static arrangeParam(props) {
+      if (isNil_1(props.startPoint)) {
+        props.startPoint = [0, 0];
+      }
+
+      if (isNil_1(props.endPoint)) {
+        props.endPoint = [10, 10];
+      }
+
+      props.points = [[...props.startPoint], [...props.endPoint]]; //escapeDistance 疏散距离，是 4 个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
+
+      props = {
+        escapeDistance: 30,
+        ...props
+      };
+      return props;
+    }
+    /**
+     * @override
+     */
+
+
+    initEvents() {
+      super.initEvents(); //如果 props 里面的 startSlotId 和 endSlotId 不为空，在渲染器完成一轮渲染之后，自动建立连接关系。
+
+      this.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.afterAddHandler, this);
+    }
+
+    afterAddHandler(evt) {
+      this.evtBus.once(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.makeConnection, this);
+    }
+
+    makeConnection() {
+      const {
+        startSlotId,
+        endSlotId
+      } = this.props;
+      const startSlot = this.ice.findComponent(startSlotId);
+      const endSlot = this.ice.findComponent(endSlotId);
+      startSlot && this.setSlot(startSlot, 'start');
+      endSlot && this.setSlot(endSlot, 'end');
+    }
+    /**
+     * ICEVisioLink 有自己特殊的计算方式。
+     *
+     * @overwrite
+     * @returns
+     */
+
+
+    calcDots() {
+      let solutions = this.interpolate();
+      let {
+        left,
+        top
+      } = this.state;
+      let arr = solutions[0][2];
+      this.state.points = [];
+      this.state.dots = [];
+      arr.forEach(item => {
+        this.state.points.push([item.x, item.y]);
+        this.state.dots.push([item.x - left, item.y - top]);
+      });
+      return this.state.dots;
+    }
+    /**
+     * 在起点和终点之间插值。
+     *
+     * @returns
+     */
+
+
+    interpolate() {
+      let len = this.state.points.length;
+      let startX = this.state.points[0][0];
+      let startY = this.state.points[0][1];
+      let endX = this.state.points[len - 1][0];
+      let endY = this.state.points[len - 1][1];
+      let startPoint = new GeoPoint(startX, startY);
+      let endPoint = new GeoPoint(endX, endY);
+      let potentialExits = [];
+      let startExitPoint = null;
+      let endExitPoint = null;
+      let solutions = [];
+      let startBounding = new ICEBoundingBox();
+      let endBounding = new ICEBoundingBox(); //find start exit point
+
+      if (this.startSlot) {
+        startBounding = this.startSlot.hostComponent.getMinBoundingBox();
+        potentialExits[0] = new GeoPoint(startPoint.x, startBounding.tl[1] - this.state.escapeDistance); //north
+
+        potentialExits[1] = new GeoPoint(startBounding.tr[0] + this.state.escapeDistance, startPoint.y); //east
+
+        potentialExits[2] = new GeoPoint(startPoint.x, startBounding.br[1] + this.state.escapeDistance); //south
+
+        potentialExits[3] = new GeoPoint(startBounding.tl[0] - this.state.escapeDistance, startPoint.y); //west
+        //pick closest exit point
+
+        startExitPoint = potentialExits[0];
+
+        for (let i = 1; i < potentialExits.length; i++) {
+          if (this.distance(startPoint, potentialExits[i]) < this.distance(startPoint, startExitPoint)) {
+            startExitPoint = potentialExits[i];
+          }
+        }
+      } //find end exit point
+
+
+      if (this.endSlot) {
+        endBounding = this.endSlot.hostComponent.getMinBoundingBox();
+        potentialExits[0] = new GeoPoint(endPoint.x, endBounding.tl[1] - this.state.escapeDistance); //north
+
+        potentialExits[1] = new GeoPoint(endBounding.tr[0] + this.state.escapeDistance, endPoint.y); //east
+
+        potentialExits[2] = new GeoPoint(endPoint.x, endBounding.br[1] + this.state.escapeDistance); //south
+
+        potentialExits[3] = new GeoPoint(endBounding.tl[0] - this.state.escapeDistance, endPoint.y); //west
+        //pick closest exit point
+
+        endExitPoint = potentialExits[0];
+
+        for (let i = 1; i < potentialExits.length; i++) {
+          if (this.distance(endPoint, potentialExits[i]) < this.distance(endPoint, endExitPoint)) {
+            endExitPoint = potentialExits[i];
+          }
+        }
+      } //the index of the gap (where do we need to insert new points) DO NOT CHANGE IT
+
+
+      let gapIndex = 0; //Basic solution
+
+      let s = [startPoint];
+
+      if (startExitPoint) {
+        s.push(startExitPoint);
+        gapIndex = 1;
+      }
+
+      endExitPoint && s.push(endExitPoint);
+      s.push(endPoint); //SO - no additional points
+
+      let s0 = GeoPoint.cloneArray(s);
+      solutions.push(['s0', 's0', s0]); //S1
+
+      let s1 = GeoPoint.cloneArray(s); //first variant
+
+      let s1_1 = GeoPoint.cloneArray(s1);
+      s1_1.splice(gapIndex + 1, 0, new GeoPoint(s1_1[gapIndex].x, s1_1[gapIndex + 1].y));
+      solutions.push(['s1', 's1_1', s1_1]); //second variant
+
+      let s1_2 = GeoPoint.cloneArray(s1);
+      s1_2.splice(gapIndex + 1, 0, new GeoPoint(s1_2[gapIndex + 1].x, s1_2[gapIndex].y));
+      solutions.push(['s1', 's1_2', s1_2]); //S2
+      //Variant I
+
+      let s2_1 = GeoPoint.cloneArray(s1);
+      let s2_1_1 = new GeoPoint((s2_1[gapIndex].x + s2_1[gapIndex + 1].x) / 2, s2_1[gapIndex].y);
+      let s2_1_2 = new GeoPoint((s2_1[gapIndex].x + s2_1[gapIndex + 1].x) / 2, s2_1[gapIndex + 1].y);
+      s2_1.splice(gapIndex + 1, 0, s2_1_1, s2_1_2);
+      solutions.push(['s2', 's2_1', s2_1]); //Variant II
+
+      let s2_2 = GeoPoint.cloneArray(s1);
+      let s2_2_1 = new GeoPoint(s2_2[gapIndex].x, (s2_2[gapIndex].y + s2_2[gapIndex + 1].y) / 2);
+      let s2_2_2 = new GeoPoint(s2_2[gapIndex + 1].x, (s2_2[gapIndex].y + s2_2[gapIndex + 1].y) / 2);
+      s2_2.splice(gapIndex + 1, 0, s2_2_1, s2_2_2);
+      solutions.push(['s2', 's2_2', s2_2]); //Variant III
+
+      let s2_3 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move right so no intersection with a figure will be present
+      //add points X coordinates to be able to generate Variant III even in the absence of figures :p
+
+      let eastExits = [s2_3[gapIndex].x + 20, s2_3[gapIndex + 1].x + 20];
+
+      if (startBounding) {
+        eastExits.push(startBounding.br[0] + 20);
+      }
+
+      if (endBounding) {
+        eastExits.push(endBounding.br[0] + 20);
+      }
+
+      let eastExit = this.max(eastExits);
+      let s2_3_1 = new GeoPoint(eastExit, s2_3[gapIndex].y);
+      let s2_3_2 = new GeoPoint(eastExit, s2_3[gapIndex + 1].y);
+      s2_3.splice(gapIndex + 1, 0, s2_3_1, s2_3_2);
+      solutions.push(['s2', 's2_3', s2_3]); //Variant IV
+
+      let s2_4 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move up so no intersection with a figure will be present
+      //add points y coordinates to be able to generate Variant III even in the absence of figures :p
+
+      let northExits = [s2_4[gapIndex].y - 20, s2_4[gapIndex + 1].y - 20];
+
+      if (startBounding) {
+        northExits.push(startBounding.tl[1] - 20);
+      }
+
+      if (endBounding) {
+        northExits.push(endBounding.tl[1] - 20);
+      }
+
+      let northExit = this.min(northExits);
+      let s2_4_1 = new GeoPoint(s2_4[gapIndex].x, northExit);
+      let s2_4_2 = new GeoPoint(s2_4[gapIndex + 1].x, northExit);
+      s2_4.splice(gapIndex + 1, 0, s2_4_1, s2_4_2);
+      solutions.push(['s2', 's2_4', s2_4]); //Variant V
+
+      let s2_5 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move left so no intersection with a figure will be present
+      //add points x coordinates to be able to generate Variant III even in the absence of figures :p
+
+      let westExits = [s2_5[gapIndex].x - 20, s2_5[gapIndex + 1].x - 20];
+
+      if (startBounding) {
+        westExits.push(startBounding.tl[0] - 20);
+      }
+
+      if (endBounding) {
+        westExits.push(endBounding.tl[0] - 20);
+      }
+
+      let westExit = this.min(westExits);
+      let s2_5_1 = new GeoPoint(westExit, s2_5[gapIndex].y);
+      let s2_5_2 = new GeoPoint(westExit, s2_5[gapIndex + 1].y);
+      s2_5.splice(gapIndex + 1, 0, s2_5_1, s2_5_2);
+      solutions.push(['s2', 's2_5', s2_5]); //Variant VI
+
+      let s2_6 = GeoPoint.cloneArray(s1); //find the amount (stored in delta) of pixels we need to move down so no intersection with a figure will be present
+      //add points y coordinates to be able to generate Variant III even in the absence of figures :p
+
+      let southExits = [s2_6[gapIndex].y + 20, s2_6[gapIndex + 1].y + 20];
+
+      if (startBounding) {
+        southExits.push(startBounding.tl[1] + startBounding.height + 20);
+      }
+
+      if (endBounding) {
+        southExits.push(endBounding.tl[1] + endBounding.height + 20);
+      }
+
+      let southExit = this.max(southExits);
+      let s2_6_1 = new GeoPoint(s2_6[gapIndex].x, southExit);
+      let s2_6_2 = new GeoPoint(s2_6[gapIndex + 1].x, southExit);
+      s2_6.splice(gapIndex + 1, 0, s2_6_1, s2_6_2);
+      solutions.push(['s2', 's2_6', s2_6]); //FILTER solutions
+
+      /*
+       * Algorithm
+       * 0. solutions are ordered from minimmun nr of points to maximum >:)
+       * 1. remove all solutions that are not orthogonal (mainly s0 solution)
+       * 2. remove all solutions that go backward (we will not need them ever)
+       * 3. remove all solutions with intersections
+       * 4. pick first class of solutions with same nr of points (ex: 2)
+       * 5. pick the first solution with 90 degree angles (less turnarounds)
+       * (not interesteted) sort by length :p
+       */
+      //1. filter non ortogonal solutions
+
+      let orthogonalSolution = [];
+
+      for (let i = 0; i < solutions.length; i++) {
+        let solution = solutions[i][2];
+
+        if (this.orthogonalPath(solution)) {
+          orthogonalSolution.push(solutions[i]);
+        }
+      }
+
+      solutions = orthogonalSolution; //2. filter backward solutions, do not allow start and end points to coincide - ignore them
+
+      if (!startPoint.equals(endPoint)) {
+        let forwardSolutions = [];
+
+        for (let i = 0; i < solutions.length; i++) {
+          let solution = solutions[i][2];
+
+          if (this.forwardPath(solution)) {
+            forwardSolutions.push(solutions[i]);
+          }
+        }
+
+        solutions = forwardSolutions;
+
+        if (solutions.length == 0) ;
+      } //3. Filter non intersecting solutions
+
+
+      let nonIntersectionSolutions = [];
+
+      for (let i = 0; i < solutions.length; i++) {
+        let solution = solutions[i][2];
+        let intersect = false;
+        let innerLines = solution.slice(); //just a shallow copy
+
+        /*
+         * If any bounds just trim the solution. So we avoid the strange case when a connection
+         * startes from a point on a figure and ends inside of the same figure, but not on a connection point.
+         */
+
+        if (endBounding || startBounding) {
+          //i0nnerLines = innerLines.slice(0, innerLines.length - 1);
+          innerLines = innerLines.slice(1, innerLines.length - 1);
+        } //now test for intersection
+
+
+        if (startBounding) {
+          intersect = intersect || this.polylineIntersectsRectangle(innerLines, startBounding);
+        }
+
+        if (endBounding) {
+          intersect = intersect || this.polylineIntersectsRectangle(innerLines, endBounding);
+        }
+
+        if (!intersect) {
+          nonIntersectionSolutions.push(solutions[i]);
+        }
+      } //If all solutions intersect than this is destiny  :) and just ignore the intersection filter
+
+
+      if (nonIntersectionSolutions.length != 0) {
+        //reasign to solutions
+        solutions = nonIntersectionSolutions;
+      } //4. get first class of solutions with same nr of points
+
+
+      if (solutions.length == 0) ;
+
+      let firstSolution = solutions[0][2]; //pick first solution
+
+      let nrOfPoints = firstSolution.length;
+      let sameNrPointsSolution = [];
+
+      for (let i = 0; i < solutions.length; i++) {
+        let solution = solutions[i][2];
+
+        if (solution.length == nrOfPoints) {
+          sameNrPointsSolution.push(solutions[i]);
+        }
+      }
+
+      solutions = sameNrPointsSolution;
+      /*
+       * 5.Pick the first solution with 90 degree angles (less turnarounds)
+       * in case we have more than one solution in our class.
+       */
+
+      let solIndex = 0;
+
+      for (let i = 0; i < solutions.length; i++) {
+        if (this.scorePath(solutions[solIndex][2]) < this.scorePath(solutions[i][2])) {
+          solIndex = i;
+        }
+      }
+
+      solutions = [solutions[solIndex]];
+      return solutions;
+    }
+    /**
+     * Tests if a vector of points is an orthogonal path (moving in multiples of 90 degrees).
+     *
+     *
+     * 正交判定。Visio 连接线上的每一段要么平行于 X 轴，要么平行于 Y 轴。
+     * @param {Array} v - an {Array} of {Point}s
+     * @return {Boolean} - true if path is valid, false otherwise
+     */
+
+
+    orthogonalPath(v) {
+      if (v.length <= 1) {
+        return true;
+      }
+
+      for (let i = 0; i < v.length - 1; i++) {
+        if (v[i].x != v[i + 1].x && v[i].y != v[i + 1].y) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+    /**
+     * FIXME: 用更好的数学方法进行计算。
+     * Test to see if 2 {Line}s intersects. They are considered finite segments
+     * and not the infinite lines from geometry
+     * @param {Line} l1 - fist line/segment
+     * @param {Line} l2 - last line/segment
+     * @return {Boolean} true - if the lines intersect or false if not
+     */
+
+
+    lineIntersectsLine(l1, l2) {
+      // check for two vertical lines
+      if (l1.startPoint.x == l1.endPoint.x && l2.startPoint.x == l2.endPoint.x) {
+        return l1.startPoint.x == l2.startPoint.x // if 'infinite 'lines do coincide,
+        ? // then check segment bounds for overlapping
+        l1.contains(l2.startPoint.x, l2.startPoint.y) || l1.contains(l2.endPoint.x, l2.endPoint.y) : // lines are paralel
+        false;
+      } // if one line is vertical, and another line is not vertical
+      else if (l1.startPoint.x == l1.endPoint.x || l2.startPoint.x == l2.endPoint.x) {
+        // let assume l2 is vertical, otherwise exchange them
+        if (l1.startPoint.x == l1.endPoint.x) {
+          let l = l1;
+          l1 = l2;
+          l2 = l;
+        } // finding intersection of 'infinite' lines
+        // equation of the first line is y = ax + b, second: x = c
+
+
+        let a = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
+        let b = l1.startPoint.y - a * l1.startPoint.x;
+        let x0 = l2.startPoint.x;
+        let y0 = a * x0 + b;
+        return l1.contains(x0, y0) && l2.contains(x0, y0);
+      } // check normal case - both lines are not vertical
+      else {
+        //line equation is : y = a*x + b, b = y - a * x
+        let a1 = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
+        let b1 = l1.startPoint.y - a1 * l1.startPoint.x;
+        let a2 = (l2.endPoint.y - l2.startPoint.y) / (l2.endPoint.x - l2.startPoint.x);
+        let b2 = l2.startPoint.y - a2 * l2.startPoint.x;
+
+        if (a1 == a2) {
+          //paralel lines
+          return b1 == b2 ? // for coincide lines, check for segment bounds overlapping
+          l1.contains(l2.startPoint.x, l2.startPoint.y) || l1.contains(l2.endPoint.x, l2.endPoint.y) : // not coincide paralel lines have no chance to intersect
+          false;
+        } else {
+          //usual case - non paralel, the 'infinite' lines intersects...we only need to know if inside the segment
+
+          /*
+           * if one of the lines are vertical, then x0 is equal to their x,
+           * otherwise:
+           * y1 = a1 * x + b1
+           * y2 = a2 * x + b2
+           * => x0 = (b2 - b1) / (a1 - a2)
+           * => y0 = a1 * x0 + b1
+           */
+          let x0 = (b2 - b1) / (a1 - a2);
+          let y0 = a1 * x0 + b1;
+          return l1.contains(x0, y0) && l2.contains(x0, y0);
+        }
+      }
+    }
+    /**
+     * Tests if a a polyline defined by a set of points intersects a rectangle
+     * @param {Array} points - and {Array} of {Point}s
+     * @param {Array} boundingRect - the boundingRect
+     * @param {Boolean} closedPolyline - incase polyline is closed figure then true, else false
+     * @return true - if line intersects the rectangle, false - if not
+     */
+
+
+    polylineIntersectsRectangle(points, boundingRect) {
+      let closedPolyline = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+      //get the 4 lines/segments represented by the boundingRect
+      let lines = [];
+      lines.push(new GeoLine(new GeoPoint(boundingRect.x1, boundingRect.y1), new GeoPoint(boundingRect.x2, boundingRect.y1)));
+      lines.push(new GeoLine(new GeoPoint(boundingRect.x2, boundingRect.y1), new GeoPoint(boundingRect.x2, boundingRect.y2)));
+      lines.push(new GeoLine(new GeoPoint(boundingRect.x2, boundingRect.y2), new GeoPoint(boundingRect.x1, boundingRect.y2)));
+      lines.push(new GeoLine(new GeoPoint(boundingRect.x1, boundingRect.y2), new GeoPoint(boundingRect.x1, boundingRect.y1)));
+
+      for (let k = 0; k < points.length - 1; k++) {
+        //create a line out of each 2 consecutive points
+        let tempLine = new GeoLine(points[k], points[k + 1]); //see if that line intersect any of the line on boundingRect border
+
+        for (let i = 0; i < lines.length; i++) {
+          if (this.lineIntersectsLine(tempLine, lines[i])) {
+            return true;
+          }
+        }
+      } //check the closed figure - that is last point connected to the first
+
+
+      if (closedPolyline) {
+        //create a line out of each 2 consecutive points
+        let tempLine1 = new GeoLine(points[points.length - 1], points[0]); //see if that line intersect any of the line on boundingRect border
+
+        for (let j = 0; j < lines.length; j++) {
+          if (this.lineIntersectsLine(tempLine1, lines[j])) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+    /**
+     * Score a ortogonal path made out of Points
+     * Iterates over a set of points (minimum 3)
+     * For each 3 points (i, i+1, i+2) :
+     *  - if the 3rd one is after the 2nd on the same line we add +1
+     *  - if the 3rd is up or down related to the 2nd we do not do anything +0
+     *  - if the 3rd goes back we imediatelly return -1
+     * @param {Array} v - an array of {Point}s
+     * @return {Number} - -1 if the path is wrong (goes back) or something >= 0 if is fine.The bigger the number the smooth the path is.
+     */
+
+
+    scorePath(v) {
+      if (v.length <= 2) {
+        return -1;
+      }
+
+      let score = 0;
+
+      for (let i = 1; i < v.length - 1; i++) {
+        if (v[i - 1].x == v[i].x && v[i].x == v[i + 1].x) {
+          //on the same vertical
+          if (this.signum(v[i + 1].y - v[i].y) == this.signum(v[i].y - v[i - 1].y)) {
+            //same direction
+            score++;
+          } else {
+            //going back - no good
+            return -1;
+          }
+        } else if (v[i - 1].y == v[i].y && v[i].y == v[i + 1].y) {
+          //on the same horizontal
+          if (this.signum(v[i + 1].x - v[i].x) == this.signum(v[i].x - v[i - 1].x)) {
+            //same direction
+            score++;
+          } else {
+            //going back - no good
+            return -1;
+          }
+        } else {
+          //not on same vertical nor horizontal
+          score--;
+        }
+      }
+
+      return score;
+    }
+    /**
+     * Returns the sign of a number
+     * @param {Number} x - the number
+     * @returns {Number}
+     * @see <a href="http://en.wikipedia.org/wiki/Sign_function">http://en.wikipedia.org/wiki/Sign_function</a>
+     */
+
+
+    signum(x) {
+      if (x > 0) return 1;else if (x < 0) return -1;else return 0;
+    }
+    /**
+     * Tests if a vector of points is a valid path (not going back)
+     * There are a few problems here. If you have p1, p2, p3 and p4 and p2 = p3 you need to ignore that
+     * @param {Array} v - an {Array} of {Point}s
+     * @return {Boolean} - true if path is valid, false otherwise
+     */
+
+
+    forwardPath(v) {
+      if (v.length <= 2) {
+        return true;
+      }
+
+      for (let i = 0; i < v.length - 2; i++) {
+        if (v[i].x == v[i + 1].x && v[i + 1].x == v[i + 2].x) {
+          //on the same vertical
+          if (this.signum(v[i + 1].y - v[i].y) != 0) {
+            //test only we have a progressing path
+            if (this.signum(v[i + 1].y - v[i].y) == -1 * this.signum(v[i + 2].y - v[i + 1].y)) {
+              //going back (ignore zero)
+              return false;
+            }
+          }
+        } else if (v[i].y == v[i + 1].y && v[i + 1].y == v[i + 2].y) {
+          //on the same horizontal
+          if (this.signum(v[i + 1].x - v[i].x) != 0) {
+            //test only we have a progressing path
+            if (this.signum(v[i + 1].x - v[i].x) == -1 * this.signum(v[i + 2].x - v[i + 1].x)) {
+              //going back (ignore zero)
+              return false;
+            }
+          }
+        }
+      }
+
+      return true;
+    }
+    /**
+     * @method distance
+     * Calculate the distance between two points.
+     *
+     *
+     * 计算两点之间的距离。
+     * @param {Point} p1 - first {Point}
+     * @param {Point} p2 - second {Point}
+     * @return {Number} - the distance between those 2 points. It is always positive.
+     */
+
+
+    distance(p1, p2) {
+      return Math.hypot(p2.x - p1.x, p2.y - p1.y);
+    }
+    /**
+     * Returns the max of a vector
+     * @param {Array} v - vector of {Number}s
+     * @return {Number} - the maximum number from the vector or NaN if vector is empty
+     */
+
+
+    max(v) {
+      if (v.lenght == 0) {
+        return NaN;
+      } else {
+        var m = v[0];
+
+        for (var i = 0; i < v.length; i++) {
+          if (m < v[i]) {
+            m = v[i];
+          }
+        }
+
+        return m;
+      }
+    }
+    /**
+     * Returns the min of a vector
+     * @param {Array} v - vector of {Number}s
+     * @return {Number} - the minimum number from the vector or NaN if vector is empty
+     * @author alex@scriptoid.com
+     */
+
+
+    min(v) {
+      if (v.lenght == 0) {
+        return NaN;
+      } else {
+        var m = v[0];
+
+        for (var i = 0; i < v.length; i++) {
+          if (m > v[i]) {
+            m = v[i];
+          }
+        }
+
+        return m;
+      }
+    }
+    /**
+     * ICEVisioLink 中的点都是自动计算出来的，手动添加点没有意义。
+     * @overwrite
+     * @param point
+     * @param index
+     */
+
+
+    addDot(point, index) {
+      throw new Error('Can NOT add dot to ICEVisioLink mannually.');
+    }
+    /**
+     * ICEVisioLink 中的点都是自动计算出来的，手动删除点没有意义。
+     * @overwrite
+     * @param index
+     */
+
+
+    rmDot(index) {
+      throw new Error('Can NOT remove dot from ICEVisioLink mannually.');
+    }
+    /**
+     *
+     * 当连线两头的组件发生移动时，触发连线重新绘制自身。
+     *
+     * @param slot
+     * @param position
+     */
+
+
+    syncPosition(slot, position) {
+      let slotBounding = slot.getMinBoundingBox();
+      let x = slotBounding.center[0];
+      let y = slotBounding.center[1];
+      let point = this.globalToLocal(x, y);
+      let {
+        left,
+        top
+      } = this.state;
+      point = transformMat2d([], point, [1, 0, 0, 1, left, top]);
+
+      if (position === 'start') {
+        this.setState({
+          startPoint: [point[0], point[1]]
+        });
+      } else if (position === 'end') {
+        this.setState({
+          endPoint: [point[0], point[1]]
+        });
+      }
+    }
+
+    followStartSlot(evt) {
+      this.syncPosition(this.startSlot, 'start');
+    }
+
+    followEndSlot(evt) {
+      this.syncPosition(this.endSlot, 'end');
+    } //当 Slot 被删除时，清理它与连接线、宿主组件之间的关联关系。
+
+
+    slotBeforeRemoveHandler(evt) {
+      const slot = evt.param.component;
+      if (!slot) return;
+
+      if (this.startSlot === slot) {
+        this.deleteSlot(slot, 'start');
+      } else if (this.endSlot === slot) {
+        this.deleteSlot(slot, 'end');
+      }
+    }
+    /**
+     * 设置连线与组件之间的逻辑关系
+     */
+
+
+    setSlot(slot, position) {
+      if (!slot || !position) return; //总是先尝试解除连接关系，然后再重新尝试连接
+
+      this.deleteSlot(slot, position); //设置了 startSlot 或者 endSlot 之后，连线本身不能拖拽
+
+      this.setState({
+        draggable: false
+      });
+
+      if (position === 'start') {
+        this.startSlot = slot;
+        this.state.startSlotId = slot.props.id;
+        this.syncPosition(this.startSlot, 'start');
+        this.startSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this); //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
+
+        this.startSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
+      } else if (position === 'end') {
+        this.endSlot = slot;
+        this.state.endSlotId = slot.props.id;
+        this.syncPosition(this.endSlot, 'end');
+        this.endSlot.hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this); //在 Slot 的 BEFORE_REMOVE 事件回调中，解除逻辑上的关联关系
+
+        this.endSlot.once(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.slotBeforeRemoveHandler, this);
+      }
+    }
+    /**
+     * 解除连线与组件之间的连接关系。
+     * @param slot
+     */
+
+
+    deleteSlot(slot, position) {
+      if (position === 'start' && this.startSlot === slot) {
+        this.startSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followStartSlot, this);
+        this.startSlot = null;
+        this.state.startSlotId = '';
+      } else if (position === 'end' && this.endSlot === slot) {
+        this.endSlot.hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followEndSlot, this);
+        this.endSlot = null;
+        this.state.endSlotId = '';
+      } //如果两端都没有连接的组件，连接线自身变成可拖动
+
+
+      if (!this.startSlot && !this.endSlot) {
+        this.setState({
+          draggable: true
+        });
+      }
+    }
+
+  }
+
+  /**
+   *
+   * FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
+   *
+   * @class ICEIsogon
+   *
+   * 正多边形
+   *
+   * 用宽高描述法描述正多边形，方便传参。
+   *
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEIsogon extends ICEDotPath {
+    //外接圆的半径
+    //边数 N ，正整数
+
+    /**
+     * radius, edges 会暴露给 AnimationManager ，可能会动态变化。
+     * @param props
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      let param = {
+        radius: 10,
+        edges: 3,
+        ...props
+      };
+      param.width = param.radius * 2;
+      param.height = param.radius * 2;
+      super(param);
+
+      _defineProperty(this, "radius", 10);
+
+      _defineProperty(this, "edges", 3);
+
+      this.radius = this.props.radius; //FIXME:delete?
+
+      this.edges = this.props.edges; //FIXME:delete?
+    }
+    /**
+     * 计算路径上的关键点:
+     * - 默认的坐标原点是 (0,0) 位置。
+     * - 这些点没有经过 transform 矩阵变换。
+     * @returns
+     */
+
+
+    calcDots() {
+      //求正 N 边形的顶点坐标，极坐标法。
+      this.state.dots = [];
+      let avgAngle = 2 * Math.PI / this.state.edges; //FIXME: 需要默认把正多边形的其中一个顶点或者边固定在屏幕上方90度位置。
+      //FIXME:这里需要重新设置起始角度
+      //FIXME:当边数为奇数时，把一个顶点放在正上方90度位置，当边数为偶数时，把一条边与 X 轴平行
+
+      for (let i = 0; i < this.state.edges; i++) {
+        let currentAngel = avgAngle * i;
+        let radius = this.state.radius;
+        let x = Math.floor(radius * Math.cos(currentAngel) + radius);
+        let y = Math.floor(radius * Math.sin(currentAngel) + radius);
+        this.state.dots.push([x, y]);
+      }
+
+      return this.state.dots;
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
+   * @class ICEStar 五角星
+   * TODO:实现正 N 角星
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEStar extends ICEIsogon {
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        radius: 10,
+        edges: 5,
+        ...props
+      });
+    }
+
+    doCreatePath() {
+      this.path2D = new Path2D();
+      let counter = 0;
+      let i = 0;
+
+      while (counter < this.state.edges) {
+        let j = (i + 2) % this.state.edges;
+        let v1 = this.state.dots[i];
+        let v2 = this.state.dots[j];
+
+        if (counter == 0) {
+          this.path2D.moveTo(v1[0], v1[1]);
+          this.path2D.lineTo(v2[0], v2[1]);
+        } else {
+          this.path2D.lineTo(v2[0], v2[1]);
+        }
+
+        i = j;
+        counter++;
+      }
+
+      this.path2D.closePath();
+      return this.path2D;
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
+   * TODO:draw text along Path2D
+   * @see https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
+   * @author 大漠穷秋<damoqiongqiu@126.com>
+   */
+
+  class ICEText extends ICEComponent {
+    /**
+     * @cfg
+     * {
+     *   text:'文本内容',
+     *   left:0,
+     *   top:0,
+     *   fontSize:48,
+     *   fontFamily:'Arial',
+     *   fontWeight:24,
+     * }
+     * FIXME: fontSize/fontFamily/fontWeight 移动到 style 配置项中一起处理。
+     * @param props
+     */
+    constructor() {
+      let props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      super({
+        text: '',
+        left: 0,
+        top: 0,
+        fontSize: 48,
+        fontFamily: 'Arial',
+        fontWeight: 24,
+        ...props
+      });
+    }
+    /**
+     * 空实现。
+     */
+
+
+    initEvents() {}
+    /**
+     * 计算原始的宽高、位置，此时没有经过任何变换，也没有移动坐标原点。
+     * 文本尺寸的计算需要使用特殊的方法。
+     * 这里使用的方法来自 https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
+     *
+     * 在计算组件的原始尺寸时还没有确定原点坐标，所以只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+     *
+     * FIXME:某些运行时环境可能不支持动态插入 HTML 标签，以上测量文本宽高的方法可能存在兼容性问题。
+     * FIXME:边界盒子的高度与字体高度之间存在误差。
+     * @returns
+     */
+
+
+    calcOriginalDimension() {
+      const div = this.root.document.createElement('div');
+      div.contenteditable = false;
+      div.innerHTML = this.state.text;
+      div.style.position = 'absolute';
+      div.style.top = '200px';
+      div.style.left = '0';
+      div.style.fontFamily = this.state.fontFamily;
+      div.style.fontWeight = this.state.fontWeight;
+      div.style.fontSize = this.state.fontSize + 'px';
+      this.root.document.body.appendChild(div);
+      let cssSize = {
+        width: div.offsetWidth,
+        height: div.offsetHeight
+      };
+      this.root.document.body.removeChild(div); //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
+
+      this.props.width = cssSize.width;
+      this.props.height = cssSize.height;
+      this.state.width = cssSize.width;
+      this.state.height = cssSize.height;
+      return {
+        width: this.state.width,
+        height: this.state.height
+      };
+    }
+    /**
+     * 文本是基于 baseline 绘制的，文本是从 y 坐标向屏幕上方绘制的，48 是文本高度，这里需要补偿文本高度。
+     * 同时把移动坐标轴原点的偏移量计算进去。
+     */
+
+
+    doRender() {
+      this.ctx.strokeText(this.state.text, 0 - this.state.localOrigin[0], 0 - this.state.localOrigin[1] + this.state.height, this.state.width);
+      this.ctx.fillText(this.state.text, 0 - this.state.localOrigin[0], 0 - this.state.localOrigin[1] + this.state.height, this.state.width);
+    }
+
+  }
+
+  /**
+   * Copyright (c) 2022 大漠穷秋.
+   *
+   * This source code is licensed under the MIT license found in the
+   * LICENSE file in the root directory of this source tree.
+   *
+   */
+  /**
    * 组件名称和构造函数引用之间的映射关系，把序列化之后的 JSON 字符串重新解析成图形时需要用到此映射关系。
    *
    * @author 大漠穷秋<damoqiongqiu@126.com>
@@ -9370,111 +9284,131 @@
 
   }
 
+  // import ICEGroup from '../src/graphic/container/ICEGroup';
+
   let ice = new ICE().init('canvas-1');
 
-  document.querySelector('#btn-1').addEventListener('click', (evt) => {
-    const jsonStr = ice.toJSON();
-    window.localStorage.setItem('json-data', jsonStr);
-  });
-  document.querySelector('#btn-2').addEventListener('click', (evt) => {
-    const jsonStr = window.localStorage.getItem('json-data');
-    ice.fromJSON(jsonStr);
-  });
-  document.querySelector('#btn-3').addEventListener('click', (evt) => {
-    ice.clearAll();
-  });
+  let startTime = performance.now();
+  let len = 1000;
+  for (let i = 0; i < len; i++) {
+    let rect = new ICERect({
+      left: Math.random() * 1024,
+      top: Math.random() * 768,
+      width: 100,
+      height: 100,
+      style: {
+        strokeStyle: '#ff0000',
+        fillStyle: '#ffaaaa',
+      },
+    });
+    ice.addChild(rect);
+  }
+  let endTime = performance.now();
+  console.log(`add ${len} rects cost ${endTime - startTime} ms`);
 
-  let img = new ICEImage({
-    left: 500,
-    top: 300,
-  });
-  ice.addChild(img);
+  // document.querySelector('#btn-1').addEventListener('click', (evt) => {
+  //   const jsonStr = ice.toJSON();
+  //   window.localStorage.setItem('json-data', jsonStr);
+  // });
+  // document.querySelector('#btn-2').addEventListener('click', (evt) => {
+  //   const jsonStr = window.localStorage.getItem('json-data');
+  //   ice.fromJSON(jsonStr);
+  // });
+  // document.querySelector('#btn-3').addEventListener('click', (evt) => {
+  //   ice.clearAll();
+  // });
 
-  let heart = new ICEHeart();
-  ice.addChild(heart);
-  let rose = new ICERose({
-    left: 10,
-    top: 10,
-    width: 100,
-    height: 100,
-    style: {
-      strokeStyle: '#0c09d4',
-      fillStyle: '#f5d106',
-      lineWidth: 5,
-    },
-  });
-  ice.addChild(rose);
+  // let img = new ICEImage({
+  //   left: 500,
+  //   top: 300,
+  // });
+  // ice.addChild(img);
 
-  let baseRect1 = new ICERect({
-    left: 100,
-    top: 100,
-    width: 300,
-    height: 200,
-    style: {
-      strokeStyle: '#0c09d4',
-      fillStyle: '#f5d106',
-      lineWidth: 5,
-    },
-    animations: {
-      left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
-      top: { from: 0, to: 200, duration: 3000 },
-      width: { from: 100, to: 200, duration: 5000 },
-      height: { from: 100, to: 200, duration: 5000 },
-    },
-    transform: {
-      // translate: [10, 10],
-      rotate: 30,
-      // skew: [20, 0],
-      // scale: [1, 1],
-    },
-  });
-  baseRect1.on('click', (evt) => {
-    console.log('baseRect1');
-  });
-  ice.addChild(baseRect1);
+  // let heart = new ICEHeart();
+  // ice.addChild(heart);
+  // let rose = new ICERose({
+  //   left: 10,
+  //   top: 10,
+  //   width: 100,
+  //   height: 100,
+  //   style: {
+  //     strokeStyle: '#0c09d4',
+  //     fillStyle: '#f5d106',
+  //     lineWidth: 5,
+  //   },
+  // });
+  // ice.addChild(rose);
 
-  let rect1 = new ICERect({
-    left: 100,
-    top: 100,
-    width: 100,
-    height: 100,
-    style: {
-      strokeStyle: '#0c09d4',
-      fillStyle: '#f5d106',
-      lineWidth: 1,
-    },
-    transform: {
-      rotate: 45,
-      scale: [1, 1],
-    },
-    // animations: {
-    //   left: { from: 0, to: 100, duration: 2000, easing: 'easeOutQuart' },
-    //   // top: { from: 0, to: 200, duration: 3000 },
-    //   width: { from: 100, to: 200, duration: 5000 },
-    //   height: { from: 100, to: 200, duration: 5000 },
-    // },
-  });
-  ice.addChild(rect1);
+  // let baseRect1 = new ICERect({
+  //   left: 100,
+  //   top: 100,
+  //   width: 300,
+  //   height: 200,
+  //   style: {
+  //     strokeStyle: '#0c09d4',
+  //     fillStyle: '#f5d106',
+  //     lineWidth: 5,
+  //   },
+  //   animations: {
+  //     left: { from: 0, to: 500, duration: 1000, easing: 'easeInQuad' },
+  //     top: { from: 0, to: 200, duration: 3000 },
+  //     width: { from: 100, to: 200, duration: 5000 },
+  //     height: { from: 100, to: 200, duration: 5000 },
+  //   },
+  //   transform: {
+  //     // translate: [10, 10],
+  //     rotate: 30,
+  //     // skew: [20, 0],
+  //     // scale: [1, 1],
+  //   },
+  // });
+  // baseRect1.on('click', (evt) => {
+  //   console.log('baseRect1');
+  // });
+  // ice.addChild(baseRect1);
 
-  let polyLine = new ICEPolyLine({
-    left: 0,
-    top: 0,
-    points: [
-      [300, 300],
-      [100, 100],
-    ],
-    style: {
-      strokeStyle: '#7803e6',
-      fillStyle: '#008000',
-      lineWidth: 10,
-    },
-    transform: {
-      // translate: [10, -10],
-      // scale: [1, 1],
-      // rotate: 20,
-    },
-  });
-  ice.addChild(polyLine);
+  // let rect1 = new ICERect({
+  //   left: 100,
+  //   top: 100,
+  //   width: 100,
+  //   height: 100,
+  //   style: {
+  //     strokeStyle: '#0c09d4',
+  //     fillStyle: '#f5d106',
+  //     lineWidth: 1,
+  //   },
+  //   transform: {
+  //     rotate: 45,
+  //     scale: [1, 1],
+  //   },
+  //   // animations: {
+  //   //   left: { from: 0, to: 100, duration: 2000, easing: 'easeOutQuart' },
+  //   //   // top: { from: 0, to: 200, duration: 3000 },
+  //   //   width: { from: 100, to: 200, duration: 5000 },
+  //   //   height: { from: 100, to: 200, duration: 5000 },
+  //   // },
+  // });
+  // ice.addChild(rect1);
+
+  // let polyLine = new ICEPolyLine({
+  //   left: 0,
+  //   top: 0,
+  //   points: [
+  //     [300, 300],
+  //     [100, 100],
+  //   ],
+  //   style: {
+  //     strokeStyle: '#7803e6',
+  //     fillStyle: '#008000',
+  //     lineWidth: 10,
+  //   },
+  //   transform: {
+  //     // translate: [10, -10],
+  //     // scale: [1, 1],
+  //     // rotate: 20,
+  //   },
+  // });
+  // ice.addChild(polyLine);
 
   // let polyLine2 = new ICEPolyLine({
   //   left: 0,
@@ -9492,71 +9426,71 @@
   // });
   // ice.addChild(polyLine2);
 
-  let visioLink = new ICEVisioLink({
-    left: 0,
-    top: 0,
-    startPoint: [500, 500],
-    endPoint: [600, 600],
-    style: {
-      strokeStyle: '#08ee00',
-      fillStyle: '#008000',
-      lineWidth: 5,
-    },
-  });
-  ice.addChild(visioLink);
+  // let visioLink = new ICEVisioLink({
+  //   left: 0,
+  //   top: 0,
+  //   startPoint: [500, 500],
+  //   endPoint: [600, 600],
+  //   style: {
+  //     strokeStyle: '#08ee00',
+  //     fillStyle: '#008000',
+  //     lineWidth: 5,
+  //   },
+  // });
+  // ice.addChild(visioLink);
 
-  let visioLink2 = new ICEVisioLink({
-    left: 0,
-    top: 0,
-    startPoint: [300, 300],
-    endPoint: [400, 400],
-    style: {
-      strokeStyle: '#08ee00',
-      fillStyle: '#008000',
-      lineWidth: 5,
-    },
-  });
-  ice.addChild(visioLink2);
+  // let visioLink2 = new ICEVisioLink({
+  //   left: 0,
+  //   top: 0,
+  //   startPoint: [300, 300],
+  //   endPoint: [400, 400],
+  //   style: {
+  //     strokeStyle: '#08ee00',
+  //     fillStyle: '#008000',
+  //     lineWidth: 5,
+  //   },
+  // });
+  // ice.addChild(visioLink2);
 
-  let linkCircle3 = new ICECircle({
-    left: 100,
-    top: 500,
-    radius: 50,
-  });
-  ice.addChild(linkCircle3);
+  // let linkCircle3 = new ICECircle({
+  //   left: 100,
+  //   top: 500,
+  //   radius: 50,
+  // });
+  // ice.addChild(linkCircle3);
 
-  // // //正三角形
-  let isogon3 = new ICEIsogon({
-    left: 600,
-    top: 300,
-    radius: 50,
-    edges: 3,
-    transform: {
-      // translate: [10, -10],
-      // scale: [1.5, 1.5],
-      // skew: [50, 0],
-      // rotate: 45,
-    },
-  });
-  ice.addChild(isogon3);
+  // // // //正三角形
+  // let isogon3 = new ICEIsogon({
+  //   left: 600,
+  //   top: 300,
+  //   radius: 50,
+  //   edges: 3,
+  //   transform: {
+  //     // translate: [10, -10],
+  //     // scale: [1.5, 1.5],
+  //     // skew: [50, 0],
+  //     // rotate: 45,
+  //   },
+  // });
+  // ice.addChild(isogon3);
 
-  // //正五边形
-  let isogon5 = new ICEIsogon({
-    left: 500,
-    top: 400,
-    radius: 50,
-    edges: 5,
-  });
-  ice.addChild(isogon5);
+  // // //正五边形
+  // let isogon5 = new ICEIsogon({
+  //   left: 500,
+  //   top: 400,
+  //   radius: 50,
+  //   edges: 5,
+  // });
+  // ice.addChild(isogon5);
 
-  // //正6边形
-  let isogon6 = new ICEIsogon({
-    left: 650,
-    top: 400,
-    radius: 50,
-    edges: 6,
-  });
-  ice.addChild(isogon6);
+  // // //正6边形
+  // let isogon6 = new ICEIsogon({
+  //   left: 650,
+  //   top: 400,
+  //   radius: 50,
+  //   edges: 6,
+  // });
+  // ice.addChild(isogon6);
 
   // // 正十五边形
   // let isogon15 = new ICEIsogon({
@@ -9573,123 +9507,123 @@
   // ice.addChild(isogon15);
 
   // //正N边形
-  let star1 = new ICEStar({
-    left: 10,
-    top: 10,
-    radius: 50,
-    edges: 5,
-    // transform: {
-    //   translate: [10, -10],
-    //   scale: [0.3, 0.5],
-    //   skew: [0.2, 0],
-    //   rotate: 30,
-    // },
-  });
-  star1.on('click', (evt) => {});
-  ice.addChild(star1);
+  // let star1 = new ICEStar({
+  //   left: 10,
+  //   top: 10,
+  //   radius: 50,
+  //   edges: 5,
+  //   // transform: {
+  //   //   translate: [10, -10],
+  //   //   scale: [0.3, 0.5],
+  //   //   skew: [0.2, 0],
+  //   //   rotate: 30,
+  //   // },
+  // });
+  // star1.on('click', (evt) => {});
+  // ice.addChild(star1);
 
-  let text = new ICEText({
-    left: 0,
-    top: 400,
-    text: 'Test long long long text...',
-    style: {
-      lineWidth: 5,
-      font: '48px serif',
-      strokeStyle: '#ff3300',
-      fillStyle: '#00ff00',
-    },
-  });
-  ice.addChild(text);
+  // let text = new ICEText({
+  //   left: 0,
+  //   top: 400,
+  //   text: 'Test long long long text...',
+  //   style: {
+  //     lineWidth: 5,
+  //     font: '48px serif',
+  //     strokeStyle: '#ff3300',
+  //     fillStyle: '#00ff00',
+  //   },
+  // });
+  // ice.addChild(text);
 
-  let g = new ICEGroup({
-    left: 100,
-    top: 100,
-    width: 300,
-    height: 200,
-    style: {
-      strokeStyle: '#fa0404',
-      fillStyle: '#beffff',
-      lineWidth: 1,
-    },
-    transform: {
-      // translate: [10, -10],
-      scale: [1.5, 1.5],
-      // skew: [50, 0],
-      rotate: 45,
-    },
-  });
-  ice.addChild(g);
-  g.setState({
-    transform: {
-      scale: [1.3, 1.3],
-    },
-  });
+  // let g = new ICEGroup({
+  //   left: 100,
+  //   top: 100,
+  //   width: 300,
+  //   height: 200,
+  //   style: {
+  //     strokeStyle: '#fa0404',
+  //     fillStyle: '#beffff',
+  //     lineWidth: 1,
+  //   },
+  //   transform: {
+  //     // translate: [10, -10],
+  //     scale: [1.5, 1.5],
+  //     // skew: [50, 0],
+  //     rotate: 45,
+  //   },
+  // });
+  // ice.addChild(g);
+  // g.setState({
+  //   transform: {
+  //     scale: [1.3, 1.3],
+  //   },
+  // });
 
-  let group1 = new ICEGroup({
-    left: 10,
-    top: 10,
-    width: 200,
-    height: 100,
-    style: {
-      strokeStyle: '#fa0404',
-      fillStyle: '#37dd0d',
-      lineWidth: 1,
-    },
-    transform: {
-      // translate: [10, -10],
-      // scale: [1, 1],
-      rotate: 0,
-    },
-  });
-  g.addChild(group1);
+  // let group1 = new ICEGroup({
+  //   left: 10,
+  //   top: 10,
+  //   width: 200,
+  //   height: 100,
+  //   style: {
+  //     strokeStyle: '#fa0404',
+  //     fillStyle: '#37dd0d',
+  //     lineWidth: 1,
+  //   },
+  //   transform: {
+  //     // translate: [10, -10],
+  //     // scale: [1, 1],
+  //     rotate: 0,
+  //   },
+  // });
+  // g.addChild(group1);
 
-  let group2 = new ICEGroup({
-    left: 10,
-    top: 10,
-    width: 100,
-    height: 50,
-    style: {
-      strokeStyle: '#fa0404',
-      fillStyle: '#08b2dd',
-      lineWidth: 1,
-    },
-    transform: {
-      // translate: [10, -10],
-      // scale: [1, 1],
-      rotate: 10,
-    },
-  });
-  group1.addChild(group2);
+  // let group2 = new ICEGroup({
+  //   left: 10,
+  //   top: 10,
+  //   width: 100,
+  //   height: 50,
+  //   style: {
+  //     strokeStyle: '#fa0404',
+  //     fillStyle: '#08b2dd',
+  //     lineWidth: 1,
+  //   },
+  //   transform: {
+  //     // translate: [10, -10],
+  //     // scale: [1, 1],
+  //     rotate: 10,
+  //   },
+  // });
+  // group1.addChild(group2);
 
-  group2.addChild(
-    new ICECircle({
-      left: 20,
-      top: 10,
-      radius: 10,
-      transform: {
-        rotate: 45,
-      },
-    })
-  );
+  // group2.addChild(
+  //   new ICECircle({
+  //     left: 20,
+  //     top: 10,
+  //     radius: 10,
+  //     transform: {
+  //       rotate: 45,
+  //     },
+  //   })
+  // );
 
-  group2.addChild(
-    new ICERect({
-      left: 60,
-      top: 10,
-      width: 30,
-      height: 20,
-      transform: {
-        rotate: 0,
-      },
-    })
-  );
+  // group2.addChild(
+  //   new ICERect({
+  //     left: 60,
+  //     top: 10,
+  //     width: 30,
+  //     height: 20,
+  //     transform: {
+  //       rotate: 0,
+  //     },
+  //   })
+  // );
 
-  let ellipse = new ICEEllipse({
-    left: 100,
-    top: 600,
-    radiusX: 50,
-    radiusY: 30,
-  });
-  ice.addChild(ellipse);
+  // let ellipse = new ICEEllipse({
+  //   left: 100,
+  //   top: 600,
+  //   radiusX: 50,
+  //   radiusY: 30,
+  // });
+  // ice.addChild(ellipse);
 
 })));
