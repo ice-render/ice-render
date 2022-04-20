@@ -89,23 +89,6 @@ abstract class ICEEventTarget {
   }
 
   /**
-   * @method once
-   * 一次性事件，触发一次就自动删除自己。
-   * @param eventName
-   * @param fn
-   */
-  public once(eventName: string, fn: Function, scope: any = root) {
-    const that = this;
-
-    function callback(evt: ICEEvent) {
-      that.off(eventName, callback, scope);
-      fn.call(scope, evt);
-    }
-
-    that.on(eventName, callback, scope);
-  }
-
-  /**
    * @method dispatchEvent
    *
    * 触发事件。
@@ -140,6 +123,23 @@ abstract class ICEEventTarget {
       item.callback.call(item.scope, iceEvent);
     }
     return true;
+  }
+
+  /**
+   * @method once
+   * 一次性事件，触发一次就自动删除自己。
+   * @param eventName
+   * @param fn
+   */
+  public once(eventName: string, fn: Function, scope: any = root) {
+    const that = this;
+
+    function callback(evt: ICEEvent) {
+      that.off(eventName, callback, scope);
+      fn.call(scope, evt);
+    }
+
+    that.on(eventName, callback, scope);
   }
 
   /**
