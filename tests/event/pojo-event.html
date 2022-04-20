@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-pojo-event</title>
+  <body>
+    <div>
+      <script src="../../dist/index.umd.js"></script>
+    </div>
+    <br/>
+    <script type="text/javascript">
+        //第三方代码也可以继承 ICEEventTarget 
+        class TestPojo extends ICE.ICEEventTarget {
+            constructor() {
+                super();
+            }
+        }
+
+        //此时 obj1 这个对象上已经可以注册和触发事件了。
+        let obj1=new TestPojo();
+        console.log(obj1);
+
+        obj1.on("my-evt",(evt)=>{
+          console.log("obj1.on(my-evt)",evt);
+        },obj1);
+
+        setTimeout(()=>{
+          //事件名称可以自定义
+          obj1.trigger("my-evt",null,{
+            msg:"hello world",//触发事件时，可以带上任意自定义的数据
+          });
+          alert("my-evt");
+        },1000);
+
+        //有了这一套机制之后，ICEEventTarget 的所有子类就都带有了事件机制。
+        //当然，创建出来的 canvas 图形对象也可以利用此机制来实现事件机制。
+    </script>
+  </body>
+</html>
