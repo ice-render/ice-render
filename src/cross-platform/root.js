@@ -6,6 +6,7 @@
  *
  */
 /**
+ * 兼容性封装
  * ! TODO: import https://www.npmjs.com/package/canvas for nodejs platform.
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
