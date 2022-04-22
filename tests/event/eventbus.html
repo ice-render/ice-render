@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-eventbus</title>
+  <script src="../../dist/index.umd.js"></script>
+  <body>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+    <script type="text/javascript">
+      let ice = new ICE.ICE().init('canvas-1');
+      
+      //用 evtbus 在对象间进行通讯
+    //   let rect1=new ICE.ICERect({
+    //     left:100,
+    //     top:100,
+    //     width:100,
+    //     height:100,
+    //     style:{
+    //         strokeStyle:'#ff3300',
+    //         fillStyle:'#00ffff',
+    //     },
+    //   });
+    //   ice.addChild(rect1);
+
+    //   let circle=new ICE.ICECircle({
+    //     left:300,
+    //     top:100,
+    //     radius:100,
+    //     style:{
+    //         strokeStyle:'#ff3300',
+    //         fillStyle:'#00ffff',
+    //     },
+    //   });
+    //   circle.on("my-evt",(evt)=>{
+    //     console.log("circle 接收到了 my-event 事件",evt);
+    //   },circle);
+    //   ice.addChild(circle);
+
+    //   //监听总线上的事件，转发给圆形
+    //   ice.evtBus.on("my-evt",(evt)=>{
+    //     circle.trigger("my-evt",evt);//转发了一次
+    //   });
+
+    //   //在事件总线上触发事件
+    //   setTimeout(()=>{
+    //     ice.evtBus.trigger("my-evt");
+    //   },1000);
+
+      //有了事件总线之后，任意两个组件都可以互相进行通讯，也可以实现广播功能，一个组件向所有组件进行广播
+
+      let rectList=[];
+      for (let i = 0; i < 100; i++) {
+        let rect=new ICE.ICERect({
+          left:100+i*10,
+          top:100+i*10,
+          width:10,
+          height:10,
+          style:{
+              strokeStyle:'#ff3300',
+              fillStyle:'#00ffff',
+          },
+        });
+        rect.on("my-evt",(evt)=>{
+          console.log(rect.props.id);
+        },rect);
+        ice.addChild(rect);
+        rectList.push(rect);
+      }
+
+      ice.evtBus.on("my-evt",(evt)=>{
+        rectList.forEach((rect)=>{//转发给所有矩形
+          rect.trigger("my-evt",evt);
+        });
+      });
+
+      //某个组件，或者某一个业务逻辑在事件总线上触发事件
+      setTimeout(()=>{
+        ice.evtBus.trigger("my-evt");
+      },1000);
+    </script>
+  </body>
+</html>

@@ -2,7 +2,7 @@
 
 <html lang="en">
   <meta charset="utf-8" />
-  <title>ICERender-shapes-star</title>
+  <title>ICERender-transform-basic</title>
   <body>
     <div>
       <button id="btn-1">保存</button>
@@ -28,21 +28,24 @@
           console.log('ice.clearAll()');
           ice.clearAll();
         });
-
-        for(let i=0;i<100;i++){
-          let star=new ICE.ICEStar({
-            left:1024*Math.random(),
-            top: 768*Math.random(),
-            outerRadius: 50, //外圆半径
-            innerRadius: 20, //内圆半径
-            spikes: i%10,
-            style:{
-              strokeStyle:'#ff3300',
-              fillStyle:'#00eeff',
-            },
-            transformable:false
-          });
-          ice.addChild(star);
-        }
+        
+        let rect=new ICE.ICERect({
+          left: 300,
+          top: 300,
+          width: 100,
+          height: 100,
+          style: {
+            strokeStyle: '#ff3300',
+            fillStyle: '#00ffff',
+            lineWidth: 2,
+          },
+          transform: {
+            translate: [10, -10],
+            scale: [2, 2],
+            skew: [25, 0],
+            rotate: 45,
+          },
+        });
+        ice.addChild(rect);
   </script>
 </html>

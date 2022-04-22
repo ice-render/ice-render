@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-requestAnimationFrame</title>
+  <body>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+    <script type="text/javascript">
+      let canvas = document.getElementById('canvas-1');
+      let width = canvas.width;
+      let height = canvas.height;
+      let ctx=canvas.getContext('2d');
+
+      ctx.fillStyle = '#ff0000';
+      let counter=0;
+      //test requestAnimationFrame
+      let callback=function(){
+        ctx.clearRect(0,0,width,height);//擦除整张画布
+        ctx.beginPath();
+        ctx.fillRect(100+counter,100,500,500);
+        ctx.closePath();
+        counter+=10;
+        requestAnimationFrame(callback);//再次调用
+      }
+      //这里我们利用requestAnimationFrame和clearRect来实现重绘机制，后面我们会继续利用它来实现动画机制。
+      window.requestAnimationFrame(callback);//后面讲动画机制的时候会更详细讲解
+    </script>
+  </body>
+</html>
