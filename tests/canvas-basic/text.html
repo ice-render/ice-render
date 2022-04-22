@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>text</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let ctx = canvas.getContext('2d');
+        let width = canvas.width;
+        let height = canvas.height;
+        
+        let text="你好世界！";
+
+        ctx.font = "64px Arial";
+        ctx.fillStyle = "red";
+        ctx.textBaseline = "bottom";
+        ctx.fillText(text, 300, 300);
+        
+        //用内置的 API 来测量文本的尺寸
+        let dimension=ctx.measureText(text);
+        console.log(dimension);
+        let textHeight=dimension.actualBoundingBoxAscent-dimension.actualBoundingBoxDescent;
+        let textWdith=dimension.width;
+        console.log(textHeight,textWdith);
+
+        //利用HTML来测量文本尺寸
+        let textDiv=document.createElement("div");
+        textDiv.style.fontFamily="Arial";
+        textDiv.style.fontSize="64px";
+        textDiv.style.position="absolute";
+        textDiv.style.top="0px";
+        textDiv.style.left="0px";
+        textDiv.style.margin="0px";
+        textDiv.style.padding="0px";
+        textDiv.style.border="none";
+        textDiv.style.lineHeight=1;
+        textDiv.contentEditable=false;
+        textDiv.innerText=text;
+        document.body.appendChild(textDiv);
+        let textDivHeight=textDiv.offsetHeight;
+        let textDivWidth=textDiv.offsetWidth;
+        console.log(textDivHeight,textDivWidth);
+
+        ctx.beginPath();
+        ctx.strokeStyle="#ff0000";
+        ctx.lineWidth=2;
+        ctx.rect(300,300-textDivHeight+dimension.actualBoundingBoxDescent,textDivWidth,textDivHeight);
+        ctx.stroke();
+
+    </script>
+</html>

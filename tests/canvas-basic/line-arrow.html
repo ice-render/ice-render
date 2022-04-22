@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Line Basic</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let context = canvas.getContext('2d');
+        let width = canvas.width;
+        let height = canvas.height;
+
+        //计算线段相对于 X 轴正向的旋转角，返回弧度
+        function calcRadian(x1,y1,x2,y2){
+            let radian = Math.atan2(y2-y1,x2-x1);
+            return radian;
+        }
+
+        //计算两个蓝色点的坐标
+        function calcPoints(x,y,len,lineRadian,arrowRadian){
+            let x1=len*Math.cos(lineRadian+arrowRadian);
+            let y1=len*Math.sin(lineRadian+arrowRadian);
+            let x2=len*Math.cos(lineRadian-arrowRadian);
+            let y2=len*Math.sin(lineRadian-arrowRadian);
+            return [[x1+x,y1+y],[x2+x,y2+y]];
+        }
+
+        
+        let origin=[300,300];
+        
+        //绘制X轴带箭头
+        let x1=0;
+        let y1=origin[1];
+        let x2=origin[0]*2;
+        let y2=origin[1];
+
+        let lineRadian=calcRadian(x2,y2,x1,y1);//0度
+        let arrowRadian=Math.PI/6;//30度
+        let points=calcPoints(x2,y2,30,lineRadian,arrowRadian);
+
+        context.beginPath();
+        context.strokeStyle="#aaa";
+        context.fillStyle="#aaa";
+        context.lineWidth=2;
+        
+        context.moveTo(x1,y1);
+        context.lineTo(x2,y2);
+        context.lineTo(points[0][0],points[0][1]);
+        context.lineTo(points[1][0],points[1][1]);
+        context.lineTo(x2,y2);
+        context.stroke();
+        context.fill();
+
+        //绘制Y轴
+        x1=origin[0];
+        y1=0;
+        x2=origin[0];
+        y2=origin[1]*2;
+
+        lineRadian=calcRadian(x1,y1,x2,y2);
+        points=calcPoints(x1,y1,30,lineRadian,arrowRadian);
+        
+        context.moveTo(x1,y1);
+        context.lineTo(points[0][0],points[0][1]);
+        context.lineTo(points[1][0],points[1][1]);
+        context.lineTo(x1,y1);
+        context.lineTo(x2,y2);
+        context.closePath();
+        context.stroke();
+        context.fill();
+
+        //绘制 y=k*x+b
+        // let k=1;
+        // let b=100;
+        // let minX=-200;
+        // let maxX=200;//[-100,100]
+        // let step=1;
+        // let len=Math.floor((maxX-minX)/step);//200
+
+        // context.beginPath();
+        // context.strokeStyle="#ff3300";
+        // context.lineWidth=1;
+        // context.moveTo(minX+origin[0],-k*minX-b+origin[1]);
+        // for(let i=0;i<len;i++){
+        //     context.lineTo(minX+origin[0]+i*step,-k*(minX+i*step)-b+origin[1]);
+        // }
+        // context.closePath();
+        // context.stroke();
+
+        //y=k*x+b
+        function drawLine(k,b,minX,maxX,step,color){
+            context.beginPath();
+            context.strokeStyle=color;
+            context.lineWidth=1;
+            context.setLineDash([]);
+            context.moveTo(minX+origin[0],-k*minX-b+origin[1]);
+            let len=Math.floor((maxX-minX)/step);
+            for(let i=0;i<len;i++){
+                let x=minX+origin[0]+i*step;
+                let y=-k*(minX+i*step)-b+origin[1];
+                context.lineTo(x,y);
+            }
+            context.closePath();
+            context.stroke();
+        }
+
+        drawLine(1,100,-200,200,1,"#ff3300");
+        drawLine(2,50,-100,100,1,"#ff0000");
+        drawLine(3,10,-100,100,1,"#00ff00");
+        drawLine(4,0,-200,200,1,"#0000ff");
+        drawLine(-1,0,-200,200,1,"#00ffff");
+
+    </script>
+</html>

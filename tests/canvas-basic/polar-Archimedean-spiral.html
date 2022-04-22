@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Archimedean spiral</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let context = canvas.getContext('2d');
+        let width = canvas.width;
+        let height = canvas.height;
+
+        let origin=[300,300];
+        
+        function drawArchimedeanSpiral(angularSpeed,linearSpeed,maxTime,color){
+            context.beginPath();
+            context.strokeStyle=color;
+            context.lineWidth=1;
+            context.moveTo(origin[0],origin[1]);
+            for (let t = 0; t < maxTime; t++) {
+                let angle=t*angularSpeed;
+                let x=origin[0]+t*linearSpeed*Math.cos(angle);
+                let y=origin[1]+t*linearSpeed*Math.sin(angle);
+                context.lineTo(x,y);
+            }
+            context.closePath();
+            context.stroke();
+        }
+
+        drawArchimedeanSpiral(Math.PI/30,1,200,"#ff0000");
+        drawArchimedeanSpiral(Math.PI/40,2,300,"#00ff00");
+    </script>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>polar rose</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let context = canvas.getContext('2d');
+        let width = canvas.width;
+        let height = canvas.height;
+
+        function drawRose(origin,angularSpeed,radius,k,color){
+            let points=[];
+            let angle=0;
+            while(true){
+                let x=radius*Math.cos(k*angle)*Math.cos(angle)+origin[0];
+                let y=radius*Math.cos(k*angle)*Math.sin(angle)+origin[1];
+                points.push([x,y]);
+                angle+=angularSpeed;
+                if(angle>2*Math.PI){
+                    break;
+                }
+            }
+
+            context.beginPath();
+            context.strokeStyle=color;
+            context.lineWidth=1;
+            context.moveTo(points[0][0],points[0][1]);
+            for(let i=0;i<points.length;i++){
+                context.lineTo(points[i][0],points[i][1]);
+            }
+            context.closePath();
+            context.lineTo(points[0][0],points[0][1]);
+            context.stroke();
+        }
+        // drawRose([300,300],Math.PI/100,200,2,"#ff0000");
+        // drawRose([300,300],Math.PI/100,300,4,"#0000ff");
+        for (let i = 2; i < 10; i++) {
+            drawRose([width*Math.random(),height*Math.random()],Math.PI/100,300*Math.random(),i,"#0000ff");
+        }
+    </script>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>nested shape</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <!--可以直接引用，也可以模块化引用，这里先来熟悉 glMatrix 本身的核心用法-->
+    <script src="../../node_modules/gl-matrix/gl-matrix.js"></script>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let ctx = canvas.getContext('2d');
+        let width = canvas.width;
+        let height = canvas.height;
+        
+        let mat1=[1,0,0,1,0,0];
+        let mat2=glMatrix.mat2d.rotate([],mat1,Math.PI/12);
+        mat2=glMatrix.mat2d.translate([],mat2,[200,-100]);//给父层加一个平移操作
+        console.log(mat2);
+        ctx.strokeStyle="#ff0000";
+        ctx.lineWidth=1;
+        ctx.fillStyle="#00ffff";
+        ctx.setTransform(...mat2);
+        ctx.beginPath();
+        let rect1=ctx.rect(200,200,400,400);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.fill();
+        ctx.setTransform(1,0,0,1,0,0);
+        
+        let mat3=[1,0,0,1,0,0];//单位矩阵
+        let childMat=glMatrix.mat2d.rotate([],mat3,Math.PI/24);// Math.PI/6是孩子自己旋转的角度
+        //带上父层的变换矩阵，才能获得最终的变换矩阵
+        let mat4=glMatrix.mat2d.mul([],childMat,mat2);
+        ctx.setTransform(...mat4);
+        ctx.fillStyle="#ff0000";
+        ctx.beginPath();
+        let rect2=ctx.rect(200,200,200,200);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.fill();
+        ctx.setTransform(1,0,0,1,0,0);
+        
+    </script>
+</html>

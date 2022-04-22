@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>gl-matrix</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <!--可以直接引用，也可以模块化引用，这里先来熟悉 glMatrix 本身的核心用法-->
+    <script src="../../node_modules/gl-matrix/gl-matrix.js"></script>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let ctx = canvas.getContext('2d');
+        let width = canvas.width;
+        let height = canvas.height;
+        
+        let mat1=[2,0,0,2,0,0];//放大2倍
+        let angle=Math.PI/3;//旋转60度
+        let rotateMat=[Math.cos(angle),Math.sin(angle),-Math.sin(angle),Math.cos(angle),0,0];
+        let mat2=[1,0,0,1,300,100];//XY坐标都平移100
+        let mat3=glMatrix.mat2d.mul([],rotateMat,mat1);//先放大、再旋转
+        mat3=glMatrix.mat2d.mul([],mat2,mat3);//旋转完了之后再平移
+        //如果先平移会如何？应用变换矩阵的顺序不同，最终获得的结果是不一样的。我们总是先做线性变换，然后再做平移。
+        // let mat3=glMatrix.mat2d.mul([],rotateMat,mat2);//先平移、再旋转
+        // mat3=glMatrix.mat2d.mul([],mat1,mat3);//然后再放大
+        console.log(mat3);
+
+        ctx.beginPath();
+        ctx.strokeStyle="#ff0000";
+        ctx.fillStyle="#00ffff"
+        ctx.lineWidth=1;
+        ctx.setTransform(...mat3);//把 gl-matrix 计算出来的矩阵传递给 ctx.setTransform
+        ctx.rect(0,0,100,100);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.fill();
+    </script>
+</html>

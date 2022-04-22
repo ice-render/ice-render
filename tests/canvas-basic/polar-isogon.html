@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>polar isogon</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let context = canvas.getContext('2d');
+        let width = canvas.width;
+        let height = canvas.height;
+
+        // let origin=[300,300];
+        // let vertexes=5;
+        // let radius=200;
+        // let startAngle=-Math.PI/2;
+
+        // let points=[];
+        // for(let i=0;i<vertexes;i++){
+        //     let angle=startAngle+i*2*Math.PI/vertexes;
+        //     let x=origin[0]+radius*Math.cos(angle);
+        //     let y=origin[1]+radius*Math.sin(angle);
+        //     points.push([x,y]);
+        // }
+
+        // context.beginPath();
+        // context.strokeStyle="#ff0000";
+        // context.lineWidth=1;
+        // context.moveTo(points[0][0],points[0][1]);
+        // for(let i=1;i<points.length;i++){
+        //     context.lineTo(points[i][0],points[i][1]);
+        // }
+        // context.lineTo(points[0][0],points[0][1]);
+        // context.stroke();
+        // context.closePath();
+
+        function drawIsogon(origin,vertexes,radius,startAngle,color){
+            let points=[];
+            for(let i=0;i<vertexes;i++){
+                let angle=startAngle+i*2*Math.PI/vertexes;
+                let x=origin[0]+radius*Math.cos(angle);
+                let y=origin[1]+radius*Math.sin(angle);
+                points.push([x,y]);
+            }
+
+            context.beginPath();
+            context.strokeStyle=color;
+            context.lineWidth=1;
+            for(let i=0;i<points.length;i++){
+                if(i===0){
+                    context.moveTo(points[0][0],points[0][1]);
+                }else{
+                    context.lineTo(points[i][0],points[i][1]);
+                }
+                if(i===points.length-1){
+                    context.lineTo(points[0][0],points[0][1]);
+                }
+            }
+            context.closePath();
+            context.stroke();
+        }
+
+        // drawIsogon([300,300],5,200,-Math.PI/2,"#ff0000");
+        // drawIsogon([300,300],6,200,-Math.PI/2,"#ff0000");
+
+        for (let i = 0; i < 100; i++) {
+            drawIsogon([Math.random()*width,Math.random()*height],i,50,-Math.PI/2,"#ff0000");
+        }
+    </script>
+</html>
