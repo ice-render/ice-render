@@ -2,13 +2,13 @@
 
 <html lang="en">
   <meta charset="utf-8" />
-  <title>ICERender-group-nested</title>
+  <title>ICERender-shapes-star</title>
   <body>
     <div>
       <button id="btn-1">保存</button>
       <button id="btn-2">加载</button>
       <button id="btn-3">清除所有</button>
-      <script src="../dist/index.umd.js"></script>
+      <script src="../../dist/index.umd.js"></script>
     </div>
     <br/>
     <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
@@ -29,42 +29,20 @@
           ice.clearAll();
         });
 
-        let group = new ICE.ICEGroup({
-          left: 100,
-          top: 100,
-          width: 300,
-          height: 200,
-          style: {
-            strokeStyle: '#fa0404',
-            fillStyle: '#beffff',
-            lineWidth: 1,
-          },
-        });
-
-        let circle=new ICE.ICECircle({
-          left: 20,
-          top: 10,
-          radius: 10,
-          transform: {
-            rotate: 45,
-          },
-        });
-
-        let rect=new ICE.ICERect({
-          left: 60,
-          top: 10,
-          width: 30,
-          height: 20,
-          transform: {
-            rotate: 0,
-          },
-        });
-
-        //先添加到group中
-        group.addChild(circle);
-        group.addChild(rect);
-
-        //再添加到ice中
-        ice.addChild(group);
+        for(let i=0;i<100;i++){
+          let star=new ICE.ICEStar({
+            left:1024*Math.random(),
+            top: 768*Math.random(),
+            outerRadius: 50, //外圆半径
+            innerRadius: 20, //内圆半径
+            spikes: i%10,
+            style:{
+              strokeStyle:'#ff3300',
+              fillStyle:'#00eeff',
+            },
+            transformable:false
+          });
+          ice.addChild(star);
+        }
   </script>
 </html>
