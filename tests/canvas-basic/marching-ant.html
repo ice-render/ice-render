@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>marching ant</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let ctx = canvas.getContext('2d');
+
+        let offset=0;
+
+        
+        function drawDashLine(){
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.lineWidth=5;
+            ctx.lineDashOffset=offset;
+            ctx.setLineDash([15,5]);
+            ctx.moveTo(0, 100);
+            ctx.lineTo(500, 100);
+            ctx.stroke();
+        }
+
+        setInterval(()=>{
+            if(offset>15){
+                offset=0;
+            }else{
+                offset+=1;//Number.MAX_VALUE;
+            }
+            drawDashLine();
+        },20);
+
+    </script>
+</html>

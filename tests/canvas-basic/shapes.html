@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>shapes</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let context = canvas.getContext('2d');
+        let width = canvas.width;
+        let height = canvas.height;
+        
+        let origin=[300,300];
+        
+        // //绘制基本的形状
+        // context.beginPath();
+        // context.strokeStyle="#ff0000";
+        // context.fillStyle="#00ffff"
+        // context.lineWidth=1;
+        // context.rect(origin[0],origin[1],100,100);
+        // context.closePath();
+        // context.stroke();
+        // context.fill();
+
+
+        // const radius=50;
+        // context.beginPath();
+        // context.strokeStyle="#ff0000";
+        // context.fillStyle="#00ffff"
+        // context.lineWidth=1;
+        // context.lineJoin="miter";
+        // for(i=0;i<=4;i++){
+        //     const x=radius*Math.cos(i*Math.PI/2+Math.PI/4);
+        //     const y=radius*Math.sin(i*Math.PI/2+Math.PI/4);
+        //     if(i===0){
+        //         context.moveTo(x+origin[0],y+origin[1]);
+        //     }else{
+        //         context.lineTo(x+origin[0],y+origin[1]);
+        //     }
+        // }
+        // context.closePath();
+        // context.stroke();
+        // context.fill();
+
+        // context.beginPath();
+        // context.strokeStyle="#ff0000";
+        // context.fillStyle="#00ffff"
+        // context.lineWidth=5;
+        // context.arc(origin[0],origin[1],100,0,Math.PI*2);
+        // context.closePath();
+        // context.stroke();
+        // context.fill();
+
+        // context.beginPath();
+        // context.strokeStyle="#ff0000";
+        // context.fillStyle="#00ffff"
+        // context.lineWidth=5;
+        // context.ellipse(origin[0],origin[1],100,50,0,Math.PI*2,0);
+        // context.closePath();
+        // context.stroke();
+        // context.fill();
+
+        context.beginPath();
+        context.strokeStyle="#ff0000";
+        context.fillStyle="#00ffff"
+        context.lineWidth=5;
+        let angularSpeed=Math.PI/20;
+        let xRadius=100;
+        let yRadius=50;
+        for (let angle = 0; angle <=Math.PI*2; angle+=angularSpeed) {
+            let x=xRadius*Math.cos(angle)+origin[0];
+            let y=yRadius*Math.sin(angle)+origin[1];
+            if(angle===0){
+                context.moveTo(x,y);
+            }else{
+                context.lineTo(x,y);
+            }
+        }
+        context.closePath();
+        context.stroke();
+        context.fill();
+
+    </script>
+</html>

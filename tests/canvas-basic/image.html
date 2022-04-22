@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>image basic</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let context = canvas.getContext('2d');
+        let width = canvas.width;
+        let height = canvas.height;
+        
+        let img=new Image();
+        img.style.width=50;
+        img.style.height=50;
+        img.src="./1.png"
+        img.onload=()=>{
+            // context.drawImage(img,100,100,200,200);
+            
+            // let imgData=context.getImageData(100,100,200,200);
+            // console.log(imgData);
+
+            //获得了 imgData 之后，可以无限复制
+            // for (let i = 0; i < 20; i++) {
+            //     context.putImageData(imgData,Math.random()*width,Math.random()*height);
+            // }
+
+            //还可以对 imgData 中的颜色数值进行修改
+            //反色
+            // for (let i = 0; i < imgData.data.length; i+=4) {
+            //     imgData.data[i]=255-imgData.data[i];
+            //     imgData.data[i+1]=255-imgData.data[i+1];
+            //     imgData.data[i+2]=255-imgData.data[i+2];
+            // }
+            // context.putImageData(imgData,Math.random()*width,Math.random()*height);
+
+            //灰度
+            // let startTime=performance.now();
+            // for (let i = 0; i < imgData.data.length; i+=4) {//16万个元素，for 循环内部的代码执行了4万次
+            //     let gray=(imgData.data[i]+imgData.data[i+1]+imgData.data[i+2])/3;
+            //     imgData.data[i]=gray;
+            //     imgData.data[i+1]=gray;
+            //     imgData.data[i+2]=gray;
+            // }
+            // let endTime=performance.now();
+            // console.log(endTime-startTime+"ms");
+            // context.putImageData(imgData,Math.random()*width,Math.random()*height);
+
+            //可以对像素进行大量操作
+
+            //图案填充
+            let pattern=context.createPattern(img,'repeat-y');
+            context.fillStyle=pattern;
+            context.fillRect(0,0,width,height);
+
+        }
+
+    </script>
+</html>

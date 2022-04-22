@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>bezier cubic</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let context = canvas.getContext('2d');
+        let width = canvas.width;
+        let height = canvas.height;
+        
+        const p1=[200,200];
+        const p2=[300,50];
+        const p3=[350,300];
+        const p4=[400,200];
+
+        context.beginPath();
+        context.strokeStyle="#ff0000";
+        context.lineWidth=1;
+        context.moveTo(p1[0],p1[1]);
+        context.bezierCurveTo(p2[0],p2[1],p3[0],p3[1],p4[0],p4[1]);
+        context.stroke();
+    </script>
+</html>

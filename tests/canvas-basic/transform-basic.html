@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>transform basic</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let ctx = canvas.getContext('2d');
+        let width = canvas.width;
+        let height = canvas.height;
+        
+        const rotateAngle=Math.PI/4;
+        ctx.beginPath();
+        ctx.strokeStyle="#ff0000";
+        ctx.fillStyle="#00ffff"
+        ctx.lineWidth=1;
+        ctx.setTransform(Math.cos(rotateAngle),Math.sin(rotateAngle),-Math.sin(rotateAngle),Math.cos(rotateAngle),200,100);//a,b,c,d,e,f
+        ctx.rect(0,0,200,200);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.fill();
+
+        //问题：在旋转的同时放大2倍，应该怎么做呢？很明显就需要自己进行矩阵相乘了。
+        let mat1=[2,0,0,2];
+        let mat2=[Math.cos(rotateAngle),Math.sin(rotateAngle),-Math.sin(rotateAngle),Math.cos(rotateAngle)];
+        let mat3=[];//mat3=mat1*mat2？mat3=mat2*mat1？哪个放前面？结果有没有差异？
+        
+    </script>
+</html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>arcTo</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: rgb(42, 42, 42);
+        }
+    </style>
+    <body>
+        <canvas id="canvas-1" width="1024" height="768" style="background-color: antiquewhite;margin:30px;"></canvas>
+    </body>
+    <script>
+        let canvas = document.getElementById('canvas-1');
+        let context = canvas.getContext('2d');
+        let width = canvas.width;
+        let height = canvas.height;
+        
+        let rectWidth=200;
+        let rectHeight=200;
+        let cornerRadius=200;
+
+        //写出12个点的坐标
+        const points=[
+            [0,cornerRadius],
+            [0,0],
+            [cornerRadius,0],
+            [rectWidth-cornerRadius,0],
+            [rectWidth,0],
+            [rectWidth,cornerRadius],
+            [rectWidth,rectHeight-cornerRadius],
+            [rectWidth,rectHeight],
+            [rectWidth-cornerRadius,rectHeight],
+            [cornerRadius,rectHeight],
+            [0,rectHeight],
+            [0,rectHeight-cornerRadius],
+        ];
+
+
+        //绘制圆角矩形
+        context.setTransform(1,0,0,1,300,300);
+        context.beginPath();
+        context.strokeStyle="#ff0000";
+        context.fillStyle="#00ffff"
+        context.lineWidth=1;
+        
+        context.moveTo(points[0][0],points[0][1]);
+        for(let i=0;i<points.length-1;i+=3){
+            const point1 = points[i];
+            const point2 = points[i+1];
+            const point3 = points[i+2];
+            context.lineTo(point1[0],point1[1]);
+            context.arcTo(point2[0],point2[1],point3[0],point3[1],cornerRadius);
+        }
+        context.lineTo(points[0][0],points[0][1]);
+        context.closePath();
+        context.stroke();
+    </script>
+</html>
