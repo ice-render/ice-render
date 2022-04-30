@@ -134,7 +134,7 @@
         let points2=[];
         for(let i=0;i<len;i++){
             let x=minX+i*step;
-            let y=-Math.pow(x,2);
+            let y=-Math.pow(x,2)/50;//数学的y轴向上为正，canvas的y轴向下为正，所以要取反。强制 y 轴每50个像素为1，避免曲线上升过快脱离画布区域。
             points2.push([x,y]);
         }
         
