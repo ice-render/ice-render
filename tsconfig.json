@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "es6",
     "esModuleInterop": true,
-    "allowJs": true,
+    "allowJs": false,
     "allowSyntheticDefaultImports": true,
     "strict": false,
     "forceConsistentCasingInFileNames": true,
@@ -11,8 +11,7 @@
     "resolveJsonModule": true,
     "declaration": true,
     "declarationDir": "dist/types",
-    "outDir": "dist",
-    "rootDir": "src",
+    "emitDeclarationOnly": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": false,
     "noUnusedLocals": false,
