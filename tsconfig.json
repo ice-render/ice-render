@@ -11,6 +11,8 @@
     "resolveJsonModule": true,
     "declaration": true,
     "declarationDir": "dist/types",
+    "outDir": "dist",
+    "rootDir": "src",
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": false,
     "noUnusedLocals": false,
