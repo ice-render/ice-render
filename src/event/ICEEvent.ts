@@ -57,9 +57,9 @@ class ICEEvent implements Event {
   stopPropagation(): void {
     throw new Error('Method not implemented.');
   }
-  AT_TARGET: number;
-  BUBBLING_PHASE: number;
-  CAPTURING_PHASE: number;
-  NONE: number;
+  readonly AT_TARGET: 2 = 2;
+  readonly BUBBLING_PHASE: 3 = 3;
+  readonly CAPTURING_PHASE: 1 = 1;
+  readonly NONE: 0 = 0;
 }
 export default ICEEvent;
