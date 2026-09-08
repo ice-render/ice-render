@@ -21,13 +21,14 @@ npx playwright test --update-snapshots # 生成基准图，人工确认无误后
 npm run test:visual                  # 与基准图对比，全绿即无光栅层回归
 ```
 
-## 已收录示例（确定性强，无动画/随机）
+## 已收录示例（均无 Math.random/rAF，确定性渲染）
 
-`shapes-basic`、`group-basic`、`group-nested`、`bounding-box`、`line-basic`、`image-basic`。
+`group-nested`、`group-and-children`、`line-basic`、`line-visio`、`text-in-group`、`text-padding`。
 
-> 含 `requestAnimationFrame` 动画或随机坐标的示例（如 `marching-ant`、`animation-basic`）因输出非确定，刻意排除。
+> 含 `requestAnimationFrame` 动画或 `Math.random` 随机坐标的示例（如 `marching-ant`、`animation-basic`、`shapes-basic`、`group-basic`、`bounding-box`）因输出非确定，刻意排除。
 
 ## 说明
 
 - 需要本机有网络下载 Chromium（大陆环境可设置 `PLAYWRIGHT_DOWNLOAD_HOST` 镜像）。
 - 跨平台/不同 GPU 抗锯齿可能造成细微差异，`maxDiffPixelRatio` 已在 `playwright.config.ts` 设为 0.01，必要时调大。
+- 基准图按平台命名（如 `*-darwin.png`）；在其它 OS 上首次需重新 `--update-snapshots` 生成对应平台的基准图。

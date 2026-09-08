@@ -10,12 +10,12 @@ import { test, expect } from '@playwright/test';
  */
 
 const demos: Array<{ name: string; path: string }> = [
-  { name: 'shapes-basic', path: '/examples/shapes/shapes-basic.html' },
-  { name: 'group-basic', path: '/examples/group/group-basic.html' },
   { name: 'group-nested', path: '/examples/group/group-nested.html' },
-  { name: 'bounding-box', path: '/examples/bounding-box/bounding-box.html' },
+  { name: 'group-and-children', path: '/examples/group/group-and-children.html' },
   { name: 'line-basic', path: '/examples/line-and-link/line-basic.html' },
-  { name: 'image-basic', path: '/examples/image/image-basic.html' },
+  { name: 'line-visio', path: '/examples/line-and-link/line-visio.html' },
+  { name: 'text-in-group', path: '/examples/text/text-in-group.html' },
+  { name: 'text-padding', path: '/examples/text/text-padding.html' },
 ];
 
 for (const d of demos) {
