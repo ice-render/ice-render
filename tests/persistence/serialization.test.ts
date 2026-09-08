@@ -4,7 +4,7 @@
  * 验证 Serializer（state+type+childNodes 递归编码）与 Deserializer（靠 COMPONENT_TYPE_MAPPING
  * 的类名→构造函数映射重建树）的往返一致性。这是引擎「持久化」能力的核心，之前完全没有自动化覆盖。
  */
-jest.mock('../cross-platform/root', () => ({ __esModule: true, default: {} }));
+jest.mock('../../src/cross-platform/root', () => ({ __esModule: true, default: {} }));
 global.Path2D = class {
   rect() {}
   closePath() {}
@@ -14,14 +14,14 @@ global.Path2D = class {
   ellipse() {}
 };
 
-import ICE from '../ICE';
-import EventBus from '../event/EventBus';
-import componentTypeMap from '../consts/COMPONENT_TYPE_MAPPING';
-import ICEGroup from '../graphic/container/ICEGroup';
-import ICERect from '../graphic/shape/ICERect';
-import ICECircle from '../graphic/shape/ICECircle';
-import Serializer from './Serializer';
-import Deserializer from './Deserializer';
+import ICE from '../../src/ICE';
+import EventBus from '../../src/event/EventBus';
+import componentTypeMap from '../../src/consts/COMPONENT_TYPE_MAPPING';
+import ICEGroup from '../../src/graphic/container/ICEGroup';
+import ICERect from '../../src/graphic/shape/ICERect';
+import ICECircle from '../../src/graphic/shape/ICECircle';
+import Serializer from '../../src/persistence/Serializer';
+import Deserializer from '../../src/persistence/Deserializer';
 
 function makeIce(): ICE {
   const ice = new ICE();

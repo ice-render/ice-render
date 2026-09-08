@@ -1,4 +1,4 @@
-import { flattenTree, getVal } from './data-util';
+import { flattenTree, getVal } from '../../src/util/data-util';
 
 describe('flattenTree', () => {
   it('展平单层节点并标注 _level/_pid', () => {

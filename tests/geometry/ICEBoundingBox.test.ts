@@ -1,4 +1,4 @@
-import ICEBoundingBox from './ICEBoundingBox';
+import ICEBoundingBox from '../../src/geometry/ICEBoundingBox';
 
 describe('ICEBoundingBox.fromDimension', () => {
   it('根据 left/top/width/height 计算四角与中心', () => {
