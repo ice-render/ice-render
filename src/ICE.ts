@@ -127,6 +127,7 @@ class ICE {
     tool.evtBus = this.evtBus;
     this.toolNodes.push(tool);
     this.dirty = true;
+    if (this.renderer) this.renderer.markQueueDirty();
 
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: tool });
     tool.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
@@ -143,6 +144,7 @@ class ICE {
     tool.destory();
     this.toolNodes.splice(this.toolNodes.indexOf(tool), 1);
     this.dirty = true;
+    if (this.renderer) this.renderer.markQueueDirty();
   }
 
   /**
@@ -168,6 +170,7 @@ class ICE {
     }
 
     this.dirty = markDirty;
+    if (this.renderer) this.renderer.markQueueDirty();
 
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
@@ -185,6 +188,7 @@ class ICE {
     component.destory();
     this.childNodes.splice(this.childNodes.indexOf(component), 1);
     this.dirty = markDirty;
+    if (this.renderer) this.renderer.markQueueDirty();
   }
 
   public removeChildren(arr: Array<ICEComponent>): void {

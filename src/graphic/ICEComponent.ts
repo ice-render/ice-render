@@ -45,6 +45,11 @@ abstract class ICEComponent extends ICEEventTarget {
 
   protected __dirty: boolean = true;
 
+  //@perf: 复用矩阵计算的临时缓冲，避免每帧为每个组件 / 每层祖先分配新数组（降低 GC 压力）。
+  private __absScratchA: any = null;
+  private __absScratchB: any = null;
+  private __transScratch: any = null;
+
   /**
    * @cfg
    * {
@@ -227,9 +232,18 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   protected applyStyleToCtx(): void {
-    const _style = { ...this.props.style, ...this.state.style };
-    for (let p in _style) {
-      this.ctx[p] = _style[p];
+    //@perf: 直接遍历 props.style / state.style 赋值，避免每帧为每个组件分配合并后的 style 对象
+    const propsStyle = this.props.style;
+    const stateStyle = this.state.style;
+    if (propsStyle) {
+      for (let p in propsStyle) {
+        this.ctx[p] = propsStyle[p];
+      }
+    }
+    if (stateStyle) {
+      for (let p in stateStyle) {
+        this.ctx[p] = stateStyle[p];
+      }
     }
   }
 
@@ -300,23 +314,29 @@ abstract class ICEComponent extends ICEEventTarget {
    * @returns
    */
   protected calcLinearMatrix() {
-    let matrix = mat2d.create();
+    //@perf: 复用 this.state.linearMatrix，避免每帧分配新数组
+    if (!this.state.linearMatrix || this.state.linearMatrix.length < 6) {
+      this.state.linearMatrix = mat2d.create();
+    }
+    const matrix = this.state.linearMatrix;
+    mat2d.identity(matrix);
 
     //step1: skew
     const skewX = getVal(this, 'state.transform.skew.0');
     const skewY = getVal(this, 'state.transform.skew.1');
-    matrix = skew([], matrix, glMatrix.toRadian(skewX), glMatrix.toRadian(skewY));
+    //@ts-ignore
+    skew(matrix, matrix, glMatrix.toRadian(skewX), glMatrix.toRadian(skewY));
 
     //step2: rotate
     let angle = getVal(this, 'state.transform.rotate');
     //@ts-ignore
-    matrix = mat2d.rotate([], matrix, glMatrix.toRadian(angle));
+    mat2d.rotate(matrix, matrix, glMatrix.toRadian(angle));
 
     //step3: scale
     const scaleX = getVal(this, 'state.transform.scale.0');
     const scaleY = getVal(this, 'state.transform.scale.1');
     //@ts-ignore
-    matrix = mat2d.scale([], matrix, [scaleX, scaleY]);
+    mat2d.scale(matrix, matrix, [scaleX, scaleY]);
 
     this.state.linearMatrix = matrix;
     return matrix;
@@ -329,15 +349,30 @@ abstract class ICEComponent extends ICEEventTarget {
   protected calcAbsoluteLinearMatrix() {
     let component = this;
     let matrix = component.calcLinearMatrix();
+    //@perf: 复用普通数组作为 scratch，既避免每帧分配，又保持矩阵为 Array 类型（兼容序列化/Array.isArray）
+    if (!this.__absScratchA) this.__absScratchA = [0, 0, 0, 0, 0, 0];
+    if (!this.__absScratchB) this.__absScratchB = [0, 0, 0, 0, 0, 0];
+    let out = this.__absScratchA;
     while (component.parentNode) {
-      // 直接重新计算父节点的自身线性矩阵，而不是读取父节点缓存的 state.linearMatrix。
-      // 父节点的缓存矩阵可能是空数组（尚未经过组合）或上一帧的脏值，
-      // 这正是嵌套坐标系坐标算错的根因：子节点组合时拿到的是非法/过期数据。
+      const parent = component.parentNode;
+      // 优先复用父节点已缓存且未过期的自身线性矩阵，避免重复计算（性能）。
+      // 仅当父节点自身线性矩阵尚未计算（空数组）或父节点处于 dirty（其变换可能已改变）时，
+      // 才重新计算，确保嵌套坐标系结果始终正确（与之前的 bug fix 行为一致）。
       //@ts-ignore
-      const parentLinearMatrix = component.parentNode.calcLinearMatrix();
+      const parentLinearMatrix =
+        parent.state &&
+        parent.state.linearMatrix &&
+        parent.state.linearMatrix.length >= 6 &&
+        !parent.dirty
+          ? parent.state.linearMatrix
+          : //@ts-ignore
+            parent.calcLinearMatrix();
+      //@perf: 复用两个 scratch 缓冲做矩阵连乘，避免每层祖先都分配新数组
+      out = out === this.__absScratchA ? this.__absScratchB : this.__absScratchA;
       //@ts-ignore
-      matrix = mat2d.multiply([], parentLinearMatrix, matrix);
-      component = component.parentNode;
+      mat2d.multiply(out, parentLinearMatrix, matrix);
+      matrix = out;
+      component = parent;
     }
     this.state.absoluteLinearMatrix = matrix;
     return matrix;
@@ -373,15 +408,23 @@ abstract class ICEComponent extends ICEEventTarget {
 
     //step-1: 移动到指定原点（全局坐标系）。
     let origin = this.calcAbsoluteOrigin();
-    let translationMatrix = [1, 0, 0, 1, origin[0], origin[1]];
+    //@perf: 复用平移矩阵 scratch，避免每帧分配新数组
+    if (!this.__transScratch) this.__transScratch = [1, 0, 0, 1, 0, 0];
+    this.__transScratch[4] = origin[0];
+    this.__transScratch[5] = origin[1];
+    const translationMatrix = this.__transScratch;
 
     //step-2: 计算线性变换矩阵，包含了所有祖先节点的线性变换。
     // calcAbsoluteLinearMatrix 内部会实时重新计算每一层祖先的线性矩阵，不再依赖缓存。
     let linearMatrix = this.calcAbsoluteLinearMatrix();
 
     //step-3: 计算综合变换矩阵，相当于先在 canvas 默认原点（左上角位置）进行变换，然后在平移到计算出的原点位置。
+    //@perf: 复用 state.composedMatrix（普通数组），避免每帧分配新数组
+    if (!this.state.composedMatrix || this.state.composedMatrix.length < 6) {
+      this.state.composedMatrix = [1, 0, 0, 1, 0, 0];
+    }
     //@ts-ignore
-    let composedMatrix = mat2d.multiply([], translationMatrix, linearMatrix);
+    const composedMatrix = mat2d.multiply(this.state.composedMatrix, translationMatrix, linearMatrix);
     this.state.composedMatrix = composedMatrix;
     return composedMatrix;
   }
