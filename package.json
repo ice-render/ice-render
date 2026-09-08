@@ -19,7 +19,8 @@
     "clean": "rimraf dist",
     "pretty": "prettier src/**/* --write",
     "types:check": "tsc --noEmit",
-    "types:watch": "npm run types:check -- --watch"
+    "types:watch": "npm run types:check -- --watch",
+    "test": "jest"
   },
   "dependencies": {
     "gl-matrix": "3.4.3",
