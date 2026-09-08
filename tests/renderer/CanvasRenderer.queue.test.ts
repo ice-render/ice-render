@@ -9,7 +9,7 @@
  * 引擎目标：高性能 canvas 绘图引擎，需兼容 WEB 与各类小程序。
  */
 // node 测试环境无 window，将跨平台 root 替换为桩，避免加载 DOM/Canvas 依赖。
-jest.mock('../cross-platform/root', () => ({ __esModule: true, default: {} }));
+jest.mock('../../src/cross-platform/root', () => ({ __esModule: true, default: {} }));
 
 // 部分图元（ICEPath 子类）构造时会 new Path2D()，node 环境需提供桩。
 global.Path2D = class {
@@ -26,11 +26,11 @@ global.Path2D = class {
   roundRect() {}
 };
 
-import EventBus from '../event/EventBus';
-import ICE from '../ICE';
-import ICEComponent from '../graphic/ICEComponent';
-import ICEGroup from '../graphic/container/ICEGroup';
-import CanvasRenderer from './CanvasRenderer';
+import EventBus from '../../src/event/EventBus';
+import ICE from '../../src/ICE';
+import ICEComponent from '../../src/graphic/ICEComponent';
+import ICEGroup from '../../src/graphic/container/ICEGroup';
+import CanvasRenderer from '../../src/renderer/CanvasRenderer';
 
 function makeIce(): ICE {
   const ice = new ICE();

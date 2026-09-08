@@ -1,4 +1,4 @@
-import GeoUtil from './GeoUtil';
+import GeoUtil from '../../src/geometry/GeoUtil';
 
 describe('GeoUtil.calcRotateAngle', () => {
   it('沿 +X 轴返回 0 度', () => {

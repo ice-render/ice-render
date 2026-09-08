@@ -6,9 +6,9 @@
  * 因此语义正确性（去重、once、suspend、scope 绑定）至关重要。
  */
 // node 环境无 window，替换跨平台 root 避免加载 DOM 依赖
-jest.mock('../cross-platform/root', () => ({ __esModule: true, default: {} }));
+jest.mock('../../src/cross-platform/root', () => ({ __esModule: true, default: {} }));
 
-import EventBus from './EventBus';
+import EventBus from '../../src/event/EventBus';
 
 describe('EventBus 事件总线', () => {
   it('on + trigger：按注册 scope 调用回调，并传入 ICEEvent（含 type/param）', () => {

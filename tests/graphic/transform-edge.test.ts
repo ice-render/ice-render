@@ -6,9 +6,9 @@
  *  - 组合变换（rotate+scale+skew）不产生 NaN；
  *  - 深嵌套（>3 层）的绝对线性矩阵正确累积祖先缩放。
  */
-jest.mock('../ICE', () => ({ __esModule: true, default: class ICE {} }));
-jest.mock('../cross-platform/root', () => ({ __esModule: true, default: {} }));
-jest.mock('../event/EventBus', () => ({ __esModule: true, default: class EventBus {} }));
+jest.mock('../../src/ICE', () => ({ __esModule: true, default: class ICE {} }));
+jest.mock('../../src/cross-platform/root', () => ({ __esModule: true, default: {} }));
+jest.mock('../../src/event/EventBus', () => ({ __esModule: true, default: class EventBus {} }));
 
 global.Path2D = class {
   rect() {}
@@ -19,8 +19,8 @@ global.Path2D = class {
   ellipse() {}
 };
 
-import ICEGroup from './container/ICEGroup';
-import ICERect from './shape/ICERect';
+import ICEGroup from '../../src/graphic/container/ICEGroup';
+import ICERect from '../../src/graphic/shape/ICERect';
 
 describe('变换与包围盒边界用例', () => {
   it('矩形旋转 90° 后最大包围盒宽高互换（100x50 → 50x100）', () => {
