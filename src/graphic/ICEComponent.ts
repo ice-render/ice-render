@@ -330,8 +330,13 @@ abstract class ICEComponent extends ICEEventTarget {
     let component = this;
     let matrix = component.calcLinearMatrix();
     while (component.parentNode) {
+      // 直接重新计算父节点的自身线性矩阵，而不是读取父节点缓存的 state.linearMatrix。
+      // 父节点的缓存矩阵可能是空数组（尚未经过组合）或上一帧的脏值，
+      // 这正是嵌套坐标系坐标算错的根因：子节点组合时拿到的是非法/过期数据。
       //@ts-ignore
-      matrix = mat2d.multiply([], component.parentNode.state.linearMatrix, matrix);
+      const parentLinearMatrix = component.parentNode.calcLinearMatrix();
+      //@ts-ignore
+      matrix = mat2d.multiply([], parentLinearMatrix, matrix);
       component = component.parentNode;
     }
     this.state.absoluteLinearMatrix = matrix;
@@ -351,11 +356,27 @@ abstract class ICEComponent extends ICEEventTarget {
    * @returns
    */
   protected composeMatrix() {
+    // 先确保祖先节点已经完成组合，使其缓存的 composedMatrix / linearMatrix 是最新的。
+    // 否则子节点组合时读取到的父节点矩阵可能是未初始化的空数组（[]）或上一帧的脏值，
+    // 导致嵌套坐标系下的坐标计算错误。祖先链长度有限，递归在此终止于根节点，不会无限循环。
+    //@ts-ignore
+    if (this.parentNode && typeof this.parentNode.composeMatrix === 'function') {
+      //@ts-ignore
+      const parent = this.parentNode;
+      const parentComposed = parent.state ? parent.state.composedMatrix : null;
+      const parentNeedsRefresh = parent.dirty || !parentComposed || parentComposed.length < 6;
+      if (parentNeedsRefresh) {
+        //@ts-ignore
+        parent.composeMatrix();
+      }
+    }
+
     //step-1: 移动到指定原点（全局坐标系）。
     let origin = this.calcAbsoluteOrigin();
     let translationMatrix = [1, 0, 0, 1, origin[0], origin[1]];
 
     //step-2: 计算线性变换矩阵，包含了所有祖先节点的线性变换。
+    // calcAbsoluteLinearMatrix 内部会实时重新计算每一层祖先的线性矩阵，不再依赖缓存。
     let linearMatrix = this.calcAbsoluteLinearMatrix();
 
     //step-3: 计算综合变换矩阵，相当于先在 canvas 默认原点（左上角位置）进行变换，然后在平移到计算出的原点位置。
@@ -503,7 +524,7 @@ abstract class ICEComponent extends ICEEventTarget {
     if (this.parentNode) {
       let point = [tx, ty];
       //@ts-ignore
-      let matrix = mat2d.invert([], this.parentNode.state.absoluteLinearMatrix);
+      let matrix = mat2d.invert([], this.parentNode.calcAbsoluteLinearMatrix());
       //@ts-ignore
       point = vec2.transformMat2d([], point, matrix);
       tx = point[0];
@@ -524,7 +545,7 @@ abstract class ICEComponent extends ICEEventTarget {
     if (this.parentNode) {
       let point = [left, top];
       //@ts-ignore
-      let matrix = mat2d.invert([], this.parentNode.state.absoluteLinearMatrix);
+      let matrix = mat2d.invert([], this.parentNode.calcAbsoluteLinearMatrix());
       //@ts-ignore
       point = vec2.transformMat2d([], point, matrix);
       left = point[0];
@@ -541,7 +562,7 @@ abstract class ICEComponent extends ICEEventTarget {
   public setGlobalRotate(rotateAngle): void {
     if (this.parentNode) {
       //组件存在嵌套的情况下，减掉所有祖先节点旋转角的总和。
-      let matrix = this.parentNode.state.absoluteLinearMatrix;
+      let matrix = this.parentNode.calcAbsoluteLinearMatrix();
       let angle = GeoUtil.calcRotateAngleFromMatrix(matrix);
       rotateAngle -= angle;
     }
