@@ -3,6 +3,7 @@
 /coverage
 /test-results
 /playwright-report
+/stats.html
 *log*
 .history
 *lock*
