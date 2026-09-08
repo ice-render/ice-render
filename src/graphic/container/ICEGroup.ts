@@ -71,6 +71,7 @@ class ICEGroup extends ICERect {
     if (this.ice) {
       this.syncChildEvents(child);
       this.ice.dirty = markDirty;
+      if (this.ice.renderer) this.ice.renderer.markQueueDirty();
     }
   }
 
@@ -91,6 +92,7 @@ class ICEGroup extends ICERect {
     this.dirty = markDirty;
     if (this.ice) {
       this.ice.dirty = markDirty;
+      if (this.ice.renderer) this.ice.renderer.markQueueDirty();
     }
   }
 
