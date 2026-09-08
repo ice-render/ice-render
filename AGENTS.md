@@ -20,7 +20,8 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 
 ## 已知技术债（严重度）
 
-- P0（已偿还）：零单元测试 → 已建立 jest 单测（5 suite / 22 用例）：`GeoUtil`、`data-util`、`ICEBoundingBox`、`nested-coordinate`(回归嵌套坐标 bug)、`CanvasRenderer.queue`(回归渲染队列缓存)。`npm test` 全绿。
+- P0（已偿还）：零单元测试 → 已建立 jest 单测（8 suite / 36 用例）：`GeoUtil`、`data-util`、`ICEBoundingBox`、`nested-coordinate`(回归嵌套坐标 bug)、`CanvasRenderer.queue`(回归渲染队列缓存)、`EventBus`、`serialization`(序列化 round-trip)、`transform-edge`(旋转包围盒/深嵌套/组合变换)。`npm test` 全绿。
+- P2（已收敛）：原 `tests/` 目录 49 个 HTML 全为手测 demo（零断言），已重命名为 `examples/`，并生成 `examples/index.html` 导航页、修正 arcTo 拼写、transform 类归位。自动化测试统一放在 `src/**/*.test.ts`。
 - P1（已修复）：`ice-flow` 曾声明 `"ice-render": "^0.0.47"`（caret 跨主版本无法解析到 `1.0.4`），已改为 `^1.0.4`；并为 `ice-entity-designer`/`ice-flow` 增加 `.npmrc`(`legacy-peer-deps`) 解决 `rollup-plugin-uglify` 的 ERESOLVE。
 - P1：README 称"纯 TypeScript"，但残留 7 个未迁移 `.js`（`cross-platform/root.js`、`event/DOMEventInterceptor.js`、`geometry/GeoLine.js`、`geometry/GeoPoint.js`、`util/data-util.js`、`util/gl-matrix-skew.js`、`util/uuid.js`）；且 `tsconfig` 设 `allowJs: false`，`index.ts` 无扩展名导出这些模块，类型链断裂。
 - P2：下游 `ice-entity-designer`/`ice-flow` 的 devDeps 冻在 2022（rollup 2 / TS 4.6 / eslint 6），与引擎（rollup 3 / TS 5.9 / eslint 8）工具链分叉。
