@@ -6,7 +6,7 @@
  *
  */
 import isEmpty from 'lodash/isEmpty';
-import root from '../cross-platform/root.js';
+import root from '../cross-platform/root';
 import ICEEvent from './ICEEvent';
 
 /**

@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import GeoPoint from './GeoPoint';
 
 /**
  * @class GeoLine
@@ -17,12 +18,15 @@
  * @docauthor 大漠穷秋 <damoqiongqiu@126.com>
  */
 export default class GeoLine {
-  constructor(startPoint, endPoint) {
+  startPoint: GeoPoint;
+  endPoint: GeoPoint;
+
+  constructor(startPoint: GeoPoint, endPoint: GeoPoint) {
     this.startPoint = startPoint;
     this.endPoint = endPoint;
   }
 
-  contains(x, y) {
+  contains(x: number, y: number): boolean {
     let delta = 3;
     let lineLength = Math.hypot(this.endPoint.x - this.startPoint.x, this.endPoint.y - this.startPoint.y);
     let len1 = Math.hypot(x - this.startPoint.x, y - this.startPoint.y);

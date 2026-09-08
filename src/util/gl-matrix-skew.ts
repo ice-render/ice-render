@@ -7,11 +7,11 @@
  *
  * @param {mat2d} out the receiving matrix
  * @param {mat2d} a the matrix to skew
- * @param {Number} rad the angle to skew the matrix by
- * @param {Number} rad the angle to skew the matrix by
+ * @param {Number} radX the angle to skew the matrix by (X axis)
+ * @param {Number} radY the angle to skew the matrix by (Y axis)
  * @returns {mat2d} out
  */
-export function skew(out, a, radX, radY) {
+export function skew(out: any, a: any, radX: number, radY: number): any {
   let x = Math.tan(radX);
   let y = Math.tan(radY);
   out[0] = a[0];
