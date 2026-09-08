@@ -1,5 +1,5 @@
 <p align="center">
-<img width="150" src="./tests/assets/ice-render.png">
+<img width="150" src="./examples/assets/ice-render.png">
 </p>
 
 <h1 align="center">ICERender - 雪花渲染器</h1>
@@ -111,7 +111,7 @@ ice-entity-designer 是一款基于 ice-render 开发的 ER 设计器，完整�
 
 ice-entity-designer 已经用在了 craft-codeless-designer 低代码项目中， https://github.com/craft-codeless-designer 。
 
-<img src="./tests/assets/11.png">
+<img src="./examples/assets/11.png">
 
 如需更详细的架构文档，请联系我。
 
@@ -121,21 +121,21 @@ ice-entity-designer 已经用在了 craft-codeless-designer 低代码项目中�
 
 ## 4.截图
 
-<img src="./tests/assets/1.png">
+<img src="./examples/assets/1.png">
 
-<img src="./tests/assets/2.png">
+<img src="./examples/assets/2.png">
 
-<img src="./tests/assets/3.png">
+<img src="./examples/assets/3.png">
 
-<img src="./tests/assets/4.png">
+<img src="./examples/assets/4.png">
 
-<img src="./tests/assets/5.png">
+<img src="./examples/assets/5.png">
 
-<img src="./tests/assets/6.png">
+<img src="./examples/assets/6.png">
 
-<img src="./tests/assets/10.png">
+<img src="./examples/assets/10.png">
 
-<img src="./tests/assets/7.png">
+<img src="./examples/assets/7.png">
 
 ## 5.License
 [MIT licensed](./LICENSE).
