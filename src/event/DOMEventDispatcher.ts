@@ -92,6 +92,10 @@ class DOMEventDispatcher {
 
     for (let i = 0; i < arr.length; i++) {
       const component: any = arr[i];
+      // 控制面板本体是覆盖在目标组件之上的工具层，不作为命中目标；否则面板(zIndex 最高)会
+      // 遮挡住被选组件及其子组件，导致 N 层嵌套下点击子组件无法命中。面板的子手柄(ResizeControl/
+      // RotateControl)不是 isControlPanel，仍会参与命中，保证缩放/旋转可用。
+      if (component.isControlPanel) continue;
       const { interactive, display } = component.state;
       const flag = component.containsPoint(x, y);
       if (flag && interactive && display) {
