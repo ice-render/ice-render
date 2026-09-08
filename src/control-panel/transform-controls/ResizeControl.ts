@@ -138,8 +138,6 @@ export default class ResizeControl extends ICERect {
 
     const parentState = this.parentNode.state;
     const parentLocalOrigin = parentState.localOrigin;
-    const parentWidth = parentState.width;
-    const parentHeight = parentState.height;
     //@ts-ignore
     const matrix = mat2d.invert([], this.parentNode.calcAbsoluteLinearMatrix());
     //@ts-ignore
@@ -179,33 +177,9 @@ export default class ResizeControl extends ICERect {
         newQuadrant = 5;
       }
     } else if (this.state.direction === 'xy') {
-      //限制4个顶点位置的手柄只能沿着对角线移动，第1象限和第3象限可以交换位置，第2象限和第4象限可以交换位置。
-      //矩形两条对角线过原点，直线解析式 y=kx 。
-      //Canvas 中 Y 轴正向向下，与数学坐标反向，斜向右上角的对角线 k 值小于0，斜向右下角对角线 k 值大于 0 。
-      let x1 = -parentWidth / 2;
-      if (round(x1) === 0) {
-        x1 = signX * 0.5;
-      }
-      const y1 = -parentHeight / 2;
-      const k1 = y1 / x1;
-
-      let x2 = parentWidth / 2;
-      if (round(x2) === 0) {
-        x2 = signX * 0.5;
-      }
-      const y2 = -parentHeight / 2;
-      const k2 = y2 / x2;
-
-      //子组件的 left/top 是相对于父组件的左上角位置的数值，而不是父组件移动原点之后的数值，换基到本地原点，然后基于斜率计算。
-      //k=(top+halfandleSize-parentLocalOrigin[1]+ty)/(left+halfandleSize-parentLocalOrigin[0]+tx)
-      //ty=k(left+halfandleSize-parentLocalOrigin[0]+tx)-(top+halfandleSize-parentLocalOrigin[1])
-
-      if (quadrant === 2 || quadrant == 4) {
-        ty = k1 * (left + halfandleSize - parentLocalOrigin[0] + tx) - (top + halfandleSize - parentLocalOrigin[1]);
-      } else {
-        ty = k2 * (left + halfandleSize - parentLocalOrigin[0] + tx) - (top + halfandleSize - parentLocalOrigin[1]);
-      }
-
+      //角手柄自由缩放：left/top 都跟随鼠标（panel-local 坐标），宽高独立改变。
+      //此前锁死在对角线上做等比缩放，与边手柄的 1D 缩放形成「奇怪的不一致」，且与标准设计工具
+      //（角手柄自由、等比锁定靠 Shift）相悖，故改为自由 2D。
       left += tx;
       top += ty;
 
