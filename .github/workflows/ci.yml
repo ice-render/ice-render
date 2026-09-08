@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [dev, master, main]
+  pull_request:
+
+jobs:
+  verify:
+    name: lint + typecheck + test + build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run types:check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
