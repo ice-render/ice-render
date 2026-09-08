@@ -20,7 +20,8 @@
     "pretty": "prettier src/**/* --write",
     "types:check": "tsc --noEmit",
     "types:watch": "npm run types:check -- --watch",
-    "test": "jest"
+    "test": "jest",
+    "bench": "node bench/render.cjs"
   },
   "dependencies": {
     "gl-matrix": "3.4.3",
