@@ -360,7 +360,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * 复合所有祖先节点的线性变换矩阵，获得相对于全局 canvas 对象的变换矩阵。
    * @returns
    */
-  protected calcAbsoluteLinearMatrix() {
+  public calcAbsoluteLinearMatrix() {
     let component = this;
     let matrix = component.calcLinearMatrix();
     //@perf: 复用普通数组作为 scratch，既避免每帧分配，又保持矩阵为 Array 类型（兼容序列化/Array.isArray）
