@@ -35,25 +35,56 @@ ICERender 的组件模型概念上对齐 React：
 graph TD
     E[ICEEventTarget<br/>事件能力] --> C[ICEComponent<br/>abstract 抽象基类]
     C --> P[ICEPath<br/>abstract 路径图元]
-    P --> D[ICEDotPath<br/>abstract 点集路径]
-    D --> S[ICERect / ICECircle / ICEEllipse<br/>ICEStar / ICEIsogon / ICERose]
-    C --> R[ICERect<br/>基础矩形]
+    P --> R[ICERect<br/>矩形]
     R --> G[ICEGroup<br/>容器]
-    G --> CP[ICEControlPanel<br/>变换控制面板]
+    G --> CP[ICEControlPanel<br/>abstract 控制面板]
+    CP --> TCP[TransformControlPanel]
+    CP --> LCP[LineControlPanel]
+    R --> RS[ResizeControl]
+    P --> EL[ICEEllipse<br/>椭圆]
+    EL --> CI[ICECircle<br/>圆]
+    CI --> LS[ICELinkSlot]
+    CI --> LH[ICELinkHook]
+    CI --> RC[RotateControl]
+    P --> D[ICEDotPath<br/>abstract 点集路径]
+    D --> IS[ICEIsogon]
+    D --> RO[ICERose]
+    D --> ST[ICEStar]
+    D --> PL[ICEPolyLine]
+    PL --> VL[ICEVisioLink]
     C --> T[ICEText]
     C --> I[ICEImage]
-    C --> L[ICELinkSlot / ICELinkHook / RotateControl<br/>extends ICECircle]
-    C --> LL[ICEPolyLine / ICEVisioLink / ICELinkSlot<br/>连线类]
 ```
 
 分层说明：
 
-- **`ICEEventTarget`** —— 最顶层，只提供事件能力（`on/off/trigger/once/...`），见 [05 事件系统](05-event-system.md)。
+- **`ICEEventTarget`** —— 最顶层，只提供事件能力（`on/off/trigger/once/...`），见 [05 事件系统](05-event-system.md)。`EventBus`、`CanvasRenderer` 也直接继承它（不只组件）。
 - **`ICEComponent`（abstract）** —— 所有可见组件的基类，实现 `render()` 模板方法、矩阵组合、边界盒、全局位移/旋转等。**不能直接实例化**。
 - **`ICEPath`（abstract）** —— 引入 `Path2D`，把"路径构建"抽象成 `createPathObject()`。
-- **`ICEDotPath`（abstract）** —— 基于点集（`dots`）的路径，圆/椭圆/星形/多边形/玫瑰线等图元据此复用 `calcDots`。
-- **`ICEGroup extends ICERect`** —— 容器型组件，可无限嵌套子组件；`ICEControlPanel` 又在它之上叠加交互。
-- **`ICELinkSlot`/`ICELinkHook`/`RotateControl` 继承 `ICECircle`** —— 复用圆的绘制，只是语义不同。
+- **`ICEDotPath`（abstract）** —— 基于点集（`dots`）的路径，星形/多边形/玫瑰线/折线据此复用 `calcDots`。
+- **`ICERect` → `ICEGroup`（容器）** —— 容器继承矩形：容器本身也是可描边/选中/缩放的图元，可无限嵌套子组件。
+- **`ICEEllipse` → `ICECircle`** —— 圆是椭圆的特化；`ICELinkSlot`/`ICELinkHook`/`RotateControl` 复用圆。
+- **`ICEPolyLine` → `ICEVisioLink`** —— Visio 连线是折线的特化。
+
+## 设计溯源：与 Java Swing 的对照
+
+这套深单根继承体系在结构上与 Java Swing（及其源头 AWT）高度相似，是经典 GUI 工具包 OO 思想的延续。
+
+| ice-render | Java Swing | 相似点 |
+|---|---|---|
+| `ICEComponent`（abstract 基类） | `Component` / `JComponent` | 单根抽象基类 |
+| `render()` 模板方法 + `doRender()` 钩子 | `paint()` 模板 + `paintComponent()` 钩子 | **几乎一致**：骨架在基类、肉在子类 |
+| `ICEGroup`（容器） | `Container` / `JPanel` | Composite 模式，递归渲染子节点 |
+| `ICEPath` / `ICEDotPath`（abstract 中间层） | `AbstractButton` / `JTextComponent` | 抽象中间类聚合一族具体类 |
+| `ICEEventTarget` 的 `on/off/trigger` | `EventListenerList` + add/remove/fireXxx | 事件监听器模型 |
+
+三处**明显偏离** Swing 的地方：
+
+1. **容器也是图元** —— `ICEGroup extends ICERect`：容器本身是一个可描边、可选中、可缩放的矩形。Swing 的 `Container` 并不继承某个具体图形。
+2. **无可插拔外观（L&F）** —— Swing 的招牌是 `ComponentUI` 委托；ice-render 的样式硬编码在 `props.style`。
+3. **数据模型是 React 式** —— Swing 用单一可变 Model（如 `ButtonModel`），ice-render 用 `props`（不可变）/ `state`（可变）分离。
+
+因此更准确地说，ice-render 是 **Swing 的 OO 骨架 + React 的 props/state + W3C 的 EventTarget** 三者的混合体，再加一个 canvas 引擎特有的"容器即图元"设计。这套深继承在现代前端（React 组合/Hooks 取代深继承）里已不多见，是引擎最鲜明的"经典味道"。
 
 ## `render()` 模板方法
 
