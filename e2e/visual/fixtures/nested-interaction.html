@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>nested-interaction</title>
+  <style>html, body { margin: 0; padding: 0; }</style>
+</head>
+<body>
+  <canvas id="canvas-1" width="1024" height="768"></canvas>
+  <script src="../../../dist/index.umd.js"></script>
+  <script>
+    const ice = new ICE.ICE().init('canvas-1');
+
+    // 3 层嵌套：root -> group1 -> group2 -> (circle, rect)，root 带 scale+rotate（对齐 group-nested.html）
+    const root = new ICE.ICEGroup({
+      left: 100, top: 100, width: 300, height: 200,
+      style: { strokeStyle: '#fa0404', fillStyle: '#beffff', lineWidth: 1 },
+      transform: { scale: [1.3, 1.3], rotate: 45 },
+    });
+    ice.addChild(root);
+
+    const group1 = new ICE.ICEGroup({
+      left: 10, top: 10, width: 200, height: 100,
+      style: { strokeStyle: '#fa0404', fillStyle: '#37dd0d', lineWidth: 1 },
+      transform: { rotate: 0 },
+    });
+    root.addChild(group1);
+
+    const group2 = new ICE.ICEGroup({
+      left: 10, top: 10, width: 100, height: 50,
+      style: { strokeStyle: '#fa0404', fillStyle: '#08b2dd', lineWidth: 1 },
+      transform: { rotate: 10 },
+    });
+    group1.addChild(group2);
+
+    const circle = new ICE.ICECircle({ left: 10, top: 10, radius: 12 });
+    group2.addChild(circle);
+
+    const rect = new ICE.ICERect({ left: 50, top: 10, width: 40, height: 20 });
+    group2.addChild(rect);
+
+    // 暴露给 Playwright 检查/驱动
+    window.__ice = ice;
+    window.__components = { root, group1, group2, circle, rect };
+    // 组件全局中心（用于点击），实时计算
+    window.__center = (name) => {
+      const box = window.__components[name].getMinBoundingBox(true);
+      const p = box.centerPoint;
+      return { x: p[0], y: p[1] };
+    };
+    window.__selected = () => ice.selectionList.map((c) => c.props.id);
+    // 变换面板与手柄
+    window.__panel = () => ice.controlPanelManager.transformControlPanel;
+    window.__handles = () => ice.controlPanelManager.transformControlPanel.resizeControlInstanceCache;
+    window.__rotateHandle = () => ice.controlPanelManager.transformControlPanel.rotateControlInstance;
+    window.__handleCenter = (h) => {
+      const p = h.getMinBoundingBox(true).centerPoint;
+      return { x: p[0], y: p[1] };
+    };
+    // 面板中心 vs 组件中心的距离（漂移量）
+    window.__drift = (name) => {
+      const p = ice.controlPanelManager.transformControlPanel.getMinBoundingBox(true).centerPoint;
+      const c = window.__components[name].getMinBoundingBox(true).centerPoint;
+      return Math.hypot(p[0] - c[0], p[1] - c[1]);
+    };
+  </script>
+</body>
+</html>
