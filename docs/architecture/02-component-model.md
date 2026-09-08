@@ -6,7 +6,7 @@ ICERender 的组件模型概念上对齐 React：
 
 | 概念 | 含义 | 可变性 |
 |---|---|---|
-| `props` | 构造入参，用 `lodash.merge` 与默认 props 合并 | **不可变**（构造后不再改） |
+| `props` | 构造入参，用内部 `merge`（`util/lang.ts`）与默认 props 合并 | **不可变**（构造后不再改） |
 | `state` | `cloneDeep(props)` 得到的运行时状态，动画/交互修改它 | **可变** |
 
 - `setState(newState)` 只改 `state`，并把 `this.dirty = true`（以及 `ice.dirty = true`）置位，**不会立即重绘**，等下一帧由 `FrameManager` 调度。

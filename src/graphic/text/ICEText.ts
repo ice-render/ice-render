@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import merge from 'lodash/merge';
+import { merge } from '../../util/lang';
 import ICEEvent from '../../event/ICEEvent';
 import ICEComponent from '../ICEComponent';
 

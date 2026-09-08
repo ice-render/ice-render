@@ -6,8 +6,8 @@
  *
  */
 import { glMatrix, mat2d, vec2 } from 'gl-matrix';
-import cloneDeep from 'lodash/cloneDeep';
-import merge from 'lodash/merge';
+import { cloneDeep } from '../util/lang';
+import { merge } from '../util/lang';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import root from '../cross-platform/root';
 import EventBus from '../event/EventBus';

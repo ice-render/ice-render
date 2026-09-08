@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import isString from 'lodash/isString';
+import { isString } from './util/lang';
 import AnimationManager from './animation/AnimationManager';
 import componentTypeMap from './consts/COMPONENT_TYPE_MAPPING';
 import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';

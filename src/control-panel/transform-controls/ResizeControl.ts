@@ -6,7 +6,7 @@
  *
  */
 import { mat2d, vec2 } from 'gl-matrix';
-import round from 'lodash/round';
+import { round } from '../../util/lang';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
 import ICERect from '../../graphic/shape/ICERect';

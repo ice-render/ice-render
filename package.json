@@ -28,8 +28,7 @@
     "bench": "node bench/render.cjs"
   },
   "dependencies": {
-    "gl-matrix": "3.4.3",
-    "lodash": "4.17.21"
+    "gl-matrix": "3.4.3"
   },
   "devDependencies": {
     "@babel/core": "7.28.5",
@@ -47,7 +46,6 @@
     "@rollup/plugin-strip": "3.0.4",
     "@rollup/plugin-terser": "0.4.4",
     "@types/jest": "29.5.14",
-    "@types/lodash": "4.17.21",
     "@types/node": "18.19.130",
     "@typescript-eslint/eslint-plugin": "6.21.0",
     "@typescript-eslint/parser": "6.21.0",
