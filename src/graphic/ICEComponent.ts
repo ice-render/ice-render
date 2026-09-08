@@ -16,7 +16,6 @@ import ICEEventTarget from '../event/ICEEventTarget';
 import GeoUtil from '../geometry/GeoUtil';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICE from '../ICE';
-import { getVal } from '../util/data-util';
 import { skew } from '../util/gl-matrix-skew';
 import { uuid } from '../util/uuid';
 
@@ -49,6 +48,7 @@ abstract class ICEComponent extends ICEEventTarget {
   private __absScratchA: any = null;
   private __absScratchB: any = null;
   private __transScratch: any = null;
+  private __originScratch: any = null;
 
   /**
    * @cfg
@@ -232,7 +232,8 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   protected applyStyleToCtx(): void {
-    //@perf: 直接遍历 props.style / state.style 赋值，避免每帧为每个组件分配合并后的 style 对象
+    //@perf: 直接遍历 props.style / state.style 赋值，避免每帧为每个组件分配合并后的 style 对象。
+    //       用 for...in（零分配）而非 Object.keys（会分配 key 数组，反而加重 GC）。
     const propsStyle = this.props.style;
     const stateStyle = this.state.style;
     if (propsStyle) {
@@ -267,7 +268,13 @@ abstract class ICEComponent extends ICEEventTarget {
    * @returns
    */
   protected calcLocalOrigin() {
-    let point = [0, 0];
+    //@perf: 复用 state.localOrigin，避免每帧分配 [0,0] 数组；先重置为原点再按 position 覆盖，语义与原来一致
+    let point = this.state.localOrigin;
+    if (!point || point.length < 2) {
+      point = this.state.localOrigin = [0, 0];
+    }
+    point[0] = 0;
+    point[1] = 0;
     let position = this.state.origin;
     if (!position || position === 'localCenter') {
       point[0] = this.state.width / 2;
@@ -285,21 +292,25 @@ abstract class ICEComponent extends ICEEventTarget {
    * @method calcAbsoluteOrigin
    */
   public calcAbsoluteOrigin() {
-    let tx = getVal(this, 'state.transform.translate.0') + this.state.left;
-    let ty = getVal(this, 'state.transform.translate.1') + this.state.top;
+    //@perf: 用直接属性访问替代 getVal 字符串路径解析（避免 split + reduce），并复用 scratch 数组
+    const transform = this.state.transform;
+    let tx = transform.translate[0] + this.state.left;
+    let ty = transform.translate[1] + this.state.top;
 
-    let point = [...this.calcLocalOrigin()];
-    point[0] += tx;
-    point[1] += ty;
+    const localOrigin = this.calcLocalOrigin();
+    let point = this.__originScratch;
+    if (!point) point = this.__originScratch = [0, 0];
+    point[0] = localOrigin[0] + tx;
+    point[1] = localOrigin[1] + ty;
 
     if (this.parentNode) {
       let pLocalX = this.parentNode.state.localOrigin[0];
       let pLocalY = this.parentNode.state.localOrigin[1];
       //@ts-ignore
-      point = vec2.transformMat2d([], point, [1, 0, 0, 1, -pLocalX, -pLocalY]);
+      vec2.transformMat2d(point, point, [1, 0, 0, 1, -pLocalX, -pLocalY]);
       let pcm = this.parentNode.state.composedMatrix;
       //@ts-ignore
-      point = vec2.transformMat2d([], point, pcm);
+      vec2.transformMat2d(point, point, pcm);
     }
 
     this.state.absoluteOrigin = point;
@@ -321,20 +332,23 @@ abstract class ICEComponent extends ICEEventTarget {
     const matrix = this.state.linearMatrix;
     mat2d.identity(matrix);
 
+    //@perf: 直接属性访问替代 getVal 字符串路径解析
+    const transform = this.state.transform;
+
     //step1: skew
-    const skewX = getVal(this, 'state.transform.skew.0');
-    const skewY = getVal(this, 'state.transform.skew.1');
+    const skewX = transform.skew[0];
+    const skewY = transform.skew[1];
     //@ts-ignore
     skew(matrix, matrix, glMatrix.toRadian(skewX), glMatrix.toRadian(skewY));
 
     //step2: rotate
-    let angle = getVal(this, 'state.transform.rotate');
+    let angle = transform.rotate;
     //@ts-ignore
     mat2d.rotate(matrix, matrix, glMatrix.toRadian(angle));
 
     //step3: scale
-    const scaleX = getVal(this, 'state.transform.scale.0');
-    const scaleY = getVal(this, 'state.transform.scale.1');
+    const scaleX = transform.scale[0];
+    const scaleY = transform.scale[1];
     //@ts-ignore
     mat2d.scale(matrix, matrix, [scaleX, scaleY]);
 
