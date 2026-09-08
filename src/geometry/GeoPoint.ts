@@ -16,42 +16,35 @@
  * @docauthor 大漠穷秋 <damoqiongqiu@126.com>
  */
 export default class GeoPoint {
+  x: number;
+  y: number;
+
   /**
    * @constructor GeoPoint
-   * @param {*} x
-   * @param {*} y
    */
-  constructor(x = 0, y = 0) {
+  constructor(x: number = 0, y: number = 0) {
     this.x = x;
     this.y = y;
   }
 
   /**
-   *
    * @method load
    * Creates a {GeoPoint} out of JSON parsed object.
    *
-   *
    * 从 JSON 对象创建 {GeoPoint} 实例。
-   * @param {Object} o the JSON parsed object
-   * @return {GeoPoint} a newly constructed GeoPoint
    */
-  static load(o) {
+  static load(o: any): GeoPoint {
     return new GeoPoint(Number(o.x), Number(o.y));
   }
 
   /**
-   *
    * @method cloneArray
    * Clones an array of points.
    *
-   *
    * 克隆一组点。
-   * @param {Array} v - the array of {GeoPoint}s
-   * @return an {Array} of {GeoPoint}s
    */
-  static cloneArray(v) {
-    let newPoints = [];
+  static cloneArray(v: GeoPoint[]): GeoPoint[] {
+    let newPoints: GeoPoint[] = [];
     for (let i = 0; i < v.length; i++) {
       newPoints.push(v[i].clone());
     }
@@ -62,11 +55,9 @@ export default class GeoPoint {
    * @method equals
    * Tests if this point is equals to other point.
    *
-   *
    * 测试当前点是否与另一个点相等。
-   * @param {GeoPoint} anotherPoint - the other point
    */
-  equals(anotherPoint) {
+  equals(anotherPoint: GeoPoint): boolean {
     return this.x == anotherPoint.x && this.y == anotherPoint.y;
   }
 
@@ -74,10 +65,9 @@ export default class GeoPoint {
    * @method clone
    * Clone current GeoPoint.
    *
-   *
    * 克隆当前点。
    */
-  clone() {
+  clone(): GeoPoint {
     let newPoint = new GeoPoint(this.x, this.y);
     return newPoint;
   }

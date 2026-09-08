@@ -11,19 +11,16 @@
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 const FPS = 60;
-let root = null;
+let root: any = null;
 (() => {
-  root = window || global || {};
+  // 浏览器用 window，Node/小程序用 global，兜底空对象（typeof 守卫避免 Node 下 window 未定义报错）
+  const g: any = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : {};
+  root = g || {};
   root.requestFrame =
     root.requestAnimationFrame ||
     root.webkitRequestAnimationFrame ||
     root.mozRequestAnimationFrame ||
     root.oRequestAnimationFrame ||
     root.msRequestAnimationFrame;
-
-  // ||
-  // function (callback) {
-  //   root.setTimeout(callback, 1000 / FPS);
-  // };
 })();
 export default root;

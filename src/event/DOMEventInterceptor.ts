@@ -18,10 +18,10 @@ import root from '../cross-platform/root';
  */
 const DOMEventInterceptor = {
   //在同一个 window 中可能存在多个 ICE 实例，每一个 ICE 实例上都有一条事件总线，这里把多个事件总线实例隔开。
-  evtBuses: [],
+  evtBuses: [] as any[],
 
-  start: function () {
-    if (root && root && root.addEventListener) {
+  start: function (): void {
+    if (root && root.addEventListener) {
       //所有原生 DOM 事件全部通过 EventBus 转发到 canvas 内部的对象上去
       //TODO:不同浏览器版本，以及 NodeJS 环境兼容性测试
       for (let i = 0; i < DOMEventInterceptor.evtBuses.length; i++) {
@@ -29,7 +29,7 @@ const DOMEventInterceptor = {
         const domEvts = [...mouseEvents, ...keyboardEvents];
         for (let j = 0; j < domEvts.length; j++) {
           const item = domEvts[j];
-          root.addEventListener(item[0], (domEvt) => {
+          root.addEventListener(item[0], (domEvt: any) => {
             evtBus.trigger(item[1], domEvt);
           });
         }
@@ -37,14 +37,14 @@ const DOMEventInterceptor = {
     }
   },
 
-  regitserEvtBus: function (evtBus) {
+  regitserEvtBus: function (evtBus: any): void {
     if (DOMEventInterceptor.evtBuses.includes(evtBus)) {
       return;
     }
     DOMEventInterceptor.evtBuses.push(evtBus);
   },
 
-  delEvtBus: function (evtBus) {
+  delEvtBus: function (evtBus: any): void {
     if (!DOMEventInterceptor.evtBuses.includes(evtBus)) {
       return;
     }
