@@ -43,9 +43,9 @@ class AnimationManager {
   }
 
   private frameEventHandler(evt: ICEEvent) {
-    let arr = [...this.animationMap.values()];
+    const arr = [...this.animationMap.values()];
     for (let i = 0; i < arr.length; i++) {
-      let el = arr[i];
+      const el = arr[i];
       //在动画过程中，对象不响应所有交互事件，防止影响属性值的计算。
       el.state.interactive = false;
       this.tween(el);
@@ -56,12 +56,12 @@ class AnimationManager {
   //TODO:处理无限循环播放的情况，处理播放次数的情况
   //TODO:每一个属性变化的持续时间不同，需要做同步处理，所有动画都执行完毕之后，需要把对象从动画列表中删除
   private tween(el: ICEComponent) {
-    let newState: any = {};
-    let animations = el.props.animations;
+    const newState: any = {};
+    const animations = el.props.animations;
     let finishCounter = 1;
 
-    for (let key in animations) {
-      let animation = animations[key];
+    for (const key in animations) {
+      const animation = animations[key];
       if (animation.finished) {
         finishCounter++;
         //元素上的所有动画效果都已经执行完毕，从动画列表中删除， FIXME: 处理无限循环动画的问题
@@ -71,9 +71,9 @@ class AnimationManager {
         }
         continue;
       }
-      let from = animation.from;
-      let to = animation.to;
-      let duration = animation.duration;
+      const from = animation.from;
+      const to = animation.to;
+      const duration = animation.duration;
       if (isUndefined(animation.startTime)) {
         animation.startTime = Date.now();
       }

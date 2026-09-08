@@ -58,11 +58,11 @@ class ICEBoundingBox {
    * @returns
    */
   public static fromDimension(left, top, width, height): ICEBoundingBox {
-    let tl = [left, top];
-    let tr = [left + width, top];
-    let bl = [left, top + height];
-    let br = [left + width, top + height];
-    let center = [left + width / 2, top + height / 2];
+    const tl = [left, top];
+    const tr = [left + width, top];
+    const bl = [left, top + height];
+    const br = [left + width, top + height];
+    const center = [left + width / 2, top + height / 2];
     return new ICEBoundingBox([...tl, ...tr, ...bl, ...br, ...center]);
   }
 
@@ -177,17 +177,17 @@ class ICEBoundingBox {
    * @returns
    */
   public isIntersect(box: ICEBoundingBox): boolean {
-    let left1 = this.tl[0];
-    let right1 = this.br[0];
-    let top1 = this.tl[1];
-    let bottom1 = this.br[1];
+    const left1 = this.tl[0];
+    const right1 = this.br[0];
+    const top1 = this.tl[1];
+    const bottom1 = this.br[1];
 
-    let left2 = box.tl[0];
-    let right2 = box.br[0];
-    let top2 = box.tl[1];
-    let bottom2 = box.br[1];
+    const left2 = box.tl[0];
+    const right2 = box.br[0];
+    const top2 = box.tl[1];
+    const bottom2 = box.br[1];
 
-    let isIntersect = !(left1 > right2 || top1 > bottom2 || right1 < left2 || bottom1 < top2);
+    const isIntersect = !(left1 > right2 || top1 > bottom2 || right1 < left2 || bottom1 < top2);
     return isIntersect;
   }
 

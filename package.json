@@ -22,6 +22,8 @@
     "types:watch": "npm run types:check -- --watch",
     "test": "jest",
     "test:visual": "playwright test",
+    "lint": "eslint src tests --ext .ts,.js",
+    "lint:fix": "eslint src tests --ext .ts,.js --fix",
     "bench": "node bench/render.cjs"
   },
   "dependencies": {

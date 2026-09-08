@@ -38,7 +38,7 @@ class ICEGroup extends ICERect {
    */
   protected afterAddHandler(): void {
     for (let i = 0; i < this.childNodes.length; i++) {
-      let child = this.childNodes[i];
+      const child = this.childNodes[i];
       this.syncChildEvents(child);
     }
   }

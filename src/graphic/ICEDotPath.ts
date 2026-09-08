@@ -48,9 +48,9 @@ export default abstract class ICEDotPath extends ICEPath {
 
     //DotPath 需要先计算每个点的坐标，然后才能计算 width/height
     this.calcDots();
-    let points = this.calc4VertexPoints();
-    let width = Math.abs(points[1][0] - points[0][0]); //maxX-minX
-    let height = Math.abs(points[2][1] - points[0][1]); //maxY-minY
+    const points = this.calc4VertexPoints();
+    const width = Math.abs(points[1][0] - points[0][0]); //maxX-minX
+    const height = Math.abs(points[2][1] - points[0][1]); //maxY-minY
     this.state.width = width;
     this.state.height = height;
     return { width: this.state.width, height: this.state.height };
@@ -62,7 +62,7 @@ export default abstract class ICEDotPath extends ICEPath {
    * @returns
    */
   protected calcLocalOrigin() {
-    let origin = super.calcLocalOrigin();
+    const origin = super.calcLocalOrigin();
 
     for (let i = 0; i < this.state.dots.length; i++) {
       let dot = this.state.dots[i];
@@ -114,7 +114,7 @@ export default abstract class ICEDotPath extends ICEPath {
     let maxY = this.state.dots[0][1];
 
     for (let i = 1; i < this.state.dots.length; i++) {
-      let dot = this.state.dots[i];
+      const dot = this.state.dots[i];
       if (dot[0] < minX) {
         minX = dot[0];
       }

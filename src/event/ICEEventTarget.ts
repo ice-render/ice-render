@@ -59,7 +59,7 @@ abstract class ICEEventTarget {
    * @param fn
    * @param scope
    */
-  public on(eventName: string, fn: Function, scope: any = root) {
+  public on(eventName: string, fn: (...args: any[]) => any, scope: any = root) {
     if (!this.listeners[eventName]) {
       this.listeners[eventName] = [];
     }
@@ -75,12 +75,12 @@ abstract class ICEEventTarget {
    * @param scope
    * @returns
    */
-  public off(eventName: string, fn: Function, scope: any = root) {
+  public off(eventName: string, fn: (...args: any[]) => any, scope: any = root) {
     let arr = this.listeners[eventName];
     if (!arr) return;
     arr = [...arr];
     for (let i = 0; i < arr.length; i++) {
-      let item = arr[i];
+      const item = arr[i];
       if (item.callback === fn && item.scope === scope) {
         this.listeners[eventName].splice(i, 1);
         return;
@@ -117,9 +117,9 @@ abstract class ICEEventTarget {
       });
     }
 
-    let arr = this.listeners[eventName];
+    const arr = this.listeners[eventName];
     for (let i = 0; i < arr.length; i++) {
-      let item = arr[i];
+      const item = arr[i];
       item.callback.call(item.scope, iceEvent);
     }
     return true;
@@ -131,7 +131,7 @@ abstract class ICEEventTarget {
    * @param eventName
    * @param fn
    */
-  public once(eventName: string, fn: Function, scope: any = root) {
+  public once(eventName: string, fn: (...args: any[]) => any, scope: any = root) {
     const that = this;
 
     function callback(evt: ICEEvent) {
@@ -182,14 +182,14 @@ abstract class ICEEventTarget {
    * @param scope
    * @returns
    */
-  public hasListener(eventName: string, fn: Function, scope: any = root): boolean {
+  public hasListener(eventName: string, fn: (...args: any[]) => any, scope: any = root): boolean {
     if (!this.listeners[eventName]) {
       return false;
     }
-    let arr = this.listeners[eventName];
+    const arr = this.listeners[eventName];
     if (!arr) return false;
     for (let i = 0; i < arr.length; i++) {
-      let item = arr[i];
+      const item = arr[i];
       if (item.callback === fn && item.scope === scope) {
         return true;
       }

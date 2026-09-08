@@ -38,7 +38,7 @@ export default class Serializer {
    * @returns Object
    */
   public toJSONObject(): object {
-    let result = {
+    const result = {
       createTime: new Date().toLocaleString(),
       lastModifyTime: new Date().toLocaleString(),
       childNodes: [],
@@ -53,7 +53,7 @@ export default class Serializer {
 
   //递归序列化
   private encodeRecursively(component, parentData) {
-    let currentData = {
+    const currentData = {
       state: component.state, //FIXME:只把 props 上的属性序列化，其它属性忽略。
       type: component.constructor.name,
       childNodes: [],

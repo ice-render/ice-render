@@ -15,7 +15,7 @@ import ICEPath from '../ICEPath';
 class ICEEllipse extends ICEPath {
   //@see https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/ellipse
   constructor(props: any = {}) {
-    let param = {
+    const param = {
       radiusX: 20,
       radiusY: 10,
       rotation: 0,

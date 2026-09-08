@@ -50,8 +50,8 @@ export default class ICELinkSlotManager {
   }
 
   private hookMouseMoveHandler(evt: ICEEvent) {
-    let linkHook = evt.target as any;
-    let hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
+    const linkHook = evt.target as any;
+    const hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
 
     //连接钩子是否碰到了某个可连接组件的边缘
     // let collision = null;
@@ -61,7 +61,7 @@ export default class ICELinkSlotManager {
       if (!component || !component.state.linkable) {
         continue;
       }
-      let componentBounding: ICEBoundingBox = component.getMaxBoundingBox();
+      const componentBounding: ICEBoundingBox = component.getMaxBoundingBox();
       if (componentBounding.isIntersect(hookBounding)) {
         this.collision = component;
         break;
@@ -72,7 +72,7 @@ export default class ICELinkSlotManager {
       //@ts-ignore
       for (let i = 0; i < this.ice._linkSlots.length; i++) {
         //@ts-ignore
-        let slot = this.ice._linkSlots[i];
+        const slot = this.ice._linkSlots[i];
         slot.setState({
           display: false,
           style: {
@@ -93,7 +93,7 @@ export default class ICELinkSlotManager {
     //@ts-ignore
     for (let i = 0; i < this.ice._linkSlots.length; i++) {
       //@ts-ignore
-      let slot = this.ice._linkSlots[i];
+      const slot = this.ice._linkSlots[i];
       if (slot.hostComponent !== this.collision) {
         slot.hostComponent = this.collision;
       }
@@ -112,7 +112,7 @@ export default class ICELinkSlotManager {
       });
 
       //判断连接钩子是否碰到了某个 linkSlot
-      let slotBox: ICEBoundingBox = slot.getMaxBoundingBox();
+      const slotBox: ICEBoundingBox = slot.getMaxBoundingBox();
       if (slotBox.isIntersect(hookBounding)) {
         isIntersect = true;
         slot.setState({
@@ -132,17 +132,17 @@ export default class ICELinkSlotManager {
   }
 
   private hookMouseUpHandler(evt: ICEEvent) {
-    let linkHook = evt.target as any;
-    let position: string = linkHook.state.position;
-    let linkLine: ICEPolyLine = linkHook.parentNode.targetComponent;
-    let hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
+    const linkHook = evt.target as any;
+    const position: string = linkHook.state.position;
+    const linkLine: ICEPolyLine = linkHook.parentNode.targetComponent;
+    const hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
 
     let isIntersect = false;
     if (this.collision) {
       //@ts-ignore
       for (let i = 0; i < this.ice._linkSlots.length; i++) {
         //@ts-ignore
-        let slot = this.ice._linkSlots[i];
+        const slot = this.ice._linkSlots[i];
         slot.setState({
           display: false,
           style: {
@@ -151,11 +151,11 @@ export default class ICELinkSlotManager {
         });
 
         //判断连接钩子是否碰到了某个 linkSlot
-        let slotBox: ICEBoundingBox = slot.getMaxBoundingBox();
+        const slotBox: ICEBoundingBox = slot.getMaxBoundingBox();
         if (slotBox.isIntersect(hookBounding)) {
           isIntersect = true;
           //建立连接关系
-          let param = {};
+          const param = {};
           param[position] = {
             id: slot.hostComponent.state.id,
             position: slot.state.position,
@@ -168,7 +168,7 @@ export default class ICELinkSlotManager {
 
     //如果钩子与所有插槽都没有发生碰撞，则删掉对应线条上的连接关系
     if (!isIntersect) {
-      let param = {};
+      const param = {};
       param[position] = null;
       linkLine && linkLine.setState({ links: param });
     } else {
@@ -187,7 +187,7 @@ export default class ICELinkSlotManager {
     //@ts-ignore
     for (let i = 0; i < this.ice._linkSlots.length; i++) {
       //@ts-ignore
-      let slot = this.ice._linkSlots[i];
+      const slot = this.ice._linkSlots[i];
       slot.setState({
         display: false,
         style: {
@@ -207,7 +207,7 @@ export default class ICELinkSlotManager {
       return;
     }
 
-    let slot_1 = new ICELinkSlot({
+    const slot_1 = new ICELinkSlot({
       zIndex: bigZIndexNum + 10,
       display: false,
       transformable: false,
@@ -222,7 +222,7 @@ export default class ICELinkSlotManager {
     });
     this.ice.addTool(slot_1);
 
-    let slot_2 = new ICELinkSlot({
+    const slot_2 = new ICELinkSlot({
       zIndex: bigZIndexNum + 11,
       display: false,
       transformable: false,
@@ -237,7 +237,7 @@ export default class ICELinkSlotManager {
     });
     this.ice.addTool(slot_2);
 
-    let slot_3 = new ICELinkSlot({
+    const slot_3 = new ICELinkSlot({
       zIndex: bigZIndexNum + 12,
       display: false,
       transformable: false,
@@ -252,7 +252,7 @@ export default class ICELinkSlotManager {
     });
     this.ice.addTool(slot_3);
 
-    let slot_4 = new ICELinkSlot({
+    const slot_4 = new ICELinkSlot({
       zIndex: bigZIndexNum + 13,
       display: false,
       transformable: false,
@@ -267,7 +267,7 @@ export default class ICELinkSlotManager {
     });
     this.ice.addTool(slot_4);
 
-    let slot_5 = new ICELinkSlot({
+    const slot_5 = new ICELinkSlot({
       zIndex: bigZIndexNum + 14,
       display: false,
       transformable: false,

@@ -38,7 +38,7 @@ class ICEText extends ICEComponent {
    * @param props
    */
   constructor(props: any = {}) {
-    let param = ICEText.arrangeParam(props);
+    const param = ICEText.arrangeParam(props);
     super(param);
     this.measureText();
   }
@@ -130,7 +130,7 @@ class ICEText extends ICEComponent {
       div.innerHTML = this.state.text;
 
       const { paddingTop, paddingBottom, paddingLeft, paddingRight } = this.state.style;
-      let cssSize = {
+      const cssSize = {
         width: div.offsetWidth + paddingLeft + paddingRight,
         height: div.offsetHeight + paddingTop + paddingBottom,
       };

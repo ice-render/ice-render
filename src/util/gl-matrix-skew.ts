@@ -12,8 +12,8 @@
  * @returns {mat2d} out
  */
 export function skew(out: any, a: any, radX: number, radY: number): any {
-  let x = Math.tan(radX);
-  let y = Math.tan(radY);
+  const x = Math.tan(radX);
+  const y = Math.tan(radY);
   out[0] = a[0];
   out[1] = a[1] + x;
   out[2] = a[2] + y;

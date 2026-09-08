@@ -161,9 +161,9 @@ abstract class ICEComponent extends ICEEventTarget {
     // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
     // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
     //@ts-ignore
-    let tx = evt.movementX;
+    const tx = evt.movementX;
     //@ts-ignore
-    let ty = evt.movementY;
+    const ty = evt.movementY;
     this.moveGlobalPosition(tx, ty, evt);
     return true;
   }
@@ -237,12 +237,12 @@ abstract class ICEComponent extends ICEEventTarget {
     const propsStyle = this.props.style;
     const stateStyle = this.state.style;
     if (propsStyle) {
-      for (let p in propsStyle) {
+      for (const p in propsStyle) {
         this.ctx[p] = propsStyle[p];
       }
     }
     if (stateStyle) {
-      for (let p in stateStyle) {
+      for (const p in stateStyle) {
         this.ctx[p] = stateStyle[p];
       }
     }
@@ -275,7 +275,7 @@ abstract class ICEComponent extends ICEEventTarget {
     }
     point[0] = 0;
     point[1] = 0;
-    let position = this.state.origin;
+    const position = this.state.origin;
     if (!position || position === 'localCenter') {
       point[0] = this.state.width / 2;
       point[1] = this.state.height / 2;
@@ -294,8 +294,8 @@ abstract class ICEComponent extends ICEEventTarget {
   public calcAbsoluteOrigin() {
     //@perf: 用直接属性访问替代 getVal 字符串路径解析（避免 split + reduce），并复用 scratch 数组
     const transform = this.state.transform;
-    let tx = transform.translate[0] + this.state.left;
-    let ty = transform.translate[1] + this.state.top;
+    const tx = transform.translate[0] + this.state.left;
+    const ty = transform.translate[1] + this.state.top;
 
     const localOrigin = this.calcLocalOrigin();
     let point = this.__originScratch;
@@ -304,11 +304,11 @@ abstract class ICEComponent extends ICEEventTarget {
     point[1] = localOrigin[1] + ty;
 
     if (this.parentNode) {
-      let pLocalX = this.parentNode.state.localOrigin[0];
-      let pLocalY = this.parentNode.state.localOrigin[1];
+      const pLocalX = this.parentNode.state.localOrigin[0];
+      const pLocalY = this.parentNode.state.localOrigin[1];
       //@ts-ignore
       vec2.transformMat2d(point, point, [1, 0, 0, 1, -pLocalX, -pLocalY]);
-      let pcm = this.parentNode.state.composedMatrix;
+      const pcm = this.parentNode.state.composedMatrix;
       //@ts-ignore
       vec2.transformMat2d(point, point, pcm);
     }
@@ -342,7 +342,7 @@ abstract class ICEComponent extends ICEEventTarget {
     skew(matrix, matrix, glMatrix.toRadian(skewX), glMatrix.toRadian(skewY));
 
     //step2: rotate
-    let angle = transform.rotate;
+    const angle = transform.rotate;
     //@ts-ignore
     mat2d.rotate(matrix, matrix, glMatrix.toRadian(angle));
 
@@ -374,10 +374,7 @@ abstract class ICEComponent extends ICEEventTarget {
       // 才重新计算，确保嵌套坐标系结果始终正确（与之前的 bug fix 行为一致）。
       //@ts-ignore
       const parentLinearMatrix =
-        parent.state &&
-        parent.state.linearMatrix &&
-        parent.state.linearMatrix.length >= 6 &&
-        !parent.dirty
+        parent.state && parent.state.linearMatrix && parent.state.linearMatrix.length >= 6 && !parent.dirty
           ? parent.state.linearMatrix
           : //@ts-ignore
             parent.calcLinearMatrix();
@@ -421,7 +418,7 @@ abstract class ICEComponent extends ICEEventTarget {
     }
 
     //step-1: 移动到指定原点（全局坐标系）。
-    let origin = this.calcAbsoluteOrigin();
+    const origin = this.calcAbsoluteOrigin();
     //@perf: 复用平移矩阵 scratch，避免每帧分配新数组
     if (!this.__transScratch) this.__transScratch = [1, 0, 0, 1, 0, 0];
     this.__transScratch[4] = origin[0];
@@ -430,7 +427,7 @@ abstract class ICEComponent extends ICEEventTarget {
 
     //step-2: 计算线性变换矩阵，包含了所有祖先节点的线性变换。
     // calcAbsoluteLinearMatrix 内部会实时重新计算每一层祖先的线性矩阵，不再依赖缓存。
-    let linearMatrix = this.calcAbsoluteLinearMatrix();
+    const linearMatrix = this.calcAbsoluteLinearMatrix();
 
     //step-3: 计算综合变换矩阵，相当于先在 canvas 默认原点（左上角位置）进行变换，然后在平移到计算出的原点位置。
     //@perf: 复用 state.composedMatrix（普通数组），避免每帧分配新数组
@@ -447,7 +444,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * 把变换矩阵应用到 this.ctx 上
    */
   protected applyTransformToCtx(): void {
-    let matrix = this.dirty ? this.composeMatrix() : this.state.composedMatrix;
+    const matrix = this.dirty ? this.composeMatrix() : this.state.composedMatrix;
     this.ctx.setTransform(...matrix);
   }
 
@@ -460,7 +457,7 @@ abstract class ICEComponent extends ICEEventTarget {
     this.ctx.lineWidth = 1;
 
     if (this.state.showMinBoundingBox) {
-      let minBox = this.getMinBoundingBox();
+      const minBox = this.getMinBoundingBox();
       this.ctx.strokeStyle = '#ff0000';
       this.ctx.fillStyle = 'rgba(0,0,0,0)';
       this.ctx.beginPath();
@@ -474,7 +471,7 @@ abstract class ICEComponent extends ICEEventTarget {
     }
 
     if (this.state.showMaxBoundingBox) {
-      let maxBox = this.getMaxBoundingBox();
+      const maxBox = this.getMaxBoundingBox();
       this.ctx.strokeStyle = '#0000ff';
       this.ctx.fillStyle = 'rgba(0,0,0,0)';
       this.ctx.beginPath();
@@ -495,10 +492,10 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   public getMinBoundingBox(refresh: boolean = false): ICEBoundingBox {
     //先基于组件本地坐标系进行计算
-    let originX = this.state.localOrigin[0];
-    let originY = this.state.localOrigin[1];
-    let width = this.state.width;
-    let height = this.state.height;
+    const originX = this.state.localOrigin[0];
+    const originY = this.state.localOrigin[1];
+    const width = this.state.width;
+    const height = this.state.height;
     let boundingBox = new ICEBoundingBox([
       0 - originX,
       0 - originY,
@@ -526,8 +523,8 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   public getMaxBoundingBox(refresh: boolean = false): ICEBoundingBox {
     let boundingBox = this.getMinBoundingBox(refresh);
-    let { minX, minY, maxX, maxY } = boundingBox.getMinAndMaxPoint();
-    let center = boundingBox.centerPoint;
+    const { minX, minY, maxX, maxY } = boundingBox.getMinAndMaxPoint();
+    const center = boundingBox.centerPoint;
     boundingBox = new ICEBoundingBox([minX, minY, maxX, minY, minX, maxY, maxX, maxY, center[0], center[1]]);
     return boundingBox;
   }
@@ -581,7 +578,7 @@ abstract class ICEComponent extends ICEEventTarget {
     if (this.parentNode) {
       let point = [tx, ty];
       //@ts-ignore
-      let matrix = mat2d.invert([], this.parentNode.calcAbsoluteLinearMatrix());
+      const matrix = mat2d.invert([], this.parentNode.calcAbsoluteLinearMatrix());
       //@ts-ignore
       point = vec2.transformMat2d([], point, matrix);
       tx = point[0];
@@ -602,7 +599,7 @@ abstract class ICEComponent extends ICEEventTarget {
     if (this.parentNode) {
       let point = [left, top];
       //@ts-ignore
-      let matrix = mat2d.invert([], this.parentNode.calcAbsoluteLinearMatrix());
+      const matrix = mat2d.invert([], this.parentNode.calcAbsoluteLinearMatrix());
       //@ts-ignore
       point = vec2.transformMat2d([], point, matrix);
       left = point[0];
@@ -619,8 +616,8 @@ abstract class ICEComponent extends ICEEventTarget {
   public setGlobalRotate(rotateAngle): void {
     if (this.parentNode) {
       //组件存在嵌套的情况下，减掉所有祖先节点旋转角的总和。
-      let matrix = this.parentNode.calcAbsoluteLinearMatrix();
-      let angle = GeoUtil.calcRotateAngleFromMatrix(matrix);
+      const matrix = this.parentNode.calcAbsoluteLinearMatrix();
+      const angle = GeoUtil.calcRotateAngleFromMatrix(matrix);
       rotateAngle -= angle;
     }
     this.setState({
@@ -638,7 +635,7 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   public localToGlobal(localX: number, localY: number) {
     let point = [localX, localY];
-    let matrix = this.state.composedMatrix;
+    const matrix = this.state.composedMatrix;
     //@ts-ignore
     point = vec2.transformMat2d([], point, matrix);
     return point;
@@ -653,7 +650,7 @@ abstract class ICEComponent extends ICEEventTarget {
   public globalToLocal(globalX: number, globalY: number) {
     let point = [globalX, globalY];
     //@ts-ignore
-    let matrix = mat2d.invert([], this.state.composedMatrix);
+    const matrix = mat2d.invert([], this.state.composedMatrix);
     //@ts-ignore
     point = vec2.transformMat2d([], point, matrix);
     return point;
@@ -666,7 +663,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * @returns
    */
   public getRotateAngle(refresh: boolean = false): number {
-    let matrix = refresh ? this.composeMatrix() : this.state.composedMatrix;
+    const matrix = refresh ? this.composeMatrix() : this.state.composedMatrix;
     return GeoUtil.calcRotateAngleFromMatrix(matrix);
   }
 
@@ -676,11 +673,11 @@ abstract class ICEComponent extends ICEEventTarget {
    * @returns
    */
   public getLocalLeftTop(refresh: boolean = false) {
-    let box = this.getMinBoundingBox(refresh);
-    let width = box.width;
-    let height = box.height;
-    let left = box.centerX - box.width / 2;
-    let top = box.centerY - box.height / 2;
+    const box = this.getMinBoundingBox(refresh);
+    const width = box.width;
+    const height = box.height;
+    const left = box.centerX - box.width / 2;
+    const top = box.centerY - box.height / 2;
     return { left, top, width, height };
   }
 

@@ -26,15 +26,15 @@ export default class GeoUtil {
    * @returns
    */
   public static calcRotateAngle(x, y, originX, originY): number {
-    let deltaX = x - originX;
-    let deltaY = y - originY;
+    const deltaX = x - originX;
+    const deltaY = y - originY;
     const temp = Math.hypot(deltaX, deltaY);
-    let cos = deltaX / temp;
-    let sin = deltaY / temp;
+    const cos = deltaX / temp;
+    const sin = deltaY / temp;
 
     //Math.acos 的返回值处于 [0,PI] 之间，根据 sin 的正负号进行判断之后， rotateAngle 处于 [-180,180] 度之间
     //先加 360 度，保证 rotateAngle 为正值，再对 360 取模，最终让 rotateAngle 的返回值始终处于 [0,360] 度之间
-    let sign = sin < 0 ? -1 : 1;
+    const sign = sin < 0 ? -1 : 1;
     let rotateAngle = (sign * Math.acos(cos) * 180) / Math.PI + 360;
     rotateAngle = rotateAngle % 360;
     return rotateAngle;
@@ -46,9 +46,9 @@ export default class GeoUtil {
    * @returns 角度
    */
   public static calcRotateAngleFromMatrix(matrix): number {
-    let a = matrix[0];
-    let b = matrix[1];
-    let radians = Math.atan2(b, a);
+    const a = matrix[0];
+    const b = matrix[1];
+    const radians = Math.atan2(b, a);
     return radians * (180 / Math.PI);
   }
 
@@ -58,10 +58,10 @@ export default class GeoUtil {
    * @returns 缩放数组
    */
   public static calcScaleFromMatrix(matrix): Array<number> {
-    let a = matrix[0];
-    let b = matrix[1];
-    let c = matrix[2];
-    let d = matrix[3];
+    const a = matrix[0];
+    const b = matrix[1];
+    const c = matrix[2];
+    const d = matrix[3];
     const scaleX = Math.hypot(a, b) / a;
     const scaleY = Math.hypot(c, d) / d;
     return [scaleX, scaleY];

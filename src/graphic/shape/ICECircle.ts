@@ -16,7 +16,7 @@ import ICEEllipse from './ICEEllipse';
  */
 class ICECircle extends ICEEllipse {
   constructor(props: any = {}) {
-    let param = { radius: 10, ...props };
+    const param = { radius: 10, ...props };
     param.radiusX = param.radius;
     param.radiusY = param.radius;
 

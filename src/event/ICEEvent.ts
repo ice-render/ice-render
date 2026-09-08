@@ -21,11 +21,11 @@ class ICEEvent implements Event {
   public param: any;
 
   constructor(evt: any = {}, data: any = {}) {
-    for (let p in evt) {
+    for (const p in evt) {
       this[p] = evt[p];
     }
 
-    for (let p in data) {
+    for (const p in data) {
       this[p] = data[p];
     }
   }
@@ -57,9 +57,9 @@ class ICEEvent implements Event {
   stopPropagation(): void {
     throw new Error('Method not implemented.');
   }
-  readonly AT_TARGET: 2 = 2;
-  readonly BUBBLING_PHASE: 3 = 3;
-  readonly CAPTURING_PHASE: 1 = 1;
-  readonly NONE: 0 = 0;
+  readonly AT_TARGET = 2 as const;
+  readonly BUBBLING_PHASE = 3 as const;
+  readonly CAPTURING_PHASE = 1 as const;
+  readonly NONE = 0 as const;
 }
 export default ICEEvent;
