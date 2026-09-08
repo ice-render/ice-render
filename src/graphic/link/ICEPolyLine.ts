@@ -6,9 +6,9 @@
  *
  */
 import { glMatrix, vec2 } from 'gl-matrix';
-import isNil from 'lodash/isNil';
-import merge from 'lodash/merge';
-import round from 'lodash/round';
+import { isNil } from '../../util/lang';
+import { merge } from '../../util/lang';
+import { round } from '../../util/lang';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
 import GeoUtil from '../../geometry/GeoUtil';

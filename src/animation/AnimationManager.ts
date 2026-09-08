@@ -5,8 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import isString from 'lodash/isString';
-import isUndefined from 'lodash/isUndefined';
+import { isString } from '../util/lang';
+import { isUndefined } from '../util/lang';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../event/ICEEvent';
 import ICEComponent from '../graphic/ICEComponent';

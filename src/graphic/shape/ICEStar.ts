@@ -6,7 +6,7 @@
  *
  */
 import { glMatrix } from 'gl-matrix';
-import isNil from 'lodash/isNil';
+import { isNil } from '../../util/lang';
 import ICEDotPath from '../ICEDotPath';
 
 /**

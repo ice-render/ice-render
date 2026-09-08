@@ -4,7 +4,7 @@
 
 ## 约束：运行时依赖极简
 
-- 运行时依赖**仅 `lodash` + `gl-matrix`**，无其它依赖。
+- 运行时依赖**仅 `gl-matrix`**（`lodash` 已用 `src/util/lang.ts` 自研工具替代），无其它依赖。
 - 这保证了引擎可以在任何能跑 JS、能提供 Canvas Context 的环境中使用，而不被 npm 生态的浏览器假设拖累。
 
 ## 跨平台根对象 `cross-platform/root.js`

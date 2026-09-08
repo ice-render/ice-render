@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import isEmpty from 'lodash/isEmpty';
+import { isEmpty } from '../util/lang';
 import root from '../cross-platform/root';
 import ICEEvent from './ICEEvent';
 
