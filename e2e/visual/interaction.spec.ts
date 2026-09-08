@@ -61,3 +61,43 @@ test('命中检测：点击最深层子组件应选中它', async ({ page }) => 
   await page.waitForTimeout(150);
   expect(await page.evaluate(() => window.__ice.selectionList[0] === window.__components.circle)).toBe(true);
 });
+
+test('反复翻转+旋转后 8 个手柄象限仍唯一（修复手柄消失）', async ({ page }) => {
+  await page.goto('/e2e/visual/fixtures/nested-interaction.html');
+  await page.waitForTimeout(400);
+
+  const c = await page.evaluate(() => window.__center('rect'));
+  await page.mouse.click(c.x, c.y);
+  await page.waitForTimeout(150);
+
+  const uniq = () =>
+    page.evaluate(() => {
+      const qs = window.__handles().map((h) => h.state.quadrant);
+      return new Set(qs).size;
+    });
+
+  for (let round = 0; round < 5; round++) {
+    // 拖角手柄跨过中心（触发象限翻转）
+    const hc = await page.evaluate(() => {
+      const h = window.__handles().find((x) => x.state.quadrant === 1);
+      return h ? window.__handleCenter(h) : null;
+    });
+    const center = await page.evaluate(() => window.__center('rect'));
+    if (hc) {
+      await page.mouse.move(hc.x, hc.y);
+      await page.mouse.down();
+      await page.mouse.move(center.x + (center.x - hc.x), center.y + (center.y - hc.y), { steps: 12 });
+      await page.mouse.up();
+      await page.waitForTimeout(80);
+    }
+    // 拖旋转手柄
+    const rhc = await page.evaluate(() => window.__handleCenter(window.__rotateHandle()));
+    await page.mouse.move(rhc.x, rhc.y);
+    await page.mouse.down();
+    await page.mouse.move(rhc.x + 40, rhc.y + 25, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(80);
+
+    expect(await uniq()).toBe(8);
+  }
+});

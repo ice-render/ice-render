@@ -392,46 +392,19 @@ export default class TransformControlPanel extends ICEControlPanel {
    * @param control
    * @param quadrant
    */
-  public toggleControlQuadrant(control, quadrant: number): void {
-    //1-3可以交换，2-4可以交换，5-6可以交换，7-8可以交换
+  public toggleControlQuadrant(control, oldQuadrant: number, newQuadrant: number): void {
+    // 被拖拽手柄从 oldQuadrant 跨到 newQuadrant：原来占据 newQuadrant 的手柄顶替到 oldQuadrant，
+    // 两者互换象限，保证 8 个手柄的象限始终唯一。此前用「对角固定映射」(1↔3/2↔4)，
+    // 在手柄跨到「相邻」象限(如 1→2)时会产出重复象限，导致两个手柄重叠、看起来消失一个。
     for (let i = 0; i < this.resizeControlInstanceCache.length; i++) {
       const item = this.resizeControlInstanceCache[i];
-      if (item.state.quadrant === quadrant) {
-        let tempQuadrant = 0;
-        switch (quadrant) {
-          case 1:
-            tempQuadrant = 3;
-            break;
-          case 2:
-            tempQuadrant = 4;
-            break;
-          case 3:
-            tempQuadrant = 1;
-            break;
-          case 4:
-            tempQuadrant = 2;
-            break;
-          case 5:
-            tempQuadrant = 6;
-            break;
-          case 6:
-            tempQuadrant = 5;
-            break;
-          case 7:
-            tempQuadrant = 8;
-            break;
-          case 8:
-            tempQuadrant = 7;
-            break;
-          default:
-            break;
-        }
+      if (item.state.quadrant === newQuadrant) {
         item.setState({
-          quadrant: tempQuadrant,
+          quadrant: oldQuadrant,
         });
       }
     }
 
-    control.setState({ quadrant: quadrant });
+    control.setState({ quadrant: newQuadrant });
   }
 }

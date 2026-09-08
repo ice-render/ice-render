@@ -228,7 +228,7 @@ export default class ResizeControl extends ICERect {
     //可能需要和对面的手柄交换象限
     const quadrantSwitched = quadrant === newQuadrant ? false : true;
     if (quadrantSwitched) {
-      this.parentNode.toggleControlQuadrant(this, newQuadrant);
+      this.parentNode.toggleControlQuadrant(this, quadrant, newQuadrant);
     }
 
     this.setPosition(left, top, new ICEEvent(evt, { left, top, tx, ty, quadrant: newQuadrant }));

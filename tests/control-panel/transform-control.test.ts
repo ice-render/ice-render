@@ -63,4 +63,23 @@ describe('变换手柄坐标计算（回归：连续变换后手柄脱离图元�
     expect(panel.state.width).toBeCloseTo(box.width, 1);
     expect(panel.state.height).toBeCloseTo(box.height, 1);
   });
+
+  it('toggleControlQuadrant 交换象限后 8 个手柄象限仍唯一（修复手柄消失）', () => {
+    const panel = new TransformControlPanel({ width: 100, height: 100 });
+    const handles = (panel as any).resizeControlInstanceCache;
+    const quadrants = () => handles.map((h) => h.state.quadrant);
+
+    // 初始 8 个象限唯一
+    expect(new Set(quadrants()).size).toBe(8);
+
+    // 拖拽 q=1 手柄跨到「相邻」象限 q=2（此前用对角映射会产出重复象限）
+    const dragged = handles.find((h) => h.state.quadrant === 1);
+    (panel as any).toggleControlQuadrant(dragged, 1, 2);
+
+    const qs = quadrants();
+    expect(new Set(qs).size).toBe(8); // 仍唯一，无重复
+    expect(qs).toContain(1); // 原 q=2 手柄顶替到 q=1
+    expect(qs).toContain(2); // 拖拽手柄变成 q=2
+    expect(dragged.state.quadrant).toBe(2);
+  });
 });
