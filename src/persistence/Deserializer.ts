@@ -40,7 +40,7 @@ export default class Deserializer {
     const instance = new Clazz(state);
     parentNode.addChild(instance);
 
-    let childNodes = nodeData.childNodes;
+    const childNodes = nodeData.childNodes;
     if (childNodes && childNodes.length) {
       for (let i = 0; i < childNodes.length; i++) {
         this.decodeRecursively(instance, childNodes[i]);

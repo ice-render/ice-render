@@ -10,7 +10,7 @@ import ICEDotPath from '../ICEDotPath';
 
 class ICERose extends ICEDotPath {
   constructor(props: any = {}) {
-    let param = {
+    const param = {
       radius: 50,
       leafNum: 2,
       pointNumber: 100,
@@ -36,11 +36,12 @@ class ICERose extends ICEDotPath {
     const radius = this.state.radius;
     const leafNum = this.state.leafNum;
     this.state.dots = [];
-    let deltaAngle = Math.PI / this.state.pointNumber;
+    const deltaAngle = Math.PI / this.state.pointNumber;
     let x = 0;
     let y = 0;
     let angle = 0;
 
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       x = radius + radius * Math.sin(leafNum * angle) * Math.cos(angle);
       y = radius + radius * Math.sin(leafNum * angle) * Math.sin(angle);

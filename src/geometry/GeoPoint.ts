@@ -44,7 +44,7 @@ export default class GeoPoint {
    * 克隆一组点。
    */
   static cloneArray(v: GeoPoint[]): GeoPoint[] {
-    let newPoints: GeoPoint[] = [];
+    const newPoints: GeoPoint[] = [];
     for (let i = 0; i < v.length; i++) {
       newPoints.push(v[i].clone());
     }
@@ -68,7 +68,7 @@ export default class GeoPoint {
    * 克隆当前点。
    */
   clone(): GeoPoint {
-    let newPoint = new GeoPoint(this.x, this.y);
+    const newPoint = new GeoPoint(this.x, this.y);
     return newPoint;
   }
 }

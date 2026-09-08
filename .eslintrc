@@ -8,12 +8,9 @@
   },
   "extends": [
     "eslint:recommended",
-    "plugin:@typescript-eslint/eslint-recommended",
     "plugin:@typescript-eslint/recommended",
-    "prettier",
-    "prettier/@typescript-eslint",
-    "plugin:prettier/recommended",
-    "plugin:jest/recommended"
+    "plugin:jest/recommended",
+    "plugin:prettier/recommended"
   ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
@@ -22,18 +19,23 @@
     "ecmaFeatures": {
       "jsx": false
     },
-    "project": "./tsconfig.json",
+    "project": "./tsconfig.eslint.json",
     "createDefaultProgram": true
   },
   "plugins": ["@typescript-eslint", "jest", "prettier"],
   "rules": {
     "@typescript-eslint/explicit-function-return-type": 0,
-    "@typescript-eslint/no-explicit-any": 0
-  },
-  "prettier/prettier": [
-    "error",
-    {
-      "endOfLine": "auto"
-    }
-  ]
+    "@typescript-eslint/no-explicit-any": 0,
+    // gl-matrix 无类型声明（未装 @types/gl-matrix），历史代码用 @ts-ignore 标记 any 调用；引入类型后应清理
+    "@typescript-eslint/ban-ts-comment": 0,
+    "@typescript-eslint/no-unused-vars": 1,
+    // 本库在祖先链游标（let component = this）与 once 回调（const that = this）里合法别名 this，属风格规则
+    "@typescript-eslint/no-this-alias": 0,
+    "prettier/prettier": [
+      "error",
+      {
+        "endOfLine": "auto"
+      }
+    ]
+  }
 }

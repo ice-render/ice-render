@@ -15,7 +15,7 @@ import ICEDotPath from '../ICEDotPath';
  */
 class ICEStar extends ICEDotPath {
   constructor(props: any = {}) {
-    let param = {
+    const param = {
       outerRadius: 50, //外圆半径
       innerRadius: 20, //内圆半径
       startAngle: 90, //起始角度
@@ -42,9 +42,9 @@ class ICEStar extends ICEDotPath {
     this.state.dots = [];
 
     let radian = glMatrix.toRadian(this.state.startAngle); //弧度
-    let step = Math.PI / this.state.spikes;
-    let outerRadius = this.state.outerRadius;
-    let innerRadius = this.state.innerRadius;
+    const step = Math.PI / this.state.spikes;
+    const outerRadius = this.state.outerRadius;
+    const innerRadius = this.state.innerRadius;
     let x, y;
     for (let i = 0; i < this.state.spikes; i++) {
       x = Math.cos(radian) * outerRadius + outerRadius;

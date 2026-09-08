@@ -57,7 +57,7 @@ class ICEPolyLine extends ICEDotPath {
    * @param props
    */
   constructor(props: any = {}) {
-    let param = ICEPolyLine.arrangeParam(props);
+    const param = ICEPolyLine.arrangeParam(props);
     super(param);
   }
 
@@ -97,7 +97,7 @@ class ICEPolyLine extends ICEDotPath {
     );
 
     //线段至少有2个点，如果点数少于2个，自动填充。
-    let len = param.points.length;
+    const len = param.points.length;
     if (len < 2) {
       if (len === 0) {
         param.points.push([0, 0]);
@@ -194,8 +194,8 @@ class ICEPolyLine extends ICEDotPath {
       return;
     }
 
-    let currentId = this.state.links[terminal].id;
-    let currentPosition = this.state.links[terminal].position;
+    const currentId = this.state.links[terminal].id;
+    const currentPosition = this.state.links[terminal].position;
     if (!id) {
       id = currentId;
     }
@@ -243,7 +243,7 @@ class ICEPolyLine extends ICEDotPath {
    * 连接的组件位置发生移动之后，重新计算连接线的起点和终点。
    */
   private followComponent(evt?: ICEEvent) {
-    for (let p in this.state.links) {
+    for (const p in this.state.links) {
       if (!this.state.links[p] || !this.state.links[p].id || !this.state.links[p].position) {
         continue;
       }
@@ -299,7 +299,7 @@ class ICEPolyLine extends ICEDotPath {
    * @returns
    */
   protected calcLocalOrigin() {
-    let point = [0, 0];
+    const point = [0, 0];
     this.state.localOrigin = point;
     return point;
   }
@@ -313,13 +313,13 @@ class ICEPolyLine extends ICEDotPath {
    * @returns
    */
   protected calcDots() {
-    let left = this.state.left;
-    let top = this.state.top;
+    const left = this.state.left;
+    const top = this.state.top;
     this.state.dots = [];
     for (let i = 0; i < this.state.points.length; i++) {
       const p = this.state.points[i];
-      let x = p[0] - left;
-      let y = p[1] - top;
+      const x = p[0] - left;
+      const y = p[1] - top;
       this.state.dots.push([x, y]);
     }
 
@@ -335,7 +335,7 @@ class ICEPolyLine extends ICEDotPath {
   protected calcArrowPoints() {
     //计算起点箭头坐标
     if (this.state.arrow === 'start' || this.state.arrow === 'both') {
-      let firstPoint = [...this.state.dots[0]];
+      const firstPoint = [...this.state.dots[0]];
       let points = [[...this.state.dots[0]], [...this.state.dots[1]]];
       points = this.doCalcArrowPoints(points);
       this.state.dots.unshift(...points);
@@ -343,8 +343,8 @@ class ICEPolyLine extends ICEDotPath {
     }
     //计算终点箭头坐标
     if (this.state.arrow === 'end' || this.state.arrow === 'both') {
-      let len = this.state.dots.length;
-      let lastPoint = [...this.state.dots[len - 1]];
+      const len = this.state.dots.length;
+      const lastPoint = [...this.state.dots[len - 1]];
       let points = [[...this.state.dots[len - 1]], [...this.state.dots[len - 2]]];
       points = this.doCalcArrowPoints(points);
       this.state.dots.push(...points);
@@ -353,18 +353,18 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   protected doCalcArrowPoints(twoPoints) {
-    let p1 = twoPoints[0];
-    let p2 = twoPoints[1];
+    const p1 = twoPoints[0];
+    const p2 = twoPoints[1];
 
     p2[0] = p2[0] - p1[0];
     p2[1] = p2[1] - p1[1];
 
     //极坐标计算箭头的两个点
-    let cosp2 = p2[0] / Math.hypot(...p2);
-    let sinp2 = p2[1] / Math.hypot(...p2);
+    const cosp2 = p2[0] / Math.hypot(...p2);
+    const sinp2 = p2[1] / Math.hypot(...p2);
 
-    let cosArrow = Math.cos(this.state.arrowAngel);
-    let sinArrow = Math.sin(this.state.arrowAngel);
+    const cosArrow = Math.cos(this.state.arrowAngel);
+    const sinArrow = Math.sin(this.state.arrowAngel);
 
     let x1 = this.state.arrowLength * (cosp2 * cosArrow - sinp2 * sinArrow);
     let y1 = this.state.arrowLength * (sinp2 * cosArrow + cosp2 * sinArrow);
@@ -431,8 +431,8 @@ class ICEPolyLine extends ICEDotPath {
 
     this.calcDots();
 
-    let points = this.calc4VertexPoints(); //最小包围盒的4个顶点
-    let width = Math.abs(points[1][0] - points[0][0]); //maxX-minX
+    const points = this.calc4VertexPoints(); //最小包围盒的4个顶点
+    const width = Math.abs(points[1][0] - points[0][0]); //maxX-minX
     let height = this.state.style.lineWidth;
 
     //先进行共线判断，如果所有点都在同一条直线上，那么边界盒子的整体高度就等于线条的粗细
@@ -456,19 +456,19 @@ class ICEPolyLine extends ICEDotPath {
    * @returns
    */
   private isDotsOnSameLine(): boolean {
-    let len = this.state.points.length;
-    let startX = round(this.state.points[0][0], 2);
-    let startY = round(this.state.points[0][1], 2);
-    let endX = round(this.state.points[len - 1][0], 2);
-    let endY = round(this.state.points[len - 1][1], 2);
+    const len = this.state.points.length;
+    const startX = round(this.state.points[0][0], 2);
+    const startY = round(this.state.points[0][1], 2);
+    const endX = round(this.state.points[len - 1][0], 2);
+    const endY = round(this.state.points[len - 1][1], 2);
 
     let counter = 0;
-    let vector1 = [endX - startX, endY - startY]; //起点和终点构成的向量坐标
+    const vector1 = [endX - startX, endY - startY]; //起点和终点构成的向量坐标
     for (let i = 0; i < len; i++) {
-      let p = this.state.points[i];
-      let vector2 = [p[0] - startX, p[1] - startY];
+      const p = this.state.points[i];
+      const vector2 = [p[0] - startX, p[1] - startY];
       //@ts-ignore
-      let crossProduct = vec2.cross([], vector1, vector2)[2];
+      const crossProduct = vec2.cross([], vector1, vector2)[2];
       if (crossProduct === 0) {
         counter++;
       }
@@ -506,24 +506,24 @@ class ICEPolyLine extends ICEDotPath {
    * @returns
    */
   protected splitEndpointsTo4Points() {
-    let len = this.state.points.length;
-    let startX = 0; //由于 ICEPolyLine 总是把 left/top 与起点重合，所以这里的 startX 总是为 0
-    let startY = 0; //由于 ICEPolyLine 总是把 left/top 与起点重合，所以这里的 startY 总是为 0
-    let endX = this.state.points[len - 1][0] - this.state.points[0][0];
-    let endY = this.state.points[len - 1][1] - this.state.points[0][1];
-    let angle = this.getRotateAngle();
+    const len = this.state.points.length;
+    const startX = 0; //由于 ICEPolyLine 总是把 left/top 与起点重合，所以这里的 startX 总是为 0
+    const startY = 0; //由于 ICEPolyLine 总是把 left/top 与起点重合，所以这里的 startY 总是为 0
+    const endX = this.state.points[len - 1][0] - this.state.points[0][0];
+    const endY = this.state.points[len - 1][1] - this.state.points[0][1];
+    const angle = this.getRotateAngle();
 
-    let height = this.state.height;
+    const height = this.state.height;
     let deltaX = (Math.cos((angle * Math.PI) / 180) * height) / 2;
     let deltaY = (Math.sin((angle * Math.PI) / 180) * height) / 2;
     deltaX = round(deltaX, 3);
     deltaY = round(deltaY, 3);
 
     //计算4个顶点，让边界盒子紧贴直线
-    let point1 = [startX + deltaX, startY + deltaY];
-    let point2 = [startX - deltaX, startY - deltaY];
-    let point3 = [endX + deltaX, endY + deltaY];
-    let point4 = [endX - deltaX, endY - deltaY];
+    const point1 = [startX + deltaX, startY + deltaY];
+    const point2 = [startX - deltaX, startY - deltaY];
+    const point3 = [endX + deltaX, endY + deltaY];
+    const point4 = [endX - deltaX, endY - deltaY];
 
     return [point1, point2, point3, point4];
   }
@@ -537,9 +537,9 @@ class ICEPolyLine extends ICEDotPath {
    */
   public getMinBoundingBox(): ICEBoundingBox {
     //先基于组件本地坐标系进行计算
-    let originX = this.state.localOrigin[0];
-    let originY = this.state.localOrigin[1];
-    let points = this.calc4VertexPoints();
+    const originX = this.state.localOrigin[0];
+    const originY = this.state.localOrigin[1];
+    const points = this.calc4VertexPoints();
     let boundingBox = new ICEBoundingBox([
       points[0][0] - originX,
       points[0][1] - originY,
@@ -588,14 +588,14 @@ class ICEPolyLine extends ICEDotPath {
     }
 
     if (!isNil(newState.left)) {
-      let deltaX = newState.left - this.state.points[0][0];
+      const deltaX = newState.left - this.state.points[0][0];
       for (let i = 0; i < this.state.points.length; i++) {
         this.state.points[i][0] += deltaX;
       }
     }
 
     if (!isNil(newState.top)) {
-      let deltaY = newState.top - this.state.points[0][1];
+      const deltaY = newState.top - this.state.points[0][1];
       for (let i = 0; i < this.state.points.length; i++) {
         this.state.points[i][1] += deltaY;
       }
@@ -609,7 +609,7 @@ class ICEPolyLine extends ICEDotPath {
     }
 
     if (!isNil(newState.endPoint)) {
-      let len = this.state.points.length;
+      const len = this.state.points.length;
       this.state.points[len - 1] = [...newState.endPoint];
     }
 
@@ -629,11 +629,11 @@ class ICEPolyLine extends ICEDotPath {
   public getRotateAngle(): number {
     //先进行共线判断，如果所有点都共线，则旋转角等于直线斜率对应的旋转角。
     if (this.isDotsOnSameLine()) {
-      let startX = 0; //由于 ICEPolyLine 总是把 left/top 与 startPoint 重合，所以这里的 startX 总是为 0
-      let startY = 0; //由于 ICEPolyLine 总是把 left/top 与 startPoint 重合，所以这里的 startY 总是为 0
-      let len = this.state.points.length;
-      let endX = this.state.points[len - 1][0] - this.state.points[0][0];
-      let endY = this.state.points[len - 1][1] - this.state.points[0][1];
+      const startX = 0; //由于 ICEPolyLine 总是把 left/top 与 startPoint 重合，所以这里的 startX 总是为 0
+      const startY = 0; //由于 ICEPolyLine 总是把 left/top 与 startPoint 重合，所以这里的 startY 总是为 0
+      const len = this.state.points.length;
+      const endX = this.state.points[len - 1][0] - this.state.points[0][0];
+      const endY = this.state.points[len - 1][1] - this.state.points[0][1];
 
       //计算直线的旋转角
       let angle = GeoUtil.calcRotateAngle(endX, endY, startX, startY);

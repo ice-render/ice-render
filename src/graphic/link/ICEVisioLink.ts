@@ -61,9 +61,9 @@ export default class ICEVisioLink extends ICEPolyLine {
    * @returns
    */
   protected calcDots() {
-    let solutions = this.interpolate();
-    let { left, top } = this.state;
-    let arr = solutions[0][2];
+    const solutions = this.interpolate();
+    const { left, top } = this.state;
+    const arr = solutions[0][2];
     this.state.points = [];
     this.state.dots = [];
 
@@ -84,16 +84,16 @@ export default class ICEVisioLink extends ICEPolyLine {
    * @returns
    */
   protected interpolate() {
-    let len = this.state.points.length;
-    let startX = this.state.points[0][0];
-    let startY = this.state.points[0][1];
-    let endX = this.state.points[len - 1][0];
-    let endY = this.state.points[len - 1][1];
+    const len = this.state.points.length;
+    const startX = this.state.points[0][0];
+    const startY = this.state.points[0][1];
+    const endX = this.state.points[len - 1][0];
+    const endY = this.state.points[len - 1][1];
 
-    let startPoint = new GeoPoint(startX, startY);
-    let endPoint = new GeoPoint(endX, endY);
+    const startPoint = new GeoPoint(startX, startY);
+    const endPoint = new GeoPoint(endX, endY);
 
-    let potentialExits = [];
+    const potentialExits = [];
     let startExitPoint = null;
     let endExitPoint = null;
     let solutions = [];
@@ -144,7 +144,7 @@ export default class ICEVisioLink extends ICEPolyLine {
     let gapIndex = 0;
 
     //Basic solution
-    let s = [startPoint];
+    const s = [startPoint];
     if (startExitPoint) {
       s.push(startExitPoint);
       gapIndex = 1;
@@ -153,102 +153,102 @@ export default class ICEVisioLink extends ICEPolyLine {
     s.push(endPoint);
 
     //SO - no additional points
-    let s0 = GeoPoint.cloneArray(s);
+    const s0 = GeoPoint.cloneArray(s);
     solutions.push(['s0', 's0', s0]);
 
     //S1
-    let s1 = GeoPoint.cloneArray(s);
+    const s1 = GeoPoint.cloneArray(s);
 
     //first variant
-    let s1_1 = GeoPoint.cloneArray(s1);
+    const s1_1 = GeoPoint.cloneArray(s1);
     s1_1.splice(gapIndex + 1, 0, new GeoPoint(s1_1[gapIndex].x, s1_1[gapIndex + 1].y));
     solutions.push(['s1', 's1_1', s1_1]);
 
     //second variant
-    let s1_2 = GeoPoint.cloneArray(s1);
+    const s1_2 = GeoPoint.cloneArray(s1);
     s1_2.splice(gapIndex + 1, 0, new GeoPoint(s1_2[gapIndex + 1].x, s1_2[gapIndex].y));
     solutions.push(['s1', 's1_2', s1_2]);
 
     //S2
     //Variant I
-    let s2_1 = GeoPoint.cloneArray(s1);
-    let s2_1_1 = new GeoPoint((s2_1[gapIndex].x + s2_1[gapIndex + 1].x) / 2, s2_1[gapIndex].y);
-    let s2_1_2 = new GeoPoint((s2_1[gapIndex].x + s2_1[gapIndex + 1].x) / 2, s2_1[gapIndex + 1].y);
+    const s2_1 = GeoPoint.cloneArray(s1);
+    const s2_1_1 = new GeoPoint((s2_1[gapIndex].x + s2_1[gapIndex + 1].x) / 2, s2_1[gapIndex].y);
+    const s2_1_2 = new GeoPoint((s2_1[gapIndex].x + s2_1[gapIndex + 1].x) / 2, s2_1[gapIndex + 1].y);
     s2_1.splice(gapIndex + 1, 0, s2_1_1, s2_1_2);
     solutions.push(['s2', 's2_1', s2_1]);
 
     //Variant II
-    let s2_2 = GeoPoint.cloneArray(s1);
-    let s2_2_1 = new GeoPoint(s2_2[gapIndex].x, (s2_2[gapIndex].y + s2_2[gapIndex + 1].y) / 2);
-    let s2_2_2 = new GeoPoint(s2_2[gapIndex + 1].x, (s2_2[gapIndex].y + s2_2[gapIndex + 1].y) / 2);
+    const s2_2 = GeoPoint.cloneArray(s1);
+    const s2_2_1 = new GeoPoint(s2_2[gapIndex].x, (s2_2[gapIndex].y + s2_2[gapIndex + 1].y) / 2);
+    const s2_2_2 = new GeoPoint(s2_2[gapIndex + 1].x, (s2_2[gapIndex].y + s2_2[gapIndex + 1].y) / 2);
     s2_2.splice(gapIndex + 1, 0, s2_2_1, s2_2_2);
     solutions.push(['s2', 's2_2', s2_2]);
 
     //Variant III
-    let s2_3 = GeoPoint.cloneArray(s1);
+    const s2_3 = GeoPoint.cloneArray(s1);
     //find the amount (stored in delta) of pixels we need to move right so no intersection with a figure will be present
     //add points X coordinates to be able to generate Variant III even in the absence of figures :p
-    let eastExits = [s2_3[gapIndex].x + 20, s2_3[gapIndex + 1].x + 20];
+    const eastExits = [s2_3[gapIndex].x + 20, s2_3[gapIndex + 1].x + 20];
     if (startBounding) {
       eastExits.push(startBounding.br[0] + 20);
     }
     if (endBounding) {
       eastExits.push(endBounding.br[0] + 20);
     }
-    let eastExit = this.max(eastExits);
-    let s2_3_1 = new GeoPoint(eastExit, s2_3[gapIndex].y);
-    let s2_3_2 = new GeoPoint(eastExit, s2_3[gapIndex + 1].y);
+    const eastExit = this.max(eastExits);
+    const s2_3_1 = new GeoPoint(eastExit, s2_3[gapIndex].y);
+    const s2_3_2 = new GeoPoint(eastExit, s2_3[gapIndex + 1].y);
     s2_3.splice(gapIndex + 1, 0, s2_3_1, s2_3_2);
     solutions.push(['s2', 's2_3', s2_3]);
 
     //Variant IV
-    let s2_4 = GeoPoint.cloneArray(s1);
+    const s2_4 = GeoPoint.cloneArray(s1);
     //find the amount (stored in delta) of pixels we need to move up so no intersection with a figure will be present
     //add points y coordinates to be able to generate Variant III even in the absence of figures :p
-    let northExits = [s2_4[gapIndex].y - 20, s2_4[gapIndex + 1].y - 20];
+    const northExits = [s2_4[gapIndex].y - 20, s2_4[gapIndex + 1].y - 20];
     if (startBounding) {
       northExits.push(startBounding.tl[1] - 20);
     }
     if (endBounding) {
       northExits.push(endBounding.tl[1] - 20);
     }
-    let northExit = this.min(northExits);
-    let s2_4_1 = new GeoPoint(s2_4[gapIndex].x, northExit);
-    let s2_4_2 = new GeoPoint(s2_4[gapIndex + 1].x, northExit);
+    const northExit = this.min(northExits);
+    const s2_4_1 = new GeoPoint(s2_4[gapIndex].x, northExit);
+    const s2_4_2 = new GeoPoint(s2_4[gapIndex + 1].x, northExit);
     s2_4.splice(gapIndex + 1, 0, s2_4_1, s2_4_2);
     solutions.push(['s2', 's2_4', s2_4]);
 
     //Variant V
-    let s2_5 = GeoPoint.cloneArray(s1);
+    const s2_5 = GeoPoint.cloneArray(s1);
     //find the amount (stored in delta) of pixels we need to move left so no intersection with a figure will be present
     //add points x coordinates to be able to generate Variant III even in the absence of figures :p
-    let westExits = [s2_5[gapIndex].x - 20, s2_5[gapIndex + 1].x - 20];
+    const westExits = [s2_5[gapIndex].x - 20, s2_5[gapIndex + 1].x - 20];
     if (startBounding) {
       westExits.push(startBounding.tl[0] - 20);
     }
     if (endBounding) {
       westExits.push(endBounding.tl[0] - 20);
     }
-    let westExit = this.min(westExits);
-    let s2_5_1 = new GeoPoint(westExit, s2_5[gapIndex].y);
-    let s2_5_2 = new GeoPoint(westExit, s2_5[gapIndex + 1].y);
+    const westExit = this.min(westExits);
+    const s2_5_1 = new GeoPoint(westExit, s2_5[gapIndex].y);
+    const s2_5_2 = new GeoPoint(westExit, s2_5[gapIndex + 1].y);
     s2_5.splice(gapIndex + 1, 0, s2_5_1, s2_5_2);
     solutions.push(['s2', 's2_5', s2_5]);
 
     //Variant VI
-    let s2_6 = GeoPoint.cloneArray(s1);
+    const s2_6 = GeoPoint.cloneArray(s1);
     //find the amount (stored in delta) of pixels we need to move down so no intersection with a figure will be present
     //add points y coordinates to be able to generate Variant III even in the absence of figures :p
-    let southExits = [s2_6[gapIndex].y + 20, s2_6[gapIndex + 1].y + 20];
+    const southExits = [s2_6[gapIndex].y + 20, s2_6[gapIndex + 1].y + 20];
     if (startBounding) {
       southExits.push(startBounding.tl[1] + startBounding.height + 20);
     }
     if (endBounding) {
       southExits.push(endBounding.tl[1] + endBounding.height + 20);
     }
-    let southExit = this.max(southExits);
-    let s2_6_1 = new GeoPoint(s2_6[gapIndex].x, southExit);
-    let s2_6_2 = new GeoPoint(s2_6[gapIndex + 1].x, southExit);
+    const southExit = this.max(southExits);
+    const s2_6_1 = new GeoPoint(s2_6[gapIndex].x, southExit);
+    const s2_6_2 = new GeoPoint(s2_6[gapIndex + 1].x, southExit);
     s2_6.splice(gapIndex + 1, 0, s2_6_1, s2_6_2);
     solutions.push(['s2', 's2_6', s2_6]);
 
@@ -264,9 +264,9 @@ export default class ICEVisioLink extends ICEPolyLine {
      * (not interesteted) sort by length :p
      */
     //1. filter non ortogonal solutions
-    let orthogonalSolution = [];
+    const orthogonalSolution = [];
     for (let i = 0; i < solutions.length; i++) {
-      let solution = solutions[i][2];
+      const solution = solutions[i][2];
       if (this.orthogonalPath(solution)) {
         orthogonalSolution.push(solutions[i]);
       }
@@ -275,9 +275,9 @@ export default class ICEVisioLink extends ICEPolyLine {
 
     //2. filter backward solutions, do not allow start and end points to coincide - ignore them
     if (!startPoint.equals(endPoint)) {
-      let forwardSolutions = [];
+      const forwardSolutions = [];
       for (let i = 0; i < solutions.length; i++) {
-        let solution = solutions[i][2];
+        const solution = solutions[i][2];
         if (this.forwardPath(solution)) {
           forwardSolutions.push(solutions[i]);
         }
@@ -289,9 +289,9 @@ export default class ICEVisioLink extends ICEPolyLine {
     }
 
     //3. Filter non intersecting solutions
-    let nonIntersectionSolutions = [];
+    const nonIntersectionSolutions = [];
     for (let i = 0; i < solutions.length; i++) {
-      let solution = solutions[i][2];
+      const solution = solutions[i][2];
       let intersect = false;
       let innerLines = solution.slice(); //just a shallow copy
 
@@ -329,11 +329,11 @@ export default class ICEVisioLink extends ICEPolyLine {
       //nothing to do...
     }
 
-    let firstSolution = solutions[0][2]; //pick first solution
-    let nrOfPoints = firstSolution.length;
-    let sameNrPointsSolution = [];
+    const firstSolution = solutions[0][2]; //pick first solution
+    const nrOfPoints = firstSolution.length;
+    const sameNrPointsSolution = [];
     for (let i = 0; i < solutions.length; i++) {
-      let solution = solutions[i][2];
+      const solution = solutions[i][2];
       if (solution.length == nrOfPoints) {
         sameNrPointsSolution.push(solutions[i]);
       }
@@ -395,25 +395,25 @@ export default class ICEVisioLink extends ICEPolyLine {
     else if (l1.startPoint.x == l1.endPoint.x || l2.startPoint.x == l2.endPoint.x) {
       // let assume l2 is vertical, otherwise exchange them
       if (l1.startPoint.x == l1.endPoint.x) {
-        let l = l1;
+        const l = l1;
         l1 = l2;
         l2 = l;
       }
       // finding intersection of 'infinite' lines
       // equation of the first line is y = ax + b, second: x = c
-      let a = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
-      let b = l1.startPoint.y - a * l1.startPoint.x;
-      let x0 = l2.startPoint.x;
-      let y0 = a * x0 + b;
+      const a = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
+      const b = l1.startPoint.y - a * l1.startPoint.x;
+      const x0 = l2.startPoint.x;
+      const y0 = a * x0 + b;
       return l1.contains(x0, y0) && l2.contains(x0, y0);
     }
     // check normal case - both lines are not vertical
     else {
       //line equation is : y = a*x + b, b = y - a * x
-      let a1 = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
-      let b1 = l1.startPoint.y - a1 * l1.startPoint.x;
-      let a2 = (l2.endPoint.y - l2.startPoint.y) / (l2.endPoint.x - l2.startPoint.x);
-      let b2 = l2.startPoint.y - a2 * l2.startPoint.x;
+      const a1 = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
+      const b1 = l1.startPoint.y - a1 * l1.startPoint.x;
+      const a2 = (l2.endPoint.y - l2.startPoint.y) / (l2.endPoint.x - l2.startPoint.x);
+      const b2 = l2.startPoint.y - a2 * l2.startPoint.x;
 
       if (a1 == a2) {
         //paralel lines
@@ -432,8 +432,8 @@ export default class ICEVisioLink extends ICEPolyLine {
          * => x0 = (b2 - b1) / (a1 - a2)
          * => y0 = a1 * x0 + b1
          */
-        let x0 = (b2 - b1) / (a1 - a2);
-        let y0 = a1 * x0 + b1;
+        const x0 = (b2 - b1) / (a1 - a2);
+        const y0 = a1 * x0 + b1;
         return l1.contains(x0, y0) && l2.contains(x0, y0);
       }
     }
@@ -448,7 +448,7 @@ export default class ICEVisioLink extends ICEPolyLine {
    */
   private polylineIntersectsRectangle(points, boundingRect, closedPolyline: boolean = false) {
     //get the 4 lines/segments represented by the boundingRect
-    let lines = [];
+    const lines = [];
 
     lines.push(
       new GeoLine(new GeoPoint(boundingRect.x1, boundingRect.y1), new GeoPoint(boundingRect.x2, boundingRect.y1))
@@ -465,7 +465,7 @@ export default class ICEVisioLink extends ICEPolyLine {
 
     for (let k = 0; k < points.length - 1; k++) {
       //create a line out of each 2 consecutive points
-      let tempLine = new GeoLine(points[k], points[k + 1]);
+      const tempLine = new GeoLine(points[k], points[k + 1]);
       //see if that line intersect any of the line on boundingRect border
       for (let i = 0; i < lines.length; i++) {
         if (this.lineIntersectsLine(tempLine, lines[i])) {
@@ -477,7 +477,7 @@ export default class ICEVisioLink extends ICEPolyLine {
     //check the closed figure - that is last point connected to the first
     if (closedPolyline) {
       //create a line out of each 2 consecutive points
-      let tempLine1 = new GeoLine(points[points.length - 1], points[0]);
+      const tempLine1 = new GeoLine(points[points.length - 1], points[0]);
       //see if that line intersect any of the line on boundingRect border
       for (let j = 0; j < lines.length; j++) {
         if (this.lineIntersectsLine(tempLine1, lines[j])) {
@@ -599,8 +599,8 @@ export default class ICEVisioLink extends ICEPolyLine {
     if (v.lenght == 0) {
       return NaN;
     } else {
-      var m = v[0];
-      for (var i = 0; i < v.length; i++) {
+      let m = v[0];
+      for (let i = 0; i < v.length; i++) {
         if (m < v[i]) {
           m = v[i];
         }
@@ -619,8 +619,8 @@ export default class ICEVisioLink extends ICEPolyLine {
     if (v.lenght == 0) {
       return NaN;
     } else {
-      var m = v[0];
-      for (var i = 0; i < v.length; i++) {
+      let m = v[0];
+      for (let i = 0; i < v.length; i++) {
         if (m > v[i]) {
           m = v[i];
         }

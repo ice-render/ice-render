@@ -30,7 +30,7 @@ class DOMEventDispatcher {
 
   start() {
     let componentCache = null; //缓存上次被点击的组件
-    let domEvts = [...mouseEvents, ...keyboardEvents]; //鼠标事件和键盘事件合并在一起处理
+    const domEvts = [...mouseEvents, ...keyboardEvents]; //鼠标事件和键盘事件合并在一起处理
     for (let i = 0; i < domEvts.length; i++) {
       const evtMapping = domEvts[i];
       const domEvtName = evtMapping[0];
@@ -79,27 +79,27 @@ class DOMEventDispatcher {
   private findTargetComponent(evt) {
     if (this._stopped) return null;
 
-    let { offsetX, offsetY } = evt;
-    let x = offsetX;
-    let y = offsetY;
+    const { offsetX, offsetY } = evt;
+    const x = offsetX;
+    const y = offsetY;
 
-    let arr1 = flattenTree([], this.ice.childNodes);
-    let arr2 = flattenTree([], this.ice.toolNodes);
-    let arr = [...arr1, ...arr2];
+    const arr1 = flattenTree([], this.ice.childNodes);
+    const arr2 = flattenTree([], this.ice.toolNodes);
+    const arr = [...arr1, ...arr2];
     arr.sort((a, b) => {
       return a.state.zIndex - b.state.zIndex;
     });
 
     for (let i = 0; i < arr.length; i++) {
-      let component: any = arr[i];
-      let { interactive, display } = component.state;
-      let flag = component.containsPoint(x, y);
+      const component: any = arr[i];
+      const { interactive, display } = component.state;
+      const flag = component.containsPoint(x, y);
       if (flag && interactive && display) {
         this.selectionCandidates.push(component);
       }
     }
 
-    let component = this.selectionCandidates.pop();
+    const component = this.selectionCandidates.pop();
     this.selectionCandidates = [];
     return component;
   }

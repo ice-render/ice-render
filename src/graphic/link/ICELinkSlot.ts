@@ -61,7 +61,7 @@ class ICELinkSlot extends ICECircle {
   //FIXME:这里位置计算有问题
   //FIXME:这里需要采用 TransformControlPanel 中的算法来计算插槽位置。
   protected updatePosition() {
-    let box = this._hostComponent.getMinBoundingBox();
+    const box = this._hostComponent.getMinBoundingBox();
     let left = 0;
     let top = 0;
     switch (this.state.position) {

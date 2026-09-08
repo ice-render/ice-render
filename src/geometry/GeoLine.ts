@@ -27,10 +27,10 @@ export default class GeoLine {
   }
 
   contains(x: number, y: number): boolean {
-    let delta = 3;
-    let lineLength = Math.hypot(this.endPoint.x - this.startPoint.x, this.endPoint.y - this.startPoint.y);
-    let len1 = Math.hypot(x - this.startPoint.x, y - this.startPoint.y);
-    let len2 = Math.hypot(x - this.endPoint.x, y - this.endPoint.y);
+    const delta = 3;
+    const lineLength = Math.hypot(this.endPoint.x - this.startPoint.x, this.endPoint.y - this.startPoint.y);
+    const len1 = Math.hypot(x - this.startPoint.x, y - this.startPoint.y);
+    const len2 = Math.hypot(x - this.endPoint.x, y - this.endPoint.y);
     if (len1 + len2 >= lineLength - delta && len1 + len2 <= lineLength + delta) {
       return true;
     }

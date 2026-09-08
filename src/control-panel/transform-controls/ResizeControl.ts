@@ -46,10 +46,10 @@ export default class ResizeControl extends ICERect {
       return;
     }
 
-    let { quadrant } = evt;
+    const { quadrant } = evt;
     let movementX = evt.movementX;
     let movementY = evt.movementY;
-    let parentState = this.parentNode.state;
+    const parentState = this.parentNode.state;
     let newLeft = parentState.left;
     let newTop = parentState.top;
     let newWidth = parentState.width;
@@ -58,9 +58,9 @@ export default class ResizeControl extends ICERect {
     //用 parentNode 的逆矩阵把全局坐标系中的移动量转换为组件本地的移动量。
     //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
     //@ts-ignore
-    let matrix = mat2d.invert([], parentState.absoluteLinearMatrix);
+    const matrix = mat2d.invert([], parentState.absoluteLinearMatrix);
     //@ts-ignore
-    let point = vec2.transformMat2d([], [movementX, movementY], matrix);
+    const point = vec2.transformMat2d([], [movementX, movementY], matrix);
     movementX = point[0];
     movementY = point[1];
 
@@ -133,22 +133,23 @@ export default class ResizeControl extends ICERect {
    * @param evt
    */
   public moveGlobalPosition(tx: number, ty: number, evt: any = new ICEEvent()): void {
-    let signX = tx > 0 ? 1 : -1; //signX 大于 0 表示鼠标正在向 X 轴正向移动
-    let signY = ty > 0 ? 1 : -1; //signY 大于 0 表示鼠标正在向 Y 轴正向移动
+    const signX = tx > 0 ? 1 : -1; //signX 大于 0 表示鼠标正在向 X 轴正向移动
+    const signY = ty > 0 ? 1 : -1; //signY 大于 0 表示鼠标正在向 Y 轴正向移动
 
-    let parentState = this.parentNode.state;
-    let parentLocalOrigin = parentState.localOrigin;
-    let parentWidth = parentState.width;
-    let parentHeight = parentState.height;
+    const parentState = this.parentNode.state;
+    const parentLocalOrigin = parentState.localOrigin;
+    const parentWidth = parentState.width;
+    const parentHeight = parentState.height;
     //@ts-ignore
-    let matrix = mat2d.invert([], parentState.absoluteLinearMatrix);
+    const matrix = mat2d.invert([], parentState.absoluteLinearMatrix);
     //@ts-ignore
-    let point = vec2.transformMat2d([], [tx, ty], matrix);
+    const point = vec2.transformMat2d([], [tx, ty], matrix);
     tx = point[0];
     ty = point[1];
 
-    let { left, top, quadrant } = this.state;
-    let halfandleSize = this.state.width / 2;
+    let { left, top } = this.state;
+    const { quadrant } = this.state;
+    const halfandleSize = this.state.width / 2;
     let newQuadrant = 0;
 
     if (this.state.direction === 'x') {
@@ -185,15 +186,15 @@ export default class ResizeControl extends ICERect {
       if (round(x1) === 0) {
         x1 = signX * 0.5;
       }
-      let y1 = -parentHeight / 2;
-      let k1 = y1 / x1;
+      const y1 = -parentHeight / 2;
+      const k1 = y1 / x1;
 
       let x2 = parentWidth / 2;
       if (round(x2) === 0) {
         x2 = signX * 0.5;
       }
-      let y2 = -parentHeight / 2;
-      let k2 = y2 / x2;
+      const y2 = -parentHeight / 2;
+      const k2 = y2 / x2;
 
       //子组件的 left/top 是相对于父组件的左上角位置的数值，而不是父组件移动原点之后的数值，换基到本地原点，然后基于斜率计算。
       //k=(top+halfandleSize-parentLocalOrigin[1]+ty)/(left+halfandleSize-parentLocalOrigin[0]+tx)
@@ -225,7 +226,7 @@ export default class ResizeControl extends ICERect {
     }
 
     //可能需要和对面的手柄交换象限
-    let quadrantSwitched = quadrant === newQuadrant ? false : true;
+    const quadrantSwitched = quadrant === newQuadrant ? false : true;
     if (quadrantSwitched) {
       this.parentNode.toggleControlQuadrant(this, newQuadrant);
     }

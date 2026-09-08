@@ -2,7 +2,10 @@ import { flattenTree, getVal } from '../../src/util/data-util';
 
 describe('flattenTree', () => {
   it('展平单层节点并标注 _level/_pid', () => {
-    const tree = [{ id: 'a', childNodes: [] }, { id: 'b', childNodes: [] }];
+    const tree = [
+      { id: 'a', childNodes: [] },
+      { id: 'b', childNodes: [] },
+    ];
     const result = flattenTree([], tree);
     expect(result).toHaveLength(2);
     expect(result[0]._level).toBe(1);
@@ -10,9 +13,7 @@ describe('flattenTree', () => {
   });
 
   it('递归展平嵌套子节点并保留父子关系', () => {
-    const tree = [
-      { id: 'p', childNodes: [{ id: 'c', childNodes: [] }] },
-    ];
+    const tree = [{ id: 'p', childNodes: [{ id: 'c', childNodes: [] }] }];
     const result = flattenTree([], tree);
     expect(result.map((n) => n.id)).toEqual(['p', 'c']);
     expect(result[1]._level).toBe(2);

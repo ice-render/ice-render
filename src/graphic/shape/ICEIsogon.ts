@@ -22,7 +22,7 @@ class ICEIsogon extends ICEDotPath {
    * @param props
    */
   constructor(props: any = {}) {
-    let param = {
+    const param = {
       radius: 10, //外接圆的半径
       edges: 3, //边数 N ，正整数，大于等于3
       startAngle: 90, //起始点的角度
@@ -47,13 +47,13 @@ class ICEIsogon extends ICEDotPath {
    */
   protected calcDots() {
     this.state.dots = [];
-    let avgAngle = (2 * Math.PI) / this.state.edges;
+    const avgAngle = (2 * Math.PI) / this.state.edges;
     //求正 N 边形的顶点坐标，极坐标法。
-    let radius = this.state.radius;
+    const radius = this.state.radius;
     for (let i = 0; i < this.state.edges; i++) {
-      let currentAngel = avgAngle * i - glMatrix.toRadian(this.state.startAngle);
-      let x = Math.floor(radius * Math.cos(currentAngel) + radius);
-      let y = Math.floor(radius * Math.sin(currentAngel) + radius);
+      const currentAngel = avgAngle * i - glMatrix.toRadian(this.state.startAngle);
+      const x = Math.floor(radius * Math.cos(currentAngel) + radius);
+      const y = Math.floor(radius * Math.sin(currentAngel) + radius);
       this.state.dots.push([x, y]);
     }
     return this.state.dots;

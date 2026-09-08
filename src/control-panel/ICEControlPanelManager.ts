@@ -74,7 +74,7 @@ class ICEControlPanelManager {
   }
 
   private mouseDownHandler(evt: ICEEvent) {
-    let component = evt.target as any;
+    const component = evt.target as any;
 
     if (!component.ice || !component.state.interactive || !component.state.transformable) {
       this.lineControlPanel.disable();

@@ -62,12 +62,12 @@ export default class TransformControlPanel extends ICEControlPanel {
    * TODO:添加斜切手柄？
    */
   protected initControls(): void {
-    let width = this.state.width;
-    let height = this.state.height;
-    let halfWidth = width / 2;
-    let halfHeight = height / 2;
-    let halfControlSize = this.resizeControlSize / 2;
-    let resizeControlConfig: Array<any> = [
+    const width = this.state.width;
+    const height = this.state.height;
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+    const halfControlSize = this.resizeControlSize / 2;
+    const resizeControlConfig: Array<any> = [
       {
         direction: 'xy', //可以移动的坐标轴
         quadrant: 2, //在组件本地坐标轴中的象限 @see ResizeControl
@@ -135,8 +135,8 @@ export default class TransformControlPanel extends ICEControlPanel {
     }
 
     // 创建 1 个 RotateControl
-    let left = this.state.width / 2 - this.rotateControlSize;
-    let top = -this.rotateControlffsetY;
+    const left = this.state.width / 2 - this.rotateControlSize;
+    const top = -this.rotateControlffsetY;
     this.rotateControlInstance = new RotateControl({
       zIndex: bigZIndexNum + 3,
       display: false,
@@ -208,7 +208,7 @@ export default class TransformControlPanel extends ICEControlPanel {
     if (!this.targetComponent) {
       return;
     }
-    let { rotate } = this.state.transform;
+    const { rotate } = this.state.transform;
     this.targetComponent.setGlobalRotate(rotate);
     this.targetComponent.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE);
   }
@@ -218,18 +218,18 @@ export default class TransformControlPanel extends ICEControlPanel {
       return;
     }
 
-    let { quadrant } = evt;
+    const { quadrant } = evt;
     let movementX = evt.movementX;
     let movementY = evt.movementY;
-    let targetState = this.targetComponent.state;
+    const targetState = this.targetComponent.state;
     let newLeft = targetState.left;
     let newTop = targetState.top;
     let newWidth = targetState.width;
     let newHeight = targetState.height;
     //@ts-ignore
-    let matrix = mat2d.invert([], targetState.absoluteLinearMatrix);
+    const matrix = mat2d.invert([], targetState.absoluteLinearMatrix);
     //@ts-ignore
-    let point = vec2.transformMat2d([], [movementX, movementY], matrix);
+    const point = vec2.transformMat2d([], [movementX, movementY], matrix);
     movementX = point[0];
     movementY = point[1];
 
@@ -296,15 +296,15 @@ export default class TransformControlPanel extends ICEControlPanel {
    */
   protected updateControlPositions() {
     //重新计算所有 ResizeControl 的位置，共8个
-    let width = this.state.width;
-    let height = this.state.height;
-    let halfWidth = width / 2;
-    let halfHeight = height / 2;
-    let halfControlSize = this.resizeControlSize / 2;
+    const width = this.state.width;
+    const height = this.state.height;
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+    const halfControlSize = this.resizeControlSize / 2;
 
     for (let i = 0; i < this.resizeControlInstanceCache.length; i++) {
       const resizeControl = this.resizeControlInstanceCache[i];
-      let quadrant = resizeControl.state.quadrant;
+      const quadrant = resizeControl.state.quadrant;
       let point = [0, 0];
       switch (quadrant) {
         case 1:
@@ -341,8 +341,8 @@ export default class TransformControlPanel extends ICEControlPanel {
     }
 
     //重新计算 RotateControl 的位置
-    let left = this.state.width / 2 - this.rotateControlSize;
-    let top = -this.rotateControlffsetY;
+    const left = this.state.width / 2 - this.rotateControlSize;
+    const top = -this.rotateControlffsetY;
     this.rotateControlInstance.setState({ left, top });
   }
 
@@ -350,8 +350,8 @@ export default class TransformControlPanel extends ICEControlPanel {
     if (!this.targetComponent) {
       return;
     }
-    let angle = this.targetComponent.getRotateAngle(true);
-    let { left, top, width, height } = this.targetComponent.getLocalLeftTop(true);
+    const angle = this.targetComponent.getRotateAngle(true);
+    const { left, top, width, height } = this.targetComponent.getLocalLeftTop(true);
     this.setState({
       left,
       top,

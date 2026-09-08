@@ -69,7 +69,7 @@ class ICE {
     }
 
     //把内置的类型映射拷贝到 typeMapping 上
-    for (let p in componentTypeMap) {
+    for (const p in componentTypeMap) {
       this.typeMapping[p] = componentTypeMap[p];
     }
 
@@ -223,7 +223,7 @@ class ICE {
    * @param className
    * @param Clazz
    */
-  public registerType(className: string, Clazz: Function) {
+  public registerType(className: string, Clazz: new (...args: any[]) => any) {
     this.typeMapping[className] = Clazz;
   }
 
@@ -257,7 +257,7 @@ class ICE {
   }
 
   public fromJSONObject(jsonObject) {
-    let startTime = Date.now();
+    const startTime = Date.now();
 
     //先停止关键的管理器
     FrameManager.stop();
@@ -281,7 +281,7 @@ class ICE {
       this.eventDispatcher.stopped = false;
     }, 300);
 
-    let endTime = Date.now();
+    const endTime = Date.now();
     console.log(`fromJSONString> ${endTime - startTime} ms`);
   }
 

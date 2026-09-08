@@ -45,9 +45,9 @@ export default class LineControlPanel extends ICEControlPanel {
   }
 
   protected initControls(): void {
-    let width = this.state.width;
-    let height = this.state.height;
-    let halfControlSize = this.controlSize / 2;
+    const width = this.state.width;
+    const height = this.state.height;
+    const halfControlSize = this.controlSize / 2;
 
     this.startControl = new ICELinkHook({
       zIndex: bigZIndexNum + 1001,
@@ -111,11 +111,11 @@ export default class LineControlPanel extends ICEControlPanel {
       return;
     }
 
-    let position = evt.position;
+    const position = evt.position;
     let movementX = evt.movementX;
     let movementY = evt.movementY;
-    let targetState = this.targetComponent.state;
-    let len = targetState.points.length;
+    const targetState = this.targetComponent.state;
+    const len = targetState.points.length;
     let newStartX = targetState.points[0][0];
     let newStartY = targetState.points[0][1];
     let newEndX = targetState.points[len - 1][0];
@@ -124,9 +124,9 @@ export default class LineControlPanel extends ICEControlPanel {
     //用逆矩阵补偿组件 transform 导致的坐标变换。
     //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
     //@ts-ignore
-    let matrix = mat2d.invert([], targetState.absoluteLinearMatrix);
+    const matrix = mat2d.invert([], targetState.absoluteLinearMatrix);
     //@ts-ignore
-    let point = vec2.transformMat2d([], [movementX, movementY], matrix);
+    const point = vec2.transformMat2d([], [movementX, movementY], matrix);
     movementX = point[0];
     movementY = point[1];
 
@@ -169,12 +169,12 @@ export default class LineControlPanel extends ICEControlPanel {
     });
 
     //设置 LineControlPanel 内部手柄的位置
-    let halfControlSize = this.controlSize / 2;
-    let len = this.targetComponent.state.points.length;
-    let start = this.targetComponent.state.points[0];
-    let end = this.targetComponent.state.points[len - 1];
-    let startPoint = [start[0], start[1]];
-    let endPoint = [end[0], end[1]];
+    const halfControlSize = this.controlSize / 2;
+    const len = this.targetComponent.state.points.length;
+    const start = this.targetComponent.state.points[0];
+    const end = this.targetComponent.state.points[len - 1];
+    const startPoint = [start[0], start[1]];
+    const endPoint = [end[0], end[1]];
     this.startControl.setState({
       left: startPoint[0] - halfControlSize,
       top: startPoint[1] - halfControlSize,
