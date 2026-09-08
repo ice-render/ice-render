@@ -211,6 +211,8 @@ export default class TransformControlPanel extends ICEControlPanel {
     const { rotate } = this.state.transform;
     this.targetComponent.setGlobalRotate(rotate);
     this.targetComponent.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE);
+    // 旋转会改变目标的包围盒宽高，必须重新从目标推导面板，否则连续 resize→rotate→resize 会漂移
+    this.updatePanel();
   }
 
   private resizeEvtHandler(evt: any) {
@@ -285,6 +287,8 @@ export default class TransformControlPanel extends ICEControlPanel {
       height: Math.abs(newHeight),
     });
     this.targetComponent.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE);
+    // resize 改变了目标的局部宽高，其包围盒（面板应贴合的对象）也随之变化，重新从目标推导面板
+    this.updatePanel();
   }
 
   /**

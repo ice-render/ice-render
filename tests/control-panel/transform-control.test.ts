@@ -1,4 +1,5 @@
 import TransformControlPanel from '../../src/control-panel/transform-controls/TransformControlPanel';
+import ICE_EVENT_NAME_CONSTS from '../../src/consts/ICE_EVENT_NAME_CONSTS';
 import ICEGroup from '../../src/graphic/container/ICEGroup';
 import ICERect from '../../src/graphic/shape/ICERect';
 
@@ -45,5 +46,21 @@ describe('变换手柄坐标计算（回归：连续变换后手柄脱离图元�
     expect(fresh[0]).toBeCloseTo(0, 6); // cos90
     expect(fresh[1]).toBeCloseTo(1, 6); // sin90
     expect(fresh[2]).toBeCloseTo(-1, 6);
+  });
+
+  it('旋转后 updatePanel 重新贴合目标（修复 resize→rotate→resize 漂移）', () => {
+    const target = new ICERect({ left: 10, top: 10, width: 100, height: 50 });
+    const panel = new TransformControlPanel({ width: 100, height: 100, transform: { rotate: 0 } });
+    panel.targetComponent = target;
+
+    // 模拟 RotateControl：设置面板旋转角后触发 AFTER_ROTATE
+    panel.setState({ transform: { rotate: 30 } });
+    panel.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE);
+
+    // 目标被旋转到 30°，面板宽高应重新贴合其旋转后的包围盒
+    expect(target.getRotateAngle(true)).toBeCloseTo(30, 1);
+    const box = target.getLocalLeftTop(true);
+    expect(panel.state.width).toBeCloseTo(box.width, 1);
+    expect(panel.state.height).toBeCloseTo(box.height, 1);
   });
 });
