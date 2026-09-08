@@ -682,7 +682,33 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   public containsPoint(x: number, y: number): boolean {
-    return this.getMinBoundingBox().containsPoint([x, y]);
+    // 把全局坐标变换到组件本地坐标系（以 origin 为原点的空间），再做精确判定。
+    // 此前直接用 getMinBoundingBox()（旋转后的包围盒）判定，对圆/椭圆/星形等非矩形图元
+    // 会在包围盒的边角处误命中（包围盒大于真实形状）。
+    // 注意：这里用缓存的 state.composedMatrix，而非 composeMatrix()——后者会触发
+    // calcLocalOrigin() 平移 dots 的副作用（ICEDotPath），污染点集。命中检测发生在渲染之后，
+    // 缓存是新鲜的；若尚未渲染过则回退到包围盒判定。
+    const composed = this.state.composedMatrix;
+    if (!composed || composed.length < 6) {
+      return this.getMinBoundingBox().containsPoint([x, y]);
+    }
+    //@ts-ignore
+    const matrix = mat2d.invert([], composed);
+    //@ts-ignore
+    const point = vec2.transformMat2d([], [x, y], matrix);
+    return this.containsLocalPoint(point[0], point[1]);
+  }
+
+  /**
+   * 判断本地坐标（以组件 origin 为原点的空间）的点是否位于图元内部。
+   * 默认用最小包围盒（AABB），子类可覆盖为精确形状判定。
+   * @param localX
+   * @param localY
+   */
+  protected containsLocalPoint(localX: number, localY: number): boolean {
+    const halfWidth = this.state.width / 2;
+    const halfHeight = this.state.height / 2;
+    return localX >= -halfWidth && localX <= halfWidth && localY >= -halfHeight && localY <= halfHeight;
   }
 
   /**

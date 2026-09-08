@@ -101,3 +101,27 @@ test('反复翻转+旋转后 8 个手柄象限仍唯一（修复手柄消失）'
     expect(await uniq()).toBe(8);
   }
 });
+
+test('命中检测精度：圆的包围盒边角点不误命中', async ({ page }) => {
+  await page.goto('/e2e/visual/fixtures/nested-interaction.html');
+  await page.waitForTimeout(400);
+
+  // 先点圆的包围盒边角（圆心外 ~15.6px > 半径 12，但仍在 24×24 包围盒内）：
+  // 精确判定下应命中后方的容器(group)，而非 circle（无预选中，避免面板遮挡干扰）
+  const corner = await page.evaluate(() => {
+    const p = window.__components.circle.localToGlobal(11, 11);
+    return { x: p[0], y: p[1] };
+  });
+  await page.mouse.click(corner.x, corner.y);
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => window.__ice.selectionList[0] === window.__components.circle)).toBe(false);
+
+  // 再点圆心：应选中 circle
+  const center = await page.evaluate(() => {
+    const p = window.__components.circle.localToGlobal(0, 0);
+    return { x: p[0], y: p[1] };
+  });
+  await page.mouse.click(center.x, center.y);
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => window.__ice.selectionList[0] === window.__components.circle)).toBe(true);
+});

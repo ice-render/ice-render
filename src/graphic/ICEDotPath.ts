@@ -57,6 +57,28 @@ export default abstract class ICEDotPath extends ICEPath {
   }
 
   /**
+   * 精确命中判定：点是否位于点集构成的多边形内部（射线法）。
+   * dots 在 calcLocalOrigin() 之后是「以 origin 为原点」的本地坐标，与 containsLocalPoint 的参数空间一致。
+   * @overwrite
+   */
+  protected containsLocalPoint(localX: number, localY: number): boolean {
+    const dots = this.state.dots;
+    if (!dots || dots.length < 3) {
+      return super.containsLocalPoint(localX, localY);
+    }
+    let inside = false;
+    for (let i = 0, j = dots.length - 1; i < dots.length; j = i++) {
+      const xi = dots[i][0];
+      const yi = dots[i][1];
+      const xj = dots[j][0];
+      const yj = dots[j][1];
+      const intersect = yi > localY !== yj > localY && localX < ((xj - xi) * (localY - yi)) / (yj - yi) + xi;
+      if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  /**
    * 点状路径在重新计算本地原点坐标之后，需要移动内部所有点的位置。
    * @overwrite
    * @returns

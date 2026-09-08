@@ -62,6 +62,33 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
+   * 精确命中判定：折线是开放路径，用「点到各线段的最小距离」判定（考虑线宽 + 容差）。
+   * dots 的原点在第 0 个点上，与 containsLocalPoint 的参数空间一致。
+   * @overwrite
+   */
+  protected containsLocalPoint(localX: number, localY: number): boolean {
+    const dots = this.state.dots;
+    if (!dots || dots.length < 2) {
+      return super.containsLocalPoint(localX, localY);
+    }
+    const threshold = Math.max(4, (this.state.lineWidth || 1) / 2 + 3);
+    for (let i = 0; i < dots.length - 1; i++) {
+      const x1 = dots[i][0];
+      const y1 = dots[i][1];
+      const x2 = dots[i + 1][0];
+      const y2 = dots[i + 1][1];
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const lenSq = dx * dx + dy * dy;
+      let t = lenSq === 0 ? 0 : ((localX - x1) * dx + (localY - y1) * dy) / lenSq;
+      t = Math.max(0, Math.min(1, t));
+      const dist = Math.hypot(localX - (x1 + t * dx), localY - (y1 + t * dy));
+      if (dist <= threshold) return true;
+    }
+    return false;
+  }
+
+  /**
    *
    * 整理并校验构造参数。
    *
