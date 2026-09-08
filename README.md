@@ -4,6 +4,9 @@
 
 <h1 align="center">ICERender - 雪花渲染器</h1>
 
+> 📚 架构设计文档见 [`docs/architecture/`](./docs/architecture/README.md)（运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容）。
+
+
 ## 1.简介
 
 ICERender 是一款 canvas 渲染引擎。
