@@ -50,6 +50,32 @@ class ICEEllipse extends ICEPath {
   }
 
   /**
+   * 精确命中判定：点是否位于椭圆内部（圆心为本地原点）。
+   * 圆作为椭圆的特例（radiusX === radiusY）自动继承此实现。
+   * @overwrite
+   */
+  protected containsLocalPoint(localX: number, localY: number): boolean {
+    const rx = this.state.radiusX;
+    const ry = this.state.radiusY;
+    if (!rx || !ry) return false;
+
+    let px = localX;
+    let py = localY;
+    const rotation = this.state.rotation || 0;
+    if (rotation) {
+      // 椭圆自身带 rotation 时，把点反向旋转回未旋转空间再判定
+      const cos = Math.cos(rotation);
+      const sin = Math.sin(rotation);
+      px = localX * cos + localY * sin;
+      py = -localX * sin + localY * cos;
+    }
+
+    const nx = px / rx;
+    const ny = py / ry;
+    return nx * nx + ny * ny <= 1;
+  }
+
+  /**
    * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
    *
    * - 如果 setState 时指定了 radiusX 参数，则 width 会被重新计算，如果指定了 radiusY 参数则 height 会被重新计算。
