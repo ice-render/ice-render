@@ -32,8 +32,8 @@ export default class RotateControl extends ICECircle {
       return;
     }
 
-    //计算手柄旋转角
-    const parentOrigin = this.parentNode.state.absoluteOrigin;
+    //计算手柄旋转角（实时重算面板原点，避免读取可能过期的缓存 absoluteOrigin）
+    const parentOrigin = this.parentNode.calcAbsoluteOrigin();
     const rotateAngle = GeoUtil.calcRotateAngle(evt.offsetX, evt.offsetY, parentOrigin[0], parentOrigin[1]);
 
     //parentNode 旋转角与手柄旋转角同步

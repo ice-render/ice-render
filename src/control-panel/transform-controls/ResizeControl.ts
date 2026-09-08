@@ -56,9 +56,9 @@ export default class ResizeControl extends ICERect {
     let newHeight = parentState.height;
 
     //用 parentNode 的逆矩阵把全局坐标系中的移动量转换为组件本地的移动量。
-    //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
+    //实时重算 parentNode 的 absoluteLinearMatrix，避免读取可能过期的缓存（连续变换会漂移）。
     //@ts-ignore
-    const matrix = mat2d.invert([], parentState.absoluteLinearMatrix);
+    const matrix = mat2d.invert([], this.parentNode.calcAbsoluteLinearMatrix());
     //@ts-ignore
     const point = vec2.transformMat2d([], [movementX, movementY], matrix);
     movementX = point[0];
@@ -141,7 +141,7 @@ export default class ResizeControl extends ICERect {
     const parentWidth = parentState.width;
     const parentHeight = parentState.height;
     //@ts-ignore
-    const matrix = mat2d.invert([], parentState.absoluteLinearMatrix);
+    const matrix = mat2d.invert([], this.parentNode.calcAbsoluteLinearMatrix());
     //@ts-ignore
     const point = vec2.transformMat2d([], [tx, ty], matrix);
     tx = point[0];
