@@ -16,12 +16,20 @@ global.Path2D = class {
   quadraticCurveTo() {}
 };
 
-describe('蚂蚁线（lineDashFlow / lineDashOffset）', () => {
-  it('默认 lineDashOffset=0, lineDashFlow=false（静态虚线）', () => {
+describe('蚂蚁线（lineDashFlow / lineDashOffset / 水管壁）', () => {
+  it('默认 lineDashOffset=0, lineDashFlow=false, lineDashFlowSpeed=60（静态虚线）', () => {
     const r = new ICERect({ width: 100, height: 40, lineDash: [10, 5] });
     expect(r.state.lineDashOffset).toBe(0);
     expect(r.state.lineDashFlow).toBe(false);
-    expect(r.state.lineDashFlowSpeed).toBe(30);
+    expect(r.state.lineDashFlowSpeed).toBe(60);
+    expect(r.state.lineBorder).toBe(false);
+  });
+
+  it('水管壁默认：lineBorder=false, lineBorderWidth=4', () => {
+    const r = new ICERect({});
+    expect(r.state.lineBorder).toBe(false);
+    expect(r.state.lineBorderWidth).toBe(4);
+    expect(r.state.lineBorderColor).toBe('#c8c8c8');
   });
 
   it('lineDashFlow=true 触发 loop 动画注册（__flowRegistered）', () => {
@@ -38,7 +46,7 @@ describe('蚂蚁线（lineDashFlow / lineDashOffset）', () => {
   });
 
   it('lineDashFlowSpeed 决定流动速度', () => {
-    const r = new ICERect({ lineDashFlow: true, lineDashFlowSpeed: 50 });
-    expect(r.state.lineDashFlowSpeed).toBe(50);
+    const r = new ICERect({ lineDashFlow: true, lineDashFlowSpeed: 120 });
+    expect(r.state.lineDashFlowSpeed).toBe(120);
   });
 });

@@ -24,12 +24,15 @@
     });
     ice.addChild(sel);
 
-    // 流动数据线：蚂蚁线连线（数据流）
+    // 流动数据线：蚂蚁线 + 水管壁（lineBorder），像管子里流水
     const line = new ICE.ICEPolyLine({
       points: [[520, 100], [720, 280]],
       lineDash: [10, 6],
       lineDashFlow: true,
-      lineDashFlowSpeed: 50,
+      lineDashFlowSpeed: 80,
+      lineBorder: true,
+      lineBorderWidth: 5,
+      lineBorderColor: '#d0d8e8',
       style: { strokeStyle: '#0c8f09', lineWidth: 3 },
     });
     ice.addChild(line);
