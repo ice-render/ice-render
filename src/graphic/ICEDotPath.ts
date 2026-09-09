@@ -101,6 +101,7 @@ export default abstract class ICEDotPath extends ICEPath {
    * @returns
    */
   protected createPathObject(): any {
+    this.ensureDots();
     this.path2D = root.createPath2D();
     this.path2D.moveTo(this.state.dots[0][0], this.state.dots[0][1]);
     for (let i = 1; i < this.state.dots.length; i++) {
@@ -123,6 +124,17 @@ export default abstract class ICEDotPath extends ICEPath {
   }
 
   /**
+   * 确保 dots 已计算：反序列化时 dots 属缓存值不会被序列化，反序列化后 dots 为空，
+   * 在 render 之前若访问 dots（如 getMinBoundingBox → calc4VertexPoints）会取到空数组导致报错。
+   * 这里在 dots 缺失时惰性触发 calcDots 补齐。
+   */
+  protected ensureDots(): void {
+    if (!this.state.dots || this.state.dots.length === 0) {
+      this.calcDots();
+    }
+  }
+
+  /**
    *
    * 计算4个顶点：
    * - 相对于组件本地的坐标系，原点位于左上角，没有经过矩阵变换。
@@ -131,6 +143,7 @@ export default abstract class ICEDotPath extends ICEPath {
    * @returns
    */
   protected calc4VertexPoints() {
+    this.ensureDots();
     let minX = this.state.dots[0][0];
     let minY = this.state.dots[0][1];
     let maxX = this.state.dots[0][0];

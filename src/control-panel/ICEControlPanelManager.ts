@@ -25,8 +25,8 @@ import TransformControlPanel from './transform-controls/TransformControlPanel';
 class ICEControlPanelManager {
   private ice: ICE;
   //FIXME:这里需要重构，不同类型的组件需要展现不同的操作工具，操作工具可能会有 N 种，需要进一步抽象操作工具相关的逻辑。
-  private transformControlPanel: TransformControlPanel;
-  private lineControlPanel: LineControlPanel;
+  public transformControlPanel: TransformControlPanel;
+  public lineControlPanel: LineControlPanel;
 
   constructor(ice: ICE) {
     this.ice = ice;
