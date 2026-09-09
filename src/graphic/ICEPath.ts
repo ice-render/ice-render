@@ -45,6 +45,15 @@ abstract class ICEPath extends ICEComponent {
     const hasDash = Array.isArray(lineDash) && lineDash.length > 0;
     if (hasDash && typeof this.ctx.setLineDash === 'function') {
       this.ctx.setLineDash(lineDash);
+      // 蚂蚁线（marching ants）：虚线沿路径流动，lineDashOffset 随时间滚动
+      if (this.state.lineDashFlow && typeof this.ctx.lineDashOffset === 'number') {
+        this.__ensureFlowAnimation();
+        const period = lineDash.reduce((a: number, b: number) => a + b, 0) || 1;
+        const speed = this.state.lineDashFlowSpeed || 30;
+        this.ctx.lineDashOffset = -((Date.now() / speed) % period);
+      } else if (this.state.lineDashOffset) {
+        this.ctx.lineDashOffset = this.state.lineDashOffset;
+      }
     }
 
     if (this.path2D._isPolyfill) {
@@ -72,6 +81,26 @@ abstract class ICEPath extends ICEComponent {
     }
 
     super.doRender();
+  }
+
+  private __flowRegistered = false;
+
+  /**
+   * 蚂蚁线流动依赖持续重绘：注册一个 loop 动画，让 AnimationManager 每帧 setState 触发 dirty。
+   * 真正的流动位置由 doRender 里的 Date.now() 计算，动画本身只负责"每帧重绘"。
+   */
+  private __ensureFlowAnimation(): void {
+    if (this.__flowRegistered) {
+      return;
+    }
+    this.__flowRegistered = true;
+    this.props.animations = {
+      ...this.props.animations,
+      __flow: { from: 0, to: 1, duration: 100, loop: true },
+    };
+    if (this.ice && this.ice.animationManager) {
+      this.ice.animationManager.add(this);
+    }
   }
 
   /**

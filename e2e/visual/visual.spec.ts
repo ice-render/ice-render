@@ -23,6 +23,20 @@ const demos: Array<{ name: string; path: string }> = [
   { name: 'shapes-style-effects', path: '/examples/shapes/shapes-style-effects.html' },
   { name: 'image-clip', path: '/examples/image/image-clip.html' },
   { name: 'line-curve', path: '/examples/line-and-link/line-curve.html' },
+  {
+    name: 'marching-ants',
+    path: '/examples/line-and-link/marching-ants.html',
+    extra: async (page) => {
+      // 断言：蚂蚁线动画在跑（两次截图虚线位置不同 → 流动）
+      const buf1 = await page.screenshot({ type: 'png' });
+      await page.waitForTimeout(250);
+      const buf2 = await page.screenshot({ type: 'png' });
+      // 字节差异：流动动画会让两帧 PNG 字节不同
+      if (buf1.equals(buf2)) {
+        throw new Error('蚂蚁线未流动（两帧字节完全相同）');
+      }
+    },
+  },
   { name: 'image-sprite', path: '/examples/image/image-sprite.html' },
   { name: 'flow-layout', path: '/examples/layout/flow-layout.html' },
   { name: 'grid-layout', path: '/examples/layout/grid-layout.html' },
