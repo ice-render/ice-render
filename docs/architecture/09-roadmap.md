@@ -30,11 +30,11 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | P0 | **文本内联编辑** ✅ | `ICEText` 支持编辑态 + 光标渲染 + 键盘输入（字符/退格/删除/方向键/Home/End/Enter），双击进入编辑；**IME（中文输入）未支持**，需平台适配层（如 HTML 输入框叠加）补齐 |
 | P0 | **多运行时（Path2D）** ✅ | `new Path2D()` 已抽象为 `root.createPath2D()`（原生 Path2D / `PolyfillPath2D` 降级），无 Path2D 环境（小程序低版本基础库/Node）逐像素一致渲染；**真机验证**仍需微信开发者工具或小程序真机 |
 | P1 | 动画完善 ✅ | 无限循环(`loop`)、播放次数(`iterationCount`)、递减动画(from>to)、多属性独立计时同步、`pause()`/`resume()` 冻结进度 |
-| P1 | 变换原语补全 | 错切（skew）手柄、旋转原点自定义（现只有 `localCenter`） |
-| P1 | 文本能力 | 多行、文本测量/换行、字体加载 |
-| P2 | 连线增强 | 正交路由、连线标签 |
+| P1 | 变换原语补全 ⚠️ | 旋转原点自定义 ✅（origin: localCenter/top-left/custom）；**错切（skew）手柄未做**（代码 TODO，UI 手柄较复杂） |
+| P1 | 文本能力 ⚠️ | 多行 ✅（\n 拆分 + DIV 实测行高）；**字体加载**（wx.loadFont / CSS @font-face）未做 |
+| P2 | 连线增强 | 正交路由、连线标签（对 ER 图价值高） |
 | P2 | 序列化版本迁移 ✅ | 序列化加 `version` 字段 + 排除运行时缓存值（linearMatrix/composedMatrix/localOrigin/absoluteOrigin/dots/textHeight）；Deserializer 提供 `migrate` 迁移钩子、不支持的版本抛错 |
-| P2 | 工程债 | 应用消费链、发布流水线、拼写/FIXME 清理 |
+| P2 | 工程债 ⚠️ | 拼写/FIXME 清理 ✅（regitserEvtBus→registerEvtBus、rotateControlffsetY→rotateControlOffsetY、死代码）；**应用消费链工具链统一**（版本声明已 ^1.0.4，剩工具链 2022→2024 + rollup-plugin-uglify ERESOLVE）、**发布流水线验证**（dist 打 tag 自动发布） |
 
 ## 验收原则
 
