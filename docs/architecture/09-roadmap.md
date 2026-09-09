@@ -32,7 +32,7 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | P1 | 动画完善 ✅ | 无限循环(`loop`)、播放次数(`iterationCount`)、递减动画(from>to)、多属性独立计时同步、`pause()`/`resume()` 冻结进度 |
 | P1 | 变换原语补全 ⚠️ | 旋转原点自定义 ✅（origin: localCenter/top-left/custom）；**错切（skew）手柄未做**（代码 TODO，UI 手柄较复杂） |
 | P1 | 文本能力 ⚠️ | 多行 ✅（\n 拆分 + DIV 实测行高）；**字体加载**（wx.loadFont / CSS @font-face）未做 |
-| P2 | 连线增强 ⚠️ | **正交路由 ✅**（`routeType: 'orthogonal'`，按插槽方向生成直角折线）；连线标签未做 |
+| P2 | 连线增强 ✅ | 正交路由 ✅（`routeType: 'orthogonal'`，按插槽方向生成直角折线）；连线标签 ✅（`label` + `labelStyle`，绘制在折线中点带背景） |
 | P2 | 序列化版本迁移 ✅ | 序列化加 `version` 字段 + 排除运行时缓存值（linearMatrix/composedMatrix/localOrigin/absoluteOrigin/dots/textHeight）；Deserializer 提供 `migrate` 迁移钩子、不支持的版本抛错 |
 | P2 | 工程债 ⚠️ | 拼写/FIXME 清理 ✅（regitserEvtBus→registerEvtBus、rotateControlffsetY→rotateControlOffsetY、死代码）；**应用消费链工具链统一**（版本声明已 ^1.0.4，剩工具链 2022→2024 + rollup-plugin-uglify ERESOLVE）、**发布流水线验证**（dist 打 tag 自动发布） |
 

@@ -113,6 +113,12 @@ class ICEPolyLine extends ICEDotPath {
         links: {},
         routeType: 'straight', //连线布线方式：straight=直线，orthogonal=正交（直角折线，仅当两端建立了连接时生效）
         routeOffset: 20, //正交布线时，从端点沿插槽方向延伸的距离（px）
+        label: '', //连线标签文本，非空时绘制在折线中点
+        labelStyle: {
+          fontSize: 14,
+          fillStyle: '#000000',
+          backgroundColor: '#ffffff',
+        },
         style: {
           lineJoin: 'round',
         },
@@ -709,6 +715,76 @@ class ICEPolyLine extends ICEDotPath {
 
     this.state.points = pts;
     this.dirty = true;
+  }
+
+  /**
+   * @overwrite
+   * 先绘制折线，再绘制连线标签（若 label 非空）。
+   */
+  protected doRender(): void {
+    super.doRender();
+    this.drawLabel();
+  }
+
+  /**
+   * 绘制连线标签：在折线中点绘制带背景的文本，遮住下面的线以保证可读性。
+   */
+  private drawLabel(): void {
+    const label = this.state.label;
+    if (!label) {
+      return;
+    }
+    const pos = this.getLabelPosition();
+    const ctx = this.ctx;
+    const style = this.state.labelStyle || {};
+    const fontSize = style.fontSize || 14;
+    const padding = 4;
+
+    let textWidth = 0;
+    if (typeof ctx.measureText === 'function') {
+      textWidth = ctx.measureText(label).width;
+    } else {
+      textWidth = label.length * fontSize; // 降级估算
+    }
+
+    ctx.save();
+    ctx.font = `${fontSize}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const halfW = textWidth / 2 + padding;
+    const halfH = fontSize / 2 + padding;
+    ctx.fillStyle = style.backgroundColor || '#ffffff';
+    ctx.fillRect(pos[0] - halfW, pos[1] - halfH, halfW * 2, halfH * 2);
+    ctx.fillStyle = style.fillStyle || '#000000';
+    ctx.fillText(label, pos[0], pos[1]);
+    ctx.restore();
+  }
+
+  /**
+   * 计算标签位置：折线中点（本地坐标）。2 点取端点中点，多点取中间顶点。
+   */
+  private getLabelPosition(): number[] {
+    const points = this.state.points;
+    const len = points.length;
+    const left = this.state.left;
+    const top = this.state.top;
+    if (len === 0) {
+      return [0, 0];
+    }
+    if (len === 1) {
+      return [points[0][0] - left, points[0][1] - top];
+    }
+    let x: number;
+    let y: number;
+    if (len === 2) {
+      x = (points[0][0] + points[1][0]) / 2;
+      y = (points[0][1] + points[1][1]) / 2;
+    } else {
+      const mid = points[Math.floor(len / 2)];
+      x = mid[0];
+      y = mid[1];
+    }
+    return [x - left, y - top];
   }
 
   /**

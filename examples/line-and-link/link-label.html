@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-link-label</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      连线标签：<code>label</code> 属性绘制在折线中点（带背景，遮住线）；支持 <code>routeType: 'orthogonal'</code> 正交路由。
+    </div>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    let rect1 = new ICE.ICERect({
+      left: 100, top: 100, width: 120, height: 60,
+      style: { strokeStyle: '#0c09d4', fillStyle: '#f5d106', lineWidth: 2 },
+    });
+    let rect2 = new ICE.ICERect({
+      left: 550, top: 300, width: 120, height: 60,
+      style: { strokeStyle: '#0c09d4', fillStyle: '#37dd0d', lineWidth: 2 },
+    });
+    ice.addChild(rect1);
+    ice.addChild(rect2);
+
+    // 直线 + 标签
+    ice.addChild(
+      new ICE.ICEPolyLine({
+        points: [[160, 160], [610, 360]],
+        label: '直线标签',
+        style: { strokeStyle: '#0c09d4', lineWidth: 2 },
+      })
+    );
+
+    // 正交路由 + 标签
+    ice.addChild(
+      new ICE.ICEPolyLine({
+        points: [[100, 130], [550, 330]],
+        routeType: 'orthogonal',
+        label: '正交 1:N',
+        labelStyle: { fontSize: 14, fillStyle: '#d40c0c' },
+        style: { strokeStyle: '#d40c0c', lineWidth: 2 },
+      })
+    );
+  </script>
+</html>
