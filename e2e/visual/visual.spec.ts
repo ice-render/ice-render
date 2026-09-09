@@ -29,6 +29,32 @@ const demos: Array<{ name: string; path: string }> = [
   { name: 'border-layout', path: '/examples/layout/border-layout.html' },
   { name: 'box-layout', path: '/examples/layout/box-layout.html' },
   { name: 'card-layout', path: '/examples/layout/card-layout.html' },
+  { name: 'card-deal', path: '/examples/layout/card-deal.html' },
+  {
+    name: 'card-deal-dealt',
+    path: '/examples/layout/card-deal.html',
+    extra: async (page) => {
+      // 点击发牌，等动画完成，验证 13 张牌摊开（left 递增且分散）
+      await page.click('#deal');
+      await page.waitForTimeout(2500);
+      const positions = await page.evaluate(() => {
+        const table = (window as any).__ice.childNodes[0];
+        return table.childNodes.map((c: any) => ({ left: c.state.left, tl: c.getMinBoundingBox(true).tl }));
+      });
+      // 13 张牌全部摊开（left 单调递增）
+      for (let i = 1; i < positions.length; i++) {
+        if (positions[i].left <= positions[i - 1].left) {
+          throw new Error(`牌 ${i} 未摊开: ${JSON.stringify(positions)}`);
+        }
+      }
+      // 全部在 canvas 内
+      for (const p of positions) {
+        if (p.tl[0] < 0 || p.tl[0] > 960) {
+          throw new Error(`牌超出 canvas: ${JSON.stringify(p)}`);
+        }
+      }
+    },
+  },
   { name: 'overlay-layout', path: '/examples/layout/overlay-layout.html' },
   { name: 'layered-layout', path: '/examples/layout/layered-layout.html' },
   {
