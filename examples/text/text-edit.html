@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-text-edit</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      双击文字进入编辑，键入 / Backspace / 方向键，回车提交。
+    </div>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    ice.addChild(
+      new ICE.ICEText({
+        left: 200,
+        top: 200,
+        text: '双击编辑这段文字',
+        style: {
+          strokeStyle: '#ff3300',
+          fillStyle: '#ff3300',
+          fontSize: 32,
+        },
+        stroke: false,
+      })
+    );
+  </script>
+</html>

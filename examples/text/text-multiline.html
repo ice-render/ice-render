@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-text-multiline</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      多行文本：<code>text</code> 里用 <code>\n</code> 换行。
+    </div>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    ice.addChild(
+      new ICE.ICEText({
+        left: 150,
+        top: 150,
+        text: '第一行：多行文本\n第二行：自动换行渲染\n第三行：基于 DIV 实测行高',
+        style: {
+          strokeStyle: '#0c09d4',
+          fillStyle: '#0c09d4',
+          fontSize: 28,
+        },
+        stroke: false,
+        showMinBoundingBox: true,
+      })
+    );
+  </script>
+</html>

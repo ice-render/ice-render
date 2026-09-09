@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-origin-custom</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      自定义旋转原点：<code>origin: 'custom'</code> + <code>originX/originY</code>，旋转围绕指定点（而非几何中心）。
+    </div>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    // ① 默认 localCenter：绕几何中心旋转
+    ice.addChild(
+      new ICE.ICERect({
+        left: 150, top: 150, width: 120, height: 80,
+        transform: { rotate: 45 },
+        style: { strokeStyle: '#0c09d4', fillStyle: '#f5d106', lineWidth: 3 },
+      })
+    );
+
+    // ② top-left：绕左上角旋转
+    ice.addChild(
+      new ICE.ICERect({
+        left: 400, top: 150, width: 120, height: 80,
+        origin: 'top-left',
+        transform: { rotate: 45 },
+        style: { strokeStyle: '#0c8f09', fillStyle: '#37dd0d', lineWidth: 3 },
+      })
+    );
+
+    // ③ custom：绕指定点（原点在组件左上角 (20,20) 处）旋转
+    ice.addChild(
+      new ICE.ICERect({
+        left: 650, top: 150, width: 120, height: 80,
+        origin: 'custom', originX: 20, originY: 20,
+        transform: { rotate: 45 },
+        style: { strokeStyle: '#d40c0c', fillStyle: '#ff8080', lineWidth: 3 },
+      })
+    );
+  </script>
+</html>
