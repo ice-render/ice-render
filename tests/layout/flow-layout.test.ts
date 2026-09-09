@@ -85,3 +85,62 @@ describe('ICEFlowLayout（对齐 Swing FlowLayout）', () => {
     expect(r1.state.left).toBe(0); // 恢复布局位置
   });
 });
+
+describe('layout 继承（子容器默认继承父层布局）', () => {
+  it('子容器默认继承父层布局（同一实例）', () => {
+    const parent = new ICEGroup({ width: 500, height: 200 });
+    const child = new ICEGroup({ width: 400, height: 100 });
+    parent.addChild(child);
+
+    const layout = new ICEFlowLayout({ gap: 10 });
+    parent.setLayout(layout);
+
+    expect(child.layoutManager).toBe(layout); // 继承同一实例
+  });
+
+  it('子容器显式设置布局后，不继承父层', () => {
+    const parent = new ICEGroup({ width: 500, height: 200 });
+    const child = new ICEGroup({ width: 400, height: 100 });
+    parent.addChild(child);
+
+    const childLayout = new ICEFlowLayout({ gap: 30 });
+    child.setLayout(childLayout); // 子容器显式设置
+
+    const parentLayout = new ICEFlowLayout({ gap: 10 });
+    parent.setLayout(parentLayout); // 父设置，但子已显式，不覆盖
+
+    expect(child.layoutManager).toBe(childLayout); // 子保持自己的
+    expect(parent.layoutManager).toBe(parentLayout);
+  });
+
+  it('嵌套容器：孙容器默认递归继承祖父布局', () => {
+    const grand = new ICEGroup({ width: 500, height: 300 });
+    const parent = new ICEGroup({ width: 400, height: 200 });
+    const child = new ICEGroup({ width: 300, height: 100 });
+    grand.addChild(parent);
+    parent.addChild(child);
+
+    const layout = new ICEFlowLayout({ gap: 10 });
+    grand.setLayout(layout);
+
+    expect(parent.layoutManager).toBe(layout); // 父继承
+    expect(child.layoutManager).toBe(layout); // 孙递归继承
+  });
+
+  it('显式布局的子容器，其后代继承它的布局而非祖父的', () => {
+    const grand = new ICEGroup({ width: 500, height: 300 });
+    const parent = new ICEGroup({ width: 400, height: 200 });
+    const child = new ICEGroup({ width: 300, height: 100 });
+    grand.addChild(parent);
+    parent.addChild(child);
+
+    const parentLayout = new ICEFlowLayout({ gap: 30 });
+    parent.setLayout(parentLayout); // parent 显式
+
+    const grandLayout = new ICEFlowLayout({ gap: 10 });
+    grand.setLayout(grandLayout); // grand 设置，parent 已显式跳过
+
+    expect(parent.layoutManager).toBe(parentLayout); // parent 保持显式
+    expect(child.layoutManager).toBe(parentLayout); // child 继承 parent 的（而非 grand）
+  });
+});

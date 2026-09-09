@@ -23,6 +23,7 @@ class ICEGroup extends ICERect {
   public parentNode = null;
   public childNodes = [];
   public layoutManager: ICELayoutManager = null; //布局策略（借鉴 Swing 的策略模式，setLayout 持有）
+  private __layoutExplicit = false; //是否显式设置了布局（用于区分「显式设置」与「从父层继承」）
 
   constructor(props) {
     super(props);
@@ -30,12 +31,29 @@ class ICEGroup extends ICERect {
 
   /**
    * 设置布局策略（对齐 Swing 的 container.setLayout）。
-   * 设置后立即执行一次布局。
+   * 设置后立即执行一次布局，并把布局传播给「未显式设置布局」的容器型子组件（子容器默认继承父层布局）。
    */
   public setLayout(manager: ICELayoutManager): void {
     this.layoutManager = manager;
+    this.__layoutExplicit = true;
     if (manager) {
       this.doLayout();
+    }
+    this.__propagateLayout(manager);
+  }
+
+  /**
+   * 把布局策略传播给「未显式设置布局」的容器型后代：
+   * - 直接/间接子容器若没有显式布局，则继承当前布局并递归向下传播；
+   * - 遇到显式设置了布局的子容器则跳过（它的后代由它自己 setLayout 时传播）。
+   */
+  private __propagateLayout(manager: ICELayoutManager): void {
+    for (const child of this.childNodes) {
+      if (child instanceof ICEGroup && !child.__layoutExplicit) {
+        child.layoutManager = manager;
+        child.doLayout();
+        child.__propagateLayout(manager);
+      }
     }
   }
 
