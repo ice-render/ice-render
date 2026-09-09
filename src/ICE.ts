@@ -21,7 +21,7 @@ import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
 import CanvasRenderer from './renderer/CanvasRenderer';
 import ImageCache from './util/ImageCache';
-import { setTheme, getTheme } from './theme/ICETheme';
+import { setTheme, getTheme, registerTheme, ICETheme, ICESemanticTheme } from './theme/ICETheme';
 import { flattenTree } from './util/data-util';
 
 /**
@@ -249,19 +249,27 @@ class ICE {
   }
 
   /**
-   * 切换主题（浅合并到默认主题），预设样式（preset）会自动跟随主题变量。
+   * 切换主题（string 按名切换 / object 浅合并 semantic），预设样式（preset）会自动跟随主题变量。
    * 热切换：已渲染的组件里用了 preset 的会重新 resolve（用户显式传的样式优先）。
    */
-  public setTheme(theme: any): this {
+  public setTheme(theme: string | Partial<ICESemanticTheme>): this {
     setTheme(theme);
     this.__reapplyPresets();
     return this;
   }
 
   /**
-   * 获取当前主题对象。
+   * 注册命名主题（运行时注入，如多品牌 / 多租户 / 暗色主题）。
    */
-  public getTheme(): any {
+  public registerTheme(name: string, theme: ICETheme): this {
+    registerTheme(name, theme);
+    return this;
+  }
+
+  /**
+   * 获取当前主题对象（{ base, semantic }）。
+   */
+  public getTheme(): ICETheme {
     return getTheme();
   }
 

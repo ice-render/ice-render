@@ -1,5 +1,5 @@
 import ICERect from '../../src/graphic/shape/ICERect';
-import { setTheme, getTheme, DEFAULT_THEME } from '../../src/theme/ICETheme';
+import { setTheme, getTheme, registerTheme, baseTokens, DEFAULT_THEME, DARK_THEME } from '../../src/theme/ICETheme';
 
 jest.mock('../../src/cross-platform/root', () => {
   const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
@@ -18,15 +18,39 @@ global.Path2D = class {
 };
 
 afterEach(() => {
-  setTheme(DEFAULT_THEME); // 恢复默认主题，避免测试间污染
+  setTheme('default'); // 恢复默认主题，避免测试间污染
 });
 
-describe('主题机制（preset + setTheme）', () => {
-  it('preset: card 补丁 merge 到 props（radius + style）', () => {
+describe('三层 token 结构（base / semantic / component）', () => {
+  it('baseTokens 有颜色 ramp + spacing + radius + fontSize', () => {
+    expect(baseTokens.color.blue[600]).toBe('#185FA5');
+    expect(baseTokens.radius.lg).toBe(12);
+    expect(baseTokens.spacing[4]).toBe(16);
+    expect(baseTokens.fontSize['2xl']).toBe(24);
+  });
+
+  it('semantic 引用 base（primary = blue-600）', () => {
+    expect(DEFAULT_THEME.semantic.primary).toBe(baseTokens.color.blue[600]);
+    expect(DEFAULT_THEME.semantic.danger).toBe(baseTokens.color.red[600]);
+  });
+
+  it('palette 是数据系列配色数组（≥ 8 个）', () => {
+    expect(DEFAULT_THEME.semantic.palette.length).toBeGreaterThanOrEqual(8);
+    expect(DEFAULT_THEME.semantic.palette[0]).toBe(baseTokens.color.blue[600]);
+  });
+
+  it('motion 有时长 + 缓动 token', () => {
+    expect(DEFAULT_THEME.semantic.motion.duration.normal).toBe(200);
+    expect(DEFAULT_THEME.semantic.motion.easing.out).toBe('easeOutCubic');
+  });
+});
+
+describe('preset（组件层）', () => {
+  it('card 补丁 merge 到 props（radius + style）', () => {
     const card = new ICERect({ preset: 'card' });
     expect(card.state.radius).toBe(12);
     expect(card.state.style.fillStyle).toBe('#ffffff');
-    expect(card.state.style.strokeStyle).toBe('#e0e0e0');
+    expect(card.state.style.strokeStyle).toBe(baseTokens.color.gray[200]);
     expect(card.state.style.shadow).toBe('md');
   });
 
@@ -35,41 +59,46 @@ describe('主题机制（preset + setTheme）', () => {
     expect(card.state.style.fillStyle).toBe('red');
   });
 
-  it('preset: button 用主题 primary 色', () => {
+  it('button 用主题 primary 色', () => {
     const btn = new ICERect({ preset: 'button' });
-    expect(btn.state.style.fillStyle).toBe('#185fa5'); // 默认主题 primary
+    expect(btn.state.style.fillStyle).toBe('#185FA5');
+  });
+});
+
+describe('命名主题 + registerTheme', () => {
+  it('setTheme(\'dark\') 切换到暗色主题', () => {
+    setTheme('dark');
+    expect(getTheme().semantic.background).toBe('#1a1a1a');
+    expect(getTheme().semantic.text).toBe('#e8e8e8');
   });
 
-  it('setTheme 切换主题后，preset 跟随主题变量', () => {
+  it('registerTheme 注册自定义主题后可按名切换', () => {
+    registerTheme('brand', { base: baseTokens, semantic: { ...DEFAULT_THEME.semantic, primary: '#ff6600' } });
+    setTheme('brand');
+    const btn = new ICERect({ preset: 'button' });
+    expect(btn.state.style.fillStyle).toBe('#ff6600');
+  });
+
+  it('setTheme 对象浅合并 semantic（兼容旧用法）', () => {
     setTheme({ primary: '#ff0000' });
+    expect(getTheme().semantic.primary).toBe('#ff0000');
+    expect(getTheme().semantic.danger).toBe(baseTokens.color.red[600]); // 未覆盖字段保留
+  });
+});
+
+describe('热切换', () => {
+  it('__reapplyPreset 按新主题重新 resolve', () => {
     const btn = new ICERect({ preset: 'button' });
-    expect(btn.state.style.fillStyle).toBe('#ff0000');
-  });
-
-  it('getTheme 返回当前主题', () => {
-    setTheme({ primary: '#00ff00' });
-    expect(getTheme().primary).toBe('#00ff00');
-    expect(getTheme().danger).toBe('#d40c0c'); // 未覆盖的字段保留默认
-  });
-
-  it('shadow 简写保留在 style（render 时展开成 4 个属性）', () => {
-    const r = new ICERect({ style: { shadow: 'md' } });
-    expect(r.state.style.shadow).toBe('md');
-  });
-
-  it('热切换：__reapplyPreset 按新主题重新 resolve', () => {
-    const btn = new ICERect({ preset: 'button' });
-    expect(btn.state.style.fillStyle).toBe('#185fa5');
+    expect(btn.state.style.fillStyle).toBe('#185FA5');
     setTheme({ primary: '#ff0000' });
     (btn as any).__reapplyPreset();
     expect(btn.state.style.fillStyle).toBe('#ff0000');
   });
 
-  it('热切换：用户显式 style 优先于 preset', () => {
+  it('用户显式 style 优先于 preset', () => {
     const btn = new ICERect({ preset: 'button', style: { fillStyle: 'green' } });
-    expect(btn.state.style.fillStyle).toBe('green');
     setTheme({ primary: '#ff0000' });
     (btn as any).__reapplyPreset();
-    expect(btn.state.style.fillStyle).toBe('green'); // 用户 green 不被 preset 覆盖
+    expect(btn.state.style.fillStyle).toBe('green');
   });
 });

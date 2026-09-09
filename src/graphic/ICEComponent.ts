@@ -16,7 +16,7 @@ import ICEEventTarget from '../event/ICEEventTarget';
 import GeoUtil from '../geometry/GeoUtil';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICE from '../ICE';
-import { STYLE_PRESETS } from '../theme/ICETheme';
+import { STYLE_PRESETS, getTheme } from '../theme/ICETheme';
 
 /**
  * 阴影简写预设：style.shadow: 'sm' | 'md' | 'lg' 一行搞定浮起效果，
@@ -163,7 +163,7 @@ abstract class ICEComponent extends ICEEventTarget {
     // 预设样式：props.preset 引用 STYLE_PRESETS 里的命名预设，作为默认 props 补丁（用户 props 可覆盖）
     if (props && props.preset && STYLE_PRESETS[props.preset]) {
       this.__presetName = props.preset;
-      props = merge({}, STYLE_PRESETS[props.preset](), props);
+      props = merge({}, STYLE_PRESETS[props.preset](getTheme()), props);
     }
     this.props = merge(this.props, props);
     this.state = cloneDeep(this.props);
@@ -179,7 +179,7 @@ abstract class ICEComponent extends ICEEventTarget {
     if (!this.__presetName || !STYLE_PRESETS[this.__presetName]) {
       return;
     }
-    const patch = STYLE_PRESETS[this.__presetName]();
+    const patch = STYLE_PRESETS[this.__presetName](getTheme());
     const user = this.__userProps || {};
     const newState: any = {};
     for (const k in patch) {
