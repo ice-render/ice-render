@@ -38,8 +38,24 @@ class ICEGroup extends ICERect {
     this.__layoutExplicit = true;
     if (manager) {
       this.doLayout();
+      // 布局接管：设定了具体 layout 后，内部所有后代组件禁止手动变换（transformable=false），位置由代码接管
+      this.__disableTransformRecursively(this);
     }
     this.__propagateLayout(manager);
+  }
+
+  /**
+   * 递归禁用所有后代组件的手动变换（transformable=false）。
+   * 一旦设定了具体 layout，子组件位置由布局代码决定，用户不可再手动变换。
+   */
+  private __disableTransformRecursively(component): void {
+    if (!component || !component.childNodes) {
+      return;
+    }
+    for (const child of component.childNodes) {
+      child.state.transformable = false;
+      this.__disableTransformRecursively(child);
+    }
   }
 
   /**
@@ -105,6 +121,12 @@ class ICEGroup extends ICERect {
 
     child.parentNode = this;
     this.childNodes.push(child);
+
+    // 布局接管：父容器已设定 layout 时，新加入的子组件（及其后代）禁止手动变换
+    if (this.layoutManager) {
+      child.state.transformable = false; // 禁用新子组件自身
+      this.__disableTransformRecursively(child); // 递归禁用其后代
+    }
 
     this.dirty = markDirty;
     //如果 this.ice 不为空，说明当前的 Group 已经被添加到了 ICE 中
