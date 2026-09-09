@@ -33,7 +33,7 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | P1 | 变换原语补全 | 错切（skew）手柄、旋转原点自定义（现只有 `localCenter`） |
 | P1 | 文本能力 | 多行、文本测量/换行、字体加载 |
 | P2 | 连线增强 | 正交路由、连线标签 |
-| P2 | 序列化版本迁移 | 数据结构演进的兼容 |
+| P2 | 序列化版本迁移 ✅ | 序列化加 `version` 字段 + 排除运行时缓存值（linearMatrix/composedMatrix/localOrigin/absoluteOrigin/dots/textHeight）；Deserializer 提供 `migrate` 迁移钩子、不支持的版本抛错 |
 | P2 | 工程债 | 应用消费链、发布流水线、拼写/FIXME 清理 |
 
 ## 验收原则

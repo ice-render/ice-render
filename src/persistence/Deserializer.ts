@@ -6,6 +6,7 @@
  *
  */
 import ICE from '../ICE';
+import { SERIALIZATION_VERSION } from './Serializer';
 
 /**
  * @class Deserializer
@@ -22,6 +23,10 @@ export default class Deserializer {
   }
 
   public fromJSONObject(jsonObj) {
+    // 版本迁移入口：兼容缺失 version 的旧数据（视为版本 1）
+    const version = jsonObj.version || 1;
+    this.migrate(jsonObj, version);
+
     const childNodes = jsonObj.childNodes;
     for (let i = 0; i < childNodes.length; i++) {
       this.decodeRecursively(this.ice, childNodes[i]);
@@ -31,6 +36,18 @@ export default class Deserializer {
   public fromJSONString(jsonStr: string) {
     const jsonObj = JSON.parse(jsonStr);
     this.fromJSONObject(jsonObj);
+  }
+
+  /**
+   * 版本迁移钩子：当序列化格式版本变化时，在此处按版本逐级升级数据结构。
+   * 当前版本为 {@link SERIALIZATION_VERSION}，低于该版本的旧数据在此迁移。
+   */
+  private migrate(jsonObj, version) {
+    if (version > SERIALIZATION_VERSION) {
+      throw new Error(`不支持的反序列化版本：${version}（当前支持到 ${SERIALIZATION_VERSION}）`);
+    }
+    // 未来版本升级示例：
+    // if (version < 2) { /* 迁移旧字段 */ jsonObj.version = 2; }
   }
 
   //递归
