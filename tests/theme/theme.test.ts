@@ -56,4 +56,20 @@ describe('主题机制（preset + setTheme）', () => {
     const r = new ICERect({ style: { shadow: 'md' } });
     expect(r.state.style.shadow).toBe('md');
   });
+
+  it('热切换：__reapplyPreset 按新主题重新 resolve', () => {
+    const btn = new ICERect({ preset: 'button' });
+    expect(btn.state.style.fillStyle).toBe('#185fa5');
+    setTheme({ primary: '#ff0000' });
+    (btn as any).__reapplyPreset();
+    expect(btn.state.style.fillStyle).toBe('#ff0000');
+  });
+
+  it('热切换：用户显式 style 优先于 preset', () => {
+    const btn = new ICERect({ preset: 'button', style: { fillStyle: 'green' } });
+    expect(btn.state.style.fillStyle).toBe('green');
+    setTheme({ primary: '#ff0000' });
+    (btn as any).__reapplyPreset();
+    expect(btn.state.style.fillStyle).toBe('green'); // 用户 green 不被 preset 覆盖
+  });
 });

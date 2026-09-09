@@ -22,6 +22,7 @@ import Serializer from './persistence/Serializer';
 import CanvasRenderer from './renderer/CanvasRenderer';
 import ImageCache from './util/ImageCache';
 import { setTheme, getTheme } from './theme/ICETheme';
+import { flattenTree } from './util/data-util';
 
 /**
  * @class ICE
@@ -249,9 +250,11 @@ class ICE {
 
   /**
    * 切换主题（浅合并到默认主题），预设样式（preset）会自动跟随主题变量。
+   * 热切换：已渲染的组件里用了 preset 的会重新 resolve（用户显式传的样式优先）。
    */
   public setTheme(theme: any): this {
     setTheme(theme);
+    this.__reapplyPresets();
     return this;
   }
 
@@ -260,6 +263,18 @@ class ICE {
    */
   public getTheme(): any {
     return getTheme();
+  }
+
+  /**
+   * 遍历组件树，对每个用了 preset 的组件重新 resolve preset（主题热切换）。
+   */
+  private __reapplyPresets(): void {
+    const all = flattenTree([], this.childNodes);
+    for (const comp of all) {
+      if (typeof (comp as any).__reapplyPreset === 'function') {
+        (comp as any).__reapplyPreset();
+      }
+    }
   }
 
   /**
