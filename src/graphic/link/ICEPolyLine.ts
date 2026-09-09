@@ -111,6 +111,8 @@ class ICEPolyLine extends ICEDotPath {
         showMinBoundingBox: false,
         showMaxBoundingBox: false,
         links: {},
+        routeType: 'straight', //连线布线方式：straight=直线，orthogonal=正交（直角折线，仅当两端建立了连接时生效）
+        routeOffset: 20, //正交布线时，从端点沿插槽方向延伸的距离（px）
         style: {
           lineJoin: 'round',
         },
@@ -640,6 +642,11 @@ class ICEPolyLine extends ICEDotPath {
       this.state.points[len - 1] = [...newState.endPoint];
     }
 
+    //正交布线：端点变化后重新计算折线（仅 routeType === 'orthogonal' 时生效）
+    if (!isNil(newState.startPoint) || !isNil(newState.endPoint)) {
+      this.recalculateRoute();
+    }
+
     //如果传递了 links 属性，会重新计算连接关系。
     if (!isNil(newState.links)) {
       merge(this.state.links, newState.links);
@@ -647,6 +654,61 @@ class ICEPolyLine extends ICEDotPath {
     }
 
     super.setState(newState);
+  }
+
+  /**
+   * 插槽方向 → 单位方向向量（T=上/B=下/L=左/R=右，其余为无方向）。
+   */
+  private static dirVector(position: string): number[] {
+    switch (position) {
+      case 'T':
+        return [0, -1];
+      case 'B':
+        return [0, 1];
+      case 'L':
+        return [-1, 0];
+      case 'R':
+        return [1, 0];
+      default:
+        return [0, 0];
+    }
+  }
+
+  /**
+   * 正交布线：根据两端插槽方向，在起终点之间生成直角折线。
+   * 规则：起点沿 start 插槽方向延伸 routeOffset，终点沿 end 插槽方向延伸 routeOffset，
+   * 中间用「先水平后垂直」的曼哈顿折线连接。
+   */
+  protected recalculateRoute(): void {
+    if (this.state.routeType !== 'orthogonal') {
+      return;
+    }
+    const start = this.state.points[0];
+    const end = this.state.points[this.state.points.length - 1];
+    const offset = this.state.routeOffset || 20;
+    const startDir = ICEPolyLine.dirVector(
+      this.state.links && this.state.links.start && this.state.links.start.position
+    );
+    const endDir = ICEPolyLine.dirVector(this.state.links && this.state.links.end && this.state.links.end.position);
+
+    const p1 = [start[0] + startDir[0] * offset, start[1] + startDir[1] * offset];
+    const p2 = [end[0] + endDir[0] * offset, end[1] + endDir[1] * offset];
+
+    const pts: number[][] = [start];
+    if (startDir[0] !== 0 || startDir[1] !== 0) {
+      pts.push(p1);
+    }
+    // 曼哈顿连接 p1 → p2：先水平（拐点 x=p2.x, y=p1.y）再垂直
+    if (p1[0] !== p2[0] && p1[1] !== p2[1]) {
+      pts.push([p2[0], p1[1]]);
+    }
+    if (endDir[0] !== 0 || endDir[1] !== 0) {
+      pts.push(p2);
+    }
+    pts.push(end);
+
+    this.state.points = pts;
+    this.dirty = true;
   }
 
   /**
