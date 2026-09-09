@@ -16,20 +16,29 @@ const defaultSrc =
  */
 class ICEImage extends ICEComponent {
   constructor(props: any = {}) {
-    super({ width: 100, height: 100, src: defaultSrc, ...props });
+    super({ width: 100, height: 100, src: defaultSrc, clipType: 'none', ...props });
   }
 
   protected doRender(): void {
     if (this.state.src) {
       const { loaded, image } = this.ice.imageCache.setImage(this.state.src);
       if (loaded) {
-        this.ctx.drawImage(
-          image,
-          0 - this.state.localOrigin[0],
-          0 - this.state.localOrigin[1],
-          this.state.width,
-          this.state.height
-        );
+        const ctx = this.ctx;
+        const clipType = this.state.clipType || 'none';
+        const x = 0 - this.state.localOrigin[0];
+        const y = 0 - this.state.localOrigin[1];
+        if (clipType === 'circle') {
+          // 圆形裁剪：以图片中心为圆心，半径取短边一半（头像场景）
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(0, 0, Math.min(this.state.width, this.state.height) / 2, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.clip();
+        }
+        ctx.drawImage(image, x, y, this.state.width, this.state.height);
+        if (clipType === 'circle') {
+          ctx.restore();
+        }
       }
     }
     super.doRender();

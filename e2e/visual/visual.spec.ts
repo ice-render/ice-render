@@ -21,6 +21,7 @@ const demos: Array<{ name: string; path: string }> = [
   { name: 'origin-custom', path: '/examples/transform/origin-custom.html' },
   { name: 'link-label', path: '/examples/line-and-link/link-label.html' },
   { name: 'shapes-style-effects', path: '/examples/shapes/shapes-style-effects.html' },
+  { name: 'image-clip', path: '/examples/image/image-clip.html' },
 ];
 
 for (const d of demos) {
