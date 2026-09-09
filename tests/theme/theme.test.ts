@@ -1,4 +1,5 @@
 import ICERect from '../../src/graphic/shape/ICERect';
+import AnimationManager from '../../src/animation/AnimationManager';
 import { setTheme, getTheme, registerTheme, baseTokens, DEFAULT_THEME, DARK_THEME } from '../../src/theme/ICETheme';
 
 jest.mock('../../src/cross-platform/root', () => {
@@ -100,5 +101,31 @@ describe('热切换', () => {
     setTheme({ primary: '#ff0000' });
     (btn as any).__reapplyPreset();
     expect(btn.state.style.fillStyle).toBe('green');
+  });
+});
+
+describe('motion token 与动画打通', () => {
+  it('duration/easing 语义名 resolve 到实际值', () => {
+    const mgr = new AnimationManager({} as any);
+    const anim = { duration: 'normal', easing: 'out' };
+    (mgr as any).__resolveMotion(anim);
+    expect(anim.duration).toBe(200);
+    expect(anim.easing).toBe('easeOutCubic');
+  });
+
+  it('数字 duration / Easing 方法名 原样保留（向后兼容）', () => {
+    const mgr = new AnimationManager({} as any);
+    const anim = { duration: 500, easing: 'easeInOutCubic' };
+    (mgr as any).__resolveMotion(anim);
+    expect(anim.duration).toBe(500);
+    expect(anim.easing).toBe('easeInOutCubic');
+  });
+
+  it('duration/easing 语义名跟随主题切换', () => {
+    setTheme({ motion: { ...getTheme().semantic.motion, duration: { fast: 50, normal: 150, slow: 400, slower: 900 } } });
+    const mgr = new AnimationManager({} as any);
+    const anim = { duration: 'normal', easing: 'out' };
+    (mgr as any).__resolveMotion(anim);
+    expect(anim.duration).toBe(150); // 主题覆盖后 normal=150
   });
 });

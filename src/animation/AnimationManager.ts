@@ -12,6 +12,7 @@ import ICEEvent from '../event/ICEEvent';
 import ICEComponent from '../graphic/ICEComponent';
 import ICE from '../ICE';
 import Easing from './Easing';
+import { getTheme } from '../theme/ICETheme';
 
 /**
  * @class AnimationManager
@@ -76,6 +77,8 @@ class AnimationManager {
       }
       if (isUndefined(animation.startTime)) {
         animation.startTime = Date.now();
+        // 首次解析 motion token（duration 语义名如 'normal' → 数字；easing 语义名如 'out' → Easing 方法名）
+        this.__resolveMotion(animation);
       }
       if (isUndefined(animation.easing)) {
         animation.easing = 'linear';
@@ -106,6 +109,22 @@ class AnimationManager {
       el.setState(newState);
     }
     return el;
+  }
+
+  /**
+   * 把动画配置里的 motion token 语义名解析成实际值（首次触发时执行，结果写回 animation 对象缓存）：
+   * - duration: 'fast' | 'normal' | 'slow' | 'slower' → 主题 motion.duration 里的 ms。
+   * - easing: 'linear' | 'out' | 'inOut' | 'outQuart' → 主题 motion.easing 里的 Easing 方法名。
+   * 若传的是数字/已存在的 Easing 方法名，则原样保留（向后兼容）。
+   */
+  private __resolveMotion(animation: any): void {
+    const motion = getTheme().semantic.motion;
+    if (typeof animation.duration === 'string' && motion.duration[animation.duration] !== undefined) {
+      animation.duration = motion.duration[animation.duration];
+    }
+    if (typeof animation.easing === 'string' && motion.easing[animation.easing] !== undefined) {
+      animation.easing = motion.easing[animation.easing];
+    }
   }
 
   /**
