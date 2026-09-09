@@ -45,14 +45,14 @@ class ICELayeredLayout extends ICELayoutManager {
   layoutContainer(container: ICEGroup): void {
     const children = container.childNodes || [];
     const nodeList: GraphNode[] = [];
-    const edgeList: Array<{ from: string | null; to: string | null }> = [];
+    const edgeList: Array<{ from: string | null; to: string | null; component: any }> = [];
 
     for (const c of children) {
       if (c.isLine) {
         // 边：通过 links 找两端节点 id
         const from = c.getLinkFromId ? c.getLinkFromId() : null;
         const to = c.getLinkToId ? c.getLinkToId() : null;
-        edgeList.push({ from, to });
+        edgeList.push({ from, to, component: c });
       } else {
         nodeList.push({ id: c.props.id, component: c, rank: 0, order: 0, barycenter: 0 });
       }
@@ -69,7 +69,7 @@ class ICELayeredLayout extends ICELayoutManager {
 
     this.assignRanks(nodeList, edges);
     this.assignOrders(nodeList, edges, nodeById);
-    this.assignCoords(nodeList);
+    this.assignCoords(nodeList, edges, nodeById);
   }
 
   /**
@@ -129,8 +129,9 @@ class ICELayeredLayout extends ICELayoutManager {
 
   /**
    * 算坐标（LR 方向）：rank 递增 → left 递增；层内按 order 垂直排列。
+   * 节点落位后，把每条边（连线）的端点对齐到源/目标节点的插槽（全局坐标）。
    */
-  private assignCoords(nodes: GraphNode[]): void {
+  private assignCoords(nodes: GraphNode[], edges, nodeById): void {
     const layers: { [rank: number]: GraphNode[] } = {};
     nodes.forEach((n) => {
       (layers[n.rank] = layers[n.rank] || []).push(n);
@@ -152,6 +153,18 @@ class ICELayeredLayout extends ICELayoutManager {
       });
       x += maxW + gapX;
     });
+
+    // 对齐连线端点（容器本地坐标，和节点 left/top 同一空间）：
+    // 源节点出边用右边中点，目标节点入边用左边中点
+    for (const e of edges) {
+      const source = nodeById[e.from].component;
+      const target = nodeById[e.to].component;
+      const sx = source.state.left + source.state.width;
+      const sy = source.state.top + source.state.height / 2;
+      const tx = target.state.left;
+      const ty = target.state.top + target.state.height / 2;
+      e.component.setState({ startPoint: [sx, sy], endPoint: [tx, ty] });
+    }
   }
 }
 

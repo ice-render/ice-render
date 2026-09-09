@@ -12,6 +12,7 @@
   <script src="../../dist/index.umd.js"></script>
   <script type="text/javascript">
     let ice = new ICE.ICE().init('canvas-1');
+    window.__ice = ice;
 
     const group = new ICE.ICEGroup({
       left: 40, top: 40, width: 820, height: 420,
