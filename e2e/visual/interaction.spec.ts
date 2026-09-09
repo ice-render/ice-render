@@ -168,3 +168,16 @@ test('Path2D 降级：无 Path2D 环境渲染与原生像素一致', async ({ pa
   expect(Buffer.compare(nativeShot, polyfillShot)).toBe(0);
   await page2.close();
 });
+
+test('多行文本：\\n 拆分后高度增加', async ({ page }) => {
+  await page.goto('/e2e/visual/fixtures/nested-interaction.html');
+  await page.waitForTimeout(400);
+
+  const info = await page.evaluate(() => {
+    const single = new ICE.ICEText({ left: 600, top: 300, text: 'hello' });
+    const multi = new ICE.ICEText({ left: 600, top: 300, text: 'hello\nworld' });
+    return { singleH: single.state.height, multiH: multi.state.height };
+  });
+
+  expect(info.multiH).toBeGreaterThan(info.singleH);
+});

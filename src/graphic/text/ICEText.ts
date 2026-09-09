@@ -242,7 +242,7 @@ class ICEText extends ICEComponent {
         this.root.document.body.appendChild(div);
       }
 
-      div.innerHTML = this.state.text;
+      div.innerHTML = this.state.text.split('\n').join('<br>');
 
       const { paddingTop, paddingBottom, paddingLeft, paddingRight } = this.state.style;
       const cssSize = {
@@ -254,6 +254,7 @@ class ICEText extends ICEComponent {
       this.props.height = cssSize.height;
       this.state.width = cssSize.width;
       this.state.height = cssSize.height;
+      this.state.textHeight = div.offsetHeight; // 纯文本高度（不含 padding），供多行 baseline 计算
       return { width: this.state.width, height: this.state.height };
     } catch (err) {
       console.error(err);
@@ -269,22 +270,22 @@ class ICEText extends ICEComponent {
   protected doRender() {
     this.dirty && this.measureText();
     const { paddingTop, paddingBottom, paddingLeft, paddingRight } = this.state.style;
-    if (this.state.stroke) {
-      this.ctx.strokeText(
-        this.state.text,
-        0 - this.state.localOrigin[0] + paddingLeft,
-        0 - this.state.localOrigin[1] + this.state.height - paddingBottom,
-        this.state.width
-      );
+    // 多行文本：按 \n 拆分，逐行绘制；行高用 DIV 实测的文本高度均分，保证单行与旧基线一致
+    const lines = this.state.text.split('\n');
+    const textHeight = this.state.textHeight || this.state.style.fontSize;
+    const lineHeight = textHeight / lines.length;
+    const x = 0 - this.state.localOrigin[0] + paddingLeft;
+
+    for (let i = 0; i < lines.length; i++) {
+      const baselineY = 0 - this.state.localOrigin[1] + paddingTop + (i + 1) * lineHeight;
+      if (this.state.stroke) {
+        this.ctx.strokeText(lines[i], x, baselineY, this.state.width);
+      }
+      if (this.state.fill) {
+        this.ctx.fillText(lines[i], x, baselineY, this.state.width);
+      }
     }
-    if (this.state.fill) {
-      this.ctx.fillText(
-        this.state.text,
-        0 - this.state.localOrigin[0] + paddingLeft,
-        0 - this.state.localOrigin[1] + this.state.height - paddingBottom,
-        this.state.width
-      );
-    }
+
     // 编辑态下渲染光标
     if (this.state.editing) {
       this.renderCaret();
