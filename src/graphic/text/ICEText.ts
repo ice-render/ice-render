@@ -53,6 +53,7 @@ class ICEText extends ICEComponent {
         height: 10,
         editing: false, //是否处于内联编辑状态
         caretIndex: 0, //编辑光标位置（字符下标）
+        transformable: false, //文本默认不显示变换手柄（选中时只允许拖动），需变换时显式设 true
         style: {
           fontWeight: 'bold',
           fontSize: 32,
@@ -89,6 +90,12 @@ class ICEText extends ICEComponent {
   private __originalDraggable = true;
 
   /**
+   * 编辑态叠加的 HTML input（用于支持中文 IME 输入）。浏览器环境下存在；
+   * 无 document 的运行时（Node/小程序）为 null，降级为 canvas keydown 输入。
+   */
+  private __editInput: any = null;
+
+  /**
    * 进入内联编辑态：光标定位到文本末尾，隐藏变换面板、禁用拖拽（避免编辑时误拖动）。
    */
   public startEditing(): void {
@@ -101,6 +108,8 @@ class ICEText extends ICEComponent {
     if (this.ice && this.ice.evtBus) {
       this.ice.evtBus.on('mousedown', this.__globalMouseDownHandler, this);
     }
+    // 浏览器环境：叠加 HTML input 捕获输入（支持中文 IME）
+    this.__mountEditInput();
   }
 
   /**
@@ -110,7 +119,71 @@ class ICEText extends ICEComponent {
     if (this.ice && this.ice.evtBus) {
       this.ice.evtBus.off('mousedown', this.__globalMouseDownHandler, this);
     }
+    this.__unmountEditInput();
     this.setState({ editing: false, draggable: this.__originalDraggable });
+  }
+
+  /**
+   * 创建透明的 HTML input 覆盖在文本上，捕获输入（含中文 IME）。
+   * input 文字设为透明（canvas 负责显示），只保留可见光标。
+   */
+  private __mountEditInput(): void {
+    const doc = this.root && this.root.document;
+    if (!doc || !doc.body) {
+      return; // 无 document（Node/小程序），降级 canvas keydown
+    }
+    const box = this.getMinBoundingBox(true);
+    const canvasRect = this.ice && this.ice.canvasEl ? this.ice.canvasEl.getBoundingClientRect() : { left: 0, top: 0 };
+
+    const input = doc.createElement('input');
+    input.type = 'text';
+    input.value = this.state.text;
+    input.style.position = 'absolute';
+    input.style.left = canvasRect.left + box.tl[0] + 'px';
+    input.style.top = canvasRect.top + box.tl[1] + 'px';
+    input.style.width = Math.max(this.state.width, 1) + 'px';
+    input.style.height = Math.max(this.state.height, this.state.style.fontSize) + 'px';
+    input.style.fontSize = this.state.style.fontSize + 'px';
+    input.style.fontFamily = this.state.style.fontFamily;
+    input.style.color = 'transparent'; // 文字透明（canvas 显示），只保留光标
+    input.style.caretColor = this.state.style.fillStyle || '#000000';
+    input.style.background = 'transparent';
+    input.style.border = 'none';
+    input.style.outline = 'none';
+    input.style.padding = '0';
+    input.style.margin = '0';
+    input.style.zIndex = '9999';
+    doc.body.appendChild(input);
+    input.focus();
+    // 光标定位到末尾（与 canvas 编辑态的光标定位一致）
+    input.setSelectionRange(input.value.length, input.value.length);
+
+    input.addEventListener('input', () => {
+      this.setText(input.value);
+    });
+    input.addEventListener('compositionend', () => {
+      this.setText(input.value);
+    });
+    input.addEventListener('keydown', (evt: any) => {
+      if ((evt.key === 'Enter' || evt.key === 'Escape') && !evt.isComposing) {
+        this.stopEditing();
+      }
+    });
+    input.addEventListener('blur', () => {
+      this.stopEditing();
+    });
+
+    this.__editInput = input;
+  }
+
+  /**
+   * 移除编辑态的 HTML input。
+   */
+  private __unmountEditInput(): void {
+    if (this.__editInput && this.__editInput.parentNode) {
+      this.__editInput.parentNode.removeChild(this.__editInput);
+    }
+    this.__editInput = null;
   }
 
   /**
@@ -141,6 +214,9 @@ class ICEText extends ICEComponent {
    * 编辑态下接管键盘输入：字符插入 / Backspace / Delete / 方向键移动光标 / Enter 提交。
    */
   protected keyboardEvtHandler(evt: any) {
+    if (this.__editInput) {
+      return; // input 编辑态：所有输入（含 IME）由 HTML input 处理，避免重复
+    }
     if (!this.state.editing) {
       super.keyboardEvtHandler(evt);
       return;
@@ -194,6 +270,9 @@ class ICEText extends ICEComponent {
    * 在编辑态下渲染光标（垂直竖线），位置由 caretIndex + ctx.measureText 计算。
    */
   private renderCaret(): void {
+    if (this.__editInput) {
+      return; // input 编辑态：光标由 HTML input 的可见 caretColor 接管
+    }
     const { paddingTop, paddingBottom, paddingLeft } = this.state.style;
     const textBefore = this.state.text.slice(0, this.state.caretIndex);
     let caretX = 0 - this.state.localOrigin[0] + paddingLeft;

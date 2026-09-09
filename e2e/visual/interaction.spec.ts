@@ -205,3 +205,35 @@ test('文本编辑：编辑态禁拖拽 + 点击别处退出编辑', async ({ pa
   expect(await page.evaluate(() => window.__text.state.editing)).toBe(false);
   expect(await page.evaluate(() => window.__text.state.draggable)).toBe(true); // 恢复拖拽
 });
+
+test('文本编辑：IME 中文输入 + 文本选中不显示变换面板', async ({ page }) => {
+  await page.goto('/e2e/visual/fixtures/nested-interaction.html');
+  await page.waitForTimeout(400);
+
+  const c = await page.evaluate(() => {
+    const p = window.__text.getMinBoundingBox(true).centerPoint;
+    return { x: p[0], y: p[1] };
+  });
+
+  // 双击进入编辑，确认叠加了 input
+  await page.mouse.dblclick(c.x, c.y);
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => !!document.querySelector('input'))).toBe(true);
+
+  // IME 中文输入（insertText 模拟组合输入）
+  await page.keyboard.insertText('你好世界');
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => window.__text.getText())).toBe('hello你好世界');
+
+  // 回车提交，input 移除
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => window.__text.state.editing)).toBe(false);
+
+  // 文本选中：transformable=false，不显示变换面板
+  await page.mouse.click(c.x, c.y);
+  await page.waitForTimeout(100);
+  const panel = await page.evaluate(() => window.__ice.controlPanelManager.transformControlPanel.state.display);
+  expect(panel).toBe(false);
+  expect(await page.evaluate(() => window.__text.state.transformable)).toBe(false);
+});
