@@ -48,7 +48,7 @@ const FrameManager = {
   /**
    * @method registerEvtBus  注册事件总线
    */
-  regitserEvtBus: function (evtBus) {
+  registerEvtBus: function (evtBus) {
     if (FrameManager.evtBuses.includes(evtBus)) {
       return;
     }

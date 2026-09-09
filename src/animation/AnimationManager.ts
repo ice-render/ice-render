@@ -27,6 +27,8 @@ import Easing from './Easing';
 class AnimationManager {
   private animationMap = new Map(); //所有需要执行动画的元素都会被自动存入此列表中
   private ice: ICE;
+  private paused = false;
+  private pausedAt = 0;
 
   constructor(ice: ICE) {
     this.ice = ice;
@@ -43,6 +45,9 @@ class AnimationManager {
   }
 
   private frameEventHandler(evt: ICEEvent) {
+    if (this.paused) {
+      return;
+    }
     const arr = [...this.animationMap.values()];
     for (let i = 0; i < arr.length; i++) {
       const el = arr[i];
@@ -53,43 +58,106 @@ class AnimationManager {
     }
   }
 
-  //TODO:处理无限循环播放的情况，处理播放次数的情况
-  //TODO:每一个属性变化的持续时间不同，需要做同步处理，所有动画都执行完毕之后，需要把对象从动画列表中删除
+  /**
+   * 每一帧推进动画：计算各属性的缓动值。
+   * - 各属性独立计时（各自维护 duration/startTime），全部结束后把对象从动画列表移除。
+   * - 支持 loop（无限循环）与 iterationCount（播放次数）。
+   * - 支持 from > to 的递减动画。
+   */
   private tween(el: ICEComponent) {
     const newState: any = {};
     const animations = el.props.animations;
-    let finishCounter = 1;
+    let hasActive = false;
 
     for (const key in animations) {
       const animation = animations[key];
       if (animation.finished) {
-        finishCounter++;
-        //元素上的所有动画效果都已经执行完毕，从动画列表中删除， FIXME: 处理无限循环动画的问题
-        if (finishCounter === Object.keys(animations).length) {
-          this.remove(el);
-          break;
-        }
         continue;
       }
-      const from = animation.from;
-      const to = animation.to;
-      const duration = animation.duration;
       if (isUndefined(animation.startTime)) {
         animation.startTime = Date.now();
       }
       if (isUndefined(animation.easing)) {
         animation.easing = 'linear';
       }
-      let newValue = Easing[animation.easing](from, to, duration, animation.startTime);
-      if (newValue > to) {
-        newValue = to;
-        animation.finished = true;
+
+      let newValue = Easing[animation.easing](animation.from, animation.to, animation.duration, animation.startTime);
+      const reachedEnd = animation.to >= animation.from ? newValue >= animation.to : newValue <= animation.to;
+      if (reachedEnd) {
+        newValue = animation.to;
+        if (this.shouldRepeat(animation)) {
+          // 需要重复：重置 startTime，重新开始一轮，并重算本帧值（从 from 开始）
+          animation.startTime = Date.now();
+          newValue = Easing[animation.easing](animation.from, animation.to, animation.duration, animation.startTime);
+          hasActive = true;
+        } else {
+          animation.finished = true;
+        }
+      } else {
+        hasActive = true;
       }
-      newState[key] = Math.floor(newValue); //使用整数个像素点
+      newState[key] = Math.floor(newValue);
     }
 
-    el.setState({ ...newState });
+    if (!hasActive) {
+      this.remove(el);
+    }
+    if (Object.keys(newState).length > 0) {
+      el.setState(newState);
+    }
     return el;
+  }
+
+  /**
+   * 判断动画到达终点后是否重复播放：
+   * - loop === true：无限循环；
+   * - iterationCount > 1：剩余次数递减，直到 1 次后结束。
+   */
+  private shouldRepeat(animation: any): boolean {
+    if (animation.loop === true) {
+      return true;
+    }
+    if (typeof animation.iterationCount === 'number' && animation.iterationCount > 1) {
+      animation.iterationCount--;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 暂停所有动画（冻结进度，恢复时从暂停处继续）。
+   */
+  public pause() {
+    if (this.paused) {
+      return;
+    }
+    this.paused = true;
+    this.pausedAt = Date.now();
+  }
+
+  /**
+   * 恢复所有动画：把每个动画的 startTime 往后移，抵消暂停期间的流逝。
+   */
+  public resume() {
+    if (!this.paused) {
+      return;
+    }
+    const pausedDuration = Date.now() - this.pausedAt;
+    const arr = [...this.animationMap.values()];
+    for (const el of arr) {
+      const animations = el.props.animations;
+      for (const key in animations) {
+        const animation = animations[key];
+        if (!isUndefined(animation.startTime)) {
+          animation.startTime += pausedDuration;
+        }
+      }
+    }
+    this.paused = false;
+  }
+
+  public isPaused(): boolean {
+    return this.paused;
   }
 
   public add(component: ICEComponent) {

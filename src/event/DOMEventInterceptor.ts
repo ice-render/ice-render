@@ -37,7 +37,7 @@ const DOMEventInterceptor = {
     }
   },
 
-  regitserEvtBus: function (evtBus: any): void {
+  registerEvtBus: function (evtBus: any): void {
     if (DOMEventInterceptor.evtBuses.includes(evtBus)) {
       return;
     }

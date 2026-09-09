@@ -93,10 +93,10 @@ class ICE {
 
     //启动当前 ICE 实例上的所有 Manager，有顺序
     this.evtBus = new EventBus(); //后续所有 Manager 都依赖事件总线，所以 this.evtBus 需要最先初始化。
-    FrameManager.regitserEvtBus(this.evtBus);
+    FrameManager.registerEvtBus(this.evtBus);
     FrameManager.start();
 
-    DOMEventInterceptor.regitserEvtBus(this.evtBus);
+    DOMEventInterceptor.registerEvtBus(this.evtBus);
     DOMEventInterceptor.start();
     this.eventDispatcher = new DOMEventDispatcher(this).start();
     this.animationManager = new AnimationManager(this).start();
