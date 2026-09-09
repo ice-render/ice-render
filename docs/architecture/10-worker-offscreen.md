@@ -70,6 +70,13 @@ worker  → 主线程: { type:'bitmap', bitmap, stats:{renderMs} } | { type:'sta
     2D ctx 上驱动同一套 ICE 确定性场景，测量 worker 内 static/anim 单帧 p50（含真实光栅化），
     末帧 `transferToImageBitmap` 上传主线程 `ImageBitmapRenderingContext` 展示。
   - 结果写入 `window.__workerBenchResult`，可被 Playwright 采集。
+- **兼容性处理（宿主页面层）**：
+  - 能力探测：`Worker` / `OffscreenCanvas` / `canvas.getContext('bitmaprenderer')` 三者缺一即走主线程回退。
+  - worker 构造或运行期 `onerror` 也会回退主线程渲染（同一确定性场景，同一套测量函数）。
+  - 提供 `?backend=main` 强制走主线程路径，便于回归测试回退逻辑。
+  - 结果带 `backend: 'worker' | 'main-thread'` 与 `supported` 字段，如实上报实际后端。
+- **注意**：`renderInWorker` 作为引擎级开关仍是**未来设计**（见 §1/§6），本轮未进引擎核心；
+  以上兼容处理发生在宿主页/集成层，引擎本身仍以主线程为目标、跨端安全。
 
 ## 8. 验收指标与不做清单（M2 范围）
 
