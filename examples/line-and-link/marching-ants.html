@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-marching-ants</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      蚂蚁线（marching ants）：<code>lineDash + lineDashFlow</code>，虚线沿路径流动（像数据在管子里跑）。
+      左边是选区框，右边是数据流连线。
+    </div>
+    <canvas id="canvas-1" width="900" height="400" style="background-color: #fafafa;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    // 蚂蚁线选区框：只描边（fill:false），虚线流动
+    const sel = new ICE.ICERect({
+      left: 100, top: 80, width: 300, height: 220,
+      fill: false,
+      lineDash: [8, 4],
+      lineDashFlow: true,
+      style: { strokeStyle: '#0c09d4', lineWidth: 2 },
+    });
+    ice.addChild(sel);
+
+    // 流动数据线：蚂蚁线连线（数据流）
+    const line = new ICE.ICEPolyLine({
+      points: [[520, 100], [720, 280]],
+      lineDash: [10, 6],
+      lineDashFlow: true,
+      lineDashFlowSpeed: 50,
+      style: { strokeStyle: '#0c8f09', lineWidth: 3 },
+    });
+    ice.addChild(line);
+
+    // 静态虚线（对照，不流动）
+    const staticLine = new ICE.ICEPolyLine({
+      points: [[620, 100], [820, 280]],
+      lineDash: [10, 6],
+      style: { strokeStyle: '#888880', lineWidth: 2 },
+    });
+    ice.addChild(staticLine);
+  </script>
+</html>

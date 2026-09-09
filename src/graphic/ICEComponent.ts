@@ -102,6 +102,9 @@ abstract class ICEComponent extends ICEEventTarget {
     // 渐变对象需通过 ice.createLinearGradient/createRadialGradient 创建后赋给 fillStyle/strokeStyle。
     style: { fillStyle: 'red', strokeStyle: 'blue', lineWidth: 1 },
     lineDash: [], //虚线模式，如 [10, 5]；空数组 = 实线（对应 canvas setLineDash）
+    lineDashOffset: 0, //虚线偏移（静态），对应 canvas lineDashOffset
+    lineDashFlow: false, //蚂蚁线：虚线沿路径流动（marching ants），配合 lineDash 使用
+    lineDashFlowSpeed: 30, //蚂蚁线流动速度：每 1px 前进所需 ms，越大越慢
     fill: true,
     stroke: true,
     animations: {},
