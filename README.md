@@ -81,17 +81,18 @@ ice.addChild(new ICERect({ width: 100, height: 50 }));
 ## 📚 文档
 
 - **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容。
-- **示例** —— [`examples/`](./examples/index.html) 目录提供 49 个可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画等）。
+- **示例** —— [`examples/`](./examples/index.html) 目录提供 74 个可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局等）。
 
 ## 🧪 工程化
 
 | 命令 | 说明 |
 |---|---|
-| `npm test` | 单元测试（jest，46 用例） |
-| `npm run test:visual` | 可视化回归（Playwright golden-image） |
+| `npm test` | 单元测试（jest，镜像 src/ 结构，见 `tests/`） |
+| `npm run test:visual` | Playwright：golden-image 可视化回归 + 真实画布性能采集（`e2e/visual/perf.spec.ts`） |
 | `npm run lint` / `npm run lint:fix` | 代码检查 / 自动修复 |
 | `npm run types:check` | TypeScript 类型检查 |
-| `npm run bench` | 渲染热路径基准 |
+| `npm run bench` | 场景基准（stub ctx，`bench/render.cjs`，改 `src/` 后先 `npm run build`） |
+| `npm run bench:micro` | 微基准（mitata，`bench/micro/`，逐个测矩阵/渲染/命中/状态热函数，防 DCE，需先 `npm run build`） |
 | `npm run build` | 构建（类型声明 + rollup） |
 
 提交前会自动执行 lint-staged（husky）；推送后 CI（GitHub Actions）跑 lint + 类型检查 + 单测 + 构建。
