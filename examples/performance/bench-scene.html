@@ -23,6 +23,7 @@
       const N = Math.max(100, Math.min(parseInt(params.get('n') || '5000', 10) || 5000, 200000));
       const MODE = ['static', 'anim', 'drag', 'fps'].includes(params.get('mode')) ? params.get('mode') : 'anim';
       const PLAIN = params.get('plain') === '1'; // 仅矩形/圆形（无不透明之外成分），drag 局部重绘可生效
+      const RM = params.get('rm') === 'full' ? 'full' : 'dirty-rect'; // 渲染模式对照：rm=full 强制全量
       const FRAMES = Math.max(10, parseInt(params.get('frames') || '90', 10) || 90);
       const DURATION_MS = Math.max(200, parseInt(params.get('duration') || '1500', 10) || 1500);
 
@@ -122,7 +123,7 @@
 
       // ---- 主流程 ----
       const tBuild0 = performance.now();
-      ice = new ICE.ICE().init('canvas-1');
+      ice = new ICE.ICE().init('canvas-1', { renderMode: RM });
       const rootGroup = buildTree(N, PLAIN);
       ice.addChild(rootGroup);
       collect(rootGroup);
@@ -192,9 +193,9 @@
       }
 
       (async function run() {
-        let result = { n: N, mode: MODE, totalComponents: totalCount, canvas: [ice.canvasWidth, ice.canvasHeight], buildMs };
+        let result = { n: N, mode: MODE, renderMode: RM, totalComponents: totalCount, canvas: [ice.canvasWidth, ice.canvasHeight], buildMs };
         const lines = [];
-        const head = `n=${N}  components=${totalCount}  mode=${MODE}  canvas=${ice.canvasWidth}x${ice.canvasHeight}`;
+        const head = `n=${N}  components=${totalCount}  mode=${MODE}  render=${RM}  canvas=${ice.canvasWidth}x${ice.canvasHeight}`;
         lines.push(head);
         lines.push('build(init+addChild): ' + fmt(buildMs));
         lines.push('-'.repeat(64));

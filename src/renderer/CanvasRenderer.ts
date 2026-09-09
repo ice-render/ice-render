@@ -215,6 +215,10 @@ class CanvasRenderer extends ICEEventTarget {
    * 区域来源：
    * - 可见且 dirty 的组件/工具：旧快照盒 ∪ 新几何盒（可能移动/变形）。
    * - display:false 且 dirty 且曾上屏的组件/工具：旧快照盒（仅擦除）。
+   *
+   * 判定顺序（性能关键）：先做**零开销预检**（只读 display/dirty 标志），
+   * 能确定要回退全量的情况（无可见脏组件 / 脏占比超阈）绝不进入
+   * 「场景门控 + 逐组件算包围盒」的昂贵路径——否则动画全量帧会被重复 compose 翻倍。
    */
   private __collect(): { region: number[] } | null {
     if (!this.__primed) return null;
@@ -225,64 +229,73 @@ class CanvasRenderer extends ICEEventTarget {
     if (!ctx || typeof ctx.save !== 'function' || typeof ctx.clip !== 'function' || typeof ctx.restore !== 'function') {
       return null;
     }
+
+    const preComp = this.__preCount(this.componentQueue);
+    // 局部重绘必须由「可见组件变脏」驱动；纯工具/纯隐藏帧（如 disable 面板只改工具 display）
+    // 回退全量，保持与全量路径语义完全一致。
+    if (preComp.dirty === 0) return null;
+    // 脏组件占比过高 → 相交裁剪收益小
+    if (preComp.visible > 0 && preComp.dirty / preComp.visible > FULL_FALLBACK_DIRTY_RATIO) return null;
+
     // v1 场景级门控：场景里存在「非不透明落墨 / 点集路径 / 文本」任一可见组件就回退全量。
     // clip 边界与半透明落墨、字形、折线/星形抗锯齿边缘相交会产生与全量不一致的接缝，
     // v1 采取保守的「整场景」判定（简单可论证）；v2 再细化到「仅当区域与这类组件相交」。
     if (!this.__sceneAllowsPartial()) return null;
-    const hasDoc = !!(this.ice.root && this.ice.root.document);
 
     const region = emptyBox();
-    let dirtyVisible = 0;
-    let drawnCount = 0;
-    let hiddenErase = false;
-
-    const scan = (queue: any[], isTools: boolean): boolean => {
-      for (let i = 0; i < queue.length; i++) {
-        const c = queue[i];
-        if (!c.state.display) {
-          // 隐藏且曾上屏、本帧有脏：需要擦除旧区域
-          if (c.dirty && this.__snap.has(c)) hiddenErase = true;
-          continue;
-        }
-        if (isTools) {
-          // 工具层恒画（数量恒小），但脏工具（如拖动中的连线钩子）需要贡献移动区域；
-          // 不参与「脏占比」判定（占比只统计组件队列）。
-          if (c.dirty) {
-            const nb = this.__freshBox(c);
-            if (!nb) return false;
-            unionBoxes(region, nb);
-            const old = this.__snap.get(c);
-            if (old) unionBoxes(region, old as any);
-          }
-          continue;
-        }
-        drawnCount++;
-        if (c.dirty) {
-          // 无 document 运行时（小程序/Node）无法预量文本 → 回退全量（文本在场景门控已拦，双保险）
-          if (this.__isText(c) && !hasDoc) return false;
-          dirtyVisible++;
-          const nb = this.__freshBox(c);
-          if (!nb) return false;
-          unionBoxes(region, nb);
-          const old = this.__snap.get(c);
-          if (old) unionBoxes(region, old as any);
-        }
-      }
-      return true;
-    };
-
-    if (!scan(this.componentQueue, false)) return null;
-    if (!scan(this.toolsQueue, true)) return null;
-
-    // 没有任何可见脏组件且没有需要擦除的隐藏组件：手动置脏帧 / 图片 onload 帧 → 全量保语义
-    if (dirtyVisible === 0 && !hiddenErase) return null;
-    // 脏组件占比过高 → 相交裁剪收益小
-    if (drawnCount > 0 && dirtyVisible / drawnCount > FULL_FALLBACK_DIRTY_RATIO) return null;
+    if (!this.__unionDirtyRegions(region, this.componentQueue)) return null;
+    if (!this.__unionDirtyRegions(region, this.toolsQueue)) return null;
     if (!isFiniteBox(region)) return null;
     integerAlign(region);
     if (regionRatio(region, cw, ch) > FULL_FALLBACK_AREA_RATIO) return null;
 
     return { region };
+  }
+
+  /**
+   * 预检：只读组件标志（display/dirty/快照存在），不触发矩阵/样式计算。
+   * @returns { visible: 可见数量, dirty: 可见且脏数量, hiddenErase: 是否有曾上屏的隐藏脏组件 }
+   */
+  private __preCount(queue: any[]): { visible: number; dirty: number; hiddenErase: boolean } {
+    let visible = 0;
+    let dirty = 0;
+    let hiddenErase = false;
+    for (let i = 0; i < queue.length; i++) {
+      const c = queue[i];
+      if (!c.state.display) {
+        if (c.dirty && this.__snap.has(c)) hiddenErase = true;
+        continue;
+      }
+      visible++;
+      if (c.dirty) dirty++;
+    }
+    return { visible, dirty, hiddenErase };
+  }
+
+  /**
+   * 区域收集 pass：仅当预检通过、即将走局部时才调用。
+   * 把「可见且脏」组件的旧快照盒 ∪ 新几何盒，与「隐藏且脏、曾上屏」组件的旧快照盒并进 region。
+   * 返回 false = 有组件盒非法（回退全量）。
+   */
+  private __unionDirtyRegions(region: number[], queue: any[]): boolean {
+    for (let i = 0; i < queue.length; i++) {
+      const c = queue[i];
+      if (!c.state.display) {
+        // 隐藏且曾上屏、本帧有脏：仅并入旧盒（擦除）
+        if (c.dirty) {
+          const old = this.__snap.get(c);
+          if (old) unionBoxes(region, old as any);
+        }
+        continue;
+      }
+      if (!c.dirty) continue;
+      const nb = this.__freshBox(c);
+      if (!nb) return false;
+      unionBoxes(region, nb);
+      const old = this.__snap.get(c);
+      if (old) unionBoxes(region, old as any);
+    }
+    return true;
   }
 
   /**
