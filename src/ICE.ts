@@ -21,6 +21,7 @@ import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
 import CanvasRenderer from './renderer/CanvasRenderer';
 import ImageCache from './util/ImageCache';
+import { setTheme, getTheme } from './theme/ICETheme';
 
 /**
  * @class ICE
@@ -244,6 +245,21 @@ class ICE {
    */
   public loadFont(family: string, source: string): Promise<any> {
     return root.loadFont(family, source);
+  }
+
+  /**
+   * 切换主题（浅合并到默认主题），预设样式（preset）会自动跟随主题变量。
+   */
+  public setTheme(theme: any): this {
+    setTheme(theme);
+    return this;
+  }
+
+  /**
+   * 获取当前主题对象。
+   */
+  public getTheme(): any {
+    return getTheme();
   }
 
   /**

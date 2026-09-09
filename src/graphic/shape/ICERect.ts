@@ -14,7 +14,7 @@ import ICEPath from '../ICEPath';
  */
 class ICERect extends ICEPath {
   constructor(props: any = {}) {
-    super({ width: 10, height: 10, radius: 0, ...props });
+    super({ width: 10, height: 10, ...props });
   }
 
   protected createPathObject(): any {

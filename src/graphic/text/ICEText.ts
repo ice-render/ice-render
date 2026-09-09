@@ -354,11 +354,16 @@ class ICEText extends ICEComponent {
         width: div.offsetWidth + paddingLeft + paddingRight,
         height: div.offsetHeight + paddingTop + paddingBottom,
       };
-      //这里需要同时修改一下 props 中的 width/height ，因为构造时无法计算文本的宽高
-      this.props.width = cssSize.width;
-      this.props.height = cssSize.height;
-      this.state.width = cssSize.width;
-      this.state.height = cssSize.height;
+      // 重要：只覆盖"用户没显式传"的 width/height（默认 10/10 作 sentinel），保留用户值。
+      // 否则 textAlign center 等文字居中逻辑会因为 localOrigin = width/2 被 div 实际宽度覆盖而错位。
+      if (this.props.width === 10) {
+        this.props.width = cssSize.width;
+        this.state.width = cssSize.width;
+      }
+      if (this.props.height === 10) {
+        this.props.height = cssSize.height;
+        this.state.height = cssSize.height;
+      }
       this.state.textHeight = div.offsetHeight; // 纯文本高度（不含 padding），供多行 baseline 计算
       return { width: this.state.width, height: this.state.height };
     } catch (err) {
@@ -374,15 +379,28 @@ class ICEText extends ICEComponent {
    */
   protected doRender() {
     this.dirty && this.measureText();
-    const { paddingTop, paddingBottom, paddingLeft, paddingRight } = this.state.style;
+    const { paddingTop, paddingBottom, paddingLeft, paddingRight, textAlign, textBaseline } = this.state.style;
     // 多行文本：按 \n 拆分，逐行绘制；行高用 DIV 实测的文本高度均分，保证单行与旧基线一致
     const lines = this.state.text.split('\n');
     const textHeight = this.state.textHeight || this.state.style.fontSize;
     const lineHeight = textHeight / lines.length;
-    const x = 0 - this.state.localOrigin[0] + paddingLeft;
 
     for (let i = 0; i < lines.length; i++) {
-      const baselineY = 0 - this.state.localOrigin[1] + paddingTop + (i + 1) * lineHeight;
+      // x 按 textAlign（默认左对齐，与旧行为一致）
+      let x = 0 - this.state.localOrigin[0] + paddingLeft;
+      if (textAlign === 'center') {
+        x = 0; // 文字水平中心对齐 localOrigin 中心
+      } else if (textAlign === 'right' || textAlign === 'end') {
+        x = this.state.localOrigin[0] - paddingRight;
+      }
+
+      // baselineY 按 textBaseline（默认 bottom，与旧行为一致）
+      let baselineY = 0 - this.state.localOrigin[1] + paddingTop + (i + 1) * lineHeight;
+      if (textBaseline === 'middle') {
+        // 文字垂直中心对齐 localOrigin 中心；多行整体居中
+        baselineY = (i - (lines.length - 1) / 2) * lineHeight;
+      }
+
       if (this.state.stroke) {
         this.ctx.strokeText(lines[i], x, baselineY, this.state.width);
       }

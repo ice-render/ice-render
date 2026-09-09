@@ -16,6 +16,17 @@ import ICEEventTarget from '../event/ICEEventTarget';
 import GeoUtil from '../geometry/GeoUtil';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICE from '../ICE';
+import { STYLE_PRESETS } from '../theme/ICETheme';
+
+/**
+ * 阴影简写预设：style.shadow: 'sm' | 'md' | 'lg' 一行搞定浮起效果，
+ * 对应展开为 shadowColor / shadowBlur / shadowOffsetX / shadowOffsetY。
+ */
+const SHADOW_PRESETS = {
+  sm: { shadowColor: 'rgba(0,0,0,0.12)', shadowBlur: 4, shadowOffsetX: 0, shadowOffsetY: 1 },
+  md: { shadowColor: 'rgba(0,0,0,0.18)', shadowBlur: 10, shadowOffsetX: 0, shadowOffsetY: 3 },
+  lg: { shadowColor: 'rgba(0,0,0,0.25)', shadowBlur: 20, shadowOffsetX: 0, shadowOffsetY: 6 },
+};
 import { skew } from '../util/gl-matrix-skew';
 import { uuid } from '../util/uuid';
 
@@ -143,6 +154,10 @@ abstract class ICEComponent extends ICEEventTarget {
 
   constructor(props: any = {}) {
     super();
+    // 预设样式：props.preset 引用 STYLE_PRESETS 里的命名预设，作为默认 props 补丁（用户 props 可覆盖）
+    if (props && props.preset && STYLE_PRESETS[props.preset]) {
+      props = merge({}, STYLE_PRESETS[props.preset](), props);
+    }
     this.props = merge(this.props, props);
     this.state = cloneDeep(this.props);
     this.root = root;
@@ -253,14 +268,30 @@ abstract class ICEComponent extends ICEEventTarget {
     const stateStyle = this.state.style;
     if (propsStyle) {
       for (const p in propsStyle) {
-        this.ctx[p] = propsStyle[p];
+        this.__applyStyleProp(p, propsStyle[p]);
       }
     }
     if (stateStyle) {
       for (const p in stateStyle) {
-        this.ctx[p] = stateStyle[p];
+        this.__applyStyleProp(p, stateStyle[p]);
       }
     }
+  }
+
+  /**
+   * 应用单个样式属性到 ctx，支持简写：
+   * - shadow: 'sm' | 'md' | 'lg' 展开成 shadowColor/shadowBlur/shadowOffsetX/shadowOffsetY。
+   */
+  private __applyStyleProp(prop: string, value: any): void {
+    if (prop === 'shadow' && typeof value === 'string' && SHADOW_PRESETS[value]) {
+      const preset = SHADOW_PRESETS[value];
+      this.ctx.shadowColor = preset.shadowColor;
+      this.ctx.shadowBlur = preset.shadowBlur;
+      this.ctx.shadowOffsetX = preset.shadowOffsetX;
+      this.ctx.shadowOffsetY = preset.shadowOffsetY;
+      return;
+    }
+    this.ctx[prop] = value;
   }
 
   /**
