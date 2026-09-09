@@ -142,6 +142,11 @@ class ICEPolyLine extends ICEDotPath {
       }
     }
 
+    // lineType 'dashed' 兼容：转成 lineDash（若未显式指定）
+    if (param.lineType === 'dashed' && (!param.lineDash || param.lineDash.length === 0)) {
+      param.lineDash = [param.lineWidth * 4, param.lineWidth * 4];
+    }
+
     //ICEPolyLine 的参数需要特殊处理，总是把 left/top 移动到第 0 个点的位置，外部传递的 left/top ， translate[0]/translate[1] 都无效。
     param = {
       ...param,

@@ -20,6 +20,7 @@ const demos: Array<{ name: string; path: string }> = [
   { name: 'text-edit', path: '/examples/text/text-edit.html' },
   { name: 'origin-custom', path: '/examples/transform/origin-custom.html' },
   { name: 'link-label', path: '/examples/line-and-link/link-label.html' },
+  { name: 'shapes-style-effects', path: '/examples/shapes/shapes-style-effects.html' },
 ];
 
 for (const d of demos) {

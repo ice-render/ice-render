@@ -40,6 +40,13 @@ abstract class ICEPath extends ICEComponent {
       this.path2D.closePath();
     }
 
+    // 虚线：描边前设置（仅影响 stroke，不影响 fill）
+    const lineDash = this.state.lineDash;
+    const hasDash = Array.isArray(lineDash) && lineDash.length > 0;
+    if (hasDash && typeof this.ctx.setLineDash === 'function') {
+      this.ctx.setLineDash(lineDash);
+    }
+
     if (this.path2D._isPolyfill) {
       // 无全局 Path2D 的运行时（小程序低版本/Node）：把记录的命令重放到 ctx 当前路径
       this.replayPath();
@@ -57,6 +64,11 @@ abstract class ICEPath extends ICEComponent {
       if (this.state.stroke) {
         this.ctx.stroke(this.path2D);
       }
+    }
+
+    // 描边后重置虚线，避免影响后续组件
+    if (hasDash && typeof this.ctx.setLineDash === 'function') {
+      this.ctx.setLineDash([]);
     }
 
     super.doRender();
