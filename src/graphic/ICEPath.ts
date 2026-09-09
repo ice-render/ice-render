@@ -40,17 +40,39 @@ abstract class ICEPath extends ICEComponent {
       this.path2D.closePath();
     }
 
-    // 虚线：描边前设置（仅影响 stroke，不影响 fill）
     const lineDash = this.state.lineDash;
     const hasDash = Array.isArray(lineDash) && lineDash.length > 0;
+    const isFlow = this.state.lineDashFlow;
+
+    // 蚂蚁线流动时持续重绘
+    if (isFlow) {
+      this.__ensureFlowAnimation();
+    }
+
+    // 水管壁：蚂蚁线外层套一条粗实线（像水管的管壁），画在虚线之前
+    const hasBorder = this.state.lineBorder && hasDash;
+    if (hasBorder && this.state.stroke) {
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.setLineDash([]);
+      ctx.lineWidth = (this.state.style.lineWidth || 1) + (this.state.lineBorderWidth || 4) * 2;
+      ctx.strokeStyle = this.state.lineBorderColor || '#c8c8c8';
+      if (this.path2D._isPolyfill) {
+        this.replayPath();
+        ctx.stroke();
+      } else {
+        ctx.stroke(this.path2D);
+      }
+      ctx.restore();
+    }
+
+    // 虚线：描边前设置（仅影响 stroke，不影响 fill）
     if (hasDash && typeof this.ctx.setLineDash === 'function') {
       this.ctx.setLineDash(lineDash);
-      // 蚂蚁线（marching ants）：虚线沿路径流动，lineDashOffset 随时间滚动
-      if (this.state.lineDashFlow && typeof this.ctx.lineDashOffset === 'number') {
-        this.__ensureFlowAnimation();
+      if (isFlow && typeof this.ctx.lineDashOffset === 'number') {
         const period = lineDash.reduce((a: number, b: number) => a + b, 0) || 1;
-        const speed = this.state.lineDashFlowSpeed || 30;
-        this.ctx.lineDashOffset = -((Date.now() / speed) % period);
+        const speed = this.state.lineDashFlowSpeed || 60;
+        this.ctx.lineDashOffset = -((Date.now() / 1000) * speed) % period;
       } else if (this.state.lineDashOffset) {
         this.ctx.lineDashOffset = this.state.lineDashOffset;
       }
