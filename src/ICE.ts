@@ -263,6 +263,38 @@ class ICE {
   }
 
   /**
+   * 读取画布指定区域的像素数据（取色、滤镜、橡皮擦等）。
+   */
+  public getImageData(x: number, y: number, w: number, h: number): any {
+    return this.ctx.getImageData(x, y, w, h);
+  }
+
+  /**
+   * 写入像素数据到画布。
+   */
+  public putImageData(imageData: any, x: number, y: number): void {
+    this.ctx.putImageData(imageData, x, y);
+  }
+
+  public createImageData(w: number, h: number): any {
+    return this.ctx.createImageData(w, h);
+  }
+
+  /**
+   * 把画布导出为 dataURL（默认 PNG）。type 如 'image/png'/'image/jpeg'，quality 0~1（jpeg）。
+   */
+  public toDataURL(type?: string, quality?: number): string {
+    return this.canvasEl.toDataURL(type, quality);
+  }
+
+  /**
+   * 把画布导出为 Blob（回调接收）。
+   */
+  public toBlob(callback: (blob: Blob | null) => void, type?: string, quality?: number): void {
+    this.canvasEl.toBlob(callback, type, quality);
+  }
+
+  /**
    * 把对象序列化成 JSON 字符串：
    * - 容器型组件需要负责子节点的序列化操作
    * - 如果组件不需要序列化，需要返回 null

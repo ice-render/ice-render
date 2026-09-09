@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-image-clip</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      图片圆形裁剪 <code>clipType: 'circle'</code>（头像场景），右图无裁剪对照。
+    </div>
+    <canvas id="canvas-1" width="512" height="256" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    // 圆形裁剪（头像）
+    ice.addChild(
+      new ICE.ICEImage({
+        left: 80, top: 50, width: 140, height: 140,
+        clipType: 'circle',
+      })
+    );
+
+    // 无裁剪对照
+    ice.addChild(
+      new ICE.ICEImage({
+        left: 280, top: 50, width: 140, height: 140,
+      })
+    );
+  </script>
+</html>
