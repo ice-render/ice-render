@@ -84,14 +84,17 @@ class ICEText extends ICEComponent {
   }
 
   /**
-   * 进入内联编辑态：光标定位到文本末尾。
+   * 进入内联编辑态：光标定位到文本末尾，同时隐藏变换面板（避免面板手柄遮挡文本和光标）。
    */
   public startEditing(): void {
     this.setState({ editing: true, caretIndex: this.state.text.length });
+    if (this.ice && this.ice.controlPanelManager) {
+      this.ice.controlPanelManager.transformControlPanel.disable();
+    }
   }
 
   /**
-   * 退出内联编辑态（提交文本）。
+   * 退出内联编辑态（提交文本）。退出后不自动恢复变换面板——用户若需再变换组件，重新点击组件即可。
    */
   public stopEditing(): void {
     this.setState({ editing: false });
