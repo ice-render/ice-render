@@ -24,10 +24,10 @@
     // KPI 卡片：preset 'card'（白底 + 圆角 + 阴影），数值/标签用 textAlign center 居中
     const cardW = 392, cardH = 184;
     const kpiData = [
-      { value: '12,345', label: '用户总数', color: '#185fa5' },
-      { value: '678', label: '今日订单', color: '#37dd0d' },
-      { value: '¥1.2M', label: '本月收入', color: '#ef9f27' },
-      { value: '3.4%', label: '转化率', color: '#d40c0c' },
+      { value: '12,345', label: '用户总数', color: '#3B82F6' },
+      { value: '678', label: '今日订单', color: '#10B981' },
+      { value: '¥1.2M', label: '本月收入', color: '#F59E0B' },
+      { value: '3.4%', label: '转化率', color: '#EF4444' },
     ];
     const positions = [
       { left: 40, top: 116 },
@@ -47,7 +47,7 @@
       // 标签：居中
       card.addChild(new ICE.ICEText({ left: 0, top: 105, width: cardW, height: 24, text: k.label, stroke: false, style: { fontSize: 16, fillStyle: '#666666', textAlign: 'center', textBaseline: 'middle' } }));
       // 趋势
-      card.addChild(new ICE.ICEText({ left: 0, top: 138, width: cardW, height: 20, text: '↑ 较昨日 +12.5%', stroke: false, style: { fontSize: 13, fillStyle: '#37dd0d', textAlign: 'center', textBaseline: 'middle' } }));
+      card.addChild(new ICE.ICEText({ left: 0, top: 138, width: cardW, height: 20, text: '↑ 较昨日 +12.5%', stroke: false, style: { fontSize: 13, fillStyle: '#10B981', textAlign: 'center', textBaseline: 'middle' } }));
       ice.addChild(card);
     });
   </script>

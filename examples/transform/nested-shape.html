@@ -32,9 +32,9 @@
         let mat2=glMatrix.mat2d.rotate([],mat1,Math.PI/12);
         mat2=glMatrix.mat2d.translate([],mat2,[200,-100]);//给父层加一个平移操作
         console.log(mat2);
-        ctx.strokeStyle="#ff0000";
+        ctx.strokeStyle="#EF4444";
         ctx.lineWidth=1;
-        ctx.fillStyle="#00ffff";
+        ctx.fillStyle="#06B6D4";
         ctx.setTransform(...mat2);
         ctx.beginPath();
         let rect1=ctx.rect(200,200,400,400);
@@ -48,7 +48,7 @@
         //带上父层的变换矩阵，才能获得最终的变换矩阵
         let mat4=glMatrix.mat2d.mul([],childMat,mat2);
         ctx.setTransform(...mat4);
-        ctx.fillStyle="#ff0000";
+        ctx.fillStyle="#EF4444";
         ctx.beginPath();
         let rect2=ctx.rect(200,200,200,200);
         ctx.closePath();

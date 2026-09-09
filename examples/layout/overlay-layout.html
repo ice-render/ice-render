@@ -13,13 +13,13 @@
   <script type="text/javascript">
     let ice = new ICE.ICE().init('canvas-1');
 
-    const group = new ICE.ICEGroup({ left: 100, top: 80, width: 200, height: 200, fill: false, style: { strokeStyle: '#888880', lineWidth: 1 } });
+    const group = new ICE.ICEGroup({ left: 100, top: 80, width: 200, height: 200, fill: false, style: { strokeStyle: '#6B7280', lineWidth: 1 } });
     ice.addChild(group);
 
     // 三个图层叠放（大→中→小，颜色不同）
-    group.addChild(new ICE.ICERect({ width: 200, height: 200, style: { strokeStyle: '#0c09d4', fillStyle: '#f5d106', lineWidth: 2 } }));
-    group.addChild(new ICE.ICERect({ width: 140, height: 140, style: { strokeStyle: '#0c8f09', fillStyle: '#37dd0d', lineWidth: 2 } }));
-    group.addChild(new ICE.ICERect({ width: 80, height: 80, style: { strokeStyle: '#d40c0c', fillStyle: '#ff8080', lineWidth: 2 } }));
+    group.addChild(new ICE.ICERect({ width: 200, height: 200, style: { strokeStyle: '#3B82F6', fillStyle: '#F59E0B', lineWidth: 2 } }));
+    group.addChild(new ICE.ICERect({ width: 140, height: 140, style: { strokeStyle: '#059669', fillStyle: '#10B981', lineWidth: 2 } }));
+    group.addChild(new ICE.ICERect({ width: 80, height: 80, style: { strokeStyle: '#EF4444', fillStyle: '#F472B6', lineWidth: 2 } }));
 
     group.setLayout(new ICE.ICEOverlayLayout({}));
   </script>

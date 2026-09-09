@@ -18,14 +18,14 @@
       new ICE.ICERect({
         left: 80, top: 80, width: 160, height: 80,
         lineDash: [10, 5],
-        style: { strokeStyle: '#0c09d4', fillStyle: '#f5d106', lineWidth: 3 },
+        style: { strokeStyle: '#3B82F6', fillStyle: '#F59E0B', lineWidth: 3 },
       })
     );
 
     // 线性渐变
     const g = ice.createLinearGradient(0, 0, 160, 0);
-    g.addColorStop(0, '#ff0000');
-    g.addColorStop(1, '#0000ff');
+    g.addColorStop(0, '#EF4444');
+    g.addColorStop(1, '#3B82F6');
     ice.addChild(
       new ICE.ICERect({
         left: 280, top: 80, width: 160, height: 80,
@@ -49,7 +49,7 @@
       new ICE.ICERect({
         left: 80, top: 220, width: 160, height: 80,
         style: {
-          fillStyle: '#37dd0d', strokeStyle: '#0c8f09', lineWidth: 2,
+          fillStyle: '#10B981', strokeStyle: '#059669', lineWidth: 2,
           shadowColor: '#000000', shadowBlur: 12, shadowOffsetX: 6, shadowOffsetY: 6,
         },
       })
@@ -59,7 +59,7 @@
     ice.addChild(
       new ICE.ICERect({
         left: 280, top: 220, width: 160, height: 80,
-        style: { fillStyle: '#0c09d4', strokeStyle: 'transparent', globalAlpha: 0.4 },
+        style: { fillStyle: '#3B82F6', strokeStyle: 'transparent', globalAlpha: 0.4 },
       })
     );
 
@@ -67,7 +67,7 @@
     ice.addChild(
       new ICE.ICERect({
         left: 520, top: 220, width: 160, height: 80,
-        style: { fillStyle: '#ff0000', strokeStyle: 'transparent', globalCompositeOperation: 'multiply' },
+        style: { fillStyle: '#EF4444', strokeStyle: 'transparent', globalCompositeOperation: 'multiply' },
       })
     );
   </script>

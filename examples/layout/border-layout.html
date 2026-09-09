@@ -16,15 +16,15 @@
     const group = new ICE.ICEGroup({
       left: 60, top: 60, width: 400, height: 280,
       fill: false,
-      style: { strokeStyle: '#888880', lineWidth: 1 },
+      style: { strokeStyle: '#6B7280', lineWidth: 1 },
     });
     ice.addChild(group);
 
-    const color = { strokeStyle: '#0c09d4', lineWidth: 2 };
-    group.addChild(new ICE.ICERect({ layoutConstraint: 'north', width: 100, height: 40, style: { ...color, fillStyle: '#f5d106' } }));
-    group.addChild(new ICE.ICERect({ layoutConstraint: 'south', width: 100, height: 40, style: { ...color, fillStyle: '#37dd0d' } }));
+    const color = { strokeStyle: '#3B82F6', lineWidth: 2 };
+    group.addChild(new ICE.ICERect({ layoutConstraint: 'north', width: 100, height: 40, style: { ...color, fillStyle: '#F59E0B' } }));
+    group.addChild(new ICE.ICERect({ layoutConstraint: 'south', width: 100, height: 40, style: { ...color, fillStyle: '#10B981' } }));
     group.addChild(new ICE.ICERect({ layoutConstraint: 'east', width: 80, height: 100, style: { ...color, fillStyle: '#08b2dd' } }));
-    group.addChild(new ICE.ICERect({ layoutConstraint: 'west', width: 80, height: 100, style: { ...color, fillStyle: '#ff8080' } }));
+    group.addChild(new ICE.ICERect({ layoutConstraint: 'west', width: 80, height: 100, style: { ...color, fillStyle: '#F472B6' } }));
     group.addChild(new ICE.ICERect({ layoutConstraint: 'center', width: 100, height: 100, style: { ...color, fillStyle: '#e8d5f5' } }));
 
     group.setLayout(new ICE.ICEBorderLayout({ gap: 5 }));
