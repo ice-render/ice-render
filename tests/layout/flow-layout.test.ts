@@ -145,18 +145,20 @@ describe('layout 继承（子容器默认继承父层布局）', () => {
   });
 });
 
-describe('layout 接管：禁用后代手动变换（transformable=false）', () => {
-  it('setLayout 后子组件 transformable=false', () => {
+describe('layout 接管：禁用后代手动变换和拖动', () => {
+  it('setLayout 后子组件 transformable=false 且 draggable=false', () => {
     const group = new ICEGroup({ width: 500, height: 200 });
     const rect = new ICERect({ width: 100, height: 40 });
     group.addChild(rect);
     expect(rect.state.transformable).toBe(true); // 默认可变换
+    expect(rect.state.draggable).toBe(true); // 默认可拖动
 
     group.setLayout(new ICEFlowLayout({ gap: 10 }));
     expect(rect.state.transformable).toBe(false); // 布局接管
+    expect(rect.state.draggable).toBe(false); // 也不能拖动
   });
 
-  it('任意层级：孙组件也被禁用', () => {
+  it('任意层级：孙组件也被禁用（transformable + draggable）', () => {
     const grand = new ICEGroup({ width: 500, height: 300 });
     const parent = new ICEGroup({ width: 400, height: 200 });
     const rect = new ICERect({ width: 100, height: 40 });
@@ -165,6 +167,7 @@ describe('layout 接管：禁用后代手动变换（transformable=false）', ()
 
     grand.setLayout(new ICEFlowLayout({ gap: 10 }));
     expect(rect.state.transformable).toBe(false); // 孙组件
+    expect(rect.state.draggable).toBe(false);
   });
 
   it('setLayout 之后 addChild 的新子组件也被禁用', () => {
@@ -174,12 +177,14 @@ describe('layout 接管：禁用后代手动变换（transformable=false）', ()
     const rect = new ICERect({ width: 100, height: 40 });
     group.addChild(rect);
     expect(rect.state.transformable).toBe(false);
+    expect(rect.state.draggable).toBe(false);
   });
 
-  it('未设置 layout 的容器，子组件保持可变换', () => {
+  it('未设置 layout 的容器，子组件保持可变换可拖动', () => {
     const group = new ICEGroup({ width: 500, height: 200 });
     const rect = new ICERect({ width: 100, height: 40 });
     group.addChild(rect);
     expect(rect.state.transformable).toBe(true);
+    expect(rect.state.draggable).toBe(true);
   });
 });

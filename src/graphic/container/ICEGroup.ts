@@ -54,6 +54,7 @@ class ICEGroup extends ICERect {
     }
     for (const child of component.childNodes) {
       child.state.transformable = false;
+      child.state.draggable = false; // 布局接管后也不能拖动（位置由代码决定）
       this.__disableTransformRecursively(child);
     }
   }
@@ -122,10 +123,11 @@ class ICEGroup extends ICERect {
     child.parentNode = this;
     this.childNodes.push(child);
 
-    // 布局接管：父容器已设定 layout 时，新加入的子组件（及其后代）禁止手动变换
+    // 布局接管：父容器已设定 layout 时，新加入的子组件（及其后代）禁止手动变换和拖动
     if (this.layoutManager) {
-      child.state.transformable = false; // 禁用新子组件自身
-      this.__disableTransformRecursively(child); // 递归禁用其后代
+      child.state.transformable = false;
+      child.state.draggable = false;
+      this.__disableTransformRecursively(child);
     }
 
     this.dirty = markDirty;
