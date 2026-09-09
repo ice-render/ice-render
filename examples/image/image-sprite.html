@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-image-sprite</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      雪碧图：一张 2×2 大图（上）→ 用 <code>sx/sy/sw/sh</code> 裁剪出 4 个图标分别显示（下）。
+    </div>
+    <canvas id="canvas-1" width="820" height="360" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    // 1) 动态生成一张雪碧图（2×2，每格 100×50）
+    const sprite = document.createElement('canvas');
+    sprite.width = 200;
+    sprite.height = 100;
+    const s = sprite.getContext('2d');
+    const cells = [
+      { x: 0, y: 0, color: '#e24b4a', shape: 'circle' },
+      { x: 100, y: 0, color: '#1d9e75', shape: 'triangle' },
+      { x: 0, y: 50, color: '#378add', shape: 'square' },
+      { x: 100, y: 50, color: '#ef9f27', shape: 'star' },
+    ];
+    cells.forEach((c) => {
+      s.fillStyle = c.color;
+      s.fillRect(c.x, c.y, 100, 50);
+      s.fillStyle = '#ffffff';
+      const cx = c.x + 50;
+      const cy = c.y + 25;
+      s.beginPath();
+      if (c.shape === 'circle') {
+        s.arc(cx, cy, 18, 0, Math.PI * 2);
+      } else if (c.shape === 'triangle') {
+        s.moveTo(cx, cy - 18);
+        s.lineTo(cx + 18, cy + 16);
+        s.lineTo(cx - 18, cy + 16);
+        s.closePath();
+      } else if (c.shape === 'square') {
+        s.rect(cx - 16, cy - 16, 32, 32);
+      } else {
+        for (let i = 0; i < 5; i++) {
+          const a = (i * 72 - 90) * (Math.PI / 180);
+          const r = i % 2 === 0 ? 18 : 7;
+          const px = cx + Math.cos(a) * r;
+          const py = cy + Math.sin(a) * r;
+          if (i === 0) s.moveTo(px, py);
+          else s.lineTo(px, py);
+        }
+        s.closePath();
+      }
+      s.fill();
+    });
+    const spriteSrc = sprite.toDataURL();
+
+    let ice = new ICE.ICE().init('canvas-1');
+
+    // 2) 先展示整张雪碧图（不裁剪）
+    ice.addChild(
+      new ICE.ICEImage({
+        left: 40, top: 60, width: 200, height: 100,
+        src: spriteSrc,
+      })
+    );
+    ice.addChild(
+      new ICE.ICEText({
+        left: 40, top: 10, text: '原始雪碧图（一张图）',
+        style: { fillStyle: '#333333', fontSize: 16 }, stroke: false,
+      })
+    );
+
+    // 3) 再裁剪出 4 个格子，分别显示
+    cells.forEach((c, i) => {
+      ice.addChild(
+        new ICE.ICEImage({
+          left: 40 + i * 190, top: 230, width: 140, height: 70,
+          src: spriteSrc,
+          sx: c.x, sy: c.y, sw: 100, sh: 50,
+        })
+      );
+    });
+    ice.addChild(
+      new ICE.ICEText({
+        left: 40, top: 180, text: '裁剪出的 4 个图标（sx/sy/sw/sh）',
+        style: { fillStyle: '#333333', fontSize: 16 }, stroke: false,
+      })
+    );
+  </script>
+</html>
