@@ -12,7 +12,6 @@ import PolyfillPath2D from './PolyfillPath2D';
  * ! TODO: import https://www.npmjs.com/package/canvas for nodejs platform.
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
-const FPS = 60;
 let root: any = null;
 (() => {
   // 浏览器用 window，Node/小程序用 global，兜底空对象（typeof 守卫避免 Node 下 window 未定义报错）
@@ -31,6 +30,18 @@ let root: any = null;
       return new root.Path2D();
     }
     return new PolyfillPath2D();
+  };
+  // 字体加载：平台适配（浏览器 FontFace API / 小程序 wx.loadFont / 兜底空实现）。
+  root.loadFont = (family: string, source: string) => {
+    if (typeof root.FontFace === 'function' && root.document && root.document.fonts) {
+      const face = new root.FontFace(family, source);
+      root.document.fonts.add(face);
+      return face.load();
+    }
+    if (root.wx && typeof root.wx.loadFont === 'function') {
+      return root.wx.loadFont(source);
+    }
+    return Promise.resolve();
   };
 })();
 export default root;

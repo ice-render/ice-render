@@ -31,7 +31,7 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | P0 | **多运行时（Path2D）** ✅ | `new Path2D()` 已抽象为 `root.createPath2D()`（原生 Path2D / `PolyfillPath2D` 降级），无 Path2D 环境（小程序低版本基础库/Node）逐像素一致渲染；**真机验证**仍需微信开发者工具或小程序真机 |
 | P1 | 动画完善 ✅ | 无限循环(`loop`)、播放次数(`iterationCount`)、递减动画(from>to)、多属性独立计时同步、`pause()`/`resume()` 冻结进度 |
 | P1 | 变换原语补全 ⚠️ | 旋转原点自定义 ✅（origin: localCenter/top-left/custom）；**错切（skew）手柄未做**（代码 TODO，UI 手柄较复杂） |
-| P1 | 文本能力 ⚠️ | 多行 ✅（\n 拆分 + DIV 实测行高）；**字体加载**（wx.loadFont / CSS @font-face）未做 |
+| P1 | 文本能力 ⚠️ | 多行 ✅（\n 拆分 + DIV 实测行高）；字体加载 ✅（`root.loadFont` 平台适配：浏览器 FontFace / 小程序 wx.loadFont）；IME 中文输入未做 |
 | P2 | 连线增强 ✅ | 正交路由 ✅（`routeType: 'orthogonal'`，按插槽方向生成直角折线）；连线标签 ✅（`label` + `labelStyle`，绘制在折线中点带背景） |
 | P2 | 序列化版本迁移 ✅ | 序列化加 `version` 字段 + 排除运行时缓存值（linearMatrix/composedMatrix/localOrigin/absoluteOrigin/dots/textHeight）；Deserializer 提供 `migrate` 迁移钩子、不支持的版本抛错 |
 | P2 | 工程债 ⚠️ | 拼写/FIXME 清理 ✅；**发布流水线 ✅**（rollup 输出 esm/cjs/umd + types 齐全，gl-matrix 移到 devDependencies 消除下游重复安装，dist 独立可运行）；应用消费链工具链统一未做 |

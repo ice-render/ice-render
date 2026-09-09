@@ -237,6 +237,16 @@ class ICE {
   }
 
   /**
+   * 加载自定义字体（平台适配）：浏览器走 FontFace API，小程序走 wx.loadFont。
+   * 加载后，在 ICEText 的 style.fontFamily 里引用该字体名即可。
+   * @param family 字体族名（如 'MyFont'）
+   * @param source 字体源（浏览器为 url/二进制，小程序为本地文件路径）
+   */
+  public loadFont(family: string, source: string): Promise<any> {
+    return root.loadFont(family, source);
+  }
+
+  /**
    * 把对象序列化成 JSON 字符串：
    * - 容器型组件需要负责子节点的序列化操作
    * - 如果组件不需要序列化，需要返回 null
