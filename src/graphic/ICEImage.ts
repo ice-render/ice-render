@@ -16,7 +16,8 @@ const defaultSrc =
  */
 class ICEImage extends ICEComponent {
   constructor(props: any = {}) {
-    super({ width: 100, height: 100, src: defaultSrc, clipType: 'none', ...props });
+    // sx/sy/sw/sh：雪碧图裁剪（源图上的裁剪矩形），sw/sh > 0 时启用；否则整图缩放
+    super({ width: 100, height: 100, src: defaultSrc, clipType: 'none', sx: 0, sy: 0, sw: 0, sh: 0, ...props });
   }
 
   protected doRender(): void {
@@ -27,6 +28,8 @@ class ICEImage extends ICEComponent {
         const clipType = this.state.clipType || 'none';
         const x = 0 - this.state.localOrigin[0];
         const y = 0 - this.state.localOrigin[1];
+        const { sx, sy, sw, sh } = this.state;
+        const useSprite = sw > 0 && sh > 0;
         if (clipType === 'circle') {
           // 圆形裁剪：以图片中心为圆心，半径取短边一半（头像场景）
           ctx.save();
@@ -35,7 +38,12 @@ class ICEImage extends ICEComponent {
           ctx.closePath();
           ctx.clip();
         }
-        ctx.drawImage(image, x, y, this.state.width, this.state.height);
+        if (useSprite) {
+          // 雪碧图裁剪：只绘制源图 (sx,sy,sw,sh) 区域，缩放到目标 width/height
+          ctx.drawImage(image, sx, sy, sw, sh, x, y, this.state.width, this.state.height);
+        } else {
+          ctx.drawImage(image, x, y, this.state.width, this.state.height);
+        }
         if (clipType === 'circle') {
           ctx.restore();
         }

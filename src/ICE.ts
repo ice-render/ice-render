@@ -263,6 +263,25 @@ class ICE {
   }
 
   /**
+   * 创建锥形渐变（较新 API，Chrome 99+），不支持的环境返回 null。
+   */
+  public createConicGradient(startAngle: number, x: number, y: number): any {
+    if (typeof this.ctx.createConicGradient === 'function') {
+      return this.ctx.createConicGradient(startAngle, x, y);
+    }
+    return null;
+  }
+
+  /**
+   * 创建图案填充（用图片平铺），供 style.fillStyle/strokeStyle 使用。
+   * @param image 图片源（HTMLImageElement/canvas 等）
+   * @param repetition 'repeat'|'repeat-x'|'repeat-y'|'no-repeat'
+   */
+  public createPattern(image: any, repetition: string): any {
+    return this.ctx.createPattern(image, repetition);
+  }
+
+  /**
    * 读取画布指定区域的像素数据（取色、滤镜、橡皮擦等）。
    */
   public getImageData(x: number, y: number, w: number, h: number): any {
