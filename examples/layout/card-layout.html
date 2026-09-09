@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-card-layout</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      卡片布局 <code>ICECardLayout</code>（对齐 Swing CardLayout）：一次显示一张卡片。
+      <button id="prev" style="margin-left: 8px;">上一张</button>
+      <button id="next">下一张</button>
+    </div>
+    <canvas id="canvas-1" width="500" height="300" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    const group = new ICE.ICEGroup({ left: 140, top: 80, width: 200, height: 120, fill: false });
+    ice.addChild(group);
+
+    group.addChild(new ICE.ICERect({ width: 200, height: 120, style: { strokeStyle: '#0c09d4', fillStyle: '#f5d106', lineWidth: 2 } }));
+    group.addChild(new ICE.ICERect({ width: 200, height: 120, style: { strokeStyle: '#0c8f09', fillStyle: '#37dd0d', lineWidth: 2 } }));
+    group.addChild(new ICE.ICERect({ width: 200, height: 120, style: { strokeStyle: '#d40c0c', fillStyle: '#ff8080', lineWidth: 2 } }));
+
+    const cardLayout = new ICE.ICECardLayout({});
+    group.setLayout(cardLayout);
+
+    document.querySelector('#next').addEventListener('click', () => cardLayout.next());
+    document.querySelector('#prev').addEventListener('click', () => cardLayout.previous());
+  </script>
+</html>

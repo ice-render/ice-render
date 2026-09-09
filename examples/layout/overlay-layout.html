@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-overlay-layout</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      叠加布局 <code>ICEOverlayLayout</code>（对齐 Swing OverlayLayout）：所有子组件叠放在同一位置，做图层。
+    </div>
+    <canvas id="canvas-1" width="500" height="300" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    const group = new ICE.ICEGroup({ left: 100, top: 80, width: 200, height: 200, fill: false, style: { strokeStyle: '#888880', lineWidth: 1 } });
+    ice.addChild(group);
+
+    // 三个图层叠放（大→中→小，颜色不同）
+    group.addChild(new ICE.ICERect({ width: 200, height: 200, style: { strokeStyle: '#0c09d4', fillStyle: '#f5d106', lineWidth: 2 } }));
+    group.addChild(new ICE.ICERect({ width: 140, height: 140, style: { strokeStyle: '#0c8f09', fillStyle: '#37dd0d', lineWidth: 2 } }));
+    group.addChild(new ICE.ICERect({ width: 80, height: 80, style: { strokeStyle: '#d40c0c', fillStyle: '#ff8080', lineWidth: 2 } }));
+
+    group.setLayout(new ICE.ICEOverlayLayout({}));
+  </script>
+</html>

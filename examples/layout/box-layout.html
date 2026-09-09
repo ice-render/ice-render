@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-box-layout</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      箱式布局 <code>ICEBoxLayout</code>（对齐 Swing BoxLayout）：单轴排列，横向 x / 纵向 y。
+    </div>
+    <canvas id="canvas-1" width="600" height="400" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    // 横向箱式
+    const hbox = new ICE.ICEGroup({ left: 60, top: 60, width: 400, height: 60, fill: false, style: { strokeStyle: '#888880', lineWidth: 1 } });
+    ice.addChild(hbox);
+    for (let i = 0; i < 4; i++) {
+      hbox.addChild(new ICE.ICERect({ width: 60 + i * 15, height: 40, style: { strokeStyle: '#0c09d4', fillStyle: '#f5d106', lineWidth: 2 } }));
+    }
+    hbox.setLayout(new ICE.ICEBoxLayout({ axis: 'x', gap: 8 }));
+
+    // 纵向箱式
+    const vbox = new ICE.ICEGroup({ left: 60, top: 160, width: 80, height: 180, fill: false, style: { strokeStyle: '#888880', lineWidth: 1 } });
+    ice.addChild(vbox);
+    for (let i = 0; i < 4; i++) {
+      vbox.addChild(new ICE.ICERect({ width: 60, height: 30, style: { strokeStyle: '#0c8f09', fillStyle: '#37dd0d', lineWidth: 2 } }));
+    }
+    vbox.setLayout(new ICE.ICEBoxLayout({ axis: 'y', gap: 8 }));
+  </script>
+</html>
