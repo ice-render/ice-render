@@ -6,14 +6,16 @@
   <body>
     <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
       Git 提交历史图：<code>ICELayeredLayout</code> 自动分层 + <code>curveType: 'cubic'</code> 贝塞尔连线，只写「commit + parent 关系」。
+      蓝 = master，橙 = feature。
     </div>
     <canvas id="canvas-1" width="1280" height="500" style="background-color: #fafafa;"></canvas>
   </body>
   <script src="../../dist/index.umd.js"></script>
   <script type="text/javascript">
     let ice = new ICE.ICE().init('canvas-1');
+    window.__ice = ice;
 
-    const group = new ICE.ICEGroup({ left: 40, top: 40, width: 1240, height: 420, fill: false });
+    const group = new ICE.ICEGroup({ left: 40, top: 40, width: 1240, height: 420, fill: false, stroke: false });
     ice.addChild(group);
 
     // 数据：commit（节点）+ parent→child（边）
@@ -32,12 +34,18 @@
       ['c2', 'f1'], ['f1', 'f2'], ['f2', 'c4'],
     ];
 
-    // 节点：commit 圆点 + 标签
+    // 节点：commit 圆点（白描边）+ 标签（圆点右边，垂直居中）
     const commitById = {};
     commits.forEach((c) => {
-      const node = new ICE.ICEGroup({ id: c.id, width: 130, height: 24, fill: false });
-      node.addChild(new ICE.ICECircle({ radius: 7, left: 0, top: 5, style: { fillStyle: branchColor[c.branch], strokeStyle: '#ffffff', lineWidth: 1 } }));
-      node.addChild(new ICE.ICEText({ left: 16, top: 2, text: c.label, stroke: false, style: { fontSize: 14, fillStyle: '#333333' } }));
+      const node = new ICE.ICEGroup({ id: c.id, width: 130, height: 28, fill: false, stroke: false });
+      // 圆点：fillStyle 分支色 + 白色描边，圆心垂直居中（top=14）
+      node.addChild(
+        new ICE.ICECircle({ radius: 6, left: 0, top: 14, style: { fillStyle: branchColor[c.branch], strokeStyle: '#ffffff', lineWidth: 1.5 } })
+      );
+      // 标签：圆点右边，textBaseline middle 和圆心对齐
+      node.addChild(
+        new ICE.ICEText({ left: 14, top: 14, text: c.label, stroke: false, style: { fontSize: 13, fillStyle: '#555555', textBaseline: 'middle' } })
+      );
       group.addChild(node);
       commitById[c.id] = node;
     });
@@ -49,14 +57,14 @@
         points: [[0, 0], [100, 0]],
         links: { start: { id: from, position: 'R' }, end: { id: to, position: 'L' } },
         curveType: 'cubic',
-        style: { strokeStyle: '#888880', lineWidth: 2 },
+        style: { strokeStyle: '#c8c8c8', lineWidth: 1.5 },
       });
       group.addChild(line);
       linkList.push(line);
     });
 
     // 分层布局：自动算坐标 + 对齐连线
-    group.setLayout(new ICE.ICELayeredLayout({ gapX: 100, gapY: 50 }));
+    group.setLayout(new ICE.ICELayeredLayout({ gapX: 80, gapY: 56 }));
 
     // 布局后把每条连线改成水平贝塞尔曲线（中间两个控制点）
     linkList.forEach((line) => {
