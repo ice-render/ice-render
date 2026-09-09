@@ -152,16 +152,46 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   public state: any = {};
 
+  // 主题热切换：记录 preset 名 + 用户原始 props（preset 展开前），供 setTheme 时重新 resolve
+  private __presetName?: string;
+  private __userProps?: any;
+
   constructor(props: any = {}) {
     super();
+    // 记录用户原始 props（preset 展开前），供主题热切换时重新 resolve preset
+    this.__userProps = props;
     // 预设样式：props.preset 引用 STYLE_PRESETS 里的命名预设，作为默认 props 补丁（用户 props 可覆盖）
     if (props && props.preset && STYLE_PRESETS[props.preset]) {
+      this.__presetName = props.preset;
       props = merge({}, STYLE_PRESETS[props.preset](), props);
     }
     this.props = merge(this.props, props);
     this.state = cloneDeep(this.props);
     this.root = root;
     this.initEvents();
+  }
+
+  /**
+   * 重新 resolve preset（主题热切换用）：把 preset 补丁按当前主题重新展开，
+   * 只更新 preset 涉及的字段（style + radius/stroke/fill 等），用户显式传的值优先。
+   */
+  public __reapplyPreset(): void {
+    if (!this.__presetName || !STYLE_PRESETS[this.__presetName]) {
+      return;
+    }
+    const patch = STYLE_PRESETS[this.__presetName]();
+    const user = this.__userProps || {};
+    const newState: any = {};
+    for (const k in patch) {
+      if (k === 'style') {
+        newState.style = merge({}, patch.style, user.style);
+      } else if (user[k] !== undefined) {
+        newState[k] = user[k];
+      } else {
+        newState[k] = patch[k];
+      }
+    }
+    this.setState(newState);
   }
 
   /**
