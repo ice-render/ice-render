@@ -50,3 +50,39 @@ describe('连线标签定位', () => {
     expect(line.state.label).toBe('one-to-many');
   });
 });
+
+describe('连线虚线', () => {
+  it("lineType 'dashed' 自动转成 lineDash", () => {
+    const line = new ICEPolyLine({
+      points: [
+        [0, 0],
+        [100, 50],
+      ],
+      lineType: 'dashed',
+      lineWidth: 2,
+    });
+    expect(Array.isArray(line.state.lineDash)).toBe(true);
+    expect(line.state.lineDash.length).toBeGreaterThan(0);
+  });
+
+  it('lineDash 可显式指定', () => {
+    const line = new ICEPolyLine({
+      points: [
+        [0, 0],
+        [100, 50],
+      ],
+      lineDash: [20, 10],
+    });
+    expect(line.state.lineDash).toEqual([20, 10]);
+  });
+
+  it('默认 solid：lineDash 为空', () => {
+    const line = new ICEPolyLine({
+      points: [
+        [0, 0],
+        [100, 50],
+      ],
+    });
+    expect(line.state.lineDash).toEqual([]);
+  });
+});

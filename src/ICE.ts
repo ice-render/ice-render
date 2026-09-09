@@ -247,6 +247,22 @@ class ICE {
   }
 
   /**
+   * 创建线性渐变对象，供组件 style.fillStyle/strokeStyle 使用。
+   * 用法：const g = ice.createLinearGradient(0,0,100,0); g.addColorStop(0,'red'); g.addColorStop(1,'blue');
+   *       new ICERect({ style: { fillStyle: g } })
+   */
+  public createLinearGradient(x0: number, y0: number, x1: number, y1: number): any {
+    return this.ctx.createLinearGradient(x0, y0, x1, y1);
+  }
+
+  /**
+   * 创建径向（圆形）渐变对象。
+   */
+  public createRadialGradient(x0: number, y0: number, r0: number, x1: number, y1: number, r1: number): any {
+    return this.ctx.createRadialGradient(x0, y0, r0, x1, y1, r1);
+  }
+
+  /**
    * 把对象序列化成 JSON 字符串：
    * - 容器型组件需要负责子节点的序列化操作
    * - 如果组件不需要序列化，需要返回 null

@@ -94,7 +94,14 @@ abstract class ICEComponent extends ICEEventTarget {
     top: 0,
     width: 0,
     height: 0,
+    // style 会通过 applyStyleToCtx 透传到 canvas ctx，因此除内置的 fillStyle/strokeStyle/lineWidth 外，
+    // 还支持任意 canvas 标量样式属性，例如：
+    //   shadowColor/shadowBlur/shadowOffsetX/shadowOffsetY（阴影）
+    //   globalAlpha（透明度）、globalCompositeOperation（合成模式，如 'multiply'/'destination-out'）
+    //   lineCap/lineJoin/miterLimit、imageSmoothingEnabled 等
+    // 渐变对象需通过 ice.createLinearGradient/createRadialGradient 创建后赋给 fillStyle/strokeStyle。
     style: { fillStyle: 'red', strokeStyle: 'blue', lineWidth: 1 },
+    lineDash: [], //虚线模式，如 [10, 5]；空数组 = 实线（对应 canvas setLineDash）
     fill: true,
     stroke: true,
     animations: {},

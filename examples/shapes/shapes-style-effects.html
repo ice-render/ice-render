@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-style-effects</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      虚线 <code>lineDash</code> / 线性·径向渐变 / 阴影 shadow / 透明度 globalAlpha / 合成模式 multiply
+    </div>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    // 虚线
+    ice.addChild(
+      new ICE.ICERect({
+        left: 80, top: 80, width: 160, height: 80,
+        lineDash: [10, 5],
+        style: { strokeStyle: '#0c09d4', fillStyle: '#f5d106', lineWidth: 3 },
+      })
+    );
+
+    // 线性渐变
+    const g = ice.createLinearGradient(0, 0, 160, 0);
+    g.addColorStop(0, '#ff0000');
+    g.addColorStop(1, '#0000ff');
+    ice.addChild(
+      new ICE.ICERect({
+        left: 280, top: 80, width: 160, height: 80,
+        style: { fillStyle: g, strokeStyle: 'transparent', lineWidth: 1 },
+      })
+    );
+
+    // 径向渐变（圆）
+    const rg = ice.createRadialGradient(60, 60, 5, 60, 60, 60);
+    rg.addColorStop(0, '#ffffff');
+    rg.addColorStop(1, '#ff8000');
+    ice.addChild(
+      new ICE.ICircle({
+        left: 520, top: 80, radius: 60,
+        style: { fillStyle: rg, strokeStyle: 'transparent', lineWidth: 1 },
+      })
+    );
+
+    // 阴影
+    ice.addChild(
+      new ICE.ICERect({
+        left: 80, top: 220, width: 160, height: 80,
+        style: {
+          fillStyle: '#37dd0d', strokeStyle: '#0c8f09', lineWidth: 2,
+          shadowColor: '#000000', shadowBlur: 12, shadowOffsetX: 6, shadowOffsetY: 6,
+        },
+      })
+    );
+
+    // 透明度
+    ice.addChild(
+      new ICE.ICERect({
+        left: 280, top: 220, width: 160, height: 80,
+        style: { fillStyle: '#0c09d4', strokeStyle: 'transparent', globalAlpha: 0.4 },
+      })
+    );
+
+    // 合成模式（multiply）
+    ice.addChild(
+      new ICE.ICERect({
+        left: 520, top: 220, width: 160, height: 80,
+        style: { fillStyle: '#ff0000', strokeStyle: 'transparent', globalCompositeOperation: 'multiply' },
+      })
+    );
+  </script>
+</html>
