@@ -15,6 +15,7 @@ import GeoUtil from '../../geometry/GeoUtil';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICEComponent from '../ICEComponent';
 import ICEDotPath from '../ICEDotPath';
+import root from '../../cross-platform/root';
 
 /**
  *
@@ -113,6 +114,7 @@ class ICEPolyLine extends ICEDotPath {
         links: {},
         routeType: 'straight', //连线布线方式：straight=直线，orthogonal=正交（直角折线，仅当两端建立了连接时生效）
         routeOffset: 20, //正交布线时，从端点沿插槽方向延伸的距离（px）
+        curveType: 'straight', //连线曲线方式：straight=直线折线，quadratic=二次贝塞尔(points 需 3 点：起/控制/终)，cubic=三次贝塞尔(points 需 4 点：起/控制1/控制2/终)
         label: '', //连线标签文本，非空时绘制在折线中点
         labelStyle: {
           fontSize: 14,
@@ -720,6 +722,36 @@ class ICEPolyLine extends ICEDotPath {
 
     this.state.points = pts;
     this.dirty = true;
+  }
+
+  /**
+   * @overwrite
+   * 支持贝塞尔曲线：curveType 为 quadratic/cubic 时用曲线连接，否则继承直线折线。
+   */
+  protected createPathObject(): any {
+    this.ensureDots();
+    const curveType = this.state.curveType || 'straight';
+    const dots = this.state.dots;
+    this.path2D = root.createPath2D();
+
+    if (!dots || dots.length === 0) {
+      return this.path2D;
+    }
+    this.path2D.moveTo(dots[0][0], dots[0][1]);
+
+    if (curveType === 'quadratic' && dots.length >= 3) {
+      // 二次贝塞尔：起(0) + 控制(1) + 终(2)
+      this.path2D.quadraticCurveTo(dots[1][0], dots[1][1], dots[2][0], dots[2][1]);
+    } else if (curveType === 'cubic' && dots.length >= 4) {
+      // 三次贝塞尔：起(0) + 控制1(1) + 控制2(2) + 终(3)
+      this.path2D.bezierCurveTo(dots[1][0], dots[1][1], dots[2][0], dots[2][1], dots[3][0], dots[3][1]);
+    } else {
+      // 直线折线
+      for (let i = 1; i < dots.length; i++) {
+        this.path2D.lineTo(dots[i][0], dots[i][1]);
+      }
+    }
+    return this.path2D;
   }
 
   /**

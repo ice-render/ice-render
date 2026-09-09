@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-curve</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      贝塞尔曲线连线 <code>curveType: 'quadratic'/'cubic'</code> + 圆角矩形 <code>radius</code>
+    </div>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    // 二次贝塞尔曲线（起/控制/终）
+    ice.addChild(
+      new ICE.ICEPolyLine({
+        points: [[80, 400], [250, 100], [420, 400]],
+        curveType: 'quadratic',
+        style: { strokeStyle: '#0c09d4', lineWidth: 3 },
+      })
+    );
+
+    // 三次贝塞尔曲线（起/控制1/控制2/终）
+    ice.addChild(
+      new ICE.ICEPolyLine({
+        points: [[500, 400], [600, 100], [720, 100], [820, 400]],
+        curveType: 'cubic',
+        style: { strokeStyle: '#d40c0c', lineWidth: 3 },
+      })
+    );
+
+    // 圆角矩形
+    ice.addChild(
+      new ICE.ICERect({
+        left: 100, top: 480, width: 200, height: 100, radius: 20,
+        style: { strokeStyle: '#0c8f09', fillStyle: '#37dd0d', lineWidth: 3 },
+      })
+    );
+  </script>
+</html>
