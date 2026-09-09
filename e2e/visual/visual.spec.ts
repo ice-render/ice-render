@@ -19,6 +19,7 @@ const demos: Array<{ name: string; path: string }> = [
   { name: 'text-multiline', path: '/examples/text/text-multiline.html' },
   { name: 'text-edit', path: '/examples/text/text-edit.html' },
   { name: 'origin-custom', path: '/examples/transform/origin-custom.html' },
+  { name: 'link-label', path: '/examples/line-and-link/link-label.html' },
 ];
 
 for (const d of demos) {
