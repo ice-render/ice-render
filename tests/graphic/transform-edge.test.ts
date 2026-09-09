@@ -7,7 +7,10 @@
  *  - 深嵌套（>3 层）的绝对线性矩阵正确累积祖先缩放。
  */
 jest.mock('../../src/ICE', () => ({ __esModule: true, default: class ICE {} }));
-jest.mock('../../src/cross-platform/root', () => ({ __esModule: true, default: {} }));
+jest.mock('../../src/cross-platform/root', () => {
+  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
+  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+});
 jest.mock('../../src/event/EventBus', () => ({ __esModule: true, default: class EventBus {} }));
 
 global.Path2D = class {

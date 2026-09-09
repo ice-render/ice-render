@@ -145,3 +145,26 @@ test('文本内联编辑：双击进入编辑、键入更新文本', async ({ pa
 
   expect(await page.evaluate(() => window.__text.getText())).toBe('hello world');
 });
+
+test('Path2D 降级：无 Path2D 环境渲染与原生像素一致', async ({ page }) => {
+  // 原生 Path2D 渲染
+  await page.goto('/e2e/visual/fixtures/nested-interaction.html');
+  await page.waitForTimeout(400);
+  const nativeShot = await page.locator('#canvas-1').screenshot();
+
+  // 模拟小程序低版本：删掉全局 Path2D，走 PolyfillPath2D
+  const page2 = await page.context().newPage();
+  await page2.addInitScript(() => {
+    delete (window as any).Path2D;
+  });
+  await page2.goto('/e2e/visual/fixtures/nested-interaction.html');
+  await page2.waitForTimeout(400);
+
+  // 确认走了 polyfill
+  expect(await page2.evaluate(() => window.__components.rect.path2D._isPolyfill)).toBe(true);
+
+  const polyfillShot = await page2.locator('#canvas-1').screenshot();
+  // 两种渲染应逐像素一致
+  expect(Buffer.compare(nativeShot, polyfillShot)).toBe(0);
+  await page2.close();
+});

@@ -1,6 +1,9 @@
 import ICEText from '../../src/graphic/text/ICEText';
 
-jest.mock('../../src/cross-platform/root', () => ({ __esModule: true, default: {} }));
+jest.mock('../../src/cross-platform/root', () => {
+  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
+  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+});
 
 function key(text: ICEText, k: string) {
   (text as any).keyboardEvtHandler({ key: k, type: 'keydown' });

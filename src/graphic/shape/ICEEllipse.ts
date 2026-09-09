@@ -6,6 +6,7 @@
  *
  */
 import { isNil } from '../../util/lang';
+import root from '../../cross-platform/root';
 import ICEPath from '../ICEPath';
 
 /**
@@ -33,8 +34,8 @@ class ICEEllipse extends ICEPath {
    * 所有坐标点的坐标都是相对于父层组件，而不是全局坐标。
    * @returns
    */
-  protected createPathObject(): Path2D {
-    this.path2D = new Path2D();
+  protected createPathObject(): any {
+    this.path2D = root.createPath2D();
     this.path2D.ellipse(
       this.state.radiusX - this.state.localOrigin[0],
       this.state.radiusY - this.state.localOrigin[1],
