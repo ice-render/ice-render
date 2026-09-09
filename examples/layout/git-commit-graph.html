@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-git-commit-graph</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      Git 提交历史图：<code>ICELayeredLayout</code> 自动分层 + <code>curveType: 'cubic'</code> 贝塞尔连线，只写「commit + parent 关系」。
+    </div>
+    <canvas id="canvas-1" width="1280" height="500" style="background-color: #fafafa;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    const group = new ICE.ICEGroup({ left: 40, top: 40, width: 1240, height: 420, fill: false });
+    ice.addChild(group);
+
+    // 数据：commit（节点）+ parent→child（边）
+    const commits = [
+      { id: 'c0', branch: 'master', label: 'init' },
+      { id: 'c1', branch: 'master', label: 'feat: layout' },
+      { id: 'c2', branch: 'master', label: 'fix: hit-test' },
+      { id: 'c3', branch: 'master', label: 'docs: README' },
+      { id: 'c4', branch: 'master', label: 'merge feature' },
+      { id: 'f1', branch: 'feature', label: 'wip: bezier' },
+      { id: 'f2', branch: 'feature', label: 'done: bezier' },
+    ];
+    const branchColor = { master: '#185fa5', feature: '#ba7517' };
+    const edges = [
+      ['c0', 'c1'], ['c1', 'c2'], ['c2', 'c3'], ['c3', 'c4'],
+      ['c2', 'f1'], ['f1', 'f2'], ['f2', 'c4'],
+    ];
+
+    // 节点：commit 圆点 + 标签
+    const commitById = {};
+    commits.forEach((c) => {
+      const node = new ICE.ICEGroup({ id: c.id, width: 130, height: 24, fill: false });
+      node.addChild(new ICE.ICECircle({ radius: 7, left: 0, top: 5, style: { fillStyle: branchColor[c.branch], strokeStyle: '#ffffff', lineWidth: 1 } }));
+      node.addChild(new ICE.ICEText({ left: 16, top: 2, text: c.label, stroke: false, style: { fontSize: 14, fillStyle: '#333333' } }));
+      group.addChild(node);
+      commitById[c.id] = node;
+    });
+
+    // 边：parent→child（先占位，布局后设端点 + 曲线）
+    const linkList = [];
+    edges.forEach(([from, to]) => {
+      const line = new ICE.ICEPolyLine({
+        points: [[0, 0], [100, 0]],
+        links: { start: { id: from, position: 'R' }, end: { id: to, position: 'L' } },
+        curveType: 'cubic',
+        style: { strokeStyle: '#888880', lineWidth: 2 },
+      });
+      group.addChild(line);
+      linkList.push(line);
+    });
+
+    // 分层布局：自动算坐标 + 对齐连线
+    group.setLayout(new ICE.ICELayeredLayout({ gapX: 100, gapY: 50 }));
+
+    // 布局后把每条连线改成水平贝塞尔曲线（中间两个控制点）
+    linkList.forEach((line) => {
+      const sx = line.state.startPoint[0];
+      const sy = line.state.startPoint[1];
+      const ex = line.state.endPoint[0];
+      const ey = line.state.endPoint[1];
+      const mx = (sx + ex) / 2;
+      line.setState({ points: [[sx, sy], [mx, sy], [mx, ey], [ex, ey]] });
+    });
+  </script>
+</html>

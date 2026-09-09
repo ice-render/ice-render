@@ -57,6 +57,10 @@ const demos: Array<{ name: string; path: string }> = [
   },
   { name: 'overlay-layout', path: '/examples/layout/overlay-layout.html' },
   { name: 'layered-layout', path: '/examples/layout/layered-layout.html' },
+  { name: 'git-commit-graph', path: '/examples/layout/git-commit-graph.html' },
+  { name: 'dashboard', path: '/examples/layout/dashboard.html' },
+  { name: 'logo', path: '/examples/layout/logo.html' },
+  { name: 'layer-burst-init', path: '/examples/layout/layer-burst.html' },
   {
     name: 'layered-layout-lines',
     path: '/examples/layout/layered-layout.html',
