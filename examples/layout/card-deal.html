@@ -22,16 +22,41 @@
     const CH = 90;
     const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
     const suits = ['♠', '♥', '♦', '♣'];
+    const suitsEmoji = ['♠️', '♥️', '♦️', '♣️'];
     const cards = [];
 
     ranks.forEach((rank, i) => {
-      const color = suits[i % 4] === '♥' || suits[i % 4] === '♦' ? '#d40c0c' : '#1a1a1a';
+      const suit = suits[i % 4];
+      const suitEmoji = suitsEmoji[i % 4];
+      const red = suit === '♥' || suit === '♦';
+      const color = red ? '#d40c0c' : '#1a1a1a';
+
       const card = new ICE.ICEGroup({ width: CW, height: CH });
+
+      // 牌面：白底圆角 + 阴影，营造立体感
       card.addChild(
-        new ICE.ICERect({ width: CW, height: CH, radius: 8, style: { fillStyle: '#ffffff', strokeStyle: '#b0b0b0', lineWidth: 1 } })
+        new ICE.ICERect({
+          width: CW,
+          height: CH,
+          radius: 10,
+          style: {
+            fillStyle: '#ffffff',
+            strokeStyle: '#c8c8c8',
+            lineWidth: 1,
+            shadowColor: 'rgba(0,0,0,0.4)',
+            shadowBlur: 8,
+            shadowOffsetX: 2,
+            shadowOffsetY: 3,
+          },
+        })
       );
-      card.addChild(new ICE.ICEText({ left: 8, top: 8, text: rank, stroke: false, style: { fontSize: 22, fillStyle: color } }));
-      card.addChild(new ICE.ICEText({ left: 8, top: 50, text: suits[i % 4], stroke: false, style: { fontSize: 22, fillStyle: color } }));
+      // 左上角：点数（加粗，黑色或红色）+ 花色（彩色 emoji，强制用 Apple Color Emoji 字体）
+      card.addChild(new ICE.ICEText({ left: 8, top: 6, text: rank, stroke: false, style: { fontSize: 20, fillStyle: color, fontWeight: 'bold' } }));
+      card.addChild(new ICE.ICEText({ left: 9, top: 28, text: suitEmoji, stroke: false, style: { fontSize: 16, fontFamily: "'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif" } }));
+      // 右下角：直接定位（不用 rotate，避免 ICEText rotate 的 absoluteOrigin 计算坑）
+      card.addChild(new ICE.ICEText({ left: CW - 18, top: CH - 34, text: rank, stroke: false, style: { fontSize: 20, fillStyle: color, fontWeight: 'bold' } }));
+      card.addChild(new ICE.ICEText({ left: CW - 15, top: CH - 14, text: suitEmoji, stroke: false, style: { fontSize: 16, fontFamily: "'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif" } }));
+
       table.addChild(card);
       cards.push(card);
     });
