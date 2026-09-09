@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import root from '../../cross-platform/root';
 import ICEPath from '../ICEPath';
 
 /**
@@ -16,8 +17,8 @@ class ICERect extends ICEPath {
     super({ width: 10, height: 10, ...props });
   }
 
-  protected createPathObject(): Path2D {
-    this.path2D = new Path2D();
+  protected createPathObject(): any {
+    this.path2D = root.createPath2D();
     this.path2D.rect(0 - this.state.localOrigin[0], 0 - this.state.localOrigin[1], this.state.width, this.state.height);
     return this.path2D;
   }

@@ -6,6 +6,7 @@
  *
  */
 import { vec2 } from 'gl-matrix';
+import root from '../cross-platform/root';
 import ICEPath from './ICEPath';
 
 /**
@@ -99,8 +100,8 @@ export default abstract class ICEDotPath extends ICEPath {
   /**
    * @returns
    */
-  protected createPathObject(): Path2D {
-    this.path2D = new Path2D();
+  protected createPathObject(): any {
+    this.path2D = root.createPath2D();
     this.path2D.moveTo(this.state.dots[0][0], this.state.dots[0][1]);
     for (let i = 1; i < this.state.dots.length; i++) {
       const dot = this.state.dots[i];

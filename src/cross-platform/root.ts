@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import PolyfillPath2D from './PolyfillPath2D';
+
 /**
  * 兼容性封装
  * ! TODO: import https://www.npmjs.com/package/canvas for nodejs platform.
@@ -22,5 +24,13 @@ let root: any = null;
     root.mozRequestAnimationFrame ||
     root.oRequestAnimationFrame ||
     root.msRequestAnimationFrame;
+  // 创建路径对象：优先用运行时自带的 Path2D（浏览器/小程序基础库 2.11.0+），
+  // 否则降级为 PolyfillPath2D（命令记录 + 渲染时重放），兼容小程序低版本 / Node。
+  root.createPath2D = () => {
+    if (typeof root.Path2D === 'function') {
+      return new root.Path2D();
+    }
+    return new PolyfillPath2D();
+  };
 })();
 export default root;

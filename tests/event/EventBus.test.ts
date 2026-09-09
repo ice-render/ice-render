@@ -6,7 +6,10 @@
  * 因此语义正确性（去重、once、suspend、scope 绑定）至关重要。
  */
 // node 环境无 window，替换跨平台 root 避免加载 DOM 依赖
-jest.mock('../../src/cross-platform/root', () => ({ __esModule: true, default: {} }));
+jest.mock('../../src/cross-platform/root', () => {
+  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
+  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+});
 
 import EventBus from '../../src/event/EventBus';
 

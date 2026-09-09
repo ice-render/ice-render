@@ -4,7 +4,10 @@ import ICEGroup from '../../src/graphic/container/ICEGroup';
 import ICERect from '../../src/graphic/shape/ICERect';
 
 // node 环境无 window / Path2D，替换跨平台 root + 提供 Path2D 桩
-jest.mock('../../src/cross-platform/root', () => ({ __esModule: true, default: {} }));
+jest.mock('../../src/cross-platform/root', () => {
+  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
+  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+});
 global.Path2D = class {
   rect() {}
   closePath() {}

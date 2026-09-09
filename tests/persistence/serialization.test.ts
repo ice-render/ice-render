@@ -4,7 +4,10 @@
  * 验证 Serializer（state+type+childNodes 递归编码）与 Deserializer（靠 COMPONENT_TYPE_MAPPING
  * 的类名→构造函数映射重建树）的往返一致性。这是引擎「持久化」能力的核心，之前完全没有自动化覆盖。
  */
-jest.mock('../../src/cross-platform/root', () => ({ __esModule: true, default: {} }));
+jest.mock('../../src/cross-platform/root', () => {
+  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
+  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+});
 global.Path2D = class {
   rect() {}
   closePath() {}
