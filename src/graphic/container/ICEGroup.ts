@@ -9,6 +9,7 @@ import { merge } from '../../util/lang';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEComponent from '../ICEComponent';
 import ICERect from '../shape/ICERect';
+import type ICELayoutManager from '../../layout/ICELayoutManager';
 
 /**
  * @class ICEGroup 容器型组件
@@ -21,9 +22,30 @@ import ICERect from '../shape/ICERect';
 class ICEGroup extends ICERect {
   public parentNode = null;
   public childNodes = [];
+  public layoutManager: ICELayoutManager = null; //布局策略（借鉴 Swing 的策略模式，setLayout 持有）
 
   constructor(props) {
     super(props);
+  }
+
+  /**
+   * 设置布局策略（对齐 Swing 的 container.setLayout）。
+   * 设置后立即执行一次布局。
+   */
+  public setLayout(manager: ICELayoutManager): void {
+    this.layoutManager = manager;
+    if (manager) {
+      this.doLayout();
+    }
+  }
+
+  /**
+   * 执行布局：调用布局策略的 layoutContainer(this)。
+   */
+  public doLayout(): void {
+    if (this.layoutManager) {
+      this.layoutManager.layoutContainer(this);
+    }
   }
 
   protected initEvents(): void {

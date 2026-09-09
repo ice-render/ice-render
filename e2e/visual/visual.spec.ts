@@ -24,6 +24,7 @@ const demos: Array<{ name: string; path: string }> = [
   { name: 'image-clip', path: '/examples/image/image-clip.html' },
   { name: 'line-curve', path: '/examples/line-and-link/line-curve.html' },
   { name: 'image-sprite', path: '/examples/image/image-sprite.html' },
+  { name: 'flow-layout', path: '/examples/layout/flow-layout.html' },
 ];
 
 for (const d of demos) {
