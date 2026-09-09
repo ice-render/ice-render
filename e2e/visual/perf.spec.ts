@@ -21,6 +21,8 @@ const SYNC_CASES = [
   { n: 5000, mode: 'static' },
   { n: 5000, mode: 'anim' },
   { n: 10000, mode: 'anim' },
+  { n: 5000, mode: 'drag', plain: true }, // 全不透明场景拖动单组件（脏矩形局部重绘生效）
+  { n: 10000, mode: 'drag', plain: true },
 ];
 
 const LOOSE_CEIL_MS = { 1000: 500, 5000: 2000, 10000: 4000 };
@@ -36,9 +38,12 @@ for (const c of SYNC_CASES) {
     const pageErrors = [];
     page.on('pageerror', (e) => pageErrors.push(String(e)));
 
-    await page.goto(`/examples/performance/bench-scene.html?n=${c.n}&mode=${c.mode}&frames=60`, {
-      waitUntil: 'load',
-    });
+    await page.goto(
+      `/examples/performance/bench-scene.html?n=${c.n}&mode=${c.mode}&frames=60${c.plain ? '&plain=1' : ''}`,
+      {
+        waitUntil: 'load',
+      }
+    );
     await page.waitForFunction(() => (window as any).__benchResult !== undefined, undefined, { timeout: 60_000 });
 
     const res = await page.evaluate(() => (window as any).__benchResult);

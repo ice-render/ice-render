@@ -27,6 +27,29 @@ const SHADOW_PRESETS = {
   md: { shadowColor: 'rgba(0,0,0,0.18)', shadowBlur: 10, shadowOffsetX: 0, shadowOffsetY: 3 },
   lg: { shadowColor: 'rgba(0,0,0,0.25)', shadowBlur: 20, shadowOffsetX: 0, shadowOffsetY: 6 },
 };
+
+/**
+ * 会跨组件泄漏的 ctx 绘制状态及其 canvas 默认值。
+ *
+ * canvas ctx 是全局状态机：某组件设置了 shadow/globalAlpha/composite/lineCap 等，
+ * 若后继组件没写这些属性，会「继承」前驱的残留值，导致同一组件在全量重绘与脏矩形
+ * 局部重绘（跳过不相交组件会改变「本帧前驱」）下像素不一致。
+ * 因此每个组件 render 结束把自己写过的这些属性归位为 canvas 默认值 → 组件自包含，
+ * 全量/局部两条路径在同一区域内的像素必然一致。
+ */
+const LEAKY_CTX_PROPS: Array<[string, any]> = [
+  ['shadowColor', 'rgba(0,0,0,0)'],
+  ['shadowBlur', 0],
+  ['shadowOffsetX', 0],
+  ['shadowOffsetY', 0],
+  ['globalAlpha', 1],
+  ['globalCompositeOperation', 'source-over'],
+  ['lineCap', 'butt'],
+  ['lineJoin', 'miter'],
+  ['miterLimit', 10],
+  ['textAlign', 'start'],
+  ['textBaseline', 'alphabetic'],
+];
 import { skew } from '../util/gl-matrix-skew';
 import { uuid } from '../util/uuid';
 
@@ -286,6 +309,7 @@ abstract class ICEComponent extends ICEEventTarget {
     this.applyStyleToCtx();
     this.applyTransformToCtx();
     this.doRender();
+    this.__resetLeakyCtxState();
 
     this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER);
     this.dirty = false;
@@ -761,6 +785,113 @@ abstract class ICEComponent extends ICEEventTarget {
     const left = box.centerX - box.width / 2;
     const top = box.centerY - box.height / 2;
     return { left, top, width, height };
+  }
+
+  /**
+   * @internal 渲染器专用：render 结束后的 ctx 泄漏属性归位（组件自包含，见顶部 LEAKY_CTX_PROPS）。
+   * 仅当本组件确实写过了某个泄漏属性时才归位，避免无谓的每帧属性写入。
+   */
+  public __resetLeakyCtxState(): void {
+    let touched = 0;
+    const scan = (style: any) => {
+      if (!style) return;
+      for (const k in style) {
+        const idx = this.__leakyIndex(k);
+        if (idx >= 0) touched |= 1 << idx;
+      }
+    };
+    scan(this.props.style);
+    scan(this.state.style);
+    // 折线/蚂蚁线等内部直接写的虚线状态
+    if (this.state.lineDash && this.state.lineDash.length) touched |= 1 << 11;
+    if (this.state.lineDashFlow || this.state.lineDashOffset) touched |= 1 << 11;
+    if (!touched) return;
+
+    const ctx = this.ctx;
+    for (let i = 0; i < LEAKY_CTX_PROPS.length; i++) {
+      if (touched & (1 << i)) {
+        ctx[LEAKY_CTX_PROPS[i][0]] = LEAKY_CTX_PROPS[i][1];
+      }
+    }
+    if (touched & (1 << 11) && typeof ctx.setLineDash === 'function') {
+      ctx.setLineDash([]);
+      ctx.lineDashOffset = 0;
+    }
+  }
+
+  private __leakyIndex(k: string): number {
+    switch (k) {
+      case 'shadowColor':
+        return 0;
+      case 'shadowBlur':
+        return 1;
+      case 'shadowOffsetX':
+        return 2;
+      case 'shadowOffsetY':
+        return 3;
+      case 'globalAlpha':
+        return 4;
+      case 'globalCompositeOperation':
+        return 5;
+      case 'lineCap':
+        return 6;
+      case 'lineJoin':
+        return 7;
+      case 'miterLimit':
+        return 8;
+      case 'textAlign':
+        return 9;
+      case 'textBaseline':
+        return 10;
+      default:
+        return -1;
+    }
+  }
+
+  /**
+   * @internal 渲染器专用：用「当前的 composedMatrix + width/height/localOrigin」计算世界轴对齐包围盒
+   * [minX, minY, maxX, maxY]，零分配（手动 4 角变换，不复用 vec2 以免每帧分配）。
+   * 前置条件：调用方已保证 composedMatrix 新鲜（render 之后 / composeMatrix 之后）。
+   */
+  public __paintWorldBox(out: any = [0, 0, 0, 0]): number[] {
+    const m = this.state.composedMatrix;
+    const w = this.state.width || 0;
+    const h = this.state.height || 0;
+    const origin = this.state.localOrigin;
+    const ox = origin ? origin[0] : 0;
+    const oy = origin ? origin[1] : 0;
+    out[0] = out[1] = Infinity;
+    out[2] = out[3] = -Infinity;
+
+    if (!m || m.length < 6) {
+      // 未合成过矩阵：退回本地几何（此时若真上屏，render 会先合成）
+      out[0] = -ox;
+      out[1] = -oy;
+      out[2] = w - ox;
+      out[3] = h - oy;
+      return out;
+    }
+    const a = m[0];
+    const b = m[1];
+    const c = m[2];
+    const d = m[3];
+    const e = m[4];
+    const f = m[5];
+    const xs = [-ox, w - ox];
+    const ys = [-oy, h - oy];
+    for (let i = 0; i < 2; i++) {
+      const lx = xs[i];
+      for (let j = 0; j < 2; j++) {
+        const ly = ys[j];
+        const gx = a * lx + c * ly + e;
+        const gy = b * lx + d * ly + f;
+        if (gx < out[0]) out[0] = gx;
+        if (gx > out[2]) out[2] = gx;
+        if (gy < out[1]) out[1] = gy;
+        if (gy > out[3]) out[3] = gy;
+      }
+    }
+    return out;
   }
 
   public containsPoint(x: number, y: number): boolean {

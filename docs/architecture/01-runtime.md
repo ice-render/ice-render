@@ -12,7 +12,7 @@
 | `DOMEventInterceptor` | 拦截文档级 DOM 事件，做统一预处理 | 全局（跨 ICE） |
 | `AnimationManager` | 订阅帧事件，对动画组件做补间（tween） | 每 ICE 一个 |
 | `ICEControlPanelManager` | 管理选中/变换工具（控制面板） | 每 ICE 一个 |
-| `CanvasRenderer` | 脏检查 + 全量重绘，唯一真正操作 `ctx` 的调度方 | 每 ICE 一个 |
+| `CanvasRenderer` | 脏检查 + 脏矩形局部重绘（默认 `dirty-rect`，条件回退全量重绘），唯一真正操作 `ctx` 的调度方 | 每 ICE 一个 |
 | `ICELinkSlotManager` | 管理连接线插槽（LinkSlot）的复用与碰撞检测 | 每 ICE 一个 |
 
 ## 帧调度管道
@@ -22,17 +22,20 @@ graph TD
     RAF[requestAnimationFrame] --> FM[FrameManager.frameCallback]
     FM -- "逐条 EventBus 触发" --> EB[ICE_FRAME_EVENT]
     EB --> AM[AnimationManager<br/>补间 setState]
-    EB --> CR[CanvasRenderer<br/>if ice.dirty → doRender]
+    EB --> CR[CanvasRenderer<br/>if ice.dirty → 分派]
     CR --> Q[refreshQueue<br/>flattenTree + sort]
-    Q --> CLR[clearRect 全量清屏]
-    CLR --> LOOP[遍历 componentQueue / toolsQueue<br/>逐个 component.render]
-    LOOP --> FIN[ice.dirty=false<br/>触发 ROUND_FINISH]
+    Q --> MODE{dirty-rect 且场景允许局部?}
+    MODE -- 否 --> F[doRenderFull<br/>clearRect 整屏 + 全量]
+    MODE -- 是 --> P[doRenderDirtyRect<br/>clearRect 脏区 + clip 内补画相交组件]
+    F --> FIN[ice.dirty=false<br/>触发 ROUND_FINISH]
+    P --> FIN
 ```
 
 关键点：
 
 - **`FrameManager` 是全局单例**。同一个 `window`/`global` 里只有一个实例，它维护一个 `evtBuses` 数组，逐条触发 `ICE_FRAME_EVENT`。因此一个页面上可以同时存在多幅图，共享同一个 rAF 循环。
 - **`CanvasRenderer` 只在 `ice.dirty` 为真时渲染**。脏标记是"惰性渲染"的开关：`setState`/结构变更会置 `dirty=true`，下一帧才真正重绘，最小延迟约一帧（`1/60 ≈ 16.7ms`）。
+- **渲染分派**：默认 `dirty-rect` 只重绘脏区域（旧∪新世界盒），不满足局部条件（结构变更/快照未就绪/脏占比或面积过大/场景含文本·点集路径·半透明落墨等）时自动回退 `doRenderFull()` 全量重绘。组件 render 末尾会归位泄漏的 ctx 属性，保证两条路径逐像素一致。详见 [04](04-rendering-performance.md) 与 AGENTS「脏矩形局部重绘铁律」。
 
 ## `ICE.init()` 的启动顺序（有严格依赖）
 
