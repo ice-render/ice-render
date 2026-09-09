@@ -12,7 +12,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**（MIT 协议，作者
 
 1. **运行时依赖极简** —— 仅 `gl-matrix` 一个库，无其它依赖。
 2. **多运行时兼容** —— 同一套代码同时面向 **Web 浏览器**与**各类小程序**（WeChat/Alipay 等），因此不能依赖浏览器专有 API。
-3. **高性能** —— 脏标记 + 全量重绘的简单渲染模型，配合渲染队列缓存与矩阵零分配，保证数千图元的交互流畅度。
+3. **高性能** —— 脏标记 + 脏矩形局部重绘（默认，条件回退全量重绘）的渲染模型，配合渲染队列缓存与矩阵零分配，保证数千图元的交互流畅度。
 
 ## 文档地图
 
@@ -21,11 +21,13 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**（MIT 协议，作者
 | [01 · 运行时链路](01-runtime.md) | `FrameManager` → `EventBus` → 各 Manager → `CanvasRenderer` 的调度管道与启动顺序 |
 | [02 · 组件模型](02-component-model.md) | `props`/`state` 分离、类继承体系、容器与 zIndex |
 | [03 · 坐标系与矩阵](03-coordinate-system.md) | 列向量约定、`composedMatrix` 组合、原点语义、嵌套坐标（最容易出错的部分） |
-| [04 · 渲染与性能](04-rendering-performance.md) | 脏标记 + 全量重绘、渲染队列缓存、矩阵零分配 |
+| [04 · 渲染与性能](04-rendering-performance.md) | 脏标记 + 脏矩形局部重绘（默认）与条件回退、渲染队列缓存、矩阵零分配 |
 | [05 · 事件系统](05-event-system.md) | `ICEEventTarget`、`EventBus`、DOM 事件桥接 |
 | [06 · 序列化](06-serialization.md) | `Serializer`/`Deserializer`、类型映射、`registerType` |
 | [07 · 交互与动画](07-interaction-animation.md) | 控制面板、拖拽/变换、连接线、动画 |
 | [08 · 多运行时兼容](08-compatibility.md) | `cross-platform/root`、rAF 封装、Path2D 与小程序适配 |
+| [09 · 路线图](09-roadmap.md) | 引擎原语 vs 应用层边界、引擎待办 |
+| [10 · Worker/OffscreenCanvas](10-worker-offscreen.md) | Web-only 的 worker 渲染设计 + 最小可行性原型 |
 
 ## 运行时全景（一图概览）
 

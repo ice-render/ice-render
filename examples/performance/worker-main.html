@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render OffscreenCanvas Worker 原型</title>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">Worker/OffscreenCanvas 渲染原型 <code>worker-main</code></h2>
+    <p style="color: #555; margin: 0 0 10px;">
+      场景在 Web Worker 内用 <code>OffscreenCanvas</code> 渲染（n=5000，确定性全不透明组件树），
+      帧经 <code>transferToImageBitmap</code> 传到主线程
+      <code>ImageBitmapRenderingContext</code> 展示。结果写入 <code>window.__workerBenchResult</code>。
+      详见 <code>docs/architecture/10-worker-offscreen.md</code>。
+    </p>
+    <canvas id="stage" width="1024" height="768" style="background:#fff; border:1px solid #ddd; max-width:100%;"></canvas>
+    <pre id="out" style="font: 12px/1.6 ui-monospace, Menlo, monospace; background:#1e1f24; color:#d7e0ea; padding:12px; border-radius:8px; max-height:360px; overflow:auto;"></pre>
+  </body>
+  <script type="text/javascript">
+    (function () {
+      const canvas = document.getElementById('stage');
+      const bitmapCtx = canvas.getContext('bitmaprenderer');
+      const worker = new Worker('worker-min.js');
+      const log = [];
+      let frames = 0;
+
+      worker.onmessage = (evt) => {
+        const msg = evt.data;
+        if (msg.type === 'bitmap') {
+          bitmapCtx.transferFromImageBitmap(msg.bitmap);
+          frames++;
+        } else if (msg.type === 'result') {
+          const s = msg.stats;
+          window.__workerBenchResult = Object.assign({ framesReceived: frames }, s);
+          const lines = [
+            `worker 内单帧成本（n=${s.n}，OffscreenCanvas 真实光栅化）:`,
+            `  static p50: ${s.staticP50Ms.toFixed(3)}ms`,
+            `  anim   p50: ${s.animP50Ms.toFixed(3)}ms`,
+            `  drag   p50: ${s.dragP50Ms.toFixed(3)}ms (全不透明局部重绘)`,
+            `主线程收到帧: ${frames} (transferToImageBitmap 可用)`,
+          ];
+          log.push(...lines);
+          document.getElementById('out').textContent = log.join('\n');
+          console.log('[worker-main]', JSON.stringify(window.__workerBenchResult, null, 2));
+        }
+      };
+      worker.onerror = (e) => {
+        log.push('worker error: ' + e.message);
+        document.getElementById('out').textContent = log.join('\n');
+      };
+    })();
+  </script>
+</html>
