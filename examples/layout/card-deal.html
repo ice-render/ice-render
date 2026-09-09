@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-card-deal</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      扑克牌发牌：<code>OverlayLayout</code> 叠牌 → <code>FlowLayout</code> 算目标 → 动画逐张飞出。
+      <button id="deal" style="margin-left: 8px;">发牌</button>
+      <button id="collect">收牌</button>
+    </div>
+    <canvas id="canvas-1" width="960" height="260" style="background-color: #1d3a1d;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    const table = new ICE.ICEGroup({ left: 30, top: 70, width: 900, height: 100, fill: false });
+    ice.addChild(table);
+
+    const CW = 60;
+    const CH = 90;
+    const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    const suits = ['♠', '♥', '♦', '♣'];
+    const cards = [];
+
+    ranks.forEach((rank, i) => {
+      const color = suits[i % 4] === '♥' || suits[i % 4] === '♦' ? '#d40c0c' : '#1a1a1a';
+      const card = new ICE.ICEGroup({ width: CW, height: CH });
+      card.addChild(
+        new ICE.ICERect({ width: CW, height: CH, radius: 8, style: { fillStyle: '#ffffff', strokeStyle: '#b0b0b0', lineWidth: 1 } })
+      );
+      card.addChild(new ICE.ICEText({ left: 8, top: 8, text: rank, stroke: false, style: { fontSize: 22, fillStyle: color } }));
+      card.addChild(new ICE.ICEText({ left: 8, top: 50, text: suits[i % 4], stroke: false, style: { fontSize: 22, fillStyle: color } }));
+      table.addChild(card);
+      cards.push(card);
+    });
+
+    // 初始：叠成一摞
+    table.setLayout(new ICE.ICEOverlayLayout({}));
+
+    function deal() {
+      // 1) 用 FlowLayout 算出每张牌的目标位置
+      table.setLayout(new ICE.ICEFlowLayout({ gap: 8 }));
+      const targets = cards.map((c) => c.state.left);
+      // 2) 叠回，准备动画
+      table.setLayout(new ICE.ICEOverlayLayout({}));
+      // 3) 逐张飞出
+      cards.forEach((card, i) => {
+        setTimeout(() => {
+          card.props.animations = { left: { from: 0, to: targets[i], duration: 400, easing: 'easeOutCubic' } };
+          ice.animationManager.add(card);
+        }, i * 70);
+      });
+    }
+
+    function collect() {
+      cards.forEach((card, i) => {
+        setTimeout(() => {
+          card.props.animations = { left: { from: card.state.left, to: 0, duration: 350, easing: 'easeInCubic' } };
+          ice.animationManager.add(card);
+        }, i * 60);
+      });
+    }
+
+    document.querySelector('#deal').addEventListener('click', deal);
+    document.querySelector('#collect').addEventListener('click', collect);
+  </script>
+</html>
