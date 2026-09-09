@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-grid-layout</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      网格布局 <code>ICEGridLayout</code>（对齐 Swing GridLayout）：3 列，行优先填入。
+    </div>
+    <canvas id="canvas-1" width="600" height="400" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    const group = new ICE.ICEGroup({
+      left: 60, top: 60, width: 400, height: 280,
+      fill: false,
+      style: { strokeStyle: '#888880', lineWidth: 1 },
+    });
+    ice.addChild(group);
+
+    for (let i = 0; i < 6; i++) {
+      group.addChild(
+        new ICE.ICERect({
+          width: 80 + (i % 2) * 30,
+          height: 50,
+          style: { strokeStyle: '#0c09d4', fillStyle: '#f5d106', lineWidth: 2 },
+        })
+      );
+    }
+
+    group.setLayout(new ICE.ICEGridLayout({ cols: 3, gapX: 10, gapY: 10 }));
+  </script>
+</html>

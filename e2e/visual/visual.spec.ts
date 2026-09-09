@@ -25,6 +25,8 @@ const demos: Array<{ name: string; path: string }> = [
   { name: 'line-curve', path: '/examples/line-and-link/line-curve.html' },
   { name: 'image-sprite', path: '/examples/image/image-sprite.html' },
   { name: 'flow-layout', path: '/examples/layout/flow-layout.html' },
+  { name: 'grid-layout', path: '/examples/layout/grid-layout.html' },
+  { name: 'border-layout', path: '/examples/layout/border-layout.html' },
   { name: 'layered-layout', path: '/examples/layout/layered-layout.html' },
 ];
 

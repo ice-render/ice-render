@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-border-layout</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      五区域布局 <code>ICEBorderLayout</code>（对齐 Swing BorderLayout）：north / south / east / west / center，用 <code>layoutConstraint</code> 指定。
+    </div>
+    <canvas id="canvas-1" width="600" height="400" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    const group = new ICE.ICEGroup({
+      left: 60, top: 60, width: 400, height: 280,
+      fill: false,
+      style: { strokeStyle: '#888880', lineWidth: 1 },
+    });
+    ice.addChild(group);
+
+    const color = { strokeStyle: '#0c09d4', lineWidth: 2 };
+    group.addChild(new ICE.ICERect({ layoutConstraint: 'north', width: 100, height: 40, style: { ...color, fillStyle: '#f5d106' } }));
+    group.addChild(new ICE.ICERect({ layoutConstraint: 'south', width: 100, height: 40, style: { ...color, fillStyle: '#37dd0d' } }));
+    group.addChild(new ICE.ICERect({ layoutConstraint: 'east', width: 80, height: 100, style: { ...color, fillStyle: '#08b2dd' } }));
+    group.addChild(new ICE.ICERect({ layoutConstraint: 'west', width: 80, height: 100, style: { ...color, fillStyle: '#ff8080' } }));
+    group.addChild(new ICE.ICERect({ layoutConstraint: 'center', width: 100, height: 100, style: { ...color, fillStyle: '#e8d5f5' } }));
+
+    group.setLayout(new ICE.ICEBorderLayout({ gap: 5 }));
+  </script>
+</html>
