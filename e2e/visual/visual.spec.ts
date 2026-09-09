@@ -28,6 +28,30 @@ const demos: Array<{ name: string; path: string }> = [
   { name: 'grid-layout', path: '/examples/layout/grid-layout.html' },
   { name: 'border-layout', path: '/examples/layout/border-layout.html' },
   { name: 'layered-layout', path: '/examples/layout/layered-layout.html' },
+  {
+    name: 'layered-layout-lines',
+    path: '/examples/layout/layered-layout.html',
+    extra: async (page) => {
+      // 断言：分层布局后，每条连线的全局 tl 接近源节点右边中点
+      //（即连线视觉上正确连接到源节点，而非重叠在同一点）
+      const r = await page.evaluate(() => {
+        const group = (window as any).__ice.childNodes[0];
+        const edges = group.childNodes.filter((c: any) => c.isLine);
+        const nodes = group.childNodes.filter((c: any) => !c.isLine);
+        const nodeBox: any = {};
+        for (const n of nodes) nodeBox[n.props.id] = n.getMinBoundingBox(true);
+        return edges.map((e: any) => {
+          const eb = e.getMinBoundingBox(true);
+          return { from: e.getLinkFromId(), to: e.getLinkToId(), lineTl: eb.tl, srcRc: nodeBox[e.getLinkFromId()]?.rc };
+        });
+      });
+      for (const e of r) {
+        if (Math.abs(e.lineTl[0] - e.srcRc[0]) >= 2 || Math.abs(e.lineTl[1] - e.srcRc[1]) >= 2) {
+          throw new Error(`连线 ${e.from}->${e.to} 视觉未对齐源节点：lineTl=${e.lineTl} vs srcRc=${e.srcRc}`);
+        }
+      }
+    },
+  },
 ];
 
 for (const d of demos) {
