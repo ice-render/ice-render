@@ -39,5 +39,6 @@ export { default as ICEStar } from './graphic/shape/ICEStar';
 export { default as ICEText } from './graphic/text/ICEText';
 export { default as ICELayoutManager } from './layout/ICELayoutManager';
 export { default as ICEFlowLayout } from './layout/ICEFlowLayout';
+export { default as ICELayeredLayout } from './layout/ICELayeredLayout';
 export { default as ICE } from './ICE';
 export { default as CanvasRenderer } from './renderer/CanvasRenderer';

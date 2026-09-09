@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-layered-layout</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      分层图布局 <code>ICELayeredLayout</code>：只写「节点 + 关系（边）」，不写坐标，自动分层排列（dagre 式）。
+    </div>
+    <canvas id="canvas-1" width="900" height="500" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    const group = new ICE.ICEGroup({
+      left: 40, top: 40, width: 820, height: 420,
+      fill: false, //容器不填充（只画子组件）
+      style: { strokeStyle: '#888880', lineWidth: 1 },
+    });
+    ice.addChild(group);
+
+    // 节点（实体，用矩形表示，位置全交给布局）
+    const nodes = ['users', 'orders', 'payments', 'products'];
+    nodes.forEach((name, i) => {
+      group.addChild(
+        new ICE.ICERect({
+          id: name,
+          width: 110,
+          height: 50,
+          style: { strokeStyle: '#0c09d4', fillStyle: '#f5d106', lineWidth: 2 },
+        })
+      );
+    });
+
+    // 边（关系），只写「谁连谁」
+    const edge = (from, to, label) =>
+      group.addChild(
+        new ICE.ICEPolyLine({
+          points: [
+            [0, 0],
+            [100, 100],
+          ],
+          links: { start: { id: from, position: 'R' }, end: { id: to, position: 'L' } },
+          label,
+          style: { strokeStyle: '#888880', lineWidth: 1.5 },
+        })
+      );
+    edge('users', 'orders', '下单');
+    edge('orders', 'payments', '支付');
+    edge('users', 'products', '浏览');
+
+    // 分层布局：坐标由算法算出
+    group.setLayout(new ICE.ICELayeredLayout({ gapX: 90, gapY: 50 }));
+  </script>
+</html>
