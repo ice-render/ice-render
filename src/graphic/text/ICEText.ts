@@ -84,12 +84,22 @@ class ICEText extends ICEComponent {
   }
 
   /**
-   * 进入内联编辑态：光标定位到文本末尾，同时隐藏变换面板（避免面板手柄遮挡文本和光标）。
+   * 进入编辑前的 draggable 原值，退出编辑时恢复。
+   */
+  private __originalDraggable = true;
+
+  /**
+   * 进入内联编辑态：光标定位到文本末尾，隐藏变换面板、禁用拖拽（避免编辑时误拖动）。
    */
   public startEditing(): void {
-    this.setState({ editing: true, caretIndex: this.state.text.length });
+    this.__originalDraggable = this.state.draggable;
+    this.setState({ editing: true, caretIndex: this.state.text.length, draggable: false });
     if (this.ice && this.ice.controlPanelManager) {
       this.ice.controlPanelManager.transformControlPanel.disable();
+    }
+    // 监听全局 mousedown：点击别处（非自身）时退出编辑
+    if (this.ice && this.ice.evtBus) {
+      this.ice.evtBus.on('mousedown', this.__globalMouseDownHandler, this);
     }
   }
 
@@ -97,7 +107,20 @@ class ICEText extends ICEComponent {
    * 退出内联编辑态（提交文本）。退出后不自动恢复变换面板——用户若需再变换组件，重新点击组件即可。
    */
   public stopEditing(): void {
-    this.setState({ editing: false });
+    if (this.ice && this.ice.evtBus) {
+      this.ice.evtBus.off('mousedown', this.__globalMouseDownHandler, this);
+    }
+    this.setState({ editing: false, draggable: this.__originalDraggable });
+  }
+
+  /**
+   * 全局 mousedown 处理器：点击的组件不是自身时，退出编辑（失焦退出）。
+   */
+  private __globalMouseDownHandler(evt: any) {
+    const clicked = evt && evt.param && evt.param.component;
+    if (clicked !== this) {
+      this.stopEditing();
+    }
   }
 
   /**

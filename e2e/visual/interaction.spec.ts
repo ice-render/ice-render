@@ -183,3 +183,25 @@ test('多行文本：\\n 拆分后高度增加', async ({ page }) => {
 
   expect(info.multiH).toBeGreaterThan(info.singleH);
 });
+
+test('文本编辑：编辑态禁拖拽 + 点击别处退出编辑', async ({ page }) => {
+  await page.goto('/e2e/visual/fixtures/nested-interaction.html');
+  await page.waitForTimeout(400);
+
+  const c = await page.evaluate(() => {
+    const p = window.__text.getMinBoundingBox(true).centerPoint;
+    return { x: p[0], y: p[1] };
+  });
+
+  // 双击进入编辑
+  await page.mouse.dblclick(c.x, c.y);
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => window.__text.state.editing)).toBe(true);
+  expect(await page.evaluate(() => window.__text.state.draggable)).toBe(false); // 编辑态禁拖拽
+
+  // 点击空白处 → 失焦退出编辑
+  await page.mouse.click(900, 700);
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => window.__text.state.editing)).toBe(false);
+  expect(await page.evaluate(() => window.__text.state.draggable)).toBe(true); // 恢复拖拽
+});
