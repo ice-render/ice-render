@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-dashboard</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      KPI 数据仪表盘：标题栏 + 2×2 卡片（渐变 + 阴影 + 圆角）。注意：容器需要装 child，必须用 <code>ICEGroup</code>（<code>ICERect</code> 没有 addChild）。
+    </div>
+    <canvas id="canvas-1" width="900" height="540" style="background-color: #f0f2f5;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    // 标题栏：必须用 ICEGroup 才能 addChild
+    const title = new ICE.ICEGroup({ left: 40, top: 40, width: 820, height: 56 });
+    title.addChild(new ICE.ICERect({ left: 0, top: 0, width: 820, height: 56, style: { fillStyle: '#185fa5', strokeStyle: '#185fa5', lineWidth: 1 } }));
+    title.addChild(new ICE.ICEText({ left: 24, top: 14, text: '📊  KPI Dashboard · 2026 Q3', stroke: false, style: { fontSize: 22, fillStyle: '#ffffff' } }));
+    ice.addChild(title);
+
+    // KPI 卡片 2×2 网格
+    const cardW = 392, cardH = 184;
+    const kpiData = [
+      { value: '12,345', label: '用户总数', color: '#185fa5' },
+      { value: '678', label: '今日订单', color: '#37dd0d' },
+      { value: '¥1.2M', label: '本月收入', color: '#ef9f27' },
+      { value: '3.4%', label: '转化率', color: '#d40c0c' },
+    ];
+    const positions = [
+      { left: 40, top: 116 },
+      { left: 40 + cardW + 18, top: 116 },
+      { left: 40, top: 116 + cardH + 16 },
+      { left: 40 + cardW + 18, top: 116 + cardH + 16 },
+    ];
+
+    kpiData.forEach((k, i) => {
+      // 卡片也是 ICEGroup（要 addChild）
+      const card = new ICE.ICEGroup({ left: positions[i].left, top: positions[i].top, width: cardW, height: cardH });
+      card.addChild(
+        new ICE.ICERect({
+          left: 0,
+          top: 0,
+          width: cardW,
+          height: cardH,
+          radius: 12,
+          style: {
+            fillStyle: '#ffffff',
+            strokeStyle: '#e0e0e0',
+            lineWidth: 1,
+            shadowColor: 'rgba(0,0,0,0.18)',
+            shadowBlur: 14,
+            shadowOffsetX: 0,
+            shadowOffsetY: 4,
+          },
+        })
+      );
+      card.addChild(new ICE.ICERect({ left: 0, top: 0, width: 56, height: 5, radius: 3, style: { fillStyle: k.color, strokeStyle: k.color, lineWidth: 1 } }));
+      card.addChild(new ICE.ICEText({ left: 24, top: 32, text: k.value, stroke: false, style: { fontSize: 44, fillStyle: k.color, fontWeight: 'bold' } }));
+      card.addChild(new ICE.ICEText({ left: 24, top: 100, text: k.label, stroke: false, style: { fontSize: 16, fillStyle: '#666666' } }));
+      card.addChild(new ICE.ICEText({ left: 24, top: 130, text: '↑ 较昨日 +12.5%', stroke: false, style: { fontSize: 13, fillStyle: '#37dd0d' } }));
+      ice.addChild(card);
+    });
+  </script>
+</html>

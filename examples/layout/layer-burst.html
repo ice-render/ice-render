@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-layer-burst</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      图层爆裂：<code>ICECOverlayLayout</code> 叠层 → 点击 <code>FlowLayout</code> 炸开 → 再点击收拢（layout 切换 + 动画）。
+      <button id="burst" style="margin-left: 8px;">炸开</button>
+      <button id="collect">收拢</button>
+    </div>
+    <canvas id="canvas-1" width="900" height="500" style="background-color: #fafafa;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    const stage = new ICE.ICEGroup({ left: 50, top: 50, width: 800, height: 400, fill: false });
+    ice.addChild(stage);
+
+    // 4 个半透明图层（不同颜色 + 边框），叠在 (0,0)
+    const layerColors = [
+      { fill: 'rgba(231, 76, 60, 0.7)', stroke: '#c0392b', label: 'L4' },
+      { fill: 'rgba(243, 156, 18, 0.7)', stroke: '#d35400', label: 'L3' },
+      { fill: 'rgba(46, 204, 113, 0.7)', stroke: '#27ae60', label: 'L2' },
+      { fill: 'rgba(52, 152, 219, 0.7)', stroke: '#2980b9', label: 'L1' },
+    ];
+    layerColors.forEach((c, i) => {
+      // 用 ICEGroup（要装 child 文字标签）
+      const layer = new ICE.ICEGroup({ width: 220, height: 220 });
+      layer.addChild(
+        new ICE.ICERect({
+          left: 0,
+          top: 0,
+          width: 220,
+          height: 220,
+          radius: 8,
+          style: { fillStyle: c.fill, strokeStyle: c.stroke, lineWidth: 2 },
+        })
+      );
+      layer.addChild(new ICE.ICEText({ left: 90, top: 90, text: c.label, stroke: false, style: { fontSize: 36, fillStyle: '#ffffff', fontWeight: 'bold' } }));
+      stage.addChild(layer);
+    });
+
+    // 初始：叠成一摞
+    stage.setLayout(new ICE.ICECOverlayLayout({}));
+
+    function burst() {
+      // FlowLayout 算目标位置
+      stage.setLayout(new ICE.ICEFlowLayout({ gap: 30 }));
+      const targets = stage.childNodes.map((c) => c.state.left);
+      stage.setLayout(new ICE.ICECOverlayLayout({})); // 叠回
+      // 动画炸开（错位 stagger）
+      stage.childNodes.forEach((layer, i) => {
+        setTimeout(() => {
+          layer.props.animations = { left: { from: 0, to: targets[i], duration: 500, easing: 'easeOutBack' } };
+          ice.animationManager.add(layer);
+        }, i * 100);
+      });
+    }
+
+    function collect() {
+      stage.childNodes.forEach((layer, i) => {
+        setTimeout(() => {
+          layer.props.animations = { left: { from: layer.state.left, to: 0, duration: 400, easing: 'easeInCubic' } };
+          ice.animationManager.add(layer);
+        }, i * 80);
+      });
+    }
+
+    document.querySelector('#burst').addEventListener('click', burst);
+    document.querySelector('#collect').addEventListener('click', collect);
+  </script>
+</html>
