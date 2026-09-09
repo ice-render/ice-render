@@ -7,3 +7,6 @@
 *log*
 .history
 *lock*
+# *log* 会误伤 logo 命名的资源（examples/layout/logo.html、golden 快照 logo-*.png），显式放行
+!**/logo*.html
+!**/logo-*.png
