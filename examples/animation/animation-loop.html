@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-animation-loop</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      ① 无限循环（<code>loop: true</code>）② 播放 3 次（<code>iterationCount: 3</code>）③ 递减动画（<code>from 200 → to 50</code>）
+    </div>
+    <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    // ① 无限循环：从左移到右，跳回再开始
+    ice.addChild(
+      new ICE.ICERect({
+        left: 100, top: 100, width: 100, height: 80,
+        style: { strokeStyle: '#0c09d4', fillStyle: '#f5d106', lineWidth: 3 },
+        animations: {
+          left: { from: 100, to: 500, duration: 1500, loop: true },
+        },
+      })
+    );
+
+    // ② 播放次数：移动 3 次后停止
+    ice.addChild(
+      new ICE.ICERect({
+        left: 100, top: 250, width: 100, height: 80,
+        style: { strokeStyle: '#0c8f09', fillStyle: '#37dd0d', lineWidth: 3 },
+        animations: {
+          left: { from: 100, to: 500, duration: 1500, iterationCount: 3 },
+        },
+      })
+    );
+
+    // ③ 递减动画：宽度从 200 缩到 50，循环（from > to）
+    ice.addChild(
+      new ICE.ICERect({
+        left: 100, top: 400, width: 200, height: 80,
+        style: { strokeStyle: '#d40c0c', fillStyle: '#ff8080', lineWidth: 3 },
+        animations: {
+          width: { from: 200, to: 50, duration: 2000, loop: true },
+        },
+      })
+    );
+  </script>
+</html>

@@ -16,6 +16,9 @@ const demos: Array<{ name: string; path: string }> = [
   { name: 'line-visio', path: '/examples/line-and-link/line-visio.html' },
   { name: 'text-in-group', path: '/examples/text/text-in-group.html' },
   { name: 'text-padding', path: '/examples/text/text-padding.html' },
+  { name: 'text-multiline', path: '/examples/text/text-multiline.html' },
+  { name: 'text-edit', path: '/examples/text/text-edit.html' },
+  { name: 'origin-custom', path: '/examples/transform/origin-custom.html' },
 ];
 
 for (const d of demos) {
