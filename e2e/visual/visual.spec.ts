@@ -27,6 +27,9 @@ const demos: Array<{ name: string; path: string }> = [
   { name: 'flow-layout', path: '/examples/layout/flow-layout.html' },
   { name: 'grid-layout', path: '/examples/layout/grid-layout.html' },
   { name: 'border-layout', path: '/examples/layout/border-layout.html' },
+  { name: 'box-layout', path: '/examples/layout/box-layout.html' },
+  { name: 'card-layout', path: '/examples/layout/card-layout.html' },
+  { name: 'overlay-layout', path: '/examples/layout/overlay-layout.html' },
   { name: 'layered-layout', path: '/examples/layout/layered-layout.html' },
   {
     name: 'layered-layout-lines',
