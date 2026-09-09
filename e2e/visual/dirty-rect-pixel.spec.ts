@@ -1,0 +1,51 @@
+/**
+ * 像素一致性验收（dirty-rect 决定性回归）。
+ *
+ * 同一确定性场景在 full 与 dirty-rect 两个 canvas 上渲染，逐步执行相同操作
+ * （拖叶子/改色/拖 Group/改文本/旋转/控制面板启用禁用/结构变更），
+ * 每一步后整幅逐像素比对必须 100% 一致。
+ *
+ * 两个场景：
+ *  - 默认「富场景」：含旋转组/文本/阴影/星形/折线连线/面板，重点覆盖回退与各类边界；
+ *  - ?opaque=1「全不透明场景」：无星形/折线/阴影，验证局部重绘真正执行（collectOk>0）且像素一致。
+ */
+import { test, expect } from '@playwright/test';
+
+async function runSteps(page: any, url: string, requirePartial: boolean) {
+  const pageErrors: string[] = [];
+  page.on('pageerror', (e) => pageErrors.push(String(e)));
+  await page.goto(url, { waitUntil: 'load' });
+  await page.waitForTimeout(800);
+
+  const STEPS = 10;
+  const stepResults: string[] = [];
+  for (let i = 0; i < STEPS; i++) {
+    await page.evaluate((s: number) => (window as any).__step(s), i);
+    await page.waitForTimeout(200);
+    const cmp: any = await page.evaluate(() => (window as any).__compare());
+    stepResults.push(`step${i}: ${cmp.equal ? 'OK' : `DIFF=${cmp.diffCount}`}`);
+    expect(cmp.equal, `step ${i} 像素不一致：${JSON.stringify(cmp)}`).toBe(true);
+  }
+  const stats: any = await page.evaluate(() => (window as any).__drStats);
+  if (requirePartial) {
+    expect(stats.collectOk, '全不透明场景应真正执行过至少一次局部重绘').toBeGreaterThan(0);
+  }
+  expect(pageErrors, '页面不应有未捕获异常').toEqual([]);
+  return { stepResults, collectOk: stats.collectOk };
+}
+
+test('富场景：dirty-rect 与 full 逐步逐像素一致（含回退边界）', async ({ page }) => {
+  const { stepResults, collectOk } = await runSteps(page, '/e2e/visual/fixtures/dirty-rect-compare.html', false);
+  console.log(`[dirty-rect-pixel:rich] 10 步全部一致（局部执行=${collectOk} 次）`);
+  console.log(`  ${stepResults.join('  ')}`);
+});
+
+test('全不透明场景：局部重绘真正执行且逐像素一致', async ({ page }) => {
+  const { stepResults, collectOk } = await runSteps(
+    page,
+    '/e2e/visual/fixtures/dirty-rect-compare.html?opaque=1',
+    true
+  );
+  console.log(`[dirty-rect-pixel:opaque] 10 步全部一致；局部重绘执行=${collectOk} 次`);
+  console.log(`  ${stepResults.join('  ')}`);
+});

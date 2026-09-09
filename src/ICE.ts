@@ -61,8 +61,9 @@ class ICE {
 
   /**
    * @param ctx DOM id or CanvasContext
+   * @param options 渲染配置。renderMode: 'dirty-rect'(默认) | 'full'
    */
-  public init(ctx: any) {
+  public init(ctx: any, options: { renderMode?: 'full' | 'dirty-rect' } = {}) {
     if (!ctx) {
       throw new Error('ICE.init() failed...');
     }
@@ -103,7 +104,7 @@ class ICE {
     this.eventDispatcher = new DOMEventDispatcher(this).start();
     this.animationManager = new AnimationManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
-    this.renderer = new CanvasRenderer(this).start();
+    this.renderer = new CanvasRenderer(this, options).start();
     this.linkSlotManager = new ICELinkSlotManager(this).start(); //linkSlotManager 内部会监听 renderer 上的事件，所以 linkSlotManager 需要在 renderer 后面实例化。
     this.serializer = new Serializer(this);
     this.deserializer = new Deserializer(this);

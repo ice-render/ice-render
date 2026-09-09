@@ -81,14 +81,14 @@ ice.addChild(new ICERect({ width: 100, height: 50 }));
 ## 📚 文档
 
 - **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容。
-- **示例** —— [`examples/`](./examples/index.html) 目录提供 74 个可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局等）。
+- **示例** —— [`examples/`](./examples/index.html) 目录提供 75 个可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、性能基准等）。
 
 ## 🧪 工程化
 
 | 命令 | 说明 |
 |---|---|
 | `npm test` | 单元测试（jest，镜像 src/ 结构，见 `tests/`） |
-| `npm run test:visual` | Playwright：golden-image 可视化回归 + 真实画布性能采集（`e2e/visual/perf.spec.ts`） |
+| `npm run test:visual` | Playwright：golden 可视化回归 + 脏矩形局部重绘像素一致性（`dirty-rect-pixel.spec.ts`）+ 真实画布/worker 性能采集 |
 | `npm run lint` / `npm run lint:fix` | 代码检查 / 自动修复 |
 | `npm run types:check` | TypeScript 类型检查 |
 | `npm run bench` | 场景基准（stub ctx，`bench/render.cjs`，改 `src/` 后先 `npm run build`） |

@@ -1,25 +1,41 @@
 # 04 · 渲染与性能
 
-## 渲染策略：脏标记 + 全量重绘
+## 渲染策略：脏标记 + 脏矩形局部重绘（默认），条件回退全量
 
-引擎采用**最简单且可预测**的渲染模型：
+引擎采用「脏标记 + 惰性渲染」，并在 v1（2026-09-09）起把默认绘制路径从「整屏全量重绘」升级为「**脏矩形局部重绘**」：
 
-1. **脏标记** `ice.dirty`：任何状态变化（`setState`、增删组件）置 `true`。
-2. **惰性渲染**：`CanvasRenderer` 订阅帧事件，仅在 `ice.dirty` 为真时执行 `doRender()`。
-3. **全量重绘**：清空整块 canvas，重绘所有可见组件。**没有**局部重绘 / 脏矩形。
+1. **脏标记** `ice.dirty`：任何状态变化（`setState`、增删组件）置 `true`；渲染器仅在为真时工作。
+2. **帧入口决策**：`refreshQueue()` 后，若 `renderMode==='dirty-rect'` 且场景满足局部条件 → `doRenderDirtyRect()`；否则回退 `doRenderFull()`（旧全量逻辑**原样保留**，为参考与兜底）。
+3. **局部重绘**：只 `clearRect` 脏区域（脏组件**旧世界盒 ∪ 新世界盒 + paint pad**，整像素对齐）；区域内按 z 序重画与区域相交的组件。渲染器用 `WeakMap` 保存每组件「上次实际绘制的世界轴对齐盒」快照，用于旧区域擦除与相交判断。
+4. **组件上下文自包含**：每个组件 render 末尾把本组件写过的泄漏 ctx 属性（shadow/globalAlpha/composite/lineCap/lineJoin/miterLimit/textAlign/textBaseline/虚线）归位为 canvas 默认值——这是 full 与 partial **逐像素一致**的前提。
 
 ```mermaid
 graph TD
     EV[ICE_FRAME_EVENT] --> D{dirty?}
     D -- 否 --> SKIP[跳过，无开销]
     D -- 是 --> RQ[refreshQueue<br/>队列重建/复用]
-    RQ --> CLR[clearRect 全量清屏]
-    CLR --> C[遍历 componentQueue 渲染]
-    C --> T[遍历 toolsQueue 渲染]
-    T --> FIN[dirty=false + ROUND_FINISH]
+    RQ --> G{renderMode='dirty-rect'<br/>且场景允许局部?}
+    G -- 否/回退条件 --> FULL[doRenderFull<br/>clearRect 整屏 + 全量重绘]
+    G -- 是 --> C[doRenderDirtyRect<br/>收集脏区 old∪new + pad]
+    C --> CLR[clearRect 脏区]
+    CLR --> LOOP[区域内按 z 序补画相交组件<br/>+ 工具层]
+    LOOP --> FIN[dirty=false + ROUND_FINISH]
+    FULL --> FIN
 ```
 
-> 全量重绘是刻意选择：它规避了脏矩形方案对"重叠/透明区域"的复杂处理，正确性更高、心智负担低；配合下面的缓存与零分配优化，全量重绘的性能足够支撑数千图元。
+**v1 场景级门控与回退条件**（几何纯函数见 `src/renderer/dirty-rect-util.ts`，阈值常量在 `CanvasRenderer`）：
+
+| 条件 | 动作 | 原因 |
+|---|---|---|
+| 结构变更（`markQueueDirty`） | 全量并重建快照 | 队列/层级整体变化，旧盒不可复用 |
+| 快照未 prime（结构变更后首帧） | 全量 | 旧区域未知，无法擦除 |
+| 无可见脏组件且无隐藏擦除（手动置脏/图片 onload 帧） | 全量 | 保语义 |
+| 脏可见组件占比 > 20% | 全量 | 相交裁剪收益小 |
+| 脏区域面积 / 画布面积 > 35% | 全量 | 接近整屏成本 |
+| 场景含可见 dot-path（折线/星形等）或 ICEText 或非不透明落墨（alpha 色/阴影/globalAlpha/合成模式） | 全量 | **v1 保守**：clip 边界与半透明落墨/字形/折线抗锯齿相交会产生接缝 |
+| 新/旧包围盒含 NaN；ctx 无 clip/save/restore（老小程序 canvas） | 全量 | 安全兜底 |
+
+> v1 局部重绘只服务于「全不透明、无文本、无点集路径」的场景（编辑器里的大多数实体/卡片/表格），其余场景自动回退全量，正确性优先。按区域相交细化的局部化、以及 dot-path/文本/半透明的专项支持记入后续路线图。
 
 ## 渲染队列（flattenTree + 排序 + 缓存）
 

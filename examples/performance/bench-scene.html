@@ -21,7 +21,8 @@
       // ---- 参数 ----
       const params = new URLSearchParams(location.search);
       const N = Math.max(100, Math.min(parseInt(params.get('n') || '5000', 10) || 5000, 200000));
-      const MODE = ['static', 'anim', 'fps'].includes(params.get('mode')) ? params.get('mode') : 'anim';
+      const MODE = ['static', 'anim', 'drag', 'fps'].includes(params.get('mode')) ? params.get('mode') : 'anim';
+      const PLAIN = params.get('plain') === '1'; // 仅矩形/圆形（无不透明之外成分），drag 局部重绘可生效
       const FRAMES = Math.max(10, parseInt(params.get('frames') || '90', 10) || 90);
       const DURATION_MS = Math.max(200, parseInt(params.get('duration') || '1500', 10) || 1500);
 
@@ -31,11 +32,11 @@
       let totalCount = 0;
       const PALETTE = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#14B8A6', '#EC4899', '#6366F1'];
 
-      function buildTree(targetN) {
+      function buildTree(targetN, plain) {
         const root = new ICE.ICEGroup({
           width: 2000,
           height: 1000,
-          style: { fillStyle: 'transparent', strokeStyle: '#E5E7EB', lineWidth: 1 },
+          style: { fillStyle: plain ? '#ffffff' : 'transparent', strokeStyle: '#E5E7EB', lineWidth: 1 },
         });
         let count = 1;
         const topGroups = 10;
@@ -47,7 +48,7 @@
             top: 0,
             width: 200,
             height: 200,
-            style: { fillStyle: 'transparent', strokeStyle: '#D1D5DB', lineWidth: 1 },
+            style: { fillStyle: plain ? '#ffffff' : 'transparent', strokeStyle: '#D1D5DB', lineWidth: 1 },
           });
           count++;
           for (let s = 0; s < subPerTop && count < targetN; s++) {
@@ -56,19 +57,28 @@
               top: s * 20,
               width: 80,
               height: 80,
-              style: { fillStyle: 'transparent', strokeStyle: '#D1D5DB', lineWidth: 1 },
+              style: { fillStyle: plain ? '#ffffff' : 'transparent', strokeStyle: '#D1D5DB', lineWidth: 1 },
             });
             count++;
             for (let l = 0; l < leavesPerSub && count < targetN; l++) {
               const color = PALETTE[(l + s + t) % PALETTE.length];
               const left = (l * 7) % 60;
               const top = (l * 11) % 60;
-              const leaf =
-                l % 3 === 0
-                  ? new ICE.ICECircle({ left, top, width: 10, height: 10, style: { fillStyle: color, strokeStyle: 'transparent' } })
-                  : l % 3 === 1
-                  ? new ICE.ICEStar({ left, top, width: 12, height: 12, style: { fillStyle: color, strokeStyle: 'transparent' } })
-                  : new ICE.ICERect({ left, top, width: 14, height: 14, style: { fillStyle: color, strokeStyle: 'transparent' } });
+              let leaf;
+              if (plain) {
+                // drag 局部重绘场景：仅矩形/圆形且无不透明外成分（局部路径才可生效）
+                leaf =
+                  l % 2 === 0
+                    ? new ICE.ICECircle({ left, top, width: 10, height: 10, style: { fillStyle: color } })
+                    : new ICE.ICERect({ left, top, width: 14, height: 14, style: { fillStyle: color } });
+              } else {
+                leaf =
+                  l % 3 === 0
+                    ? new ICE.ICECircle({ left, top, width: 10, height: 10, style: { fillStyle: color, strokeStyle: 'transparent' } })
+                    : l % 3 === 1
+                    ? new ICE.ICEStar({ left, top, width: 12, height: 12, style: { fillStyle: color, strokeStyle: 'transparent' } })
+                    : new ICE.ICERect({ left, top, width: 14, height: 14, style: { fillStyle: color, strokeStyle: 'transparent' } });
+              }
               sg.addChild(leaf);
               count++;
             }
@@ -113,10 +123,19 @@
       // ---- 主流程 ----
       const tBuild0 = performance.now();
       ice = new ICE.ICE().init('canvas-1');
-      const rootGroup = buildTree(N);
+      const rootGroup = buildTree(N, PLAIN);
       ice.addChild(rootGroup);
       collect(rootGroup);
       const buildMs = performance.now() - tBuild0;
+
+      // drag 模式的目标组件：一棵深嵌套里的矩形叶子
+      let dragTarget = null;
+      if (MODE === 'drag') {
+        dragTarget =
+          flat.find(
+            (c) => c.constructor && c.constructor.name === 'ICERect' && c.parentNode && c.parentNode.childNodes
+          ) || flat[flat.length - 1];
+      }
 
       // 同步暖一帧，让渲染队列 / 矩阵缓存就位
       ice.dirty = true;
@@ -125,17 +144,21 @@
       // 供外部（Playwright spec / 调试探针）访问
       window.__ice = ice;
 
-      // static/anim：同步测「引擎 JS + 真实光栅化」的单帧成本
+      // static/anim/drag：同步测「引擎 JS + 真实光栅化」的单帧成本。
+      // drag：每帧对单个目标组件 moveGlobalPosition(+1,+0)（编辑器最常见交互），
+      //       全不透明场景(plain=1)下走脏矩形局部重绘，成本应随组件总量 N 增长缓慢。
       function measureSync(mode, iters) {
         const r = ice.renderer;
         for (let i = 0; i < 12; i++) {
           if (mode === 'anim') markAllDirty();
+          if (mode === 'drag' && dragTarget) dragTarget.moveGlobalPosition(1, 0);
           ice.dirty = true;
           r.frameEvtHandler();
         }
         const samples = [];
         for (let i = 0; i < iters; i++) {
           if (mode === 'anim') markAllDirty();
+          if (mode === 'drag' && dragTarget) dragTarget.moveGlobalPosition(1, 0);
           ice.dirty = true;
           const t0 = performance.now();
           r.frameEvtHandler();
@@ -194,8 +217,9 @@
           const fpsEquiv = 1000 / st.p50;
           result.frameStats = st;
           result.fpsEquivalent = fpsEquiv;
-          const label = MODE === 'static' ? '静态重绘(稳态)' : '动画(每帧全量)';
-          lines.push(`单帧成本(${label}): avg=${fmt(st.avg)}  p50=${fmt(st.p50)}  p95=${fmt(st.p95)}  p99=${fmt(st.p99)}  max=${fmt(st.max)}`);
+          const label =
+            MODE === 'static' ? '静态重绘(稳态)' : MODE === 'drag' ? '单组件拖动' : '动画(每帧全量)';
+          lines.push(`单帧成本(${label}${PLAIN ? ', plain局部可生效' : ''}): avg=${fmt(st.avg)}  p50=${fmt(st.p50)}  p95=${fmt(st.p95)}  p99=${fmt(st.p99)}  max=${fmt(st.max)}`);
           lines.push(`等效帧率: ${fpsEquiv.toFixed(0)} fps (基于 p50)`);
         }
         lines.push('-'.repeat(64));
