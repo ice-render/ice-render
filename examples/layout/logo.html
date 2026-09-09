@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-logo</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      引擎 logo：<code>ICECircle</code> 渐变环 + <code>ICEText</code> 居中文字（<code>textAlign center + textBaseline middle</code>）。
+    </div>
+    <canvas id="canvas-1" width="600" height="500" style="background-color: #0c0c10;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    let ice = new ICE.ICE().init('canvas-1');
+
+    // 外圈：渐变环（用 ICECircle + 径向渐变 + 阴影）
+    const gradient = ice.createRadialGradient(300, 230, 5, 300, 230, 110);
+    gradient.addColorStop(0, '#e24b4a');
+    gradient.addColorStop(0.6, '#7f77dd');
+    gradient.addColorStop(1, '#378add');
+
+    const ring = new ICE.ICECircle({
+      left: 190,
+      top: 120,
+      radius: 110,
+      style: {
+        fillStyle: gradient,
+        strokeStyle: '#afa9ec',
+        lineWidth: 3,
+        shadowColor: 'rgba(127, 119, 221, 0.5)',
+        shadowBlur: 25,
+        shadowOffsetX: 0,
+        shadowOffsetY: 4,
+      },
+    });
+    ice.addChild(ring);
+
+    // 内圈：白色高亮（中心 (300, 230)）
+    const inner = new ICE.ICECircle({
+      left: 260,
+      top: 190,
+      radius: 40,
+      style: { fillStyle: '#ffffff', strokeStyle: '#7f77dd', lineWidth: 2 },
+    });
+    ice.addChild(inner);
+
+    // "ice" 大字：textAlign center + textBaseline middle 居中在圆环中心 (300, 230)
+    ice.addChild(
+      new ICE.ICEText({
+        left: 0,
+        top: 192,
+        width: 600,
+        text: 'ice',
+        stroke: false,
+        style: { fontSize: 60, fillStyle: '#ffffff', textAlign: 'center', textBaseline: 'middle', fontWeight: 'bold', fontFamily: 'Arial' },
+      })
+    );
+
+    // "render"：圆环下方居中
+    ice.addChild(
+      new ICE.ICEText({
+        left: 0,
+        top: 360,
+        width: 600,
+        text: 'render',
+        stroke: false,
+        style: { fontSize: 22, fillStyle: '#afa9ec', textAlign: 'center', textBaseline: 'middle', letterSpacing: 6 },
+      })
+    );
+
+    // 底部 tagline
+    ice.addChild(
+      new ICE.ICEText({
+        left: 0,
+        top: 445,
+        width: 600,
+        text: 'a canvas 2D rendering engine',
+        stroke: false,
+        style: { fontSize: 14, fillStyle: '#888880', textAlign: 'center', textBaseline: 'middle' },
+      })
+    );
+  </script>
+</html>
