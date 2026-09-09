@@ -22,17 +22,18 @@
  */
 
 // ============ ① base tokens（原始值，无语义） ============
+// 色 ramp 采用 Tailwind CSS 经典调色板（低饱和、协调、现代）
 export const baseTokens = {
   color: {
-    purple: { 50: '#EEEDFE', 100: '#CECBF6', 200: '#AFA9EC', 400: '#7F77DD', 600: '#534AB7', 800: '#3C3489', 900: '#26215C' },
-    teal: { 50: '#E1F5EE', 100: '#9FE1CB', 200: '#5DCAA5', 400: '#1D9E75', 600: '#0F6E56', 800: '#085041', 900: '#04342C' },
-    coral: { 50: '#FAECE7', 100: '#F5C4B3', 200: '#F0997B', 400: '#D85A30', 600: '#993C1D', 800: '#712B13', 900: '#4A1B0C' },
-    pink: { 50: '#FBEAF0', 100: '#F4C0D1', 200: '#ED93B1', 400: '#D4537E', 600: '#993556', 800: '#72243E', 900: '#4B1528' },
-    gray: { 50: '#F1EFE8', 100: '#D3D1C7', 200: '#B4B2A9', 400: '#888780', 600: '#5F5E5A', 800: '#444441', 900: '#2C2C2A' },
-    blue: { 50: '#E6F1FB', 100: '#B5D4F4', 200: '#85B7EB', 400: '#378ADD', 600: '#185FA5', 800: '#0C447C', 900: '#042C53' },
-    green: { 50: '#EAF3DE', 100: '#C0DD97', 200: '#97C459', 400: '#639922', 600: '#3B6D11', 800: '#27500A', 900: '#173404' },
-    amber: { 50: '#FAEEDA', 100: '#FAC775', 200: '#EF9F27', 400: '#BA7517', 600: '#854F0B', 800: '#633806', 900: '#412402' },
-    red: { 50: '#FCEBEB', 100: '#F7C1C1', 200: '#F09595', 400: '#E24B4A', 600: '#A32D2D', 800: '#791F1F', 900: '#501313' },
+    blue: { 50: '#EFF6FF', 100: '#DBEAFE', 200: '#BFDBFE', 300: '#93C5FD', 400: '#60A5FA', 500: '#3B82F6', 600: '#2563EB', 700: '#1D4ED8', 800: '#1E40AF', 900: '#1E3A8A' },
+    emerald: { 50: '#ECFDF5', 100: '#D1FAE5', 200: '#A7F3D0', 300: '#6EE7B7', 400: '#34D399', 500: '#10B981', 600: '#059669', 700: '#047857', 800: '#065F46', 900: '#064E3B' },
+    amber: { 50: '#FFFBEB', 100: '#FEF3C7', 200: '#FDE68A', 300: '#FCD34D', 400: '#FBBF24', 500: '#F59E0B', 600: '#D97706', 700: '#B45309', 800: '#92400E', 900: '#78350F' },
+    red: { 50: '#FEF2F2', 100: '#FEE2E2', 200: '#FECACA', 300: '#FCA5A5', 400: '#F87171', 500: '#EF4444', 600: '#DC2626', 700: '#B91C1C', 800: '#991B1B', 900: '#7F1D1D' },
+    gray: { 50: '#F9FAFB', 100: '#F3F4F6', 200: '#E5E7EB', 300: '#D1D5DB', 400: '#9CA3AF', 500: '#6B7280', 600: '#4B5563', 700: '#374151', 800: '#1F2937', 900: '#111827' },
+    violet: { 50: '#F5F3FF', 100: '#EDE9FE', 200: '#DDD6FE', 300: '#C4B5FD', 400: '#A78BFA', 500: '#8B5CF6', 600: '#7C3AED', 700: '#6D28D9', 800: '#5B21B6', 900: '#4C1D95' },
+    teal: { 50: '#F0FDFA', 100: '#CCFBF1', 200: '#99F6E4', 300: '#5EEAD4', 400: '#2DD4BF', 500: '#14B8A6', 600: '#0D9488', 700: '#0F766E', 800: '#115E59', 900: '#134E4A' },
+    pink: { 50: '#FDF2F8', 100: '#FCE7F3', 200: '#FBCFE8', 300: '#F9A8D4', 400: '#F472B6', 500: '#EC4899', 600: '#DB2777', 700: '#BE185D', 800: '#9D174D', 900: '#831843' },
+    indigo: { 50: '#EEF2FF', 100: '#E0E7FF', 200: '#C7D2FE', 300: '#A5B4FC', 400: '#818CF8', 500: '#6366F1', 600: '#4F46E5', 700: '#4338CA', 800: '#3730A3', 900: '#312E81' },
   },
   spacing: { 1: 4, 2: 8, 3: 12, 4: 16, 6: 24, 8: 32, 12: 48, 16: 64 },
   radius: { sm: 4, md: 8, lg: 12, xl: 16, full: 9999 },
@@ -70,17 +71,19 @@ export interface ICETheme {
 function buildSemantic(base: typeof baseTokens, overrides: Partial<ICESemanticTheme> = {}): ICESemanticTheme {
   const c = base.color;
   return {
-    primary: c.blue[600],
-    success: c.green[600],
-    warning: c.amber[600],
-    danger: c.red[600],
+    // 语义色对齐 Ant Design 经典语义 + Tailwind 500 level（低饱和、现代）
+    primary: c.blue[500],
+    success: c.emerald[500],
+    warning: c.amber[500],
+    danger: c.red[500],
     info: c.blue[400],
     text: c.gray[800],
-    muted: c.gray[600],
+    muted: c.gray[500],
     hint: c.gray[400],
     border: c.gray[200],
     background: '#ffffff',
-    palette: [c.blue[600], c.green[600], c.amber[600], c.red[600], c.purple[600], c.teal[600], c.pink[600], c.coral[600]],
+    // 数据系列配色（折线/柱状逐系列取色），用 Tailwind 500 level 8 色
+    palette: [c.blue[500], c.emerald[500], c.amber[500], c.red[500], c.violet[500], c.teal[500], c.pink[500], c.indigo[500]],
     motion: {
       duration: { fast: 100, normal: 200, slow: 300, slower: 500 },
       easing: { linear: 'linear', out: 'easeOutCubic', inOut: 'easeInOutCubic', outQuart: 'easeOutQuart' },
@@ -100,25 +103,25 @@ export const DARK_THEME: ICETheme = {
   semantic: buildSemantic(baseTokens, {
     // 彩色用 400 level（更亮，适配深色背景）
     primary: baseTokens.color.blue[400],
-    success: baseTokens.color.green[400],
+    success: baseTokens.color.emerald[400],
     warning: baseTokens.color.amber[400],
     danger: baseTokens.color.red[400],
     info: baseTokens.color.teal[400],
-    text: '#e8e8e8',
-    muted: '#a0a0a0',
-    hint: '#6b6b6b',
-    border: '#3a3a3a',
-    background: '#1a1a1a',
+    text: baseTokens.color.gray[200],
+    muted: baseTokens.color.gray[400],
+    hint: baseTokens.color.gray[500],
+    border: baseTokens.color.gray[700],
+    background: baseTokens.color.gray[900],
     // palette 也用 400 level
     palette: [
       baseTokens.color.blue[400],
-      baseTokens.color.green[400],
+      baseTokens.color.emerald[400],
       baseTokens.color.amber[400],
       baseTokens.color.red[400],
-      baseTokens.color.purple[400],
+      baseTokens.color.violet[400],
       baseTokens.color.teal[400],
       baseTokens.color.pink[400],
-      baseTokens.color.coral[400],
+      baseTokens.color.indigo[400],
     ],
   }),
 };
