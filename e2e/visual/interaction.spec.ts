@@ -138,6 +138,8 @@ test('文本内联编辑：双击进入编辑、键入更新文本', async ({ pa
   await page.mouse.dblclick(c.x, c.y);
   await page.waitForTimeout(100);
   expect(await page.evaluate(() => window.__text.state.editing)).toBe(true);
+  // 进入编辑态后变换面板应隐藏，避免手柄遮挡文本/光标
+  expect(await page.evaluate(() => window.__ice.controlPanelManager.transformControlPanel.state.display)).toBe(false);
 
   // 键入
   await page.keyboard.type(' world');
