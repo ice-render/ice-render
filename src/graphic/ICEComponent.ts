@@ -107,6 +107,8 @@ abstract class ICEComponent extends ICEEventTarget {
     linearMatrix: [],
     composedMatrix: [],
     origin: 'localCenter',
+    originX: 0, //自定义原点（origin==='custom' 时生效），相对组件左上角
+    originY: 0,
     localOrigin: [0, 0],
     absoluteOrigin: [0, 0],
     zIndex: ICEComponent.instanceCounter++,
@@ -279,8 +281,14 @@ abstract class ICEComponent extends ICEEventTarget {
     if (!position || position === 'localCenter') {
       point[0] = this.state.width / 2;
       point[1] = this.state.height / 2;
+    } else if (position === 'top-left') {
+      point[0] = 0;
+      point[1] = 0;
+    } else if (position === 'custom') {
+      // 自定义原点：originX/originY 相对组件左上角
+      point[0] = Number(this.state.originX) || 0;
+      point[1] = Number(this.state.originY) || 0;
     }
-    //FIXME:计算原点位于其它位置的情况
     this.state.localOrigin = point;
     return point;
   }
