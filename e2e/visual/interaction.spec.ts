@@ -125,3 +125,23 @@ test('命中检测精度：圆的包围盒边角点不误命中', async ({ page 
   await page.waitForTimeout(100);
   expect(await page.evaluate(() => window.__ice.selectionList[0] === window.__components.circle)).toBe(true);
 });
+
+test('文本内联编辑：双击进入编辑、键入更新文本', async ({ page }) => {
+  await page.goto('/e2e/visual/fixtures/nested-interaction.html');
+  await page.waitForTimeout(400);
+
+  // 双击文本进入编辑态
+  const c = await page.evaluate(() => {
+    const p = window.__text.getMinBoundingBox(true).centerPoint;
+    return { x: p[0], y: p[1] };
+  });
+  await page.mouse.dblclick(c.x, c.y);
+  await page.waitForTimeout(100);
+  expect(await page.evaluate(() => window.__text.state.editing)).toBe(true);
+
+  // 键入
+  await page.keyboard.type(' world');
+  await page.waitForTimeout(100);
+
+  expect(await page.evaluate(() => window.__text.getText())).toBe('hello world');
+});

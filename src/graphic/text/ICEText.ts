@@ -51,6 +51,8 @@ class ICEText extends ICEComponent {
         top: 0,
         width: 10,
         height: 10,
+        editing: false, //是否处于内联编辑状态
+        caretIndex: 0, //编辑光标位置（字符下标）
         style: {
           fontWeight: 'bold',
           fontSize: 32,
@@ -70,6 +72,119 @@ class ICEText extends ICEComponent {
       font: `${param.style.fontWeight} ${param.style.fontSize}px ${param.style.fontFamily}`, //CanvasRenderingContext2D 只支持 font 属性，这里手动拼接
     };
     return param;
+  }
+
+  /**
+   * @overwrite
+   * 双击进入内联编辑态。
+   */
+  protected initEvents(): void {
+    super.initEvents();
+    this.on('dblclick', this.startEditing, this);
+  }
+
+  /**
+   * 进入内联编辑态：光标定位到文本末尾。
+   */
+  public startEditing(): void {
+    this.setState({ editing: true, caretIndex: this.state.text.length });
+  }
+
+  /**
+   * 退出内联编辑态（提交文本）。
+   */
+  public stopEditing(): void {
+    this.setState({ editing: false });
+  }
+
+  /**
+   * 设置文本内容（会重新测量宽高）。
+   */
+  public setText(text: string): this {
+    const caret = Math.max(0, Math.min(this.state.caretIndex, text.length));
+    this.setState({ text, caretIndex: caret });
+    return this;
+  }
+
+  public getText(): string {
+    return this.state.text;
+  }
+
+  /**
+   * @overwrite
+   * 编辑态下接管键盘输入：字符插入 / Backspace / Delete / 方向键移动光标 / Enter 提交。
+   */
+  protected keyboardEvtHandler(evt: any) {
+    if (!this.state.editing) {
+      super.keyboardEvtHandler(evt);
+      return;
+    }
+    if (evt.type !== 'keydown') return;
+
+    const key = evt.key;
+    const text = this.state.text;
+    const caret = this.state.caretIndex;
+
+    if (key === 'Enter' || key === 'Escape') {
+      this.stopEditing();
+      return;
+    }
+    if (key === 'Backspace') {
+      if (caret > 0) {
+        this.setState({ text: text.slice(0, caret - 1) + text.slice(caret), caretIndex: caret - 1 });
+      }
+      return;
+    }
+    if (key === 'Delete') {
+      if (caret < text.length) {
+        this.setState({ text: text.slice(0, caret) + text.slice(caret + 1) });
+      }
+      return;
+    }
+    if (key === 'ArrowLeft') {
+      this.setState({ caretIndex: Math.max(0, caret - 1) });
+      return;
+    }
+    if (key === 'ArrowRight') {
+      this.setState({ caretIndex: Math.min(text.length, caret + 1) });
+      return;
+    }
+    if (key === 'Home') {
+      this.setState({ caretIndex: 0 });
+      return;
+    }
+    if (key === 'End') {
+      this.setState({ caretIndex: text.length });
+      return;
+    }
+    // 可打印字符（长度为 1，排除修饰键/控制键）
+    if (key && key.length === 1) {
+      this.setState({ text: text.slice(0, caret) + key + text.slice(caret), caretIndex: caret + 1 });
+      return;
+    }
+  }
+
+  /**
+   * 在编辑态下渲染光标（垂直竖线），位置由 caretIndex + ctx.measureText 计算。
+   */
+  private renderCaret(): void {
+    const { paddingTop, paddingBottom, paddingLeft } = this.state.style;
+    const textBefore = this.state.text.slice(0, this.state.caretIndex);
+    let caretX = 0 - this.state.localOrigin[0] + paddingLeft;
+    if (typeof this.ctx.measureText === 'function') {
+      caretX += this.ctx.measureText(textBefore).width;
+    }
+    const caretTop = 0 - this.state.localOrigin[1] + paddingTop;
+    const caretBottom = 0 - this.state.localOrigin[1] + this.state.height - paddingBottom;
+
+    this.ctx.save();
+    this.ctx.strokeStyle = this.state.style.fillStyle || '#000000';
+    this.ctx.lineWidth = 1;
+    this.ctx.beginPath();
+    this.ctx.moveTo(caretX, caretTop);
+    this.ctx.lineTo(caretX, caretBottom);
+    this.ctx.stroke();
+    this.ctx.restore();
   }
 
   /**
@@ -169,6 +284,10 @@ class ICEText extends ICEComponent {
         0 - this.state.localOrigin[1] + this.state.height - paddingBottom,
         this.state.width
       );
+    }
+    // 编辑态下渲染光标
+    if (this.state.editing) {
+      this.renderCaret();
     }
     super.doRender();
   }
