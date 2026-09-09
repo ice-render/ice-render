@@ -103,4 +103,32 @@ describe('序列化 / 反序列化 round-trip', () => {
     expect(g2.childNodes[0]).toBeInstanceOf(ICERect);
     expect(g2.childNodes[1]).toBeInstanceOf(ICECircle);
   });
+
+  it('序列化结果含 version 字段', () => {
+    const ice = makeIce();
+    ice.addChild(new ICERect({ width: 10, height: 10 }));
+    const json: any = new Serializer(ice).toJSONObject();
+    expect(json.version).toBe(1);
+  });
+
+  it('序列化排除运行时缓存值（linearMatrix/composedMatrix/localOrigin/absoluteOrigin）', () => {
+    const ice = makeIce();
+    const rect = new ICERect({ width: 10, height: 10 });
+    ice.addChild(rect);
+    rect.getMinBoundingBox(true); // 触发 compose，产生缓存值
+
+    const json: any = new Serializer(ice).toJSONObject();
+    const state = json.childNodes[0].state;
+    expect(state.linearMatrix).toBeUndefined();
+    expect(state.composedMatrix).toBeUndefined();
+    expect(state.localOrigin).toBeUndefined();
+    expect(state.absoluteOrigin).toBeUndefined();
+    expect(state.width).toBe(10); // 用户数据保留
+  });
+
+  it('反序列化不支持的版本抛错', () => {
+    const ice = makeIce();
+    const deserializer = new Deserializer(ice);
+    expect(() => deserializer.fromJSONObject({ version: 999, childNodes: [] })).toThrow();
+  });
 });

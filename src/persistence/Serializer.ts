@@ -8,6 +8,17 @@
 import ICE from '../ICE';
 
 /**
+ * 序列化时排除的运行时缓存/计算值：这些值在反序列化后会由引擎重新计算，
+ * 序列化它们只会增大 JSON 体积、并在反序列化时污染 props。
+ */
+const NON_SERIALIZABLE_KEYS = ['linearMatrix', 'composedMatrix', 'localOrigin', 'absoluteOrigin', 'dots', 'textHeight'];
+
+/**
+ * 序列化格式版本号。数据结构发生变化时递增，并在 Deserializer 中做对应迁移。
+ */
+export const SERIALIZATION_VERSION = 1;
+
+/**
  * @class Serializer
  *
  * 把图形序列化成 JSON 字符串。
@@ -39,6 +50,7 @@ export default class Serializer {
    */
   public toJSONObject(): object {
     const result = {
+      version: SERIALIZATION_VERSION,
       createTime: new Date().toLocaleString(),
       lastModifyTime: new Date().toLocaleString(),
       childNodes: [],
@@ -54,7 +66,7 @@ export default class Serializer {
   //递归序列化
   private encodeRecursively(component, parentData) {
     const currentData = {
-      state: component.state, //FIXME:只把 props 上的属性序列化，其它属性忽略。
+      state: this.pickSerializableState(component.state),
       type: component.constructor.name,
       childNodes: [],
     };
@@ -66,5 +78,20 @@ export default class Serializer {
         this.encodeRecursively(component.childNodes[i], currentData);
       }
     }
+  }
+
+  /**
+   * 只序列化用户数据，排除运行时缓存/计算值（linearMatrix/composedMatrix/localOrigin/
+   * absoluteOrigin/dots/textHeight 等）。
+   */
+  private pickSerializableState(state) {
+    const result = {};
+    for (const key in state) {
+      if (NON_SERIALIZABLE_KEYS.indexOf(key) !== -1) {
+        continue;
+      }
+      result[key] = state[key];
+    }
+    return result;
   }
 }
