@@ -26,7 +26,7 @@ import RotateControl from './RotateControl';
 export default class TransformControlPanel extends ICEControlPanel {
   private rotateControlInstance;
   private rotateControlSize: number = 8; //TODO:改成可配置参数
-  private rotateControlffsetY: number = 60; //TODO:改成可配置参数
+  private rotateControlOffsetY: number = 60; //TODO:改成可配置参数
   private resizeControlInstanceCache = [];
   private resizeControlSize: number = 16; //TODO:改成可配置参数
 
@@ -136,7 +136,7 @@ export default class TransformControlPanel extends ICEControlPanel {
 
     // 创建 1 个 RotateControl
     const left = this.state.width / 2 - this.rotateControlSize;
-    const top = -this.rotateControlffsetY;
+    const top = -this.rotateControlOffsetY;
     this.rotateControlInstance = new RotateControl({
       zIndex: bigZIndexNum + 3,
       display: false,
@@ -346,7 +346,7 @@ export default class TransformControlPanel extends ICEControlPanel {
 
     //重新计算 RotateControl 的位置
     const left = this.state.width / 2 - this.rotateControlSize;
-    const top = -this.rotateControlffsetY;
+    const top = -this.rotateControlOffsetY;
     this.rotateControlInstance.setState({ left, top });
   }
 

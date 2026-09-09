@@ -82,7 +82,7 @@
   },
   "engines": {
     "npm": ">=6.4.1",
-    "node": ">=10.13.0"
+    "node": ">=18"
   },
   "license": "MIT",
   "lint-staged": {
