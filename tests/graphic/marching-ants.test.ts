@@ -25,11 +25,11 @@ describe('蚂蚁线（lineDashFlow / lineDashOffset / 水管壁）', () => {
     expect(r.state.lineBorder).toBe(false);
   });
 
-  it('水管壁默认：lineBorder=false, lineBorderWidth=4', () => {
+  it('水管壁默认：lineBorder=false, lineBorderWidth=1.5', () => {
     const r = new ICERect({});
     expect(r.state.lineBorder).toBe(false);
-    expect(r.state.lineBorderWidth).toBe(4);
-    expect(r.state.lineBorderColor).toBe('#c8c8c8');
+    expect(r.state.lineBorderWidth).toBe(1.5);
+    expect(r.state.lineBorderColor).toBe('#999999');
   });
 
   it('lineDashFlow=true 触发 loop 动画注册（__flowRegistered）', () => {

@@ -105,9 +105,9 @@ abstract class ICEComponent extends ICEEventTarget {
     lineDashOffset: 0, //虚线偏移（静态），对应 canvas lineDashOffset
     lineDashFlow: false, //蚂蚁线：虚线沿路径流动（marching ants），配合 lineDash 使用
     lineDashFlowSpeed: 60, //蚂蚁线流动速度：每秒流动像素数（px/s），越大越快
-    lineBorder: false, //水管壁：蚂蚁线外层套一条粗实线（像水管的管壁），配合 lineDashFlow 使用
-    lineBorderWidth: 4, //水管壁的额外宽度（加在 lineWidth 两侧）
-    lineBorderColor: '#c8c8c8', //水管壁颜色
+    lineBorder: false, //水管壁：蚂蚁线外层套一条细实线边界（像管壁），配合 lineDashFlow 使用
+    lineBorderWidth: 1.5, //水管壁边界厚度：lineWidth 两侧各加多少（越小越细）
+    lineBorderColor: '#999999', //水管壁边界颜色
     fill: true,
     stroke: true,
     animations: {},

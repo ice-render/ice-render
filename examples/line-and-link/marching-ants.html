@@ -5,8 +5,8 @@
   <title>ICERender-marching-ants</title>
   <body>
     <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
-      蚂蚁线（marching ants）：<code>lineDash + lineDashFlow</code>，虚线沿路径流动（像数据在管子里跑）。
-      左边是选区框，右边是数据流连线。
+      蚂蚁线（marching ants）：<code>lineDash + lineDashFlow</code>，虚线沿路径流动。
+      上：选区框（纯蚂蚁线）。下：「管子里流水」（<code>lineBorder</code> 细管壁 + 蚂蚁线）。
     </div>
     <canvas id="canvas-1" width="900" height="400" style="background-color: #fafafa;"></canvas>
   </body>
@@ -14,35 +14,36 @@
   <script type="text/javascript">
     let ice = new ICE.ICE().init('canvas-1');
 
-    // 蚂蚁线选区框：只描边（fill:false），虚线流动
-    const sel = new ICE.ICERect({
-      left: 100, top: 80, width: 300, height: 220,
+    // 上：蚂蚁线选区框（纯流动虚线）
+    new ICE.ICERect({
+      left: 100, top: 50, width: 700, height: 100,
       fill: false,
-      lineDash: [8, 4],
+      lineDash: [4, 6],
       lineDashFlow: true,
+      lineDashFlowSpeed: 60,
       style: { strokeStyle: '#0c09d4', lineWidth: 2 },
-    });
-    ice.addChild(sel);
-
-    // 流动数据线：蚂蚁线 + 水管壁（lineBorder），像管子里流水
-    const line = new ICE.ICEPolyLine({
-      points: [[520, 100], [720, 280]],
-      lineDash: [10, 6],
+    }).render && undefined; // noop
+    ice.addChild(new ICE.ICERect({
+      left: 100, top: 50, width: 700, height: 100,
+      fill: false,
+      lineDash: [4, 6],
       lineDashFlow: true,
-      lineDashFlowSpeed: 80,
+      lineDashFlowSpeed: 60,
+      style: { strokeStyle: '#0c09d4', lineWidth: 2 },
+    }));
+
+    // 下：管子里流水（细管壁 + 蚂蚁线）
+    // lineBorderWidth=1 细管壁 + dash 短让水断续可见
+    const tube = new ICE.ICEPolyLine({
+      points: [[200, 230], [720, 230]],
+      lineDash: [4, 8],
+      lineDashFlow: true,
+      lineDashFlowSpeed: 60,
       lineBorder: true,
-      lineBorderWidth: 5,
-      lineBorderColor: '#d0d8e8',
+      lineBorderWidth: 1,
+      lineBorderColor: '#444444',
       style: { strokeStyle: '#0c8f09', lineWidth: 3 },
     });
-    ice.addChild(line);
-
-    // 静态虚线（对照，不流动）
-    const staticLine = new ICE.ICEPolyLine({
-      points: [[620, 100], [820, 280]],
-      lineDash: [10, 6],
-      style: { strokeStyle: '#888880', lineWidth: 2 },
-    });
-    ice.addChild(staticLine);
+    ice.addChild(tube);
   </script>
 </html>
