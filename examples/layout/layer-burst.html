@@ -5,7 +5,7 @@
   <title>ICERender-layer-burst</title>
   <body>
     <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
-      图层爆裂：<code>ICECOverlayLayout</code> 叠层 → 点击 <code>FlowLayout</code> 炸开 → 再点击收拢（layout 切换 + 动画）。
+      图层爆裂：<code>ICEOverlayLayout</code> 叠层 → 点击 <code>FlowLayout</code> 炸开 → 再点击收拢（layout 切换 + 动画）。
       <button id="burst" style="margin-left: 8px;">炸开</button>
       <button id="collect">收拢</button>
     </div>
@@ -43,13 +43,13 @@
     });
 
     // 初始：叠成一摞
-    stage.setLayout(new ICE.ICECOverlayLayout({}));
+    stage.setLayout(new ICE.ICEOverlayLayout({}));
 
     function burst() {
       // FlowLayout 算目标位置
       stage.setLayout(new ICE.ICEFlowLayout({ gap: 30 }));
       const targets = stage.childNodes.map((c) => c.state.left);
-      stage.setLayout(new ICE.ICECOverlayLayout({})); // 叠回
+      stage.setLayout(new ICE.ICEOverlayLayout({})); // 叠回
       // 动画炸开（错位 stagger）
       stage.childNodes.forEach((layer, i) => {
         setTimeout(() => {
