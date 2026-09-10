@@ -29,6 +29,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**（MIT 协议，作者
 | [09 · 路线图](09-roadmap.md) | 引擎原语 vs 应用层边界、引擎待办 |
 | [10 · Worker/OffscreenCanvas](10-worker-offscreen.md) | Web-only 的 worker 渲染设计 + 最小可行性原型 |
 | [11 · 视口缩放](11-viewport-zoom.md) | 视图缩放/平移原语：视口矩阵、渲染与命中的坐标换算 |
+| [12 · 对齐吸附](12-alignment-guide.md) | 拖拽对齐/磁吸 + 提示线：边缘/中心/等间距，可配置、默认禁用 |
 
 ## 运行时全景（一图概览）
 

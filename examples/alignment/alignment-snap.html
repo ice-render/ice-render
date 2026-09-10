@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render 对齐吸附（smart guides + snapping）</title>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">ice-render 对齐吸附 <code>alignment-snap</code></h2>
+    <p style="color:#555; margin: 0 0 10px; max-width: 1200px;">
+      拖拽矩形，靠近其他矩形的边缘 / 中心 / 等间距位置（默认 5px）时自动吸附，并显示提示线。
+      开关可动态启用 / 禁用对齐吸附。
+    </p>
+    <label style="display:inline-flex; align-items:center; gap:6px; margin-bottom:8px;">
+      <input id="toggle" type="checkbox" checked />
+      启用对齐吸附（AlignmentGuideManager）
+    </label>
+    <canvas id="canvas-1" width="900" height="600" style="background:#fff; border:1px solid #ddd; display:block;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+      const ice = new ICE.ICE().init('canvas-1');
+      window.__ice = ice;
+
+      const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
+      const boxes = [
+        { left: 80, top: 80, width: 140, height: 90 },
+        { left: 300, top: 80, width: 120, height: 90 },
+        { left: 80, top: 240, width: 140, height: 90 },
+        { left: 300, top: 240, width: 120, height: 90 },
+        { left: 520, top: 160, width: 160, height: 110 },
+      ];
+      boxes.forEach((b, i) => {
+        ice.addChild(
+          new ICE.ICERect({
+            ...b,
+            style: { fillStyle: colors[i % colors.length], strokeStyle: '#111827', lineWidth: 1 },
+          })
+        );
+      });
+
+      // 默认启用对齐吸附
+      ice.alignmentGuide.enable();
+
+      const toggle = document.getElementById('toggle');
+      toggle.addEventListener('change', () => {
+        if (toggle.checked) {
+          ice.alignmentGuide.enable();
+        } else {
+          ice.alignmentGuide.disable();
+        }
+      });
+    })();
+  </script>
+</html>
