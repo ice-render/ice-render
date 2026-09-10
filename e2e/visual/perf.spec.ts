@@ -91,3 +91,22 @@ test('bench-scene n=5000 mode=fps (引擎 rAF 真实帧率)', async ({ page }) =
   test.info().annotations.push({ type: 'perf', description: line });
   test.info().attach('bench-result.json', { body: JSON.stringify(res, null, 2), contentType: 'application/json' });
 });
+
+test('animation-stress n=5000 (动画 tween+setState+全量重绘单帧成本)', async ({ page }) => {
+  test.setTimeout(60_000);
+  const pageErrors = [];
+  page.on('pageerror', (e) => pageErrors.push(String(e)));
+
+  await page.goto('/examples/performance/animation-stress.html?n=5000&frames=60', { waitUntil: 'load' });
+  await page.waitForFunction(() => (window as any).__animStressResult !== undefined, undefined, { timeout: 30_000 });
+
+  const res = await page.evaluate(() => (window as any).__animStressResult);
+  expect(pageErrors, '页面不应有未捕获异常').toEqual([]);
+  expect(res.p50).toBeGreaterThan(0);
+  expect(res.p50).toBeLessThan(100); // 宽松上限，防数量级回退
+
+  const line = `n=${res.n}  p50=${res.p50.toFixed(2)}ms  p95=${res.p95.toFixed(2)}ms  ~fps=${res.fpsEquivalent.toFixed(0)}`;
+  console.log(`[perf:animation] ${line}`);
+  test.info().annotations.push({ type: 'perf', description: line });
+  test.info().attach('anim-result.json', { body: JSON.stringify(res, null, 2), contentType: 'application/json' });
+});
