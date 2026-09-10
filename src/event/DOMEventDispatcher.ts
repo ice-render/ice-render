@@ -80,8 +80,8 @@ class DOMEventDispatcher {
     if (this._stopped) return null;
 
     const { offsetX, offsetY } = evt;
-    const x = offsetX;
-    const y = offsetY;
+    // 命中检测在「世界坐标」进行：屏幕像素坐标先经视口逆变换回世界。
+    const [x, y] = this.ice.screenToWorld(offsetX, offsetY);
 
     const arr1 = flattenTree([], this.ice.childNodes);
     const arr2 = flattenTree([], this.ice.toolNodes);

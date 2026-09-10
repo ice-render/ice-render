@@ -226,6 +226,10 @@ class CanvasRenderer extends ICEEventTarget {
    */
   private __collect(): { region: number[] } | null {
     if (!this.__primed) return null;
+    // 视口非单位时，世界坐标 ≠ 屏幕坐标，dirty-rect 的 clearRect/clip 区域与组件世界盒
+    // 不一致，回退全量重绘（正确性优先）。视口变化经 setViewport → markQueueDirty 已回退一次。
+    const vp = this.ice.viewport;
+    if (vp && (vp.scale !== 1 || vp.tx !== 0 || vp.ty !== 0)) return null;
     const ctx = this.ice.ctx;
     const cw = this.ice.canvasWidth || 0;
     const ch = this.ice.canvasHeight || 0;

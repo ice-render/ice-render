@@ -233,9 +233,21 @@ class ObjectCache {
 
   private draw(component: any, cache: CachedSurface): void {
     const ctx = this.ice.ctx;
+    const vp = this.ice.viewport || { scale: 1, tx: 0, ty: 0 };
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(cache.canvas, cache.minX, cache.minY, cache.lw, cache.lh);
+    if (vp.scale === 1 && vp.tx === 0 && vp.ty === 0) {
+      ctx.drawImage(cache.canvas, cache.minX, cache.minY, cache.lw, cache.lh);
+    } else {
+      // 缓存位图是世界坐标下的组件外观，按视口缩放/平移到屏幕坐标。
+      ctx.drawImage(
+        cache.canvas,
+        cache.minX * vp.scale + vp.tx,
+        cache.minY * vp.scale + vp.ty,
+        cache.lw * vp.scale,
+        cache.lh * vp.scale
+      );
+    }
     ctx.restore();
   }
 
