@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render 最大图元数压测</title>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">ice-render 最大图元数压测 <code>max-elements</code></h2>
+    <p style="color:#555; margin: 0 0 10px; max-width: 1200px;">
+      用最简单的纯色矩形（不透明、无文字/点集路径）逐档递增图元数，测量构建、首帧、稳态全量重绘与内存，
+      找出引擎可承受的上限。<code>?full=1</code> 跑满档到 100 万（耗时很长、可能 OOM），
+      默认只跑到 10 万档。结果写入 <code>window.__stressResult</code> 并展示在下方。
+    </p>
+    <canvas id="canvas-1" width="2048" height="1536" style="background-color: #ffffff; border: 1px solid #ddd;"></canvas>
+    <pre id="out" style="font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; background:#1e1f24; color:#d7e0ea; padding:12px; border-radius:8px; max-height:620px; overflow:auto;"></pre>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const FULL = params.get('full') === '1';
+      const TIERS = FULL
+        ? [10000, 50000, 100000, 200000, 500000, 1000000]
+        : [10000, 50000, 100000];
+      const MAX_BUILD_MS = 60000;
+      const MAX_FRAME_MS = 30000;
+      const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#14B8A6', '#EC4899', '#6366F1'];
+
+      const ice = new ICE.ICE().init('canvas-1');
+      window.__ice = ice;
+
+      const lines = [];
+      function log(s) {
+        lines.push(s);
+      }
+
+      function now() {
+        return performance.now();
+      }
+
+      function runTier(n) {
+        // 清理上一档（不计入本档 build 指标，避免内存累积）
+        ice.clearAll();
+
+        const tBuild0 = now();
+        const cols = 256;
+        for (let i = 0; i < n; i++) {
+          const r = new ICE.ICERect({
+            left: (i % cols) * 8,
+            top: Math.floor(i / cols) * 8,
+            width: 4,
+            height: 4,
+            style: { fillStyle: COLORS[i % COLORS.length] },
+          });
+          ice.addChild(r);
+        }
+        const buildMs = now() - tBuild0;
+
+        // 首帧：结构变更后全量 prime（含 flattenTree + sort + 全量光栅化）
+        const tFirst0 = now();
+        ice.dirty = true;
+        ice.renderer.frameEvtHandler();
+        const firstMs = now() - tFirst0;
+
+        // 稳态：3 次整屏重绘取中位（组件不脏 → 全量路径）
+        const samples = [];
+        for (let k = 0; k < 3; k++) {
+          ice.dirty = true;
+          const s0 = now();
+          ice.renderer.frameEvtHandler();
+          samples.push(now() - s0);
+        }
+        samples.sort((a, b) => a - b);
+        const steadyMs = samples[Math.floor(samples.length / 2)];
+        const memMB =
+          performance.memory && typeof performance.memory.usedJSHeapSize === 'number'
+            ? Math.round(performance.memory.usedJSHeapSize / 1048576)
+            : null;
+
+        return { n, buildMs, firstMs, steadyMs, memMB };
+      }
+
+      const results = [];
+      let maxInteractive = 0;
+
+      (async function main() {
+        for (const n of TIERS) {
+          let r;
+          try {
+            r = runTier(n);
+            r.status = 'ok';
+            if (r.steadyMs <= 1000) maxInteractive = n;
+          } catch (e) {
+            r = { n, status: 'crash', error: String(e).slice(0, 240) };
+            results.push(r);
+            break;
+          }
+          results.push(r);
+
+          const line =
+            `n=${String(r.n).padStart(7)}  build=${r.buildMs.toFixed(1).padStart(8)}ms` +
+            `  first=${r.firstMs.toFixed(1).padStart(8)}ms` +
+            `  steady=${r.steadyMs.toFixed(1).padStart(8)}ms` +
+            (r.memMB != null ? `  mem=${String(r.memMB).padStart(5)}MB` : '  mem=   n/a');
+          log(line);
+
+          // 实时刷新进度，供外部轮询；每档后让出主线程，避免长时间卡死页面。
+          document.getElementById('out').textContent = lines.join('\n');
+          window.__stressTiers = results.slice();
+
+          if (r.buildMs > MAX_BUILD_MS || r.firstMs > MAX_FRAME_MS) {
+            r.status = 'too-slow';
+            log('  -> 构建或首帧超过阈值，停止继续上探。');
+            break;
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+
+        log('-'.repeat(72));
+        log('最大可交互图元数（稳态整帧 <= 1000ms）：' + (maxInteractive > 0 ? maxInteractive.toLocaleString() : '未达到 1 万'));
+        log('结果已写入 window.__stressResult');
+
+        document.getElementById('out').textContent = lines.join('\n');
+        window.__stressResult = { tiers: results, maxInteractive };
+        console.log('[max-elements]', JSON.stringify(window.__stressResult));
+      })();
+    })();
+  </script>
+</html>

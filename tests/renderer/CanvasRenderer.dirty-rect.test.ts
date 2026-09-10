@@ -66,6 +66,27 @@ function makeHarness(renderMode: 'full' | 'dirty-rect' = 'dirty-rect') {
   (global as any).Path2D = FakePath2D;
   const root = require('../../src/cross-platform/root').default;
   root.createPath2D = () => new FakePath2D();
+  root.createOffscreenCanvas = () => ({
+    canvas: {},
+    ctx: {
+      scale: noop,
+      setTransform: noop,
+      save: noop,
+      restore: noop,
+      beginPath: noop,
+      moveTo: noop,
+      lineTo: noop,
+      closePath: noop,
+      rect: noop,
+      stroke: noop,
+      fill: noop,
+      setLineDash: noop,
+      lineWidth: 1,
+      fillStyle: '',
+      strokeStyle: '',
+    },
+  });
+  root.devicePixelRatio = 1;
 
   const ice: any = new ICE();
   ice.childNodes = [];
@@ -215,5 +236,34 @@ describe('CanvasRenderer dirty-rect', () => {
     expect(clears[0][2]).toBeLessThan(800); // 局部而非全量
     expect(called).toContain(c);
     for (const f of far) expect(called).not.toContain(f);
+  });
+
+  test('半透明组件缓存后场景可局部重绘（不再回退全量）', () => {
+    const { ice, renderer, clears } = makeHarness('dirty-rect');
+    const a = new ICERect({ left: 10, top: 10, width: 40, height: 30, zIndex: 1 });
+    const special = new ICERect({
+      left: 30,
+      top: 10,
+      width: 40,
+      height: 30,
+      zIndex: 2,
+      style: { fillStyle: 'rgba(0,0,0,0.5)' },
+    });
+    const far = [];
+    for (let i = 0; i < 8; i++) {
+      far.push(new ICERect({ left: 300 + i * 60, top: 300 + i * 40, width: 40, height: 30, zIndex: 10 + i }));
+    }
+    attach(ice, a);
+    attach(ice, special);
+    far.forEach((f) => attach(ice, f));
+    renderFrame(renderer, ice);
+    clears.length = 0;
+
+    a.setState({ left: 20, top: 20 });
+    renderFrame(renderer, ice);
+
+    expect(clears.length).toBe(1);
+    expect(clears[0][2]).toBeLessThan(800); // 局部而非全量
+    expect(clears[0][3]).toBeLessThan(600);
   });
 });

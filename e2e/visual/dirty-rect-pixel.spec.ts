@@ -49,3 +49,33 @@ test('全不透明场景：局部重绘真正执行且逐像素一致', async ({
   console.log(`[dirty-rect-pixel:opaque] 10 步全部一致；局部重绘执行=${collectOk} 次`);
   console.log(`  ${stepResults.join('  ')}`);
 });
+
+test('含文本的全不透明场景：文本离屏缓存后局部重绘且逐像素一致', async ({ page }) => {
+  const { stepResults, collectOk } = await runSteps(
+    page,
+    '/e2e/visual/fixtures/dirty-rect-compare.html?opaque=1&text=1',
+    true
+  );
+  console.log(`[dirty-rect-pixel:text] 10 步全部一致；局部重绘执行=${collectOk} 次`);
+  console.log(`  ${stepResults.join('  ')}`);
+});
+
+test('含星形的全不透明场景：dot-path 离屏缓存后局部重绘且逐像素一致', async ({ page }) => {
+  const { stepResults, collectOk } = await runSteps(
+    page,
+    '/e2e/visual/fixtures/dirty-rect-compare.html?opaque=1&star=1',
+    true
+  );
+  console.log(`[dirty-rect-pixel:star] 10 步全部一致；局部重绘执行=${collectOk} 次`);
+  console.log(`  ${stepResults.join('  ')}`);
+});
+
+test('含半透明矩形的全不透明场景：半透明 shape 离屏缓存后局部重绘且逐像素一致', async ({ page }) => {
+  const { stepResults, collectOk } = await runSteps(
+    page,
+    '/e2e/visual/fixtures/dirty-rect-compare.html?opaque=1&alpha=1',
+    true
+  );
+  console.log(`[dirty-rect-pixel:alpha] 10 步全部一致；局部重绘执行=${collectOk} 次`);
+  console.log(`  ${stepResults.join('  ')}`);
+});

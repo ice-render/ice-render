@@ -19,7 +19,8 @@
       const hiddenCtx = hiddenCanvas.getContext('2d');
       hiddenCtx.strokeStyle = '#EF4444';
       hiddenCtx.fillStyle = '#3B82F6';
-      hiddenCtx.rect(Math.random() * 1000, Math.random() * 1000, 50, 50);
+      // 确定性位置：保证每次都在画布内，避免随机位置导致 smoke 偶发判空
+      hiddenCtx.rect((i * 37) % 900, (i * 53) % 650, 50, 50);
       hiddenCtx.stroke();
       hiddenCtx.fill();
       //FIXME:合并 ImageData

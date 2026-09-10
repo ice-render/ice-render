@@ -23,9 +23,11 @@ const SYNC_CASES = [
   { n: 10000, mode: 'anim' },
   { n: 5000, mode: 'drag', plain: true }, // 全不透明场景拖动单组件（脏矩形局部重绘生效）
   { n: 10000, mode: 'drag', plain: true },
+  { n: 500, mode: 'static', scene: 'text' }, // 文本离屏缓存命中（drawImage 贴图）
+  { n: 500, mode: 'anim', scene: 'text' }, // 文本每帧重建缓存（renderTo 离屏 + 光栅化）
 ];
 
-const LOOSE_CEIL_MS = { 1000: 500, 5000: 2000, 10000: 4000 };
+const LOOSE_CEIL_MS = { 500: 1000, 1000: 500, 5000: 2000, 10000: 4000 };
 
 function pad(s, w) {
   s = String(s);
@@ -39,7 +41,7 @@ for (const c of SYNC_CASES) {
     page.on('pageerror', (e) => pageErrors.push(String(e)));
 
     await page.goto(
-      `/examples/performance/bench-scene.html?n=${c.n}&mode=${c.mode}&frames=60${c.plain ? '&plain=1' : ''}`,
+      `/examples/performance/bench-scene.html?n=${c.n}&mode=${c.mode}&frames=60${c.scene ? `&scene=${c.scene}` : ''}${c.plain ? '&plain=1' : ''}`,
       {
         waitUntil: 'load',
       }

@@ -153,8 +153,8 @@ class ICEPolyLine extends ICEDotPath {
     param = {
       ...param,
       ...{
-        left: props.points[0][0],
-        top: props.points[0][1],
+        left: param.points[0][0],
+        top: param.points[0][1],
         transform: {
           translate: [0, 0],
           scale: [1, 1],

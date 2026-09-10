@@ -162,13 +162,14 @@ class ICEBoundingBox {
   }
 
   /**
-   * FIXME:需要实现
-   * 另一个边界盒子是否完全位于当前盒子内部。
+   * 另一个边界盒子是否完全位于当前盒子内部（按轴对齐包围盒判定）。
    * @param box
    * @returns
    */
   public containsBox(box: ICEBoundingBox): boolean {
-    return false;
+    const self = this.getMinAndMaxPoint();
+    const other = box.getMinAndMaxPoint();
+    return other.minX >= self.minX && other.maxX <= self.maxX && other.minY >= self.minY && other.maxY <= self.maxY;
   }
 
   /**
@@ -210,11 +211,18 @@ class ICEBoundingBox {
   }
 
   /**
+   * 计算两个盒子（按轴对齐包围盒）的并集，返回一个新的 ICEBoundingBox 实例。
    * @param box
    * @returns A new ICEBoundingBox instance.
    */
   public union(box: ICEBoundingBox): ICEBoundingBox {
-    return null;
+    const self = this.getMinAndMaxPoint();
+    const other = box.getMinAndMaxPoint();
+    const minX = Math.min(self.minX, other.minX);
+    const minY = Math.min(self.minY, other.minY);
+    const maxX = Math.max(self.maxX, other.maxX);
+    const maxY = Math.max(self.maxY, other.maxY);
+    return ICEBoundingBox.fromDimension(minX, minY, maxX - minX, maxY - minY);
   }
 
   public get width(): number {

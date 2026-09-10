@@ -22,6 +22,8 @@ import type ICELayoutManager from '../../layout/ICELayoutManager';
 class ICEGroup extends ICERect {
   public parentNode = null;
   public childNodes = [];
+  //@perf: O(1) 去重，避免 addChild 每子组件 indexOf 导致的 O(n^2)。
+  private __childSet = new WeakSet<any>();
   public layoutManager: ICELayoutManager = null; //布局策略（借鉴 Swing 的策略模式，setLayout 持有）
   private __layoutExplicit = false; //是否显式设置了布局（用于区分「显式设置」与「从父层继承」）
 
@@ -118,10 +120,11 @@ class ICEGroup extends ICERect {
    * @param child
    */
   public addChild(child: ICEComponent, markDirty: boolean = true): void {
-    if (this.childNodes.indexOf(child) !== -1) return;
+    if (this.__childSet.has(child)) return;
 
     child.parentNode = this;
     this.childNodes.push(child);
+    this.__childSet.add(child);
 
     // 布局接管：父容器已设定 layout 时，新加入的子组件（及其后代）禁止手动变换和拖动
     if (this.layoutManager) {
@@ -151,8 +154,11 @@ class ICEGroup extends ICERect {
   }
 
   public removeChild(child: ICEComponent, markDirty: boolean = true) {
+    if (!this.__childSet.has(child)) return;
     child.destory();
-    this.childNodes.splice(this.childNodes.indexOf(child), 1);
+    const index = this.childNodes.indexOf(child);
+    if (index !== -1) this.childNodes.splice(index, 1);
+    this.__childSet.delete(child);
     this.dirty = markDirty;
     if (this.ice) {
       this.ice.dirty = markDirty;

@@ -43,5 +43,49 @@ let root: any = null;
     }
     return Promise.resolve();
   };
+  // 创建图片对象：优先用运行时自带的 Image（浏览器 window.Image），
+  // 小程序走 wx.createImage，二者皆无则抛出明确错误（ImageCache 依赖此方法）。
+  root.createImage = () => {
+    if (typeof root.Image === 'function') {
+      return new root.Image();
+    }
+    if (root.wx && typeof root.wx.createImage === 'function') {
+      return root.wx.createImage();
+    }
+    throw new Error('当前运行时没有可用的 Image 构造器，无法加载图片。');
+  };
+  // 设备像素比：浏览器 window.devicePixelRatio，小程序 wx.getSystemInfoSync().pixelRatio，兜底 1。
+  // 离屏缓存用它把逻辑尺寸换算成物理像素，避免高分屏位图发糊。
+  if (typeof root.devicePixelRatio !== 'number' || !(root.devicePixelRatio > 0)) {
+    root.devicePixelRatio = (() => {
+      if (root.wx && typeof root.wx.getSystemInfoSync === 'function') {
+        try {
+          return root.wx.getSystemInfoSync().pixelRatio || 1;
+        } catch (err) {
+          return 1;
+        }
+      }
+      return 1;
+    })();
+  }
+  // 创建离屏 canvas（对象缓存用，与 Worker/OffscreenCanvas 无关，仍运行在当前线程）。
+  // 浏览器用 document.createElement('canvas')，小程序用 wx.createOffscreenCanvas({type:'2d'})。
+  root.createOffscreenCanvas = (width: number, height: number) => {
+    if (root.wx && typeof root.wx.createOffscreenCanvas === 'function') {
+      const canvas = root.wx.createOffscreenCanvas({ type: '2d', width, height });
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('当前运行时无法创建 2d 离屏上下文。');
+      return { canvas, ctx };
+    }
+    if (root.document && typeof root.document.createElement === 'function') {
+      const canvas = root.document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('当前运行时无法创建 2d 离屏上下文。');
+      return { canvas, ctx };
+    }
+    throw new Error('当前运行时没有可用的离屏 canvas。');
+  };
 })();
 export default root;

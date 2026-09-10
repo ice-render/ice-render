@@ -32,10 +32,44 @@ graph TD
 | 无可见脏组件且无隐藏擦除（手动置脏/图片 onload 帧） | 全量 | 保语义 |
 | 脏可见组件占比 > 20% | 全量 | 相交裁剪收益小 |
 | 脏区域面积 / 画布面积 > 35% | 全量 | 接近整屏成本 |
-| 场景含可见 dot-path（折线/星形等）或 ICEText 或非不透明落墨（alpha 色/阴影/globalAlpha/合成模式） | 全量 | **v1 保守**：clip 边界与半透明落墨/字形/折线抗锯齿相交会产生接缝 |
+| 场景含可见 dot-path（折线/星形等）、ICEText 或非不透明落墨（alpha 色/阴影/globalAlpha/合成模式） | 全量；**已离屏缓存的 ICEText 例外** | clip 边界与半透明落墨/字形/折线抗锯齿相交会产生接缝；缓存文本改为主画布 `drawImage` 不透明位图，clip 只作用位图的整像素采样 |
 | 新/旧包围盒含 NaN；ctx 无 clip/save/restore（老小程序 canvas） | 全量 | 安全兜底 |
 
 > v1 局部重绘只服务于「全不透明、无文本、无点集路径」的场景（编辑器里的大多数实体/卡片/表格），其余场景自动回退全量，正确性优先。按区域相交细化的局部化、以及 dot-path/文本/半透明的专项支持记入后续路线图。
+
+## 组件级离屏缓存（ObjectCache）
+
+`CanvasRenderer` 内置 `ObjectCache`（`WeakMap`，与 `__snap` 同生命周期，不写入组件 state/props）。
+缓存「非编辑态、可见」的 `ICEText` 与「封闭点集路径」（星形/正N边形/玫瑰；排除连线类 `isLine`
+与蚂蚁线 `lineDashFlow`；且面积 `>= 40000`（200x200）），把组件预渲染成一张不透明位图，
+主画布上只 `drawImage`。此外缓存「半透明普通 path 图形」（rgba/阴影/globalAlpha/composite；
+排除容器/图片/连线），把 alpha 落墨先画进位图，再 source-over 贴回。
+大量小图形不缓存——小图形的 `drawImage` 光栅化会反超直接 `fill/stroke`。
+
+收益三点：
+
+1. 缓存命中帧跳过 `measureText`（DOM 测量）与 `fillText/strokeText`，或跳过 `calcDots`、路径重建与 `fill/stroke`；
+2. 纯平移（内容与线性变换不变，仅 left/top 变化）复用位图，只刷新贴图位置；
+3. 已缓存组件在 `__sceneAllowsPartial` 中按「不透明位图贴图」处理，不再阻塞局部重绘。
+   clip 只作用于最终位图的整像素采样，不改变字形内部 AA，因此 full 与 partial 逐像素一致。
+
+实现要点：
+
+- `root.createOffscreenCanvas(width, height)`：浏览器 `document.createElement('canvas')`，
+  小程序 `wx.createOffscreenCanvas({ type: '2d', width, height })`；物理尺寸按 `root.devicePixelRatio` 缩放。
+- `ICEComponent.renderTo(targetCtx, baseMatrix)`：渲染期间临时重定向 `this.ctx`，
+  最终 CTM = `baseMatrix · composedMatrix`（`baseMatrix` 把世界盒平移到离屏左上角）。`render()` 语义不变。
+- 缓存决策（`ObjectCache.render`）：
+  - 未 dirty 且已有 cache → 直接贴图；
+  - dirty → 先刷新派生状态（dot-path 先 `calcComponentParams` 重算 dots，再 `composeMatrix`，
+    避免 `calcLocalOrigin` 连续移动 dots 累积偏移）后比较 `contentKey` 与 `linearKey`（a,b,c,d）；
+  - 内容或线性变化 → 重建位图（`renderTo` 到离屏）；
+  - 仅平移变化 → 复用位图，刷新贴图位置。
+
+像素一致性回归：`e2e/visual/dirty-rect-pixel.spec.ts` 的 `?opaque=1&text=1`、`?opaque=1&star=1`
+与 `?opaque=1&alpha=1` 场景，验证含文本 / 含星形 / 含半透明矩形的全不透明场景局部重绘真正执行
+（`collectOk>0`）且与 full 路径 10 步逐像素一致。
+引擎 JS 层基准：`npm run bench` 的场景 C（文本缓存命中）对比场景 D（每帧重建）可观察加速比。
 
 ## 渲染队列（flattenTree + 排序 + 缓存）
 
@@ -93,3 +127,29 @@ node bench/render.cjs 5000
 | 动画（每帧全量 compose） | ~5.9ms |
 
 > 光栅化开销需在真实浏览器用 DevTools Performance 面板另测；可视化回归用 `npm run test:visual`（见 `e2e/visual/README.md`）。
+
+## 最大图元数压测
+
+`examples/performance/max-elements.html` 用纯色小矩形逐档上探图元数，测构建/首帧/稳态全量重绘。
+数据（Playwright + Chromium，`?full=1` 满档，2026-09-10 挂载去重优化后）：
+
+| 图元数 | 构建 | 首帧 | 稳态整帧 |
+|---|---|---|---|
+| 10万 | ~0.36s | ~0.19s | ~0.11s |
+| 50万 | ~2.0s | ~1.1s | ~0.48s |
+| 100万 | ~6.1s | ~4.3s | ~1.17s |
+
+真实堆内存（node 实测，不含浏览器光栅化 buffer；2026-09-10 默认 props/state 原型共享后）：
+
+| 图元数 | 堆内存增量 | 每图元约 |
+|---|---|---|
+| 10万 | ~179MB | ~1.8KB |
+| 50万 | ~695MB | ~1.4KB |
+| 100万 | ~868MB（累计约 1.75GB） | ~0.9KB |
+
+首帧构成（stub ctx 拆解，不含光栅化）：`flattenTree + sort` 约 5%，首次 `composeMatrix` 约 15%，
+其余为渲染调用与浏览器光栅化。排序不是首帧瓶颈（队列缓存 + V8 TimSort 对递增 zIndex 近乎 O(n)）。
+
+结论：**最大可交互图元数约 50 万**（稳态整帧 ≤ 1s）；10 万是流畅舒适区；100 万可构建渲染但不实用。
+真正的硬约束是内存——100 万最小矩形约 4GB 堆，先于渲染成为天花板。
+该结论对应最简单图元，文字/连线/阴影/半透明等复杂组件的实际上限会明显更低。

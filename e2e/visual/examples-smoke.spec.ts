@@ -6,7 +6,7 @@
  *  2) 有 canvas 的页面确实在画布上有像素输出（自动绘制或交互后绘制）；
  *  3) 例外情况：event/pojo-event.html 设计上无 canvas（纯事件机制 demo）；
  *     init/ice-init.html 设计上 canvas 为空（仅 init + 按钮，依赖用户交互）；
- *     performence-test/multi-hidden-canvas.html 100 个离屏 canvas 循环 >900ms 才上屏，单独延时；
+ *     performance/multi-hidden-canvas.html 100 个离屏 canvas 循环 >900ms 才上屏，单独延时；
  *     performance/worker-main.html 测量完成才 transfer 帧，单独等 __workerBenchResult 且断言 frames>0。
  *
  * 任何不通过都明确指出，定位「示例被改动破坏」类回归。
@@ -44,8 +44,11 @@ interface Page {
 }
 
 const pages: Page[] = walk(path.join(ROOT, 'examples')).map((rel) => {
-  if (rel === 'performence-test/multi-hidden-canvas.html') {
+  if (rel === 'performance/multi-hidden-canvas.html') {
     return { rel, wait: 6000 };
+  }
+  if (rel === 'performance/max-elements.html') {
+    return { rel, wait: 10000 };
   }
   if (rel === 'performance/worker-main.html') {
     return { rel, wait: 30000, expectWorkerResult: true };

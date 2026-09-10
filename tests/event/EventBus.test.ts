@@ -78,6 +78,19 @@ describe('EventBus 事件总线', () => {
     expect(n).toBe(1);
   });
 
+  it('resume 未挂起的事件不应误删其它挂起事件', () => {
+    const bus = new EventBus();
+    let n = 0;
+    bus.on('a', () => n++);
+    bus.on('b', () => n++);
+    bus.suspend('a');
+    bus.suspend('b');
+    bus.resume('not-exist');
+    expect(bus.trigger('a')).toBe(false);
+    expect(bus.trigger('b')).toBe(false);
+    expect(n).toBe(0);
+  });
+
   it('purgeEvents 清空所有监听', () => {
     const bus = new EventBus();
     let n = 0;

@@ -54,6 +54,53 @@ import { skew } from '../util/gl-matrix-skew';
 import { uuid } from '../util/uuid';
 
 /**
+ * 共享的默认 props（原型链共享，冻结）。
+ *
+ * 每个组件实例不再各自复制一份默认 style/transform/lineDash/animations，而是通过
+ * `Object.create(DEFAULT_PROPS)` 原型继承；只有用户显式传入的字段才写到实例上
+ * （merge 对嵌套对象做写时复制）。`id` / `zIndex` 是每实例唯一值，不在共享默认里。
+ *
+ * 这是内存优化的一部分：大量静态图元的默认配置从「每实例一份」变成「全局一份」。
+ */
+const DEFAULT_PROPS = {
+  left: 0,
+  top: 0,
+  width: 0,
+  height: 0,
+  style: Object.freeze({ fillStyle: 'red', strokeStyle: 'blue', lineWidth: 1 }),
+  lineDash: Object.freeze([]),
+  lineDashOffset: 0,
+  lineDashFlow: false,
+  lineDashFlowSpeed: 60,
+  lineBorder: false,
+  lineBorderWidth: 1.5,
+  lineBorderColor: '#999999',
+  fill: true,
+  stroke: true,
+  animations: Object.freeze({}),
+  transform: Object.freeze({
+    translate: Object.freeze([0, 0]),
+    scale: Object.freeze([1, 1]),
+    skew: Object.freeze([0, 0]),
+    rotate: 0,
+  }),
+  linearMatrix: Object.freeze([]),
+  composedMatrix: Object.freeze([]),
+  origin: 'localCenter',
+  originX: 0,
+  originY: 0,
+  localOrigin: Object.freeze([0, 0]),
+  absoluteOrigin: Object.freeze([0, 0]),
+  display: true,
+  draggable: true,
+  transformable: true,
+  interactive: true,
+  linkable: true,
+  showMinBoundingBox: false,
+  showMaxBoundingBox: false,
+};
+
+/**
  * @class ICEComponent
  *
  * 最顶级的抽象类，Canvas 内部所有可见的组件都是它的子类。
@@ -83,6 +130,7 @@ abstract class ICEComponent extends ICEEventTarget {
   private __absScratchB: any = null;
   private __transScratch: any = null;
   private __originScratch: any = null;
+  private __composeScratch: any = null;
 
   /**
    * @cfg
@@ -122,58 +170,14 @@ abstract class ICEComponent extends ICEEventTarget {
    * }
    * @param props
    */
-  public props: any = {
-    id: 'ICE_' + uuid(),
-    left: 0,
-    top: 0,
-    width: 0,
-    height: 0,
-    // style 会通过 applyStyleToCtx 透传到 canvas ctx，因此除内置的 fillStyle/strokeStyle/lineWidth 外，
-    // 还支持任意 canvas 标量样式属性，例如：
-    //   shadowColor/shadowBlur/shadowOffsetX/shadowOffsetY（阴影）
-    //   globalAlpha（透明度）、globalCompositeOperation（合成模式，如 'multiply'/'destination-out'）
-    //   lineCap/lineJoin/miterLimit、imageSmoothingEnabled 等
-    // 渐变对象需通过 ice.createLinearGradient/createRadialGradient 创建后赋给 fillStyle/strokeStyle。
-    style: { fillStyle: 'red', strokeStyle: 'blue', lineWidth: 1 },
-    lineDash: [], //虚线模式，如 [10, 5]；空数组 = 实线（对应 canvas setLineDash）
-    lineDashOffset: 0, //虚线偏移（静态），对应 canvas lineDashOffset
-    lineDashFlow: false, //蚂蚁线：虚线沿路径流动（marching ants），配合 lineDash 使用
-    lineDashFlowSpeed: 60, //蚂蚁线流动速度：每秒流动像素数（px/s），越大越快
-    lineBorder: false, //水管壁：蚂蚁线外层套一条细实线边界（像管壁），配合 lineDashFlow 使用
-    lineBorderWidth: 1.5, //水管壁边界厚度：lineWidth 两侧各加多少（越小越细）
-    lineBorderColor: '#999999', //水管壁边界颜色
-    fill: true,
-    stroke: true,
-    animations: {},
-    transform: {
-      translate: [0, 0],
-      scale: [1, 1],
-      skew: [0, 0],
-      rotate: 0, //degree
-    },
-    linearMatrix: [],
-    composedMatrix: [],
-    origin: 'localCenter',
-    originX: 0, //自定义原点（origin==='custom' 时生效），相对组件左上角
-    originY: 0,
-    localOrigin: [0, 0],
-    absoluteOrigin: [0, 0],
-    zIndex: ICEComponent.instanceCounter++,
-    display: true,
-    draggable: true,
-    transformable: true,
-    interactive: true,
-    linkable: true,
-    showMinBoundingBox: false,
-    showMaxBoundingBox: false,
-  };
+  public props: any;
 
   /**
    * 在 ICE 引擎中，所有对象都可以启用动画效果，所以对象的 state 随时可能发生变化。
    * props 与 state 之间的关系与行为模式借鉴自 React 框架，概念模型完全一致。
    * @see https://reactjs.org/docs/components-and-props.html
    */
-  public state: any = {};
+  public state: any;
 
   // 主题热切换：记录 preset 名 + 用户原始 props（preset 展开前），供 setTheme 时重新 resolve
   private __presetName?: string;
@@ -188,10 +192,37 @@ abstract class ICEComponent extends ICEEventTarget {
       this.__presetName = props.preset;
       props = merge({}, STYLE_PRESETS[props.preset](getTheme()), props);
     }
-    this.props = merge(this.props, props);
-    this.state = cloneDeep(this.props);
+    // 原型继承共享默认 props，用户字段经 merge 写时复制到实例。
+    this.props = Object.create(DEFAULT_PROPS);
+    this.props.id = 'ICE_' + uuid();
+    this.props.zIndex = ICEComponent.instanceCounter++;
+    merge(this.props, props);
+    this.__initState();
     this.root = root;
     this.initEvents();
+  }
+
+  /**
+   * 初始化 state：同样原型继承共享默认，只把用户传入的 own 字段深拷贝到实例，
+   * 运行时派生字段（矩阵/原点等）预分配 own 空值。
+   *
+   * 这样 state 与 props 是独立对象，任何「直接写 state」都不会污染 props 或共享默认；
+   * 同时省去「完整 cloneDeep(props)」里重复的默认嵌套对象（内存优化）。
+   */
+  private __initState(): void {
+    this.state = Object.create(DEFAULT_PROPS);
+    this.state.id = this.props.id;
+    this.state.zIndex = this.props.zIndex;
+    for (const key in this.props) {
+      if (Object.prototype.hasOwnProperty.call(this.props, key)) {
+        this.state[key] = cloneDeep(this.props[key]);
+      }
+    }
+    // 运行时派生字段：会在 render/compose 中被直接写，预分配为实例 own 值。
+    this.state.linearMatrix = [];
+    this.state.composedMatrix = [];
+    this.state.localOrigin = [0, 0];
+    this.state.absoluteOrigin = [0, 0];
   }
 
   /**
@@ -300,6 +331,30 @@ abstract class ICEComponent extends ICEEventTarget {
    * !Important: 这些方法调用有顺序
    */
   public render(): void {
+    this.__renderCore(null);
+  }
+
+  /**
+   * 把组件渲染到指定的目标上下文（离屏缓存用）。
+   *
+   * - baseMatrix：在组件自身 composedMatrix 之前再叠加的基准矩阵。离屏缓存用它把世界盒
+   *   平移到离屏画布左上角，即最终 CTM = baseMatrix · composedMatrix。
+   * - 渲染期间临时把 this.ctx 重定向到 targetCtx，结束后恢复，不改变组件状态。
+   */
+  public renderTo(targetCtx: any, baseMatrix: number[] | null = null): void {
+    if (!targetCtx) {
+      return;
+    }
+    const origCtx = this.ctx;
+    this.ctx = targetCtx;
+    try {
+      this.__renderCore(baseMatrix);
+    } finally {
+      this.ctx = origCtx;
+    }
+  }
+
+  private __renderCore(baseMatrix: number[] | null): void {
     this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER);
     if (!this.state.display) {
       return;
@@ -307,7 +362,7 @@ abstract class ICEComponent extends ICEEventTarget {
 
     this.calcComponentParams();
     this.applyStyleToCtx();
-    this.applyTransformToCtx();
+    this.applyTransformToCtx(baseMatrix);
     this.doRender();
     this.__resetLeakyCtxState();
 
@@ -549,9 +604,18 @@ abstract class ICEComponent extends ICEEventTarget {
   /**
    * 把变换矩阵应用到 this.ctx 上
    */
-  protected applyTransformToCtx(): void {
+  protected applyTransformToCtx(baseMatrix: number[] | null = null): void {
     const matrix = this.dirty ? this.composeMatrix() : this.state.composedMatrix;
-    this.ctx.setTransform(...matrix);
+    if (baseMatrix) {
+      //@perf: 复用 scratch 缓冲做 base · composed，避免离屏缓存生成时分配新数组。
+      if (!this.__composeScratch) this.__composeScratch = [1, 0, 0, 1, 0, 0];
+      const out = this.__composeScratch;
+      //@ts-ignore
+      mat2d.multiply(out, baseMatrix, matrix);
+      this.ctx.setTransform(out[0], out[1], out[2], out[3], out[4], out[5]);
+    } else {
+      this.ctx.setTransform(...matrix);
+    }
   }
 
   /**

@@ -356,12 +356,11 @@ class ICEText extends ICEComponent {
       };
       // 重要：只覆盖"用户没显式传"的 width/height（默认 10/10 作 sentinel），保留用户值。
       // 否则 textAlign center 等文字居中逻辑会因为 localOrigin = width/2 被 div 实际宽度覆盖而错位。
+      // 只写 state，不改 props（props 是不可变构造入参，后续帧仍需依赖 sentinel 判断）。
       if (this.props.width === 10) {
-        this.props.width = cssSize.width;
         this.state.width = cssSize.width;
       }
       if (this.props.height === 10) {
-        this.props.height = cssSize.height;
         this.state.height = cssSize.height;
       }
       this.state.textHeight = div.offsetHeight; // 纯文本高度（不含 padding），供多行 baseline 计算
