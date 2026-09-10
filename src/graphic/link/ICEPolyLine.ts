@@ -296,7 +296,7 @@ class ICEPolyLine extends ICEDotPath {
         continue;
       }
 
-      const box = component.getMinBoundingBox();
+      const box = component.getMinBoundingBox(true);
       let temp = [0, 0];
       switch (position) {
         case 'T': //顶边中点
@@ -760,6 +760,9 @@ class ICEPolyLine extends ICEDotPath {
    */
   protected doRender(): void {
     super.doRender();
+    // super.doRender() 内部的边界框绘制会重置 ctx 为 viewport 矩阵，丢掉 line 自身的平移；
+    // 这里重新应用 line 的完整 CTM，再绘制 label，否则 label 会跑到错误的坐标。
+    this.applyTransformToCtx(null, true);
     this.drawLabel();
   }
 

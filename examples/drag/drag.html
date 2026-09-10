@@ -14,6 +14,7 @@
     <canvas id="canvas-1" width="1024" height="768" style="background-color: #f7f7f7;"></canvas>
     <script type="text/javascript">
       let ice = new ICE.ICE().init('canvas-1');
+      window.__ice = ice;
 
       document.querySelector('#btn-1').addEventListener('click', (evt) => {
         const jsonStr = ice.toJSONString();
@@ -29,12 +30,10 @@
       });
 
       let rect = new ICE.ICERect({
-        left: 1024 * Math.random(),
-        top: 768 * Math.random(),
+        left: 100,
+        top: 100,
         width:50,
         height:50,
-        draggable:false,
-        transformable:false,
         style:{
             strokeStyle:'#F97316',
             fillStyle:'#10B981',

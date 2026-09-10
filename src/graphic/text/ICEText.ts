@@ -134,6 +134,9 @@ class ICEText extends ICEComponent {
     }
     const box = this.getMinBoundingBox(true);
     const canvasRect = this.ice && this.ice.canvasEl ? this.ice.canvasEl.getBoundingClientRect() : { left: 0, top: 0 };
+    const { paddingTop, paddingRight, paddingBottom, paddingLeft } = this.state.style;
+    const textWidth = Math.max(this.state.width - paddingLeft - paddingRight, 1);
+    const textHeight = Math.max(this.state.height - paddingTop - paddingBottom, this.state.style.fontSize);
 
     const input = doc.createElement('input');
     input.type = 'text';
@@ -141,16 +144,21 @@ class ICEText extends ICEComponent {
     input.style.position = 'absolute';
     input.style.left = canvasRect.left + box.tl[0] + 'px';
     input.style.top = canvasRect.top + box.tl[1] + 'px';
-    input.style.width = Math.max(this.state.width, 1) + 'px';
-    input.style.height = Math.max(this.state.height, this.state.style.fontSize) + 'px';
-    input.style.fontSize = this.state.style.fontSize + 'px';
-    input.style.fontFamily = this.state.style.fontFamily;
+    input.style.width = textWidth + 'px';
+    input.style.height = textHeight + 'px';
+    // 用与 canvas 完全相同的 font（含 fontWeight），否则 CSS 文本宽度会与 canvas 不一致，
+    // 导致编辑光标无法准确对齐到文本末尾。
+    input.style.font = this.state.style.font;
+    input.style.paddingTop = paddingTop + 'px';
+    input.style.paddingRight = paddingRight + 'px';
+    input.style.paddingBottom = paddingBottom + 'px';
+    input.style.paddingLeft = paddingLeft + 'px';
+    input.style.boxSizing = 'content-box';
     input.style.color = 'transparent'; // 文字透明（canvas 显示），只保留光标
     input.style.caretColor = this.state.style.fillStyle || '#000000';
     input.style.background = 'transparent';
     input.style.border = 'none';
     input.style.outline = 'none';
-    input.style.padding = '0';
     input.style.margin = '0';
     input.style.zIndex = '9999';
     doc.body.appendChild(input);
@@ -322,6 +330,53 @@ class ICEText extends ICEComponent {
    * FIXME:对文本位置的控制需要更精细的计算方法。
    */
   private measureText(evt?: ICEEvent) {
+    // 优先用 Canvas 的真实字形边界测量，避免 DOM line-height 的 leading 造成 padding 偏差。
+    const canvas = this.__measureByCanvas();
+    if (canvas) {
+      this.__applyMeasuredSize(canvas);
+      return { width: this.state.width, height: this.state.height };
+    }
+    return this.__measureByDOM();
+  }
+
+  /** 用 Canvas TextMetrics.actualBoundingBox* 测量文本真实宽高；不支持则返回 null 降级。 */
+  private __measureByCanvas(): { textWidth: number; textHeight: number } | null {
+    if (!this.ctx || typeof this.ctx.measureText !== 'function') return null;
+    if (this.state.style.font) {
+      this.ctx.font = this.state.style.font;
+    }
+    const lines = this.state.text.split('\n');
+    let textWidth = 0;
+    let maxAscent = 0;
+    let maxDescent = 0;
+    for (const line of lines) {
+      const m = this.ctx.measureText(line);
+      textWidth = Math.max(textWidth, m.width || 0);
+      const a = m.actualBoundingBoxAscent;
+      const d = m.actualBoundingBoxDescent;
+      if (typeof a !== 'number' || typeof d !== 'number') return null; // 环境不支持，降级 DOM
+      maxAscent = Math.max(maxAscent, a);
+      maxDescent = Math.max(maxDescent, d);
+    }
+    const lineHeight = maxAscent + maxDescent;
+    return { textWidth, textHeight: lineHeight * lines.length };
+  }
+
+  private __applyMeasuredSize(s: { textWidth: number; textHeight: number }): void {
+    const { paddingTop, paddingBottom, paddingLeft, paddingRight } = this.state.style;
+    const width = s.textWidth + paddingLeft + paddingRight;
+    const height = s.textHeight + paddingTop + paddingBottom;
+    if (this.props.width === 10) {
+      this.state.width = width;
+    }
+    if (this.props.height === 10) {
+      this.state.height = height;
+    }
+    this.state.textHeight = s.textHeight;
+  }
+
+  /** DOM 降级测量：line-height 归一为 1，减少 leading 干扰（旧环境/小程序）。 */
+  private __measureByDOM() {
     let div;
     try {
       div = this.root.document.getElementById(utilDivId);
@@ -339,6 +394,7 @@ class ICEText extends ICEComponent {
           fontFamily: this.state.style.fontFamily,
           fontWeight: this.state.style.fontWeight,
           fontSize: this.state.style.fontSize + 'px',
+          lineHeight: '1',
         };
         for (const key in styleObj) {
           div.style[key] = styleObj[key];
@@ -367,6 +423,7 @@ class ICEText extends ICEComponent {
       return { width: this.state.width, height: this.state.height };
     } catch (err) {
       console.error(err);
+      return { width: this.state.width, height: this.state.height };
     }
   }
 
