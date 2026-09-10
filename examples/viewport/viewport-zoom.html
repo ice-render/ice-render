@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render 画布缩放（视口 zoom/pan）</title>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">ice-render 画布缩放 <code>viewport-zoom</code></h2>
+    <p style="color:#555; margin: 0 0 10px; max-width: 1200px;">
+      滚轮缩放（以鼠标位置为中心，0.1x~10x）；<strong>空白处左键拖拽</strong>或<strong>中键拖拽</strong>平移画布，
+      拖到图元上则是选中/拖动图元。
+      缩放只改变「视图」，不改变图元世界坐标；
+      点击缩放后的图形仍可命中。当前 scale 显示在右上角。
+    </p>
+    <div style="position: relative; width: 900px;">
+      <canvas id="canvas-1" width="900" height="620" style="background:#fff; border:1px solid #ddd; cursor: grab;"></canvas>
+      <div id="scale-badge" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.72); color:#fff; padding:4px 10px; border-radius:6px; font:13px/1.4 ui-monospace, monospace;">100%</div>
+    </div>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+      const ice = new ICE.ICE().init('canvas-1');
+      window.__ice = ice;
+
+      // 构建确定性场景
+      const group = new ICE.ICEGroup({
+        left: 60, top: 60, width: 420, height: 280,
+        style: { fillStyle: '#EFF6FF', strokeStyle: '#3B82F6', lineWidth: 2 },
+      });
+      ice.addChild(group);
+
+      const colors = ['#EF4444', '#F59E0B', '#10B981', '#8B5CF6', '#14B8A6'];
+      for (let i = 0; i < 5; i++) {
+        group.addChild(
+          new ICE.ICERect({
+            left: 20 + i * 76, top: 30, width: 56, height: 40,
+            style: { fillStyle: colors[i], strokeStyle: '#111827', lineWidth: 1 },
+          })
+        );
+      }
+      group.addChild(
+        new ICE.ICECircle({
+          left: 40, top: 110, radius: 28,
+          style: { fillStyle: '#EC4899', strokeStyle: '#111827', lineWidth: 1 },
+        })
+      );
+      ice.addChild(
+        new ICE.ICEText({
+          left: 520, top: 40, text: '滚轮缩放\n拖拽平移',
+          style: { fontSize: 22, fillStyle: '#1F2937', fontWeight: 'bold' },
+        })
+      );
+      ice.addChild(
+        new ICE.ICERect({
+          left: 520, top: 150, width: 220, height: 120,
+          style: { fillStyle: 'rgba(59,130,246,0.18)', strokeStyle: '#3B82F6', lineWidth: 1, radius: 10 },
+        })
+      );
+
+      const canvas = document.getElementById('canvas-1');
+      const badge = document.getElementById('scale-badge');
+
+      function renderBadge() {
+        badge.textContent = Math.round(ice.viewport.scale * 100) + '%';
+      }
+      renderBadge();
+
+      function clampScale(s) {
+        return Math.min(10, Math.max(0.1, s));
+      }
+
+      function zoomAt(mouseX, mouseY, factor) {
+        const vp = ice.viewport;
+        const [wx, wy] = ice.screenToWorld(mouseX, mouseY);
+        const newScale = clampScale(vp.scale * factor);
+        const tx = mouseX - wx * newScale;
+        const ty = mouseY - wy * newScale;
+        ice.setViewport(newScale, tx, ty);
+        renderBadge();
+      }
+
+      // 滚轮缩放（以鼠标位置为中心）
+      canvas.addEventListener(
+        'wheel',
+        (e) => {
+          e.preventDefault();
+          const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+          zoomAt(e.offsetX, e.offsetY, factor);
+        },
+        { passive: false }
+      );
+
+      // 拖拽平移（中键，避免与左键组件拖动冲突）
+      let panning = false;
+      let lastX = 0;
+      let lastY = 0;
+      canvas.addEventListener('mousedown', (e) => {
+        // 中键：始终平移。左键：仅空白处平移，命中图元则交给引擎的组件拖动逻辑。
+        const blank = e.button === 0 && !ice.hitTest(e.offsetX, e.offsetY);
+        if (e.button !== 1 && !blank) return;
+        e.preventDefault();
+        e.stopPropagation(); // 阻止平移拖拽冒泡到 window，避免触发 ICE 组件拖动逻辑
+        panning = true;
+        lastX = e.offsetX;
+        lastY = e.offsetY;
+        canvas.style.cursor = 'grabbing';
+      });
+      canvas.addEventListener('mousemove', (e) => {
+        if (!panning) return;
+        const dx = e.offsetX - lastX;
+        const dy = e.offsetY - lastY;
+        lastX = e.offsetX;
+        lastY = e.offsetY;
+        ice.setViewport(ice.viewport.scale, ice.viewport.tx + dx, ice.viewport.ty + dy);
+      });
+      canvas.addEventListener('mouseup', () => {
+        panning = false;
+        canvas.style.cursor = 'grab';
+      });
+      canvas.addEventListener('mouseleave', () => {
+        panning = false;
+        canvas.style.cursor = 'grab';
+      });
+      canvas.addEventListener('auxclick', (e) => {
+        if (e.button === 1) e.preventDefault();
+      });
+
+      // 缩放后命中检测仍生效（点中组件会触发 ICE 事件，这里简单打印）
+      ice.evtBus.on('mousedown', (evt) => {
+        if (evt && evt.param && evt.param.component) {
+          console.log('[viewport-zoom] hit', evt.param.component.constructor.name, evt.param.component.props.id);
+        }
+      });
+    })();
+  </script>
+</html>

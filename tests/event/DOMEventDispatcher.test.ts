@@ -30,7 +30,7 @@ describe('命中检测（N 层嵌套下的选中）', () => {
     child.getMinBoundingBox(true);
     panel.getMinBoundingBox(true);
 
-    const ice: any = { childNodes: [parent], toolNodes: [panel] };
+    const ice: any = { childNodes: [parent], toolNodes: [panel], screenToWorld: (x: number, y: number) => [x, y] };
     const dispatcher = new DOMEventDispatcher(ice);
 
     // 子组件全局位置约 (150,150)-(200,180)，取内部点 (175,165)
@@ -48,7 +48,7 @@ describe('命中检测（N 层嵌套下的选中）', () => {
     child.getMinBoundingBox(true);
     panel.getMinBoundingBox(true);
 
-    const ice: any = { childNodes: [parent], toolNodes: [panel] };
+    const ice: any = { childNodes: [parent], toolNodes: [panel], screenToWorld: (x: number, y: number) => [x, y] };
     const dispatcher = new DOMEventDispatcher(ice);
 
     // 父容器内、子组件外的点 (100+10, 100+10) = (110,110)

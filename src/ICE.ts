@@ -46,6 +46,8 @@ class ICE {
   public canvasWidth: number = 0;
   public canvasHeight: number = 0;
   public canvasBoundingClientRect;
+  /** 视口变换（视图缩放/平移）：屏幕 = 世界 * scale + translate。默认单位视口，不影响既有行为。 */
+  public viewport: { scale: number; tx: number; ty: number } = { scale: 1, tx: 0, ty: 0 };
   public selectionList: Array<any> = []; //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
   public typeMapping = {}; //类型名称与构造函数之间的映射关系，在序列化和反序列化时需要根据此 mapping 来创建对应的类型的示例。
 
@@ -277,6 +279,52 @@ class ICE {
     setTheme(theme);
     this.__reapplyPresets();
     return this;
+  }
+
+  /**
+   * 设置视口（视图缩放 + 平移）。
+   *
+   * 屏幕坐标 = 世界坐标 * scale + translate。这是「视图缩放」，不改变任何组件的 state，
+   * 只影响渲染结果与命中检测的坐标换算。视口变化会让渲染器回退一次全量重绘并重建快照。
+   */
+  public setViewport(scale: number, tx: number = 0, ty: number = 0): this {
+    const s = Number(scale);
+    this.viewport = { scale: s > 0 ? s : 1, tx: Number(tx) || 0, ty: Number(ty) || 0 };
+    this.dirty = true;
+    if (this.renderer) {
+      this.renderer.markQueueDirty();
+    }
+    return this;
+  }
+
+  /** 屏幕坐标（canvas 像素）→ 世界坐标（受视口逆变换）。 */
+  public screenToWorld(sx: number, sy: number): [number, number] {
+    const vp = this.viewport;
+    return [(sx - vp.tx) / vp.scale, (sy - vp.ty) / vp.scale];
+  }
+
+  /** 世界坐标 → 屏幕坐标（canvas 像素）。 */
+  public worldToScreen(wx: number, wy: number): [number, number] {
+    const vp = this.viewport;
+    return [wx * vp.scale + vp.tx, wy * vp.scale + vp.ty];
+  }
+
+  /**
+   * 命中检测：屏幕坐标（canvas 像素）→ 命中的最上层可交互组件；无命中返回 null。
+   * 供应用层做「空白处拖拽平移 / 点击命中」等视口交互。
+   */
+  public hitTest(sx: number, sy: number): any {
+    const [wx, wy] = this.screenToWorld(sx, sy);
+    const all = flattenTree([], this.childNodes).concat(flattenTree([], this.toolNodes));
+    all.sort((a: any, b: any) => a.state.zIndex - b.state.zIndex);
+    for (let i = all.length - 1; i >= 0; i--) {
+      const component = all[i];
+      if (component.isControlPanel) continue;
+      if (component.state.display !== false && component.state.interactive && component.containsPoint(wx, wy)) {
+        return component;
+      }
+    }
+    return null;
   }
 
   /**

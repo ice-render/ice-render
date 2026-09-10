@@ -131,6 +131,7 @@ abstract class ICEComponent extends ICEEventTarget {
   private __transScratch: any = null;
   private __originScratch: any = null;
   private __composeScratch: any = null;
+  private __viewportScratch: any = null;
 
   /**
    * @cfg
@@ -331,7 +332,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * !Important: 这些方法调用有顺序
    */
   public render(): void {
-    this.__renderCore(null);
+    this.__renderCore(null, true);
   }
 
   /**
@@ -348,13 +349,13 @@ abstract class ICEComponent extends ICEEventTarget {
     const origCtx = this.ctx;
     this.ctx = targetCtx;
     try {
-      this.__renderCore(baseMatrix);
+      this.__renderCore(baseMatrix, false);
     } finally {
       this.ctx = origCtx;
     }
   }
 
-  private __renderCore(baseMatrix: number[] | null): void {
+  private __renderCore(baseMatrix: number[] | null, applyViewport: boolean): void {
     this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER);
     if (!this.state.display) {
       return;
@@ -362,7 +363,7 @@ abstract class ICEComponent extends ICEEventTarget {
 
     this.calcComponentParams();
     this.applyStyleToCtx();
-    this.applyTransformToCtx(baseMatrix);
+    this.applyTransformToCtx(baseMatrix, applyViewport);
     this.doRender();
     this.__resetLeakyCtxState();
 
@@ -604,14 +605,28 @@ abstract class ICEComponent extends ICEEventTarget {
   /**
    * 把变换矩阵应用到 this.ctx 上
    */
-  protected applyTransformToCtx(baseMatrix: number[] | null = null): void {
+  protected applyTransformToCtx(baseMatrix: number[] | null = null, applyViewport: boolean = false): void {
     const matrix = this.dirty ? this.composeMatrix() : this.state.composedMatrix;
-    if (baseMatrix) {
-      //@perf: 复用 scratch 缓冲做 base · composed，避免离屏缓存生成时分配新数组。
+    const vp = applyViewport && this.ice ? this.ice.viewport : null;
+    const hasViewport = vp && (vp.scale !== 1 || vp.tx !== 0 || vp.ty !== 0);
+    if (baseMatrix || hasViewport) {
+      //@perf: 复用 scratch 缓冲做 base/viewport · composed，避免每帧分配新数组。
       if (!this.__composeScratch) this.__composeScratch = [1, 0, 0, 1, 0, 0];
       const out = this.__composeScratch;
+      let left = baseMatrix;
+      if (hasViewport) {
+        if (!this.__viewportScratch) this.__viewportScratch = [1, 0, 0, 1, 0, 0];
+        const vm = this.__viewportScratch;
+        vm[0] = vp.scale;
+        vm[1] = 0;
+        vm[2] = 0;
+        vm[3] = vp.scale;
+        vm[4] = vp.tx;
+        vm[5] = vp.ty;
+        left = vm;
+      }
       //@ts-ignore
-      mat2d.multiply(out, baseMatrix, matrix);
+      mat2d.multiply(out, left, matrix);
       this.ctx.setTransform(out[0], out[1], out[2], out[3], out[4], out[5]);
     } else {
       this.ctx.setTransform(...matrix);
