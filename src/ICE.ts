@@ -36,6 +36,9 @@ import { flattenTree } from './util/data-util';
 class ICE {
   public childNodes = []; //直接渲染在 canvas 上的组件集合
   public toolNodes = []; //工具组件集合，如变换工具，这些组件不会被序列化，并且在整个生命周期中不会被删除。
+  //@perf: 用 WeakSet 做 O(1) 去重，避免 addChild/addTool 每组件 indexOf 导致的 O(n^2)（批量挂载热路径）。
+  private __childSet = new WeakSet<any>();
+  private __toolSet = new WeakSet<any>();
   public evtBus: EventBus; //事件总线，每一个 ICE 实例上只能有一个 evtBus 实例
   public root; //在浏览器里面是 window 对象，在 NodeJS 环境里面是 global 对象
   public canvasEl; // canvas 标签元素
@@ -120,7 +123,7 @@ class ICE {
    * @param {ICEComponent} tool
    */
   public addTool(tool: ICEComponent) {
-    if (this.childNodes.indexOf(tool) !== -1) return;
+    if (this.__toolSet.has(tool)) return;
 
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD, null, { component: tool });
     tool.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
@@ -129,6 +132,7 @@ class ICE {
     tool.ctx = this.ctx;
     tool.evtBus = this.evtBus;
     this.toolNodes.push(tool);
+    this.__toolSet.add(tool);
     this.dirty = true;
     if (this.renderer) this.renderer.markQueueDirty();
 
@@ -143,9 +147,12 @@ class ICE {
    * @param tool
    */
   public removeTool(tool: ICEComponent) {
+    if (!this.__toolSet.has(tool)) return;
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: tool });
     tool.destory();
-    this.toolNodes.splice(this.toolNodes.indexOf(tool), 1);
+    const index = this.toolNodes.indexOf(tool);
+    if (index !== -1) this.toolNodes.splice(index, 1);
+    this.__toolSet.delete(tool);
     this.dirty = true;
     if (this.renderer) this.renderer.markQueueDirty();
   }
@@ -158,7 +165,7 @@ class ICE {
    * @param component
    */
   public addChild(component, markDirty: boolean = true) {
-    if (this.childNodes.indexOf(component) !== -1) return;
+    if (this.__childSet.has(component)) return;
 
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_ADD);
@@ -168,7 +175,17 @@ class ICE {
     component.evtBus = this.evtBus;
     component.parentNode = null;
     this.childNodes.push(component);
-    if (Object.keys(component.props.animations).length) {
+    this.__childSet.add(component);
+    //@perf: 用 for...in 探测是否有动画，避免 Object.keys 每组件分配一个数组（批量挂载热路径）。
+    let hasAnimations = false;
+    const animations = component.props.animations;
+    if (animations) {
+      for (const key in animations) {
+        hasAnimations = true;
+        break;
+      }
+    }
+    if (hasAnimations) {
       this.animationManager.add(component);
     }
 
@@ -187,9 +204,12 @@ class ICE {
   }
 
   public removeChild(component: ICEComponent, markDirty: boolean = true) {
+    if (!this.__childSet.has(component)) return;
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: component });
     component.destory();
-    this.childNodes.splice(this.childNodes.indexOf(component), 1);
+    const index = this.childNodes.indexOf(component);
+    if (index !== -1) this.childNodes.splice(index, 1);
+    this.__childSet.delete(component);
     this.dirty = markDirty;
     if (this.renderer) this.renderer.markQueueDirty();
   }

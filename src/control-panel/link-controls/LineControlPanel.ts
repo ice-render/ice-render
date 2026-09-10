@@ -122,9 +122,10 @@ export default class LineControlPanel extends ICEControlPanel {
     let newEndY = targetState.points[len - 1][1];
 
     //用逆矩阵补偿组件 transform 导致的坐标变换。
-    //组件自身的 absoluteLinearMatrix 已经包含了所有层级上的 transform 。
+    //必须实时重算目标组件的绝对线性矩阵，严禁读取 state.absoluteLinearMatrix 缓存
+    //（未渲染/跨帧时它可能为空数组或上一帧脏值，导致拖拽端点错位）。
     //@ts-ignore
-    const matrix = mat2d.invert([], targetState.absoluteLinearMatrix);
+    const matrix = mat2d.invert([], this.targetComponent.calcAbsoluteLinearMatrix());
     //@ts-ignore
     const point = vec2.transformMat2d([], [movementX, movementY], matrix);
     movementX = point[0];

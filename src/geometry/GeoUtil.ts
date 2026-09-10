@@ -62,8 +62,10 @@ export default class GeoUtil {
     const b = matrix[1];
     const c = matrix[2];
     const d = matrix[3];
-    const scaleX = Math.hypot(a, b) / a;
-    const scaleY = Math.hypot(c, d) / d;
+    // 列向量约定下，x 轴基向量 (1,0) 映射为 (a,b)、y 轴基向量 (0,1) 映射为 (c,d)，
+    // 各轴缩放即对应基向量的模长。直接用模长既正确，也避免 a/d 为 0 时除零。
+    const scaleX = Math.hypot(a, b);
+    const scaleY = Math.hypot(c, d);
     return [scaleX, scaleY];
   }
 }

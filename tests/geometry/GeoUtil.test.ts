@@ -22,13 +22,12 @@ describe('GeoUtil.calcRotateAngleFromMatrix', () => {
 });
 
 describe('GeoUtil.calcScaleFromMatrix', () => {
-  // 函数计算的是 hypot(a,b)/a 与 hypot(c,d)/d(轴对齐缩放会归一化为 1),并非直接返回缩放值。
-  it('轴对齐缩放矩阵归一化为 [1,1]', () => {
-    expect(GeoUtil.calcScaleFromMatrix([2, 0, 0, 3])).toEqual([1, 1]);
+  it('轴对齐缩放矩阵返回真实缩放值', () => {
+    expect(GeoUtil.calcScaleFromMatrix([2, 0, 0, 3])).toEqual([2, 3]);
   });
-  it('带旋转的矩阵返回非 1 的比例', () => {
-    // a=2,b=2 → hypot=2√2, scaleX=2√2/2=√2≈1.414; d=3 → scaleY=1
-    expect(GeoUtil.calcScaleFromMatrix([2, 2, 0, 3])[0]).toBeCloseTo(Math.SQRT2, 5);
-    expect(GeoUtil.calcScaleFromMatrix([2, 2, 0, 3])[1]).toBe(1);
+  it('带旋转的矩阵返回各轴的缩放模长', () => {
+    // scaleX = hypot(2,2) = 2√2 ≈ 2.828；scaleY = hypot(0,3) = 3
+    expect(GeoUtil.calcScaleFromMatrix([2, 2, 0, 3])[0]).toBeCloseTo(2.828, 3);
+    expect(GeoUtil.calcScaleFromMatrix([2, 2, 0, 3])[1]).toBe(3);
   });
 });

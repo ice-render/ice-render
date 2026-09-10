@@ -58,10 +58,10 @@ class ICELinkSlot extends ICECircle {
     super.destory();
   }
 
-  //FIXME:这里位置计算有问题
-  //FIXME:这里需要采用 TransformControlPanel 中的算法来计算插槽位置。
+  // 实时重算宿主的最小包围盒，遵循「嵌套矩阵铁律」：严禁读取可能过期的缓存
+  // composedMatrix（宿主移动/缩放/旋转后若未重渲染，缓存仍是旧值，会导致插槽脱离宿主）。
   protected updatePosition() {
-    const box = this._hostComponent.getMinBoundingBox();
+    const box = this._hostComponent.getMinBoundingBox(true);
     let left = 0;
     let top = 0;
     switch (this.state.position) {

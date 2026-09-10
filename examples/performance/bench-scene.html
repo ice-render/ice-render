@@ -10,6 +10,7 @@
       <code>e2e/visual/perf.spec.ts</code> 自动采集。查询参数：
       <code>n</code>=组件数（默认 5000）、<code>mode</code>=static|anim|fps（默认 anim）、
       <code>frames</code>=同步采样帧数（默认 90）、<code>duration</code>=fps 模式时长 ms（默认 1500）。
+      <code>scene</code>=shape|text（默认 shape；text 用于观察文本离屏缓存命中 vs 每帧重建的光栅化差异）。
       结果会写入 <code>window.__benchResult</code> 并展示在下方。
     </p>
     <canvas id="canvas-1" width="1600" height="1000" style="background-color: #ffffff; border:1px solid #ddd;"></canvas>
@@ -23,6 +24,7 @@
       const N = Math.max(100, Math.min(parseInt(params.get('n') || '5000', 10) || 5000, 200000));
       const MODE = ['static', 'anim', 'drag', 'fps'].includes(params.get('mode')) ? params.get('mode') : 'anim';
       const PLAIN = params.get('plain') === '1'; // 仅矩形/圆形（无不透明之外成分），drag 局部重绘可生效
+      const SCENE = params.get('scene') === 'text' ? 'text' : 'shape';
       const RM = params.get('rm') === 'full' ? 'full' : 'dirty-rect'; // 渲染模式对照：rm=full 强制全量
       const FRAMES = Math.max(10, parseInt(params.get('frames') || '90', 10) || 90);
       const DURATION_MS = Math.max(200, parseInt(params.get('duration') || '1500', 10) || 1500);
@@ -90,6 +92,25 @@
         return root;
       }
 
+      function buildTextTree(targetN) {
+        const root = new ICE.ICEGroup({
+          width: 2000,
+          height: 1000,
+          style: { fillStyle: '#ffffff' },
+        });
+        const cols = 40;
+        for (let i = 0; i < targetN; i++) {
+          const t = new ICE.ICEText({
+            left: (i % cols) * 45,
+            top: Math.floor(i / cols) * 28,
+            text: '文本' + i,
+            style: { fontSize: 16, fillStyle: '#111827' },
+          });
+          root.addChild(t);
+        }
+        return root;
+      }
+
       function collect(node) {
         flat.push(node);
         totalCount++;
@@ -124,7 +145,7 @@
       // ---- 主流程 ----
       const tBuild0 = performance.now();
       ice = new ICE.ICE().init('canvas-1', { renderMode: RM });
-      const rootGroup = buildTree(N, PLAIN);
+      const rootGroup = SCENE === 'text' ? buildTextTree(N) : buildTree(N, PLAIN);
       ice.addChild(rootGroup);
       collect(rootGroup);
       const buildMs = performance.now() - tBuild0;

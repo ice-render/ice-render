@@ -22,3 +22,20 @@ describe('ICEBoundingBox.getMinAndMaxPoint', () => {
     });
   });
 });
+
+describe('ICEBoundingBox.containsBox', () => {
+  it('内部盒子返回 true，越界盒子返回 false', () => {
+    const outer = ICEBoundingBox.fromDimension(0, 0, 100, 100);
+    expect(outer.containsBox(ICEBoundingBox.fromDimension(10, 10, 20, 20))).toBe(true);
+    expect(outer.containsBox(ICEBoundingBox.fromDimension(50, 50, 80, 80))).toBe(false);
+  });
+});
+
+describe('ICEBoundingBox.union', () => {
+  it('返回覆盖两个盒子的最小轴对齐盒', () => {
+    const a = ICEBoundingBox.fromDimension(0, 0, 10, 10);
+    const b = ICEBoundingBox.fromDimension(5, -2, 20, 8);
+    const u = a.union(b);
+    expect(u.getMinAndMaxPoint()).toEqual({ minX: 0, minY: -2, maxX: 25, maxY: 10 });
+  });
+});

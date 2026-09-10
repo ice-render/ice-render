@@ -20,6 +20,7 @@ import {
   isFiniteBox,
   isOpaqueDrawing,
 } from './dirty-rect-util';
+import ObjectCache from './ObjectCache';
 
 /** 脏组件占可见组件比例超过该值时回退全量重绘。 */
 const FULL_FALLBACK_DIRTY_RATIO = 0.2;
@@ -59,10 +60,13 @@ class CanvasRenderer extends ICEEventTarget {
   private __snap = new WeakMap<object, Float64Array>();
   /** 距离最近一次队列重建后，是否已完成过至少一次「全量/prime」渲染（快照就绪）。 */
   private __primed: boolean = false;
+  /** 组件级离屏缓存（v1 缓存 ICEText），与快照一样不污染组件 state/props。 */
+  private cache: ObjectCache;
 
   constructor(ice: ICE, options: { renderMode?: 'full' | 'dirty-rect' } = {}) {
     super();
     this.ice = ice;
+    this.cache = new ObjectCache(ice);
     if (options.renderMode === 'full' || options.renderMode === 'dirty-rect') {
       this.renderMode = options.renderMode;
     }
@@ -181,7 +185,7 @@ class CanvasRenderer extends ICEEventTarget {
       const component = this.componentQueue[i];
       //@perf: 仅在引用不一致时才重新注入（首帧 / 跨 ICE 切换），稳态下跳过 4 次属性写入
       this.__ensureContext(component);
-      component.render();
+      this.__renderComponent(component);
       if (component.state.display) {
         this.__capture(component);
       }
@@ -237,9 +241,9 @@ class CanvasRenderer extends ICEEventTarget {
     // 脏组件占比过高 → 相交裁剪收益小
     if (preComp.visible > 0 && preComp.dirty / preComp.visible > FULL_FALLBACK_DIRTY_RATIO) return null;
 
-    // v1 场景级门控：场景里存在「非不透明落墨 / 点集路径 / 文本」任一可见组件就回退全量。
+    // 场景级门控：场景里存在「非不透明落墨 / 点集路径 / 文本」任一可见组件就回退全量。
     // clip 边界与半透明落墨、字形、折线/星形抗锯齿边缘相交会产生与全量不一致的接缝，
-    // v1 采取保守的「整场景」判定（简单可论证）；v2 再细化到「仅当区域与这类组件相交」。
+    // 因此采取保守的「整场景」判定，正确性优先。
     if (!this.__sceneAllowsPartial()) return null;
 
     const region = emptyBox();
@@ -299,14 +303,19 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   /**
-   * v1 场景级门控：任一可见组件是点集路径/文本，或存在非不透明落墨，则不开放局部重绘。
+   * 场景级门控：任一可见组件是点集路径/文本，或存在非不透明落墨，则不开放局部重绘。
    */
   private __sceneAllowsPartial(): boolean {
     const check = (queue: any[]): boolean => {
       for (let i = 0; i < queue.length; i++) {
         const c = queue[i];
         if (!c.state.display) continue;
-        if (this.__isDotPath(c) || this.__isText(c) || !isOpaqueDrawing(c.state)) return false;
+        if (this.__isDotPath(c) || this.__isText(c) || !isOpaqueDrawing(c.state)) {
+          // 已离屏缓存的文本：主画布只 drawImage（不透明位图），clip 只作用于位图的
+          // 整像素采样，不再改变字形/半透明落墨内部 AA，因此不再阻塞局部重绘。
+          if (this.cache.isCachable(c) && this.cache.has(c)) continue;
+          return false;
+        }
       }
       return true;
     };
@@ -337,7 +346,7 @@ class CanvasRenderer extends ICEEventTarget {
       const needDraw = component.dirty || (snap && intersects(snap as any, r));
       if (!needDraw) continue;
       this.__ensureContext(component);
-      component.render();
+      this.__renderComponent(component);
       this.__capture(component);
     }
 
@@ -367,6 +376,16 @@ class CanvasRenderer extends ICEEventTarget {
       component.ctx = this.ice.ctx;
       component.evtBus = this.ice.evtBus;
       component.ice = this.ice;
+    }
+  }
+
+  /**
+   * 组件渲染入口：可缓存组件走离屏位图（命中贴图 / 纯平移复用 / 重建），
+   * 否则回退到普通 render()。
+   */
+  private __renderComponent(component: any): void {
+    if (!this.cache.render(component)) {
+      component.render();
     }
   }
 

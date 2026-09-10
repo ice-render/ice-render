@@ -159,10 +159,10 @@ abstract class ICEEventTarget {
    * @param eventName
    */
   public resume(eventName: string) {
-    this.suspendedEventNames.splice(
-      this.suspendedEventNames.findIndex((el) => el === eventName),
-      1
-    );
+    const index = this.suspendedEventNames.indexOf(eventName);
+    if (index !== -1) {
+      this.suspendedEventNames.splice(index, 1);
+    }
   }
 
   /**

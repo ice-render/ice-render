@@ -1,4 +1,5 @@
 import ICE from '../ICE';
+import root from '../cross-platform/root';
 
 /**
  * @class ImageCache 图片缓存器
@@ -19,7 +20,7 @@ export default class ImageCache {
   public setImage(url: string) {
     let image = this.imageCache.get(url);
     if (!image) {
-      image = new Image();
+      image = root.createImage();
       image.onload = () => {
         this.ice.dirty = true;
       };

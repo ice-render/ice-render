@@ -8,6 +8,7 @@
 
 import ICEGroup from '../graphic/container/ICEGroup';
 import ICEImage from '../graphic/ICEImage';
+import ICEBezier from '../graphic/link/ICEBezier';
 import ICEPolyLine from '../graphic/link/ICEPolyLine';
 import ICEVisioLink from '../graphic/link/ICEVisioLink';
 import ICECircle from '../graphic/shape/ICECircle';
@@ -34,6 +35,7 @@ const componentTypeMap = {
   ICEGroup: ICEGroup,
   ICEVisioLink: ICEVisioLink,
   ICEPolyLine: ICEPolyLine,
+  ICEBezier: ICEBezier,
 };
 
 export default componentTypeMap;

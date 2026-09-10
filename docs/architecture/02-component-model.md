@@ -65,6 +65,7 @@ graph TD
 - **`ICERect` → `ICEGroup`（容器）** —— 容器继承矩形：容器本身也是可描边/选中/缩放的图元，可无限嵌套子组件。
 - **`ICEEllipse` → `ICECircle`** —— 圆是椭圆的特化；`ICELinkSlot`/`ICELinkHook`/`RotateControl` 复用圆。
 - **`ICEPolyLine` → `ICEVisioLink`** —— Visio 连线是折线的特化。
+- **`ICEPolyLine` → `ICEBezier`** —— 贝塞尔曲线复用折线的 `curveType`（`quadratic`/`cubic`）曲线绘制。
 
 ## 设计溯源：与 Java Swing 的对照
 

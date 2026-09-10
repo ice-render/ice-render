@@ -31,15 +31,52 @@ global.Path2D = class {
   addPath() {}
   roundRect() {}
 };
-global.window = {};
-global.document = { createElement: () => ({ getContext: () => ({}) }) };
+
+// 离屏缓存需要 document.createElement('canvas') 得到可用的 2d ctx；
+// ICEText.measureText 需要 document.createElement('div') 得到可量测的 DOM 节点。
+const benchOffCtx = () => ({
+  scale: () => {},
+  setTransform: () => {},
+  fillText: () => {},
+  strokeText: () => {},
+  setLineDash: () => {},
+  save: () => {},
+  restore: () => {},
+  beginPath: () => {},
+  moveTo: () => {},
+  lineTo: () => {},
+  stroke: () => {},
+  fill: () => {},
+  lineWidth: 1,
+  fillStyle: '',
+  strokeStyle: '',
+});
+const benchDocument = {
+  getElementById: () => null,
+  createElement: (tag) => {
+    if (tag === 'canvas') {
+      return { width: 0, height: 0, getContext: () => benchOffCtx() };
+    }
+    return {
+      style: {},
+      setAttribute: () => {},
+      contenteditable: false,
+      innerHTML: '',
+      offsetWidth: 80,
+      offsetHeight: 20,
+    };
+  },
+  body: { appendChild: () => {} },
+};
+global.window = { document: benchDocument, devicePixelRatio: 1 };
+global.document = benchDocument;
 
 const TARGET_N = parseInt(process.argv[2] || '1000', 10);
 const distPath =
   process.argv[3] || path.resolve(__dirname, '..', 'dist', 'index.cjs.js');
 
 const iceMod = require(distPath);
-const { ICE, ICEGroup, ICERect, ICECircle, ICEStar, EventBus } = iceMod;
+const { ICE, ICEGroup, ICERect, ICECircle, ICEStar, ICEText, EventBus } = iceMod;
 
 function makeCtx() {
   const ctx = {};
@@ -93,6 +130,23 @@ function buildTree(targetN) {
   return root;
 }
 
+// 文本场景：每个 ICEText 默认 width/height=10（sentinel），渲染时触发 measureText。
+// 用于观察离屏缓存命中 vs 每帧重建的 JS 开销差异（静态命中跳过 measureText+fillText）。
+function buildTextTree(targetN) {
+  const root = new ICEGroup({ width: 2000, height: 2000, style: { fillStyle: '#ffffff' } });
+  const cols = 40;
+  for (let i = 0; i < targetN; i++) {
+    const t = new ICEText({
+      left: (i % cols) * 45,
+      top: Math.floor(i / cols) * 28,
+      text: '文本' + i,
+      style: { fontSize: 16, fillStyle: '#111827' },
+    });
+    root.addChild(t);
+  }
+  return root;
+}
+
 // ---- 组装 harness（不调用 ICE.init，避免 rAF / DOM）----
 const ctx = makeCtx();
 const harness = new ICE();
@@ -119,6 +173,34 @@ renderer.start();
 
 let totalCount = 0;
 walk(rootGroup, () => totalCount++);
+
+function createTextHarness(targetN) {
+  const ctx = makeCtx();
+  const harness = new ICE();
+  harness.childNodes = [];
+  harness.toolNodes = [];
+  harness.root = global.window;
+  harness.ctx = ctx;
+  harness.canvasWidth = 2000;
+  harness.canvasHeight = 2000;
+  harness.evtBus = new EventBus();
+  harness.dirty = true;
+
+  const textRoot = buildTextTree(targetN);
+  harness.addChild(textRoot);
+  walk(textRoot, (n) => {
+    n.ice = harness;
+    n.ctx = ctx;
+    n.evtBus = harness.evtBus;
+  });
+
+  const renderer = new iceMod.CanvasRenderer(harness);
+  renderer.start();
+
+  let textCount = 0;
+  walk(textRoot, () => textCount++);
+  return { harness, renderer, textRoot, totalCount: textCount };
+}
 
 function now() {
   return Number(process.hrtime.bigint()) / 1e6; // ms
@@ -183,11 +265,30 @@ const aSteady = bench(renderStatic, WARM, ITERS);
 const bAnim = bench(renderAnimated, WARM, ITERS);
 const q = benchRefreshQueue(WARM, ITERS);
 
+// ---- 文本离屏缓存对比：静态命中（跳过 measureText/fillText） vs 每帧重建 ----
+const textN = Math.min(TARGET_N, 500);
+const th = createTextHarness(textN);
+const renderTextStatic = () => {
+  th.harness.dirty = true;
+  th.renderer.frameEvtHandler();
+};
+const renderTextAnim = () => {
+  walk(th.textRoot, (n) => (n.dirty = true));
+  th.harness.dirty = true;
+  th.renderer.frameEvtHandler();
+};
+renderTextStatic(); // 首帧建立文本离屏缓存
+const cTextStatic = bench(renderTextStatic, WARM, ITERS);
+const dTextAnim = bench(renderTextAnim, WARM, ITERS);
+
 const f = (x) => x.toFixed(4).padStart(9);
 console.log('');
 console.log('场景 A 静态重绘 (稳态, 仅 ice.dirty) :  median=' + f(aSteady.median) + 'ms  avg=' + f(aSteady.avg) + 'ms  min=' + f(aSteady.min) + '  max=' + f(aSteady.max));
 console.log('场景 B 动画     (每帧全量 compose)   :  median=' + f(bAnim.median) + 'ms  avg=' + f(bAnim.avg) + 'ms  min=' + f(bAnim.min) + '  max=' + f(bAnim.max));
 console.log('refreshQueue (flattenTree+sort) 单次 :  median=' + f(q.median) + 'ms  avg=' + f(q.avg) + 'ms');
+console.log('场景 C 文本静态 (离屏缓存命中, N=' + th.totalCount + ') :  median=' + f(cTextStatic.median) + 'ms  avg=' + f(cTextStatic.avg) + 'ms');
+console.log('场景 D 文本动画 (每帧重建缓存, N=' + th.totalCount + ') :  median=' + f(dTextAnim.median) + 'ms  avg=' + f(dTextAnim.avg) + 'ms');
+console.log('  文本缓存命中加速比: ' + (dTextAnim.median / cTextStatic.median).toFixed(2) + 'x');
 console.log('');
 console.log('等效帧率上限 (sceneA 稳态): ' + (1000 / aSteady.median).toFixed(0) + ' fps (仅引擎 JS 开销, 不含光栅化)');
 console.log('等效帧率上限 (sceneB 动画): ' + (1000 / bAnim.median).toFixed(0) + ' fps (仅引擎 JS 开销, 不含光栅化)');

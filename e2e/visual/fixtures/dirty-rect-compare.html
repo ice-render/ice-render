@@ -9,7 +9,12 @@
       <code>'dirty-rect'</code>(canvas-b)，由 <code>window.__step(i)</code> 逐步驱动相同操作，
       <code>window.__compare()</code> 逐像素比对。二者必须 100% 一致。
       <code>?opaque=1</code> 时使用「全不透明」场景（无星形/折线/阴影），用于验证局部重绘
-      真正执行且像素一致；默认富场景覆盖旋转/文本/阴影/连线/面板等边界。
+      真正执行且像素一致；<code>?opaque=1&amp;text=1</code> 额外加入文本（无星形/折线/阴影），
+      验证文本离屏缓存后局部重绘仍像素一致；<code>?opaque=1&amp;star=1</code> 额外加入星形
+      （无文本/折线/阴影），验证封闭 dot-path 离屏缓存后局部重绘仍像素一致；
+      <code>?opaque=1&amp;alpha=1</code> 额外加入半透明矩形（无星形/折线/文本/阴影），
+      验证半透明 shape 离屏缓存后局部重绘仍像素一致；
+      默认富场景覆盖旋转/文本/阴影/连线/面板等边界。
     </p>
     <canvas id="canvas-a" width="700" height="500" style="background:#fff; border:1px solid #ccc;"></canvas>
     <canvas id="canvas-b" width="700" height="500" style="background:#fff; border:1px solid #ccc;"></canvas>
@@ -19,6 +24,9 @@
     (function () {
       const ICE = window.ICE;
       const OPAQUE = new URLSearchParams(location.search).get('opaque') === '1';
+      const TEXTOPAQUE = OPAQUE && new URLSearchParams(location.search).get('text') === '1';
+      const STAROPAQUE = OPAQUE && new URLSearchParams(location.search).get('star') === '1';
+      const ALPHAOPAQUE = OPAQUE && new URLSearchParams(location.search).get('alpha') === '1';
 
       function buildScene(ice, renderMode) {
         ice.init('canvas-' + (renderMode === 'full' ? 'a' : 'b'), renderMode ? { renderMode } : {});
@@ -41,17 +49,32 @@
         }
 
         let star = null;
-        if (!OPAQUE) {
+        if (!OPAQUE || STAROPAQUE) {
           star = new ICE.ICEStar({
-            left: 120, top: 90, outerRadius: 22, innerRadius: 9,
+            left: 120,
+            top: 90,
+            outerRadius: STAROPAQUE ? 150 : 22,
+            innerRadius: STAROPAQUE ? 60 : 9,
             style: { fillStyle: '#EC4899', strokeStyle: '#111827', lineWidth: 1 },
           });
           group.addChild(star);
         }
 
-        // opaque 场景不放文本：文本是场景级门控项（会关闭局部重绘），只在富场景用全量覆盖其边界
+        let alphaRect = null;
+        if (ALPHAOPAQUE) {
+          alphaRect = new ICE.ICERect({
+            left: 420,
+            top: 30,
+            width: 120,
+            height: 60,
+            style: { fillStyle: 'rgba(59,130,246,0.5)', strokeStyle: '#111827', lineWidth: 1 },
+          });
+          ice.addChild(alphaRect);
+        }
+
+        // opaque 场景默认不放文本；?text=1 时加入文本，验证离屏缓存后文本不再关闭局部重绘。
         let text = null;
-        if (!OPAQUE) {
+        if (!OPAQUE || TEXTOPAQUE) {
           text = new ICE.ICEText({
             left: 420, top: 30, width: 10, height: 10,
             text: 'ICERender',
@@ -91,7 +114,7 @@
           });
         }
 
-        return { ice, group, leaves, star, text, baseRect, box, link, addedRect: null };
+        return { ice, group, leaves, star, text, alphaRect, baseRect, box, link, addedRect: null };
       }
 
       const full = buildScene(new ICE.ICE(), 'full');

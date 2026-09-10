@@ -56,7 +56,12 @@ export function merge<T, S extends any[]>(target: T, ...sources: S): T & UnionTo
       if (sv === undefined) continue;
       const tv = (target as any)[k];
       if (isPlainObject(sv) && isPlainObject(tv)) {
-        merge(tv, sv);
+        // 写时复制：若嵌套对象来自原型链（共享默认值），先在 target 上复制一份再合并，
+        // 避免污染所有组件共享的默认 style/transform 等对象。
+        if (!Object.prototype.hasOwnProperty.call(target, k)) {
+          (target as any)[k] = cloneDeep(tv);
+        }
+        merge((target as any)[k], sv);
       } else {
         (target as any)[k] = sv;
       }
