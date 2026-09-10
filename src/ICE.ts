@@ -66,16 +66,43 @@ class ICE {
 
   constructor() {}
 
+  /** 是否已经完成初始化（用于 init 幂等 / destroy 配对） */
+  private __initialized = false;
+
   /**
-   * @param ctx DOM id or CanvasContext
+   * 从 init 入参解析出 canvas 元素。
+   * 支持：HTMLCanvasElement、CanvasRenderingContext2D；解析不出则返回 null。
+   */
+  private __resolveCanvasEl(ctx: any): any {
+    if (ctx && typeof ctx.getContext === 'function') {
+      return ctx; //HTMLCanvasElement
+    }
+    if (ctx && ctx.canvas && typeof ctx.canvas.getContext === 'function') {
+      return ctx.canvas; //CanvasRenderingContext2D
+    }
+    return null;
+  }
+
+  /**
+   * @param ctx DOM id、HTMLCanvasElement 或 CanvasRenderingContext2D
    * @param options 渲染配置。renderMode: 'dirty-rect'(默认) | 'full'
+   *
+   * 幂等：同一个 ICE 实例重复 init 到同一个 canvas 时直接返回自身。
+   * React StrictMode 下 effect 会被执行两次，幂等可以避免重复挂载 Manager / 重复绑定全局事件。
+   * 若要换一个 canvas，请先调用 destroy()。
    */
   public init(ctx: any, options: { renderMode?: 'full' | 'dirty-rect' } = {}) {
     if (!ctx) {
       throw new Error('ICE.init() failed...');
     }
-    if (this.ctx === ctx) {
-      throw new Error('同一个 canvas 实例只能 init 一次...');
+
+    const canvasEl = this.__resolveCanvasEl(ctx);
+
+    if (this.__initialized) {
+      if (canvasEl && canvasEl === this.canvasEl) {
+        return this;
+      }
+      throw new Error('同一个 ICE 实例已经绑定到其它 canvas，如需重新初始化请先调用 destroy()。');
     }
 
     //把内置的类型映射拷贝到 typeMapping 上
@@ -85,9 +112,14 @@ class ICE {
 
     this.root = root;
 
-    //FIXME:防止 init 方法被调用多次
     if (isString(ctx)) {
       this.canvasEl = this.root.document.getElementById(ctx);
+    } else if (canvasEl) {
+      //直接接收 HTMLCanvasElement / CanvasRenderingContext2D
+      this.canvasEl = canvasEl;
+    }
+
+    if (this.canvasEl) {
       //禁用 canvas 元素上的原生右键菜单
       this.canvasEl.oncontextmenu = function (e) {
         e.preventDefault();
@@ -98,6 +130,7 @@ class ICE {
       this.canvasBoundingClientRect = this.canvasEl.getBoundingClientRect();
       this.ctx = this.canvasEl.getContext('2d');
     } else {
+      //裸 context 兜底
       this.ctx = ctx;
     }
 
@@ -118,7 +151,63 @@ class ICE {
     this.deserializer = new Deserializer(this);
     this.imageCache = new ImageCache(this);
 
+    this.__initialized = true;
     return this;
+  }
+
+  /**
+   * @method destroy 销毁当前实例
+   *
+   * 与 init() 配对：停止所有 Manager、解绑 canvas 上的原生事件、注销全局事件总线（FrameManager / DOMEventInterceptor 都是全局单例，必须显式注销）。
+   * 销毁之后可以再次 init（例如 React 组件重新挂载），不会累积监听或帧循环。
+   */
+  public destroy(): void {
+    if (!this.__initialized) {
+      return;
+    }
+
+    //1) 停止各 Manager
+    const managers = [this.renderer, this.animationManager, this.controlPanelManager, this.linkSlotManager];
+    for (let i = 0; i < managers.length; i++) {
+      const manager: any = managers[i];
+      if (manager && typeof manager.stop === 'function') {
+        manager.stop();
+      }
+    }
+    if (this.eventDispatcher) {
+      this.eventDispatcher.stopped = true;
+    }
+
+    //2) 解绑 canvas 上的原生事件
+    if (this.canvasEl && this.canvasEl.oncontextmenu) {
+      this.canvasEl.oncontextmenu = null;
+    }
+
+    //3) 注销全局事件总线
+    if (this.evtBus) {
+      FrameManager.delEvtBus(this.evtBus);
+      DOMEventInterceptor.delEvtBus(this.evtBus);
+    }
+    if (FrameManager.evtBuses.length === 0) {
+      FrameManager.stop();
+    }
+
+    //4) 清空场景并释放引用
+    this.clearAll();
+    this.renderer = null;
+    this.animationManager = null;
+    this.controlPanelManager = null;
+    this.linkSlotManager = null;
+    this.eventDispatcher = null;
+    this.alignmentGuide = null;
+    this.serializer = null;
+    this.deserializer = null;
+    this.imageCache = null;
+    this.ctx = null;
+    this.canvasEl = null;
+    this.canvasBoundingClientRect = null;
+
+    this.__initialized = false;
   }
 
   /**
