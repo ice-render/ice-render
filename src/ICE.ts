@@ -10,6 +10,7 @@ import AnimationManager from './animation/AnimationManager';
 import componentTypeMap from './consts/COMPONENT_TYPE_MAPPING';
 import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';
 import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
+import AlignmentGuideManager from './control-panel/AlignmentGuideManager';
 import root from './cross-platform/root';
 import DOMEventDispatcher from './event/DOMEventDispatcher';
 import DOMEventInterceptor from './event/DOMEventInterceptor';
@@ -55,6 +56,7 @@ class ICE {
   public animationManager: AnimationManager;
   public eventDispatcher: DOMEventDispatcher;
   public controlPanelManager: ICEControlPanelManager;
+  public alignmentGuide: AlignmentGuideManager;
   public linkSlotManager: ICELinkSlotManager;
   public serializer: Serializer;
   public deserializer: Deserializer;
@@ -110,6 +112,7 @@ class ICE {
     this.animationManager = new AnimationManager(this).start();
     this.controlPanelManager = new ICEControlPanelManager(this).start();
     this.renderer = new CanvasRenderer(this, options).start();
+    this.alignmentGuide = new AlignmentGuideManager(this); // 默认禁用，应用层显式 enable 才启用
     this.linkSlotManager = new ICELinkSlotManager(this).start(); //linkSlotManager 内部会监听 renderer 上的事件，所以 linkSlotManager 需要在 renderer 后面实例化。
     this.serializer = new Serializer(this);
     this.deserializer = new Deserializer(this);

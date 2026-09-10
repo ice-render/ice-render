@@ -8,6 +8,7 @@
 export { default as AnimationManager } from './animation/AnimationManager';
 export { default as ICEControlPanel } from './control-panel/ICEControlPanel';
 export { default as ICEControlPanelManager } from './control-panel/ICEControlPanelManager';
+export { default as AlignmentGuideManager } from './control-panel/AlignmentGuideManager';
 export { default as LineControlPanel } from './control-panel/link-controls/LineControlPanel';
 export { default as ResizeControl } from './control-panel/transform-controls/ResizeControl';
 export { default as RotateControl } from './control-panel/transform-controls/RotateControl';
