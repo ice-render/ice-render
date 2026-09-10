@@ -12,7 +12,6 @@
 import ICE from '../ICE';
 import ICERect from '../graphic/shape/ICERect';
 import ICEComponent from '../graphic/ICEComponent';
-import { flattenTree } from '../util/data-util';
 
 export interface SnapBox {
   minX: number;
@@ -182,7 +181,7 @@ class AlignmentGuideManager {
 
   private __onMouseDown(evt: any): void {
     const c = evt && evt.target;
-    if (!c || !c.state || !c.state.draggable || !c.state.interactive) return;
+    if (!this.__isAlignmentParticipant(c)) return;
     this.__detach();
     this.active = c;
     this.intentLeft = c.state.left;
@@ -201,8 +200,9 @@ class AlignmentGuideManager {
     if (!this.active || this.snapping) return;
     const dx = evt && typeof evt.movementX === 'number' ? evt.movementX : 0;
     const dy = evt && typeof evt.movementY === 'number' ? evt.movementY : 0;
-    this.intentLeft += dx;
-    this.intentTop += dy;
+    const scale = this.ice.viewport ? this.ice.viewport.scale : 1;
+    this.intentLeft += dx / scale;
+    this.intentTop += dy / scale;
 
     // 先归位到意图位置，再算吸附；吸附只是显示偏移，不污染意图位置。
     this.snapping = true;
@@ -211,7 +211,6 @@ class AlignmentGuideManager {
     this.snapping = false;
     if (!source) return;
 
-    const scale = this.ice.viewport ? this.ice.viewport.scale : 1;
     // 滞回：已吸附轴用更大的脱离阈值，避免边界抖动。
     const enter = this.options.threshold / scale;
     const exit = (this.options.threshold + this.options.hysteresis) / scale;
@@ -258,15 +257,30 @@ class AlignmentGuideManager {
   }
 
   private __computeTargets(): SnapBox[] {
-    const all = flattenTree([], this.ice.childNodes);
+    // 只把顶层图元作为对齐目标，不展开容器内部子节点。
+    // 否则拖拽 Entity 这类容器时，它内部的字段 ICEText 也会被当成候选目标，
+    // 导致远离其它实体时仍出现引导线。
+    const all = this.ice.childNodes;
     const out: SnapBox[] = [];
     for (const c of all) {
       if (c === this.active) continue;
-      if (!c.state || c.state.display === false) continue;
+      if (!this.__isAlignmentParticipant(c)) continue;
       const b = this.__boxOf(c);
       if (b) out.push(b);
     }
     return out;
+  }
+
+  /**
+   * 判断组件是否可以参与对齐决策。
+   * 排除：连接线、控制面板、变换手柄、不可交互组件、不可拖动组件。
+   */
+  private __isAlignmentParticipant(c: any): boolean {
+    if (!c || !c.state || !c.state.interactive || !c.state.draggable) return false;
+    if (c.isLine) return false;
+    if (c.isControlPanel) return false;
+    if (c.parentNode && c.parentNode.isControlPanel) return false;
+    return true;
   }
 
   private __ensureGuides(): void {
@@ -274,6 +288,7 @@ class AlignmentGuideManager {
     if (!this.guideX) {
       this.guideX = new ICERect({
         left: 0, top: 0, width: 1, height: 1, display: false, zIndex: this.options.guideZIndex,
+        origin: 'top-left',
         stroke: false,
         style,
       });
@@ -282,6 +297,7 @@ class AlignmentGuideManager {
     if (!this.guideY) {
       this.guideY = new ICERect({
         left: 0, top: 0, width: 1, height: 1, display: false, zIndex: this.options.guideZIndex,
+        origin: 'top-left',
         stroke: false,
         style,
       });
@@ -291,13 +307,27 @@ class AlignmentGuideManager {
 
   private __updateGuides(snap: SnapAxes): void {
     const w = this.options.guideWidth / (this.ice.viewport ? this.ice.viewport.scale : 1);
+    const [worldMinX, worldMinY] = this.ice.screenToWorld(0, 0);
+    const [worldMaxX, worldMaxY] = this.ice.screenToWorld(this.ice.canvasWidth, this.ice.canvasHeight);
     if (snap.x && this.guideX) {
-      this.guideX.setState({ display: true, left: snap.x.guideValue - w / 2, top: snap.x.guideStart, width: w, height: snap.x.guideEnd - snap.x.guideStart });
+      this.guideX.setState({
+        display: true,
+        left: snap.x.guideValue - w / 2,
+        top: worldMinY,
+        width: w,
+        height: worldMaxY - worldMinY,
+      });
     } else if (this.guideX) {
       this.guideX.setState({ display: false });
     }
     if (snap.y && this.guideY) {
-      this.guideY.setState({ display: true, left: snap.y.guideStart, top: snap.y.guideValue - w / 2, width: snap.y.guideEnd - snap.y.guideStart, height: w });
+      this.guideY.setState({
+        display: true,
+        left: worldMinX,
+        top: snap.y.guideValue - w / 2,
+        width: worldMaxX - worldMinX,
+        height: w,
+      });
     } else if (this.guideY) {
       this.guideY.setState({ display: false });
     }

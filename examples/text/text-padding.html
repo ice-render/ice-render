@@ -15,6 +15,7 @@
   </body>
   <script type="text/javascript">
         let ice = new ICE.ICE().init('canvas-1');
+        window.__ice = ice;
 
         document.querySelector('#btn-1').addEventListener('click', (evt) => {
           const jsonStr = ice.toJSONString();

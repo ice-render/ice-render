@@ -272,13 +272,10 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   protected mouseMoveEvtHandler(evt: any) {
-    // console.log('window.devicePixelRatio>', window.devicePixelRatio);
-    // let tx = evt.movementX / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-    // let ty = evt.movementY / window.devicePixelRatio; //FIXME: window.devicePixelRatio 需要移动到初始化参数中去
-    //@ts-ignore
-    const tx = evt.movementX;
-    //@ts-ignore
-    const ty = evt.movementY;
+    // movementX/Y 是屏幕像素位移；在缩放视口下，世界坐标位移需要除以 scale。
+    const scale = this.ice && this.ice.viewport ? this.ice.viewport.scale : 1;
+    const tx = evt.movementX / scale;
+    const ty = evt.movementY / scale;
     this.moveGlobalPosition(tx, ty, evt);
     return true;
   }
@@ -638,36 +635,67 @@ abstract class ICEComponent extends ICEEventTarget {
    * @method doRender
    */
   protected doRender(): void {
-    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-    this.ctx.lineWidth = 1;
-
-    if (this.state.showMinBoundingBox) {
-      const minBox = this.getMinBoundingBox();
-      this.ctx.strokeStyle = '#ff0000';
-      this.ctx.fillStyle = 'rgba(0,0,0,0)';
-      this.ctx.beginPath();
-      this.ctx.moveTo(minBox.tl[0], minBox.tl[1]);
-      this.ctx.lineTo(minBox.tr[0], minBox.tr[1]);
-      this.ctx.lineTo(minBox.br[0], minBox.br[1]);
-      this.ctx.lineTo(minBox.bl[0], minBox.bl[1]);
-      this.ctx.closePath();
-      this.ctx.stroke();
-      this.ctx.fill();
+    // 边界盒坐标是「世界坐标」，但画布已经应用视口。这里给 debug 框套同一视口矩阵，
+    // 否则缩放/平移后边界框会停留在错误的屏幕位置。
+    const vp = this.ice && this.ice.viewport;
+    const hasViewport = vp && (vp.scale !== 1 || vp.tx !== 0 || vp.ty !== 0);
+    if (hasViewport) {
+      this.ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.tx, vp.ty);
+      this.ctx.lineWidth = 1 / vp.scale;
+    } else {
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.lineWidth = 1;
     }
 
-    if (this.state.showMaxBoundingBox) {
-      const maxBox = this.getMaxBoundingBox();
-      this.ctx.strokeStyle = '#0000ff';
-      this.ctx.fillStyle = 'rgba(0,0,0,0)';
-      this.ctx.beginPath();
-      this.ctx.moveTo(maxBox.tl[0], maxBox.tl[1]);
-      this.ctx.lineTo(maxBox.tr[0], maxBox.tr[1]);
-      this.ctx.lineTo(maxBox.br[0], maxBox.br[1]);
-      this.ctx.lineTo(maxBox.bl[0], maxBox.bl[1]);
-      this.ctx.closePath();
-      this.ctx.stroke();
-      this.ctx.fill();
+    if (this.state.showMinBoundingBox || this.state.showMaxBoundingBox) {
+      const minBox = this.state.showMinBoundingBox ? this.getMinBoundingBox() : null;
+      const maxBox = this.state.showMaxBoundingBox ? this.getMaxBoundingBox() : null;
+      // 无旋转/错切时，最小包围盒与最大包围盒是同一个矩形；同时开启时若不跳过，
+      // 两条边完全重叠会产生红蓝混色/双线，视觉上很怪。此时只保留一个干净的框。
+      const same = minBox && maxBox && this.__areBoundingBoxesNearlyEqual(minBox, maxBox);
+
+      if (minBox && !same) {
+        this.ctx.strokeStyle = '#ff0000';
+        this.ctx.fillStyle = 'rgba(0,0,0,0)';
+        this.ctx.beginPath();
+        this.ctx.moveTo(minBox.tl[0], minBox.tl[1]);
+        this.ctx.lineTo(minBox.tr[0], minBox.tr[1]);
+        this.ctx.lineTo(minBox.br[0], minBox.br[1]);
+        this.ctx.lineTo(minBox.bl[0], minBox.bl[1]);
+        this.ctx.closePath();
+        this.ctx.stroke();
+        this.ctx.fill();
+      }
+
+      if (maxBox) {
+        this.ctx.strokeStyle = '#0000ff';
+        this.ctx.fillStyle = 'rgba(0,0,0,0)';
+        this.ctx.beginPath();
+        this.ctx.moveTo(maxBox.tl[0], maxBox.tl[1]);
+        this.ctx.lineTo(maxBox.tr[0], maxBox.tr[1]);
+        this.ctx.lineTo(maxBox.br[0], maxBox.br[1]);
+        this.ctx.lineTo(maxBox.bl[0], maxBox.bl[1]);
+        this.ctx.closePath();
+        this.ctx.stroke();
+        this.ctx.fill();
+      }
     }
+  }
+
+  /** 判断两个边界盒是否在视觉上重合（用于避免重复绘制几乎相同的 min/max 框）。 */
+  private __areBoundingBoxesNearlyEqual(a: any, b: any): boolean {
+    const pts = [
+      [a.tl, b.tl],
+      [a.tr, b.tr],
+      [a.bl, b.bl],
+      [a.br, b.br],
+    ];
+    for (const [p, q] of pts) {
+      if (Math.abs(p[0] - q[0]) > 1 || Math.abs(p[1] - q[1]) > 1) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**

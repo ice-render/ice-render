@@ -179,8 +179,10 @@ class CanvasRenderer extends ICEEventTarget {
   // ===================== 全量路径（旧行为，保留为参考 & 回退） =====================
 
   private doRenderFull() {
-    //渲染组件
+    // 清屏前必须回到单位变换：上一帧组件/视口会残留 CTM，否则 clearRect 清不干净，出现重影。
+    this.ice.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
+    //渲染组件
     for (let i = 0; i < this.componentQueue.length; i++) {
       const component = this.componentQueue[i];
       //@perf: 仅在引用不一致时才重新注入（首帧 / 跨 ICE 切换），稳态下跳过 4 次属性写入
