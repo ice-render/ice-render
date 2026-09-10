@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render 动画机制压力测试</title>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">ice-render 动画机制压力测试 <code>animation-stress</code></h2>
+    <p style="color:#555; margin: 0 0 10px; max-width: 1200px;">
+      N 个矩形各自挂一个循环动画（<code>left</code> 0→100 loop），同步驱动 <code>ICE_FRAME_EVENT</code>，
+      测量「动画 tween + setState + 全量重绘」的单帧成本。查询参数：
+      <code>n</code>=动画组件数（默认 5000）、<code>frames</code>=采样帧数（默认 60）。
+      结果写入 <code>window.__animStressResult</code> 并展示在下方。
+    </p>
+    <canvas id="canvas-1" width="1600" height="1000" style="background-color: #ffffff; border: 1px solid #ddd;"></canvas>
+    <pre id="out" style="font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; background:#1e1f24; color:#d7e0ea; padding:12px; border-radius:8px; max-height:620px; overflow:auto;"></pre>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const N = Math.max(100, parseInt(params.get('n') || '5000', 10) || 5000);
+      const FRAMES = Math.max(10, parseInt(params.get('frames') || '60', 10) || 60);
+      const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#14B8A6', '#EC4899', '#6366F1'];
+
+      const ice = new ICE.ICE().init('canvas-1');
+      window.__ice = ice;
+
+      const lines = [];
+      function log(s) {
+        lines.push(s);
+      }
+
+      const tBuild0 = performance.now();
+      const cols = 100;
+      for (let i = 0; i < N; i++) {
+        const r = new ICE.ICERect({
+          left: (i % cols) * 16,
+          top: Math.floor(i / cols) * 12,
+          width: 8,
+          height: 8,
+          style: { fillStyle: COLORS[i % COLORS.length] },
+          animations: {
+            left: { from: 0, to: 100, duration: 1000, easing: 'linear', loop: true },
+          },
+        });
+        ice.addChild(r);
+      }
+      const buildMs = performance.now() - tBuild0;
+
+      // 首帧全量 prime
+      ice.dirty = true;
+      ice.renderer.frameEvtHandler();
+
+      function tick() {
+        // 触发 FRAME 事件：AnimationManager.tween（所有动画组件 setState）→ CanvasRenderer 渲染
+        ice.evtBus.trigger('ICE_FRAME_EVENT');
+      }
+
+      // warm：让动画初始化 startTime，队列/矩阵缓存就位
+      for (let i = 0; i < 10; i++) tick();
+
+      const samples = [];
+      for (let i = 0; i < FRAMES; i++) {
+        const t0 = performance.now();
+        tick();
+        const t1 = performance.now();
+        samples.push(t1 - t0);
+      }
+      samples.sort((a, b) => a - b);
+      const pct = (p) => samples[Math.min(samples.length - 1, Math.floor((p / 100) * samples.length))];
+      const avg = samples.reduce((s, v) => s + v, 0) / samples.length;
+
+      const result = {
+        n: N,
+        totalComponents: N,
+        frames: samples.length,
+        buildMs,
+        avg,
+        p50: pct(50),
+        p95: pct(95),
+        max: samples[samples.length - 1],
+        fpsEquivalent: 1000 / pct(50),
+      };
+
+      log(`n=${N}  build=${buildMs.toFixed(1)}ms`);
+      log('-'.repeat(64));
+      log(`动画单帧（tween+setState+全量重绘）: avg=${avg.toFixed(3)}ms  p50=${result.p50.toFixed(3)}ms  p95=${result.p95.toFixed(3)}ms  max=${result.max.toFixed(3)}ms`);
+      log(`等效帧率: ${result.fpsEquivalent.toFixed(0)} fps (基于 p50)`);
+      log('结果已写入 window.__animStressResult');
+
+      document.getElementById('out').textContent = lines.join('\n');
+      window.__animStressResult = result;
+      console.log('[animation-stress]', JSON.stringify(result));
+    })();
+  </script>
+</html>
