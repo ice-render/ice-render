@@ -826,15 +826,16 @@ class ICEPolyLine extends ICEDotPath {
     const fontSize = style.fontSize || 14;
     const padding = 4;
 
+    ctx.save();
+    // 必须先设 font 再 measureText：ctx 的字体状态是**跨调用遗留**的，先量后设会按上一次绘制
+    // 留下的字体算宽，背景框与实际字形不符（框过宽或过窄）。降级估算同理，用 label.length * fontSize 近似。
+    ctx.font = `${fontSize}px Arial`;
     let textWidth = 0;
     if (typeof ctx.measureText === 'function') {
       textWidth = ctx.measureText(label).width;
     } else {
       textWidth = label.length * fontSize; // 降级估算
     }
-
-    ctx.save();
-    ctx.font = `${fontSize}px Arial`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const halfW = textWidth / 2 + padding;
