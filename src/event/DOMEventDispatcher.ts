@@ -5,16 +5,26 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { keyboardEvents, mouseEvents } from '../consts/DOM_EVENT_MAPPING_CONSTS';
+import { buildDomEventList, MOVE_ICE_EVENTS } from '../consts/DOM_EVENT_MAPPING_CONSTS';
+import root from '../cross-platform/root';
 import ICE from '../ICE';
 import { flattenTree } from '../util/data-util';
 import ICEEvent from './ICEEvent';
+import { normalizeInput, applyNormalizedInput, toLegacyMouseName, NormalizedInput } from './input-normalize';
 
 /**
  * @class DOMEventDispatcher
  *
- * - DOM 事件转发器，监听事件总线上的事件，转发给 canvas 内部指定的组件。
- * - 原生的鼠标和键盘事件都通过此工具类进行转发。
+ * - DOM 事件派发器，监听事件总线上的输入事件，派发给 canvas 内指定的组件。
+ * - 鼠标 / 指针 / 触摸 / 滚轮 / 键盘事件都通过此工具类派发。
+ *
+ * 输入归一化（本类的关键职责）：
+ * - 底层无论 pointer / mouse / touch，都在这里统一成 canvas 内坐标
+ *   （`clientX - canvasRect.left`）与屏幕位移 movement，然后写回事件对象。
+ *   这样组件、拖拽、变换手柄、对齐吸附、命中检测都无需区分输入源。
+ * - pointer / touch 会额外以「鼠标语义名」（mousedown/mousemove/mouseup）再派发一次，
+ *   保证既有 `on('mousedown', ...)` 代码零改动即可在触摸设备上工作。
+ * - 命中检测用的 canvas 矩形在非移动类事件上刷新，页面滚动 / 布局变化后仍正确。
  *
  * @see {DOMEventInterceptor}
  * @author 大漠穷秋<damoqiongqiu@126.com>
@@ -23,6 +33,8 @@ class DOMEventDispatcher {
   private selectionCandidates: Array<any> = [];
   private ice: ICE;
   private _stopped: boolean = false;
+  /** 上一次归一化输入，用于在原生 movement 缺失（触摸）时补算位移。 */
+  private __lastInput: NormalizedInput | null = null;
 
   constructor(ice: ICE) {
     this.ice = ice;
@@ -30,34 +42,75 @@ class DOMEventDispatcher {
 
   start() {
     let componentCache = null; //缓存上次被点击的组件
-    const domEvts = [...mouseEvents, ...keyboardEvents]; //鼠标事件和键盘事件合并在一起处理
+    const hasPointerEvent = typeof root.PointerEvent === 'function';
+    const domEvts = buildDomEventList(hasPointerEvent);
     for (let i = 0; i < domEvts.length; i++) {
       const evtMapping = domEvts[i];
-      const domEvtName = evtMapping[0];
-      const iceEvtName = evtMapping[1];
+      const nativeEvtName = evtMapping[0]; //原生事件名，同时也是组件层的事件名
+      const iceEvtName = evtMapping[1]; //总线上用于转发的内部事件名
+      const legacyMouseName = toLegacyMouseName(nativeEvtName); //pointer/touch → 鼠标语义名
+
       this.ice.evtBus.on(iceEvtName, (evt: ICEEvent) => {
         if (this._stopped) {
           return;
         }
 
-        //! mousemove 事件的触发频率非常高，对于 mousemove 事件不执行 findTargetComponent() 操作。
-        //! 键盘事件不需要执行 findTargetComponent() 操作，必须先选中一个组件，再把键盘事件派发给它才有意义。
-        if (iceEvtName !== 'ICE_MOUSEMOVE' && iceEvtName.indexOf('KEY') === -1) {
+        //1) 归一化坐标与位移（pointer/mouse/touch 统一）。键盘等无坐标事件返回 null。
+        const rawEvt: any = (evt as any).originalEvent || evt;
+        const input = normalizeInput(rawEvt, this.__resolveCanvasRect(nativeEvtName), this.__lastInput);
+        if (input) {
+          applyNormalizedInput(evt, input);
+          this.__lastInput = input;
+        }
+
+        const isMove = MOVE_ICE_EVENTS.indexOf(iceEvtName) !== -1;
+        const isKeyboard = iceEvtName.indexOf('KEY') !== -1;
+        //! 滚轮是高频事件，且语义是「视口操作」而非「作用于某个组件」：只发总线，不做命中检测，
+        //! 也不派发给上一次选中的组件（否则会给无关组件投递滚轮事件）。
+        const isWheel = iceEvtName === 'ICE_WHEEL';
+        //! 移动类事件触发频率极高，不执行 findTargetComponent()；
+        //! 键盘事件必须先选中组件再派发才有意义，同样不做命中检测。
+        if (!isMove && !isKeyboard && !isWheel) {
           componentCache = this.findTargetComponent(evt); //FIXME: TransformControlPanel 会遮挡住组件，导致组件收不到鼠标事件，需要做一些处理。
         }
 
-        if (componentCache) {
-          evt.target = componentCache;
-          componentCache.trigger(domEvtName, evt);
-        } else {
-          // console.warn('没有点中任何组件，不需要给组件派发事件...');
+        const dispatchTarget = isWheel ? null : componentCache;
+        //2) 原生名派发（新代码可用 pointerdown/pointermove/... 或 touchstart/...）
+        this.__dispatch(nativeEvtName, evt, dispatchTarget);
+        //3) 兼容名派发：pointer/touch 映射成 mousedown/mousemove/mouseup，既有组件零改动
+        if (legacyMouseName && legacyMouseName !== nativeEvtName) {
+          this.__dispatch(legacyMouseName, evt, dispatchTarget);
         }
-
-        //this.ice.evtBus 本身一定会触发一次鼠标和键盘事件。
-        this.ice.evtBus.trigger(domEvtName, evt, { component: componentCache });
       });
     }
     return this;
+  }
+
+  /**
+   * 把事件派发给命中的组件与事件总线。
+   * 组件先收到，总线后收到（与既有语义一致：总线始终会收到一次）。
+   */
+  private __dispatch(evtName: string, evt: any, componentCache: any): void {
+    if (componentCache) {
+      evt.target = componentCache;
+      componentCache.trigger(evtName, evt);
+    }
+    //this.ice.evtBus 本身一定会触发一次鼠标和键盘事件。
+    this.ice.evtBus.trigger(evtName, evt, { component: componentCache });
+  }
+
+  /**
+   * 取 canvas 矩形用于坐标换算。
+   * 移动类事件频率高（每帧可能多次），复用缓存；其余事件刷新一次，
+   * 保证页面滚动 / 布局变化后命中检测不错位。
+   */
+  private __resolveCanvasRect(nativeEvtName: string): any {
+    const isMove = nativeEvtName === 'pointermove' || nativeEvtName === 'mousemove' || nativeEvtName === 'touchmove';
+    const ice: any = this.ice;
+    if (!isMove && ice && typeof ice.updateCanvasBoundingRect === 'function') {
+      return ice.updateCanvasBoundingRect();
+    }
+    return ice ? ice.canvasBoundingClientRect || null : null;
   }
 
   public set stopped(flag: boolean) {
@@ -74,12 +127,17 @@ class DOMEventDispatcher {
    * 找到被点击的对象，用代码触发 click 事件。
    * 在点击状态下，每次只能点击一个对象，当前不支持 DOM 冒泡特性。
    *
+   * 坐标约定：`evt.offsetX/offsetY` 已由输入归一化保证是「canvas 内坐标」。
+   *
    * @returns
    */
   private findTargetComponent(evt) {
     if (this._stopped) return null;
 
     const { offsetX, offsetY } = evt;
+    if (typeof offsetX !== 'number' || typeof offsetY !== 'number') {
+      return null;
+    }
     // 命中检测在「世界坐标」进行：屏幕像素坐标先经视口逆变换回世界。
     const [x, y] = this.ice.screenToWorld(offsetX, offsetY);
 
