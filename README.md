@@ -63,12 +63,16 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 **序列化与动画**
 
 - **整图序列化** —— 组件树可序列化为 JSON 字符串并无损反序列化；自定义组件通过 `registerType()` 注册即可持久化。
-- **keyframes 式动画** —— 动画配置类似 CSS `keyframes`，内置线性 / 缓入 / 缓出等缓动函数。
+- **关键帧动画** —— 动画配置类似 CSS `keyframes`：单段 `{ from, to, duration }` 或
+  多段 `{ keyframes: [{ offset, value, easing? }], duration }`（`easing` 写在段起始帧上，只作用于该段；
+  `offset` 缺省按顺序均分、超界夹紧）。内置线性 / 缓入 / 缓出等缓动函数与**弹簧类缓动**
+  （`spring` / `springSoft` / `springSnappy`，自带过冲）；支持 `delay`、`loop`、`iterationCount`、
+  `round`；动画键可为 `'transform.rotate'` 这类**点路径**，取值可为**数组**（`transform.scale` 等逐元素补间）。
 
 **性能与工程质量**
 
 - **高性能** —— 脏标记 + **脏矩形局部重绘**（默认，不满足局部条件时自动回退全量），配合组件级离屏缓存、渲染队列缓存与矩阵零分配，`bench/render.cjs` 实测 **5000 图元静态重绘约 0.8ms/帧（引擎 JS 逻辑开销，不含光栅化）**。
-- **完整工程化** —— 47 个测试文件 / 249 个用例、Playwright 可视化回归（golden-image）、eslint、GitHub Actions CI、架构设计文档。
+- **完整工程化** —— 64 个测试文件 / 498 个用例、Playwright 可视化回归（golden-image）、eslint、GitHub Actions CI、架构设计文档。
 
 ## 🚀 快速开始
 
@@ -106,7 +110,7 @@ ice.addChild(new ICERect({ width: 100, height: 50 }));
 ## 📚 文档
 
 - **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容。
-- **示例** —— [`examples/`](./examples/index.html) 目录提供 79 个可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、性能基准等）。
+- **示例** —— [`examples/`](./examples/index.html) 目录提供 87 个可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、性能基准等）。
 
 ## 🧪 工程化
 

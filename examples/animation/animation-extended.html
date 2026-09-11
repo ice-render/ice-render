@@ -2,16 +2,17 @@
 
 <html lang="zh-CN">
   <meta charset="utf-8" />
-  <title>ice-render 动画扩展（点路径 / delay / 取整策略）</title>
+  <title>ice-render 动画扩展（点路径 / delay / 取整策略 / 数组补间）</title>
   <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
-    <h2 style="margin: 0 0 6px;">动画扩展：点路径 / delay / 取整策略</h2>
+    <h2 style="margin: 0 0 6px;">动画扩展：点路径 / delay / 取整策略 / 数组补间</h2>
     <p style="color:#555; margin: 0 0 10px; max-width: 1200px;">
       ① <strong>点路径</strong>：<code>'transform.rotate'</code>、<code>'style.globalAlpha'</code> 这类嵌套字段现在真正生效
       （旧实现会把点当成字面量键名，静默失效）；<br />
       ② <strong>delay</strong>：延迟期内保持起始值，可让同一组件多属性错峰，或让多个组件形成序列；<br />
       ③ <strong>取整策略</strong>：默认<strong>不取整</strong>（0→1 的透明度、角度、缩放不再被 Math.floor 压掉），
       需要整数步进时显式写 <code>round: true</code>；<br />
-      ④ 非数值字段（如数组型 <code>transform.scale</code>）会被<strong>明确拒绝并提示一次</strong>，
+      ④ <strong>数组字段逐元素补间</strong>：<code>transform.scale</code> / <code>transform.translate</code>
+      这类数组按分量各自插值；只有「长度不一致」或「含非数字」才会被明确拒绝并提示一次，
       而不是写出 <code>NaN</code> 破坏矩阵。
     </p>
     <canvas id="canvas-1" width="1060" height="460" style="background:#fff; border:1px solid #ddd;"></canvas>
@@ -94,14 +95,14 @@
         })
       );
 
-      // ④ 非数值字段：被拒绝并提示一次（不会写出 NaN）
-      label(640, 210, '④ 非数值字段 transform.scale 会被拒绝（控制台提示一次）');
+      // ④ 数组字段逐元素补间：x / y 分量各自独立（非等比缩放）
+      label(640, 210, '④ 数组字段 transform.scale 逐元素补间（非等比）');
       ice.addChild(
         new ICE.ICERect({
           left: 660, top: 250, width: 120, height: 70,
           style: { fillStyle: '#E5E7EB', strokeStyle: '#6B7280', lineWidth: 2 },
           zIndex: 22,
-          animations: { 'transform.scale': { from: [1, 1], to: [2, 2], duration: 1000, loop: true } },
+          animations: { 'transform.scale': { from: [1, 1], to: [1.6, 0.6], duration: 1200, loop: true } },
         })
       );
 

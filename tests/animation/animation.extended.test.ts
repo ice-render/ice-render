@@ -78,10 +78,12 @@ describe('AnimationManager 点路径', () => {
     expect(el.state.style.lineWidth).toBeCloseTo(5, 6);
   });
 
-  it('非数值属性（数组型 transform.scale）被明确拒绝，不写出 NaN', () => {
+  it('取值非法（长度不一致的数组）被明确拒绝，不写出 NaN', () => {
+    // 注：等长的数字数组现在是**支持**的（逐元素补间），见 animation.timeline.test.ts。
+    // 这里覆盖仍然必须拒绝的情形：长度不一致（逐元素对不上）。
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const mgr = makeManager();
-    const el = makeEl({ 'transform.scale': { from: [1, 1], to: [3, 3], duration: 100 } });
+    const el = makeEl({ 'transform.scale': { from: [1, 1], to: [3, 3, 3], duration: 100 } });
     mgr.add(el);
 
     mgr.tween(el);

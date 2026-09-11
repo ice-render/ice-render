@@ -157,7 +157,16 @@ export interface ICESemanticTheme {
   // 动效 token（时长 / 缓动），供动画系统引用
   motion: {
     duration: { fast: number; normal: number; slow: number; slower: number };
-    easing: { linear: string; out: string; inOut: string; outQuart: string };
+    easing: {
+      linear: string;
+      out: string;
+      inOut: string;
+      outQuart: string;
+      // 弹簧类（自带过冲）：语义名 → EasingProgress 方法名
+      spring: string;
+      springSoft: string;
+      springSnappy: string;
+    };
   };
 }
 
@@ -194,7 +203,15 @@ function buildSemantic(base: typeof baseTokens, overrides: Partial<ICESemanticTh
     ],
     motion: {
       duration: { fast: 100, normal: 200, slow: 300, slower: 500 },
-      easing: { linear: 'linear', out: 'easeOutCubic', inOut: 'easeInOutCubic', outQuart: 'easeOutQuart' },
+      easing: {
+        linear: 'linear',
+        out: 'easeOutCubic',
+        inOut: 'easeInOutCubic',
+        outQuart: 'easeOutQuart',
+        spring: 'spring',
+        springSoft: 'springSoft',
+        springSnappy: 'springSnappy',
+      },
     },
     ...overrides,
   };

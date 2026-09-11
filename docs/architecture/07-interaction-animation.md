@@ -41,14 +41,33 @@ graph TD
     FR[ICE_FRAME_EVENT] --> AM[AnimationManager.frameEventHandler]
     AM --> TW[tween: 按 props.animations 逐属性计算]
     TW --> SET[el.setState 新值 → 触发下一帧重绘]
-    SET --> DONE{动画结束?}
+    SET --> DONE{elapsed >= duration?}
     DONE -- 是 --> RM[从 animationMap 移除]
     DONE -- 否 --> TW
 ```
 
-- 动画配置挂在 `props.animations`，形如 `{ 属性名: { from, to, duration, easing, startTime?, finished? } }`，语义接近 CSS `keyframes`。
-- 缓动函数 `Easing`（`linear`、`easeInQuad`、`easeOutQuad`、`easeInOutQuad`、`easeInQuart`、`easeInCubic` 等）。
-- 动画期间把组件 `state.interactive` 临时置 `false`，避免交互干扰属性计算。
-- 计算结果 `Math.floor` 到整数像素，保证渲染稳定。
+动画配置挂在 `props.animations`，键可以是属性名或**点路径**（`'transform.rotate'` / `'style.globalAlpha'`），
+取值有两种形态：
 
-> 已知限制（源码 TODO）：未处理无限循环动画与"各属性持续时间不同"的同步问题，动画结束时才从列表移除。
+| 形态 | 写法 | 说明 |
+|---|---|---|
+| 单段 | `{ from, to, duration, easing? }` | 在两个值之间补间 |
+| 关键帧 | `{ keyframes: [{ offset, value, easing? }], duration }` | `offset` 为 0~1 时间占比，缺省按顺序均分、超出会被夹紧、乱序自动排序；`easing` 写在**段起始帧**上，只作用于「该帧 → 下一帧」这一段（未写则回落到动画级 `easing`）；时间轴之外的取值保持首/末帧值，不外推 |
+
+- 取值可为**数值**或**等长的数字数组**（`transform.scale` / `transform.translate` / `transform.skew`
+  等按分量逐元素补间）。两端长度不一致或含非数字会被拒绝，并只 `console.warn` 一次
+  （不再像早期实现那样写出 `NaN` 破坏矩阵）。
+- 通用配置：`duration`、`delay`（延迟期内保持起始值，可做多属性错峰/多组件序列）、`easing`、`loop`、
+  `iterationCount`、`round`。`duration` / `easing` 可用主题 `motion` token 的语义名
+  （`'normal'` / `'out'` / `'spring'` …）。
+- 缓动分两层：**`EasingProgress`**（归一化进度函数，`t: [0,1] → 进度`，纯函数、不读时钟）是唯一实现；
+  **`Easing`**（`(from, to, duration, startTime)` 值语义，内部读 `Date.now()`）是它的适配层，保持历史签名。
+  弹簧类（`spring` / `springSoft` / `springSnappy`，欠阻尼谐振子解析解）**自带过冲**，进度会短暂 `> 1`。
+- **结束判定按已流逝时间**（`elapsed >= duration`），而**不是**「值是否越过 `to`」——否则弹簧过冲的第一帧
+  就会被误判成结束。到点后精确落到终点值，不留浮点残差。
+- `duration` 非正数/缺失时**立即落到终点并结束**（旧实现会算出 `NaN` / `Infinity`，当 `from === to` 时
+  比较恒为 `false`，动画永不结束、每帧空转 `setState`）。
+- 动画期间把组件 `state.interactive` 临时置 `false`（**保存并恢复原值**，不覆盖用户显式设置的 `false`），
+  避免交互干扰属性计算；组件销毁时自动从 `animationMap` 摘除。
+- 默认**不取整**（避免 0→1 的透明度/角度/缩放被压掉），需要整数步进时显式 `round: true`（数组逐元素取整）。
+- 未知缓动名回退 `linear` 并只提示一次；非法配置的告警不会逐帧刷屏。
