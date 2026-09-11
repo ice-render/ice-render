@@ -34,7 +34,8 @@ function makeICE() {
   ice.ctx = {};
   ice.evtBus = new EventBus();
   ice.dirty = true;
-  ice.animationManager = { add: jest.fn() };
+  // 桩必须反映真实 AnimationManager 的契约（destory 会调 remove 摘除动画）
+  ice.animationManager = { add: jest.fn(), remove: jest.fn() };
   ice.renderer = { markQueueDirty: jest.fn() };
   return ice;
 }

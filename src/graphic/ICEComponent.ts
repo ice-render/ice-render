@@ -1053,6 +1053,12 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   public destory(): void {
+    // 先摘除动画：否则动画管理器仍会每帧 setState 到这个已销毁的组件（内存与 CPU 双泄漏）。
+    // 注意必须在清空 this.ice 之前做。
+    if (this.ice && this.ice.animationManager) {
+      this.ice.animationManager.remove(this);
+    }
+
     this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: this });
 
     this.purgeEvents();

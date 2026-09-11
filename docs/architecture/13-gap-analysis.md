@@ -202,11 +202,15 @@
 
 ## 4. P2 · 一致性与内部脆弱点
 
-### 4.1 动画
-- **无 `delay`**、无 keyframe 时间轴/序列/错峰、无 spring/elastic/bounce 缓动（`animation/Easing.ts:13-85`）。
-- `animation/AnimationManager.ts:102` 对**所有**属性 `Math.floor(newValue)` → `globalAlpha` / `rotate` / `scale` 动画**掉精度**。
-- `animation/AnimationManager.ts:56-58` 每帧强制 `el.state.interactive = false` 再置 `true`，会**覆盖用户原本设置的 `interactive:false`**。
-- 组件销毁不摘除动画：`graphic/ICEComponent.ts:1042-1052` 的 `destory()` 未调用 `animationManager.remove`，已销毁组件仍被 tween。
+### 4.1 动画（**2026-09-10 已修主要项**）
+- ✅ **支持点路径**：动画键现支持 `'transform.rotate'` / `'style.globalAlpha'` 这类嵌套字段。旧实现直接 `newState[key] = value`，键里的点被当作**字面量键名** → 这些动画**静默失效**（既不报错也不生效），所以此前只能动画 `left/top/width/height` 这类顶层字段。
+- ✅ **新增 `delay`**：延迟期内保持起始值，可让同一组件多属性错峰、或多组件形成序列（旧实现完全没有 delay）。
+- ✅ **取整策略**：不再无条件 `Math.floor`，默认不取整（0→1 的透明度、角度、缩放不再失真），需要整数步进时显式 `round: true`。
+- ✅ **非数值字段明确拒绝**：`transform.scale/translate/skew` 这类数组字段原会算出 `NaN` 并写进 state → **NaN 矩阵静默损坏渲染**；现在跳过并提示一次。
+- ✅ `interactive` **保存并恢复原值**（旧实现每帧置回 `true`，会覆盖用户显式设置的 `interactive:false`）。
+- ✅ 组件 `destory()` 时**从动画列表摘除**（旧实现不摘，销毁后仍被每帧 `setState`）。
+- ✅ 一帧只取一次时间戳，同一帧内各属性时间一致。
+- ⚠️ **仍缺**：keyframe 时间轴（多段序列）、spring/elastic/bounce 缓动、数组型字段的补间（需逐元素插值）。
 
 ### 4.2 布局
 - `graphic/container/ICEGroup.ts:122-143` 的 `addChild` **不调用 `doLayout()`** → 向已设布局的容器加子组件，布局不重排。
@@ -333,3 +337,5 @@
 | 2026-09-10 | P1-4 无障碍原语（`getAccessibilityTree` / `setFocusedComponent`，方案 B）+ 文档 14 + 示例 | ✅ 已完成 |
 | 2026-09-10 | P2 一致性簇：AFTER_REMOVE、监听器累积、插槽每帧置脏、`flattenTree` 的 `_pid`、`destroy` 别名、`getMinBoundingBox` 取值顺序 | ✅ 已完成 |
 | 2026-09-10 | P2 `findComponent` 递归查找 | ⏸ 已定位并给出修复顺序（需先改连线端点为渲染期自推导），当前保留保守行为 |
+| 2026-09-10 | P2 动画：点路径 / delay / 取整策略 / 拒绝 NaN / interactive 保留 / 销毁摘除 | ✅ 已完成 |
+| 2026-09-10 | P2 动画剩余：keyframe 时间轴、spring 类缓动、数组字段补间 | ⏳ 待做 |
