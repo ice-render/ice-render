@@ -73,7 +73,7 @@ global.document = benchDocument;
 
 const TARGET_N = parseInt(process.argv[2] || '1000', 10);
 const distPath =
-  process.argv[3] || path.resolve(__dirname, '..', 'dist', 'index.cjs.js');
+  process.argv[3] || path.resolve(__dirname, '..', 'dist', 'index.cjs');
 
 const iceMod = require(distPath);
 const { ICE, ICEGroup, ICERect, ICECircle, ICEStar, ICEText, EventBus } = iceMod;

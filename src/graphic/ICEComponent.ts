@@ -8,6 +8,7 @@
 import { glMatrix, mat2d, vec2 } from 'gl-matrix';
 import { cloneDeep } from '../util/lang';
 import { merge } from '../util/lang';
+import { bumpVisibilityEpoch, getVisibilityEpoch } from '../util/data-util';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import root from '../cross-platform/root';
 import EventBus from '../event/EventBus';
@@ -153,6 +154,9 @@ abstract class ICEComponent extends ICEEventTarget {
 
   // __localBox() 的复用缓冲（避免每帧为每个组件的包围盒分配数组）
   private __localBoxScratch: number[] = [0, 0, 0, 0];
+  /** 可见性缓存（代际号 + 值）：见 `isEffectivelyVisible` 的说明。 */
+  private __visEpoch = -1;
+  private __visValue = true;
   /** 声明式渐变缓存：按描述对象引用判定，`refreshParams()` 里失效（setState 必然触发它）。 */
   private __gradCache: { fill?: { src: any; grad: any }; stroke?: { src: any; grad: any } } = {};
 
@@ -410,15 +414,28 @@ abstract class ICEComponent extends ICEEventTarget {
    * 顶层组件（无 parentNode）走 O(1) 快路径 —— 绝大多数组件都是顶层，热路径上不付出遍历成本。
    */
   public isEffectivelyVisible(): boolean {
+    // 同一代内命中缓存：绝大多数调用走这条路径（两次字段读 + 比较）
+    if (this.__visEpoch === getVisibilityEpoch()) {
+      return this.__visValue;
+    }
+    const value = this.__computeEffectivelyVisible();
+    this.__visEpoch = getVisibilityEpoch();
+    this.__visValue = value;
+    return value;
+  }
+
+  /** 真正沿父链判定一次（只在代际变化时执行）。 */
+  private __computeEffectivelyVisible(): boolean {
     if (!this.state.display) {
       return false;
     }
-    if (!this.parentNode) {
-      return true;
-    }
     let node: any = this.parentNode;
     while (node) {
-      if (node.state && !node.state.display) {
+      // 父链上只有「组件」带 state；宿主对象（ICE 实例等）没有 → 到此为止，无需再往上
+      if (!node.state) {
+        break;
+      }
+      if (!node.state.display) {
         return false;
       }
       node = node.parentNode;
@@ -987,11 +1004,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * @param newState
    */
   public setState(newState: any) {
-    // 尺寸变化会让父容器的布局结果失效，需要请求重排；先读旧值再 merge。
-    const sizeChanged =
-      !!newState &&
-      ((newState.width !== undefined && newState.width !== this.state.width) ||
-        (newState.height !== undefined && newState.height !== this.state.height));
+    const sizeChanged = this.__beforeStateMerge(newState);
     merge(this.state, newState);
     // state 变化无法廉价判断「是否影响派生参数」，因此保守地两者都置脏（与旧行为一致）。
     this.paramsDirty = true;
@@ -999,7 +1012,32 @@ abstract class ICEComponent extends ICEEventTarget {
     if (this.ice) {
       this.ice.dirty = true;
     }
-    // 父容器若是布局容器，尺寸变化后必须重排（请求合并到下一帧，见 ICEGroup.requestLayout）
+    this.__afterStateMerge(sizeChanged);
+  }
+
+  /**
+   * `setState` 的**前置**钩子：必须在 `merge(this.state, newState)` 之前调用（要对比新旧值）。
+   *
+   * 覆盖 `setState` 的子类**必须**成对调用前后置钩子 —— `ICEGroup.setState` 是独立实现
+   * （它自己 merge、且不调 `super.setState`），曾因此漏掉这两件事：
+   * 「隐藏一个分组」不会让后代的可见性缓存失效、「分组改尺寸」不会触发父容器重排。
+   *
+   * @returns 尺寸是否变化（决定 `__afterStateMerge` 是否需要请求重排）
+   */
+  protected __beforeStateMerge(newState: any): boolean {
+    const sizeChanged =
+      !!newState &&
+      ((newState.width !== undefined && newState.width !== this.state.width) ||
+        (newState.height !== undefined && newState.height !== this.state.height));
+    // display 变化会让自身与全部后代的「最终可见性」失效
+    if (!!newState && newState.display !== undefined && newState.display !== this.state.display) {
+      bumpVisibilityEpoch();
+    }
+    return sizeChanged;
+  }
+
+  /** `setState` 的**后置**钩子：尺寸变化时请求父容器重排（合并到下一帧，见 `ICEGroup.requestLayout`）。 */
+  protected __afterStateMerge(sizeChanged: boolean): void {
     if (sizeChanged && this.parentNode && typeof this.parentNode.requestLayout === 'function') {
       this.parentNode.requestLayout();
     }
