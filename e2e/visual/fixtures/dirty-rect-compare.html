@@ -21,6 +21,8 @@
       验证「脏区切成多块」时既局部执行又像素一致；
       <code>?opaque=1&amp;grouptext=1</code> 在分组里放文本，第 3 步拖分组时子文本走
       「仅位置变化 + 已缓存」这条放宽路径，验证此时仍逐像素一致；
+      <code>?opaque=1&amp;line=1</code> 放一条横跨场景的连线，第 1 步拖动叶子时它与脏区相交 ——
+      连线必须能走离屏缓存，局部重绘才成立；
       默认富场景覆盖旋转/文本/阴影/连线/面板等边界。
     </p>
     <canvas id="canvas-a" width="700" height="500" style="background:#fff; border:1px solid #ccc;"></canvas>
@@ -45,6 +47,9 @@
       //?grouptext=1：在分组里塞一个文本子组件 —— 拖分组时子文本只会被标 dirty（paramsDirty 仍为 false）
       //且已命中离屏缓存，走的正是「仅位置变化 + 已缓存」这条新放宽的路径。
       const GROUPTEXT = OPAQUE && new URLSearchParams(location.search).get('grouptext') === '1';
+      //?opaque=1&line=1：在场景里放一条横跨的连线。连线通常横跨画布 → 任何脏区都与它相交，
+      //它又是 risky（点集路径）—— 只有「连线也能走离屏缓存」之后，局部重绘才可能成立。
+      const LINEOPAQUE = OPAQUE && new URLSearchParams(location.search).get('line') === '1';
 
       function buildScene(ice, renderMode) {
         ice.init('canvas-' + (renderMode === 'full' ? 'a' : 'b'), {
@@ -148,6 +153,19 @@
           style: { fillStyle: '#0EA5E9', strokeStyle: '#111827', lineWidth: 1 },
         });
         ice.addChild(box);
+
+        // 横跨的连线：与「拖动叶子」产生的脏区必然相交（见 ?line=1 用例）
+        if (LINEOPAQUE) {
+          const crossing = new ICE.ICEPolyLine({
+            points: [
+              [0, 50],
+              [700, 50],
+            ],
+            zIndex: 90,
+            style: { strokeStyle: '#334155', lineWidth: 2 },
+          });
+          ice.addChild(crossing);
+        }
 
         let link = null;
         if (!OPAQUE) {

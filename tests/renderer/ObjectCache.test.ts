@@ -189,11 +189,15 @@ function makeHarness() {
     setTransform: noop,
     drawImage: (...a: any[]) => drawImages.push(a),
   };
-  const offCtx: any = { scale: jest.fn() };
-  const canvas: any = { offscreen: true };
+  const offCtx: any = { scale: jest.fn(), setTransform: noop };
+  const canvas: any = { offscreen: true, width: 0, height: 0 };
 
   const root = require('../../src/cross-platform/root').default;
-  root.createOffscreenCanvas = jest.fn().mockReturnValue({ canvas, ctx: offCtx });
+  root.createOffscreenCanvas = jest.fn((w: number, h: number) => {
+    canvas.width = w;
+    canvas.height = h;
+    return { canvas, ctx: offCtx };
+  });
   root.devicePixelRatio = 1;
 
   const ice: any = { ctx, root };
@@ -214,7 +218,10 @@ describe('ObjectCache 组件级离屏缓存', () => {
 
     expect(cache.render(c)).toBe(true);
     expect(c.renderToCount).toBe(1);
-    expect(offCtx.scale).toHaveBeenCalledWith(1, 1);
+    // 契约变更（2026-09-11）：不再依赖 ctx.scale(dpr,dpr) —— 那一句会被 renderTo() 内部的
+    // setTransform() 整条覆盖，本来就是死代码。现在缩放直接编码进 base 矩阵。
+    expect(offCtx.scale).not.toHaveBeenCalled();
+    expect(c.lastBase).toEqual([1, 0, 0, 1, 3, 3]);
     expect(drawImages.length).toBe(1);
 
     // 位图内容未变、组件未脏 → 只贴图
@@ -237,9 +244,10 @@ describe('ObjectCache 组件级离屏缓存', () => {
 
     expect(c.renderToCount).toBe(1); // 位图未重建
     expect(drawImages.length).toBe(2);
-    // 纯平移只改位置，宽高不变
-    expect(drawImages[1][3]).toBe(drawImages[0][3]);
-    expect(drawImages[1][4]).toBe(drawImages[0][4]);
+    // 纯平移只改落点（1:1 贴回，无目标宽高）；平移的是 composedMatrix 的 e/f，不影响世界盒
+    expect(drawImages[1][1]).toBe(drawImages[0][1]);
+    expect(drawImages[1][2]).toBe(drawImages[0][2]);
+    expect(drawImages[1][3]).toBeUndefined();
   });
 
   it('内容变化重建位图', () => {
@@ -278,25 +286,40 @@ describe('ObjectCache 组件级离屏缓存', () => {
     expect(c.renderToCount).toBe(2);
   });
 
-  it('贴图使用含 pad 的世界盒与逻辑尺寸', () => {
+  it('贴图用含 pad 的世界盒、整数设备像素落点、1:1 尺寸', () => {
     const { cache, drawImages } = makeHarness();
     const c: any = new FakeComponent();
     cache.render(c);
 
-    // PAD_AA=2，世界盒 [0,0,100,30] → 贴图 [ -2, -2, 104, 34 ]
+    // PAD_AA=2，世界盒 [0,0,100,30] → paint 盒 [-2,-2,102,32]
+    // rs=1 / ox=oy=0 → dx = floor(-2) - 1 = -3；位图 = ceil(102)-(-3)+1 = 106 x 36
     const [img, x, y, w, h] = drawImages[0];
     expect(img.offscreen).toBe(true);
-    expect(x).toBe(-2);
-    expect(y).toBe(-2);
-    expect(w).toBe(104);
-    expect(h).toBe(34);
+    expect(x).toBe(-3);
+    expect(y).toBe(-3);
+    // 1:1 贴回：不传目标宽高（传了就是在重采样）
+    expect(w).toBeUndefined();
+    expect(h).toBeUndefined();
+    expect(img.width).toBe(106);
+    expect(img.height).toBe(36);
   });
 
-  it('封闭 dot-path 可缓存，连线类（isLine）不可缓存', () => {
+  it('封闭 dot-path 可缓存；连线类改为「按面积上限」决定（契约变更）', () => {
     const { cache } = makeHarness();
     const dot: any = new FakeDotPath();
     expect(cache.isCachable(dot)).toBe(true);
-    expect(cache.isCachable({ state: { display: true }, calcDots: () => {}, isLine: true })).toBe(false);
+
+    // 契约变更（2026-09-11）：连线此前一律不缓存，代价是「干净但不可缓存的连线与脏区相交
+    // → 回退全量」常态命中（连线横跨画布），富场景局部重绘因此 100% 失效。
+    // 现改为按**设备像素面积**设上限；策略细节见 offscreen-line-cache.test.ts。
+    const line = (w: number, h: number) => ({
+      state: { display: true, width: w, height: h, lineDashFlow: false, style: {} },
+      calcDots: () => {},
+      isLine: true,
+      __localBox: () => [0, 0, w, h],
+    });
+    expect(cache.isCachable(line(300, 200))).toBe(true);
+    expect(cache.isCachable(line(3000, 3000))).toBe(false);
   });
 
   it('dot-path 纯平移复用位图且 dots 不累积偏移', () => {

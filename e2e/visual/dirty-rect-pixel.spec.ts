@@ -157,3 +157,19 @@ test('拖动内含文本的分组（仅位置变化的已缓存 risky 组件）�
   // 必须能走局部重绘。这条断言有区分度：去掉放宽逻辑后该步为 0。
   expect(perStep[3], '拖动含文本的分组必须走局部重绘').toBeGreaterThan(0);
 });
+
+/**
+ * 横跨场景的连线：连线通常跨画布 → 任何脏区都与它相交，而它是 risky（点集路径）。
+ * 在「连线也能走离屏缓存」之前，这条会稳定把整帧顶成全量重绘（编辑器里就是这样：
+ * 拖动实体 22/22 帧全部回退）。这里断言第 1 步（拖动叶子）确实走了局部重绘，且像素仍一致。
+ */
+test('场景里有横跨的连线（连线走离屏缓存后）：局部重绘执行且逐像素一致', async ({ page }) => {
+  const { stepResults, collectOk, perStep } = await runSteps(
+    page,
+    '/e2e/visual/fixtures/dirty-rect-compare.html?opaque=1&line=1',
+    true
+  );
+  console.log(`[dirty-rect-pixel:line] 10 步全部一致；局部重绘执行=${collectOk} 次`);
+  console.log(`  每步局部帧数=${JSON.stringify(perStep)}`);
+  expect(perStep[1], '拖动叶子时，横跨的连线不应把整帧顶成全量').toBeGreaterThan(0);
+});

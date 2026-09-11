@@ -154,6 +154,11 @@ abstract class ICEComponent extends ICEEventTarget {
 
   // __localBox() 的复用缓冲（避免每帧为每个组件的包围盒分配数组）
   private __localBoxScratch: number[] = [0, 0, 0, 0];
+
+  /** 本渲染通道的「本地 → 设备」CTM（主画布通道 = 视口·composed；离屏位图通道 = base·composed）。 */
+  private __activeCtm: number[] | null = null;
+  /** 本渲染通道的「世界 → 设备」矩阵（主画布通道 = 视口；离屏通道 = 缓存位图的 base 矩阵）。 */
+  private __activeWorldMatrix: number[] | null = null;
   /** 可见性缓存（代际号 + 值）：见 `isEffectivelyVisible` 的说明。 */
   private __visEpoch = -1;
   private __visValue = true;
@@ -861,27 +866,73 @@ abstract class ICEComponent extends ICEEventTarget {
     const matrix = this.dirty ? this.composeMatrix() : this.state.composedMatrix;
     const vp = applyViewport && this.ice ? this.ice.getRenderViewport() : null;
     const hasViewport = vp && (vp.scale !== 1 || vp.tx !== 0 || vp.ty !== 0);
+
+    // 「世界 → 设备」矩阵：主画布通道是视口矩阵；离屏位图通道是 base 矩阵
+    //（base 已含渲染缩放与把世界盒平移到位图左上角的平移）。
+    let world: number[] | null = null;
+    if (hasViewport) {
+      if (!this.__viewportScratch) this.__viewportScratch = [1, 0, 0, 1, 0, 0];
+      const vm = this.__viewportScratch;
+      vm[0] = vp.scale;
+      vm[1] = 0;
+      vm[2] = 0;
+      vm[3] = vp.scale;
+      vm[4] = vp.tx;
+      vm[5] = vp.ty;
+      world = vm;
+    } else if (baseMatrix) {
+      world = baseMatrix;
+    }
+    this.__activeWorldMatrix = world;
+
     if (baseMatrix || hasViewport) {
       //@perf: 复用 scratch 缓冲做 base/viewport · composed，避免每帧分配新数组。
       if (!this.__composeScratch) this.__composeScratch = [1, 0, 0, 1, 0, 0];
       const out = this.__composeScratch;
-      let left = baseMatrix;
-      if (hasViewport) {
-        if (!this.__viewportScratch) this.__viewportScratch = [1, 0, 0, 1, 0, 0];
-        const vm = this.__viewportScratch;
-        vm[0] = vp.scale;
-        vm[1] = 0;
-        vm[2] = 0;
-        vm[3] = vp.scale;
-        vm[4] = vp.tx;
-        vm[5] = vp.ty;
-        left = vm;
-      }
       //@ts-ignore
-      mat2d.multiply(out, left, matrix);
+      mat2d.multiply(out, world || baseMatrix, matrix);
+      this.__activeCtm = out;
       this.ctx.setTransform(out[0], out[1], out[2], out[3], out[4], out[5]);
     } else {
+      this.__activeCtm = matrix;
       this.ctx.setTransform(...matrix);
+    }
+  }
+
+  /**
+   * 复原「本渲染通道的完整 CTM」（`base·composed` 或 `viewport·composed`）。
+   *
+   * 子类在 `super.doRender()` 之后需要重新拿到完整变换 —— 链上的 `ICEComponent.doRender()` 会
+   * 把 CTM 换成「世界 → 设备」矩阵以绘制 debug 包围盒。
+   *
+   * **不要用 `applyTransformToCtx(null, true)` 代替**：那条路径无条件按主画布视口重算，
+   * 在离屏位图通道里会把内容画到完全错误的位置（丢掉位图原点的平移），
+   * 表现为「连线的箭头与标签在缓存位图里整块消失」——离屏缓存保真测试就是抓这个的。
+   */
+  protected applyActiveTransform(): void {
+    const m = this.__activeCtm;
+    if (!m) {
+      this.applyTransformToCtx(null, true);
+      return;
+    }
+    this.ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+  }
+
+  /**
+   * 把「世界 → 设备」矩阵应用到 ctx。
+   * debug 包围盒的坐标本身就是世界坐标，不能套「本地 → 世界」的 composed 矩阵。
+   */
+  protected applyWorldTransform(): void {
+    //@perf: 本方法每个组件每帧都会被调用一次，所以缩放直接在矩阵上取（引擎里「世界 → 设备」
+    //       矩阵恒为「缩放 + 平移」—— 视口矩阵或缓存 base 矩阵，[0]/[3] 就是统一缩放），
+    //       不做 sqrt(det) 那种更通用但更贵的计算，也不额外存字段。
+    const m = this.__activeWorldMatrix;
+    if (m) {
+      this.ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+      this.ctx.lineWidth = 1 / (Math.abs(m[0]) || Math.abs(m[3]) || 1);
+    } else {
+      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+      this.ctx.lineWidth = 1;
     }
   }
 
@@ -890,17 +941,10 @@ abstract class ICEComponent extends ICEEventTarget {
    * @method doRender
    */
   protected doRender(): void {
-    // 边界盒坐标是「世界坐标」，但画布已经应用视口。这里给 debug 框套同一视口矩阵，
-    // 否则缩放/平移后边界框会停留在错误的屏幕位置。
-    const vp = this.ice && this.ice.getRenderViewport();
-    const hasViewport = vp && (vp.scale !== 1 || vp.tx !== 0 || vp.ty !== 0);
-    if (hasViewport) {
-      this.ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.tx, vp.ty);
-      this.ctx.lineWidth = 1 / vp.scale;
-    } else {
-      this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-      this.ctx.lineWidth = 1;
-    }
+    // 边界盒坐标是「世界坐标」，所以这里套的是**本渲染通道的「世界 → 设备」矩阵**：
+    // 主画布通道 = 视口矩阵；离屏位图通道 = 缓存位图的 base 矩阵。
+    // （照着视口重算会在离屏通道里把框画到错误位置 —— 位图原点的平移被丢掉。）
+    this.applyWorldTransform();
 
     if (this.state.showMinBoundingBox || this.state.showMaxBoundingBox) {
       const minBox = this.state.showMinBoundingBox ? this.getMinBoundingBox() : null;
