@@ -19,6 +19,8 @@
       <code>?opaque=1&amp;hidpi=1</code> 用 dpr=2 启动，验证高分屏下同样既局部执行又像素一致；
       <code>?opaque=1&amp;multi=1</code> 让第 1 步同时拖动相距很远的两个组件，
       验证「脏区切成多块」时既局部执行又像素一致；
+      <code>?opaque=1&amp;grouptext=1</code> 在分组里放文本，第 3 步拖分组时子文本走
+      「仅位置变化 + 已缓存」这条放宽路径，验证此时仍逐像素一致；
       默认富场景覆盖旋转/文本/阴影/连线/面板等边界。
     </p>
     <canvas id="canvas-a" width="700" height="500" style="background:#fff; border:1px solid #ccc;"></canvas>
@@ -40,6 +42,9 @@
       //?multi=1：第 1 步同时拖动「相距很远的两个组件」，让脏区必须切成多块
       //（并集成一个盒会圈进大片干净区域、直接撞面积阈值回退全量）。
       const MULTI = new URLSearchParams(location.search).get('multi') === '1';
+      //?grouptext=1：在分组里塞一个文本子组件 —— 拖分组时子文本只会被标 dirty（paramsDirty 仍为 false）
+      //且已命中离屏缓存，走的正是「仅位置变化 + 已缓存」这条新放宽的路径。
+      const GROUPTEXT = OPAQUE && new URLSearchParams(location.search).get('grouptext') === '1';
 
       function buildScene(ice, renderMode) {
         ice.init('canvas-' + (renderMode === 'full' ? 'a' : 'b'), {
@@ -62,6 +67,36 @@
           });
           group.addChild(leaf);
           leaves.push(leaf);
+        }
+
+        // 一批远离脏区的静止组件：拖分组时会把「脏组件占比」压到 20% 阈值以下，
+        // 否则会先被「脏占比过高」那条门拦掉，测不到本次要验证的路径。
+        if (GROUPTEXT) {
+          for (let i = 0; i < 30; i++) {
+            ice.addChild(
+              new ICE.ICERect({
+                left: 480 + (i % 6) * 34,
+                top: 400 + Math.floor(i / 6) * 26,
+                width: 20,
+                height: 14,
+                zIndex: 100 + i,
+                style: { fillStyle: '#CBD5E1', strokeStyle: '#94A3B8', lineWidth: 1 },
+              })
+            );
+          }
+        }
+
+        // 分组内的文本：拖动分组时它是「仅位置变化 + 已缓存」的 risky 组件
+        if (GROUPTEXT) {
+          const groupText = new ICE.ICEText({
+            left: 10,
+            top: 70,
+            width: 10,
+            height: 10,
+            text: '分组内文本',
+            style: { fontSize: 14, fillStyle: '#1F2937' },
+          });
+          group.addChild(groupText);
         }
 
         let star = null;
@@ -142,13 +177,19 @@
       const dr = buildScene(new ICE.ICE(), 'dirty-rect');
 
       // 统计 dirty-rect 实例真正执行局部重绘的次数（证明不是全程回退全量）
-      window.__drStats = { collectOk: 0 };
+      // 逐步骤统计：perStep[i] = 第 i 步期间真正执行了局部重绘的帧数
+      //（只统计总次数无法定位「是哪一步走了局部」，用例就没有区分度）。
+      window.__drStats = { collectOk: 0, current: -1, perStep: [] };
       (function () {
         const renderer = dr.ice.renderer;
         const orig = renderer.__collect.bind(renderer);
         renderer.__collect = function () {
           const plan = orig();
-          if (plan) window.__drStats.collectOk++;
+          if (plan) {
+            window.__drStats.collectOk++;
+            const i = window.__drStats.current;
+            if (i >= 0) window.__drStats.perStep[i] = (window.__drStats.perStep[i] || 0) + 1;
+          }
           return plan;
         };
       })();
@@ -159,6 +200,7 @@
       }
 
       window.__step = function (i) {
+        window.__drStats.current = i;
         switch (i) {
           case 0: // 初始帧（首帧均全量 prime）
             break;

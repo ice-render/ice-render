@@ -13,6 +13,8 @@
 import CanvasRenderer from '../../src/renderer/CanvasRenderer';
 import ICE from '../../src/ICE';
 import ICERect from '../../src/graphic/shape/ICERect';
+import ICEGroup from '../../src/graphic/container/ICEGroup';
+import ICEText from '../../src/graphic/text/ICEText';
 import ICEStar from '../../src/graphic/shape/ICEStar';
 import EventBus from '../../src/event/EventBus';
 import root from '../../src/cross-platform/root';
@@ -61,6 +63,16 @@ function makeCtx() {
     setLineDash: noop,
     drawImage: noop,
     scale: noop,
+    // ICEText 渲染需要：量测返回带 actualBoundingBox* 的对象（与真实 ctx 一致）
+    fillText: noop,
+    strokeText: noop,
+    measureText: (t: string) => ({
+      width: String(t || '').length * 8,
+      actualBoundingBoxAscent: 8,
+      actualBoundingBoxDescent: 2,
+      actualBoundingBoxLeft: 0,
+      actualBoundingBoxRight: String(t || '').length * 8,
+    }),
   };
 }
 
@@ -227,5 +239,114 @@ describe('dirty-rect 相交级门控', () => {
     ice.dirty = true;
 
     expect(renderer.__collect()).toBeNull();
+  });
+
+  test('拖拽容器时：子组件「仅位置变化 + 已缓存」不再阻塞（富场景终于能局部重绘）', () => {
+    const { ice, renderer } = makeHarness();
+    // 足够多的静止组件，把「脏组件占比」压到 20% 阈值以下（否则会先被那条门拦掉）
+    for (let i = 0; i < 24; i++) {
+      ice.addChild(opaque(20 + (i % 12) * 40, 20 + Math.floor(i / 12) * 30, i));
+    }
+
+    // 容器里放一个 risky 子组件（半透明 → 非不透明落墨），首帧会被离屏缓存
+    const box = new ICEGroup({
+      left: 300,
+      top: 300,
+      width: 120,
+      height: 80,
+      style: { fillStyle: '#ffffff', strokeStyle: '#111827', lineWidth: 1 },
+    });
+    const inner = alpha(20, 20, 10);
+    box.addChild(inner);
+    ice.addChild(box);
+    prime(renderer, ice);
+    expect(renderer.cache.has(inner)).toBe(true);
+
+    // 只移动容器：后代只被标 dirty，**不**重量测参数（dirty / paramsDirty 拆级的语义）
+    box.setState({ left: 330 });
+    ice.dirty = true;
+    expect(inner.dirty).toBe(true);
+    expect(inner.paramsDirty).toBe(false);
+
+    // 仅位置变化 + 已缓存 → 主画布只是把位图平移贴回，clip 只作用整像素采样，与全量逐像素一致
+    expect(renderer.__collect()).not.toBeNull();
+  });
+
+  test('内容变化（paramsDirty）时仍一律回退：墨迹可能超出几何盒', () => {
+    const { ice, renderer } = makeHarness();
+    for (let i = 0; i < 6; i++) {
+      ice.addChild(opaque(20 + i * 40, 20, i));
+    }
+    const star = smallStar(600, 500, 50); // 不可缓存的 risky
+    ice.addChild(star);
+    prime(renderer, ice);
+
+    star.setState({ outerRadius: 11 }); // 几何变了 → paramsDirty
+    ice.dirty = true;
+    expect(star.paramsDirty).toBe(true);
+    expect(renderer.__collect()).toBeNull();
+  });
+
+  test('平移不变的非文本 risky（点集路径、不可缓存）也不阻塞：盒 + paint pad 已覆盖墨迹', () => {
+    const { ice, renderer } = makeHarness();
+    for (let i = 0; i < 24; i++) {
+      ice.addChild(opaque(20 + (i % 12) * 40, 20 + Math.floor(i / 12) * 30, i));
+    }
+
+    // 容器里的不可缓存 risky（小星形：点集路径 + 面积小 → 不走离屏缓存）
+    const box = new ICEGroup({
+      left: 300,
+      top: 300,
+      width: 120,
+      height: 80,
+      style: { fillStyle: '#ffffff', strokeStyle: '#111827', lineWidth: 1 },
+    });
+    const star = smallStar(20, 20, 10);
+    box.addChild(star);
+    ice.addChild(box);
+    prime(renderer, ice);
+    expect(renderer.cache.isCachable(star)).toBe(false);
+
+    box.setState({ left: 330 }); // 只平移：星形自身只被标 dirty，几何没变
+    ice.dirty = true;
+    expect(star.dirty).toBe(true);
+    expect(star.paramsDirty).toBe(false);
+
+    // 脏组件的 old∪new 盒（含 paint pad）本来就会并进脏区 → clip 切不到它的墨迹
+    expect(renderer.__collect()).not.toBeNull();
+  });
+
+  test('平移不变的文本必须命中缓存才放行（字形墨迹会超出几何盒）', () => {
+    const { ice, renderer } = makeHarness();
+    for (let i = 0; i < 24; i++) {
+      ice.addChild(opaque(20 + (i % 12) * 40, 20 + Math.floor(i / 12) * 30, i));
+    }
+
+    const box = new ICEGroup({
+      left: 300,
+      top: 300,
+      width: 120,
+      height: 80,
+      style: { fillStyle: '#ffffff', strokeStyle: '#111827', lineWidth: 1 },
+    });
+    const label: any = new ICEText({ left: 10, top: 10, width: 10, height: 10, text: 'hi' });
+    box.addChild(label);
+    ice.addChild(box);
+
+    // ① 未走缓存（编辑态）→ 平移不变也要回退
+    label.setState({ editing: true });
+    prime(renderer, ice);
+    expect(renderer.cache.isCachable(label)).toBe(false);
+    box.setState({ left: 330 });
+    ice.dirty = true;
+    expect(renderer.__collect()).toBeNull();
+
+    // ② 回到非编辑态并被缓存 → 放行（主画布只是 drawImage 平移贴回）
+    label.setState({ editing: false });
+    prime(renderer, ice);
+    expect(renderer.cache.has(label)).toBe(true);
+    box.setState({ left: 340 });
+    ice.dirty = true;
+    expect(renderer.__collect()).not.toBeNull();
   });
 });

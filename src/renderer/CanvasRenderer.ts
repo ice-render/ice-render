@@ -350,6 +350,10 @@ class CanvasRenderer extends ICEEventTarget {
         continue;
       }
       if (!c.dirty) continue;
+      // 先给「脏的种类」拍个快照：`__freshBox()` 会调 `refreshParams()` 把 `paramsDirty` 清掉，
+      // 而门控（`__riskyIntersectsRegions`）要到收集**之后**才读它 —— 不快照就会把
+      // 「内容/几何变了」误判成「只是平移」，从而错误地放行（像素不一致）。
+      c.__paramsDirtyAtCollect = c.paramsDirty;
       const nb = this.__freshBox(c);
       if (!nb) return false;
       const old = this.__snap.get(c);
@@ -383,8 +387,25 @@ class CanvasRenderer extends ICEEventTarget {
       if (!c.isEffectivelyVisible()) continue;
       const risky = this.__isDotPath(c) || this.__isText(c) || !isOpaqueDrawing(c.state);
       if (!risky) continue;
-      // 变脏 → 无条件回退（见上方说明）
-      if (c.dirty) return true;
+      // 变脏：位图/参数要重建，默认回退。可按「墨迹是否可能超出几何盒」细分：
+      //   ① 内容或几何变了（`paramsDirty`）→ 一律回退：字形/描边的实际墨迹范围可能超出几何盒；
+      //   ② 仅位置变化（`paramsDirty === false`，祖先变换导致的平移）：
+      //      · 非文本：脏组件的 old∪new 盒（含 paint pad）本来就会并进脏区，clip 切不到它的墨迹 → 放行；
+      //      · 文本：字形墨迹可能超出几何盒 → 必须有离屏缓存（主画布只是 drawImage 平移贴回位图，
+      //        clip 只作用于整像素采样），否则回退。
+      // 「拖动一个含文本的实体」走的正是 ②：后代只被标 dirty、不重量测参数 —— 此前被无条件回退拦住，
+      // 于是编辑器里局部重绘几乎永不生效。
+      if (c.dirty) {
+        if (!c.__paramsDirtyAtCollect) {
+          if (!this.__isText(c)) {
+            continue;
+          }
+          if (this.cache.isCachable(c) && this.cache.has(c)) {
+            continue;
+          }
+        }
+        return true;
+      }
       // 干净的已缓存组件：主画布只是 drawImage 不透明位图，clip 不影响 → 不阻塞
       if (this.cache.isCachable(c) && this.cache.has(c)) continue;
 
