@@ -12,3 +12,6 @@
 !**/logo-*.png
 # *log* 同样误伤 CHANGELOG.md（整个仓库因此一直没有变更日志），显式放行
 !CHANGELOG.md
+# *lock* 还会误伤 package-lock.json —— 它因此从未被跟踪，CI 每次安装都重新解析依赖、不可复现
+# （与 CHANGELOG 的误伤同一类问题）。显式放行。
+!package-lock.json

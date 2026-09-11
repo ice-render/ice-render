@@ -200,6 +200,12 @@
 
 ### 工程
 
+- **提交 `package-lock.json`，CI 改用 `npm ci`**：`.gitignore` 第 9 行的 `*lock*` 把 lockfile 一并忽略了
+  （与当初 `*log*` 误伤 CHANGELOG 是同一类问题），因此它从未被跟踪，CI 每次 `npm install` 都重新解析
+  依赖范围、安装不可复现。现显式放行 lockfile，并把两个 job 的安装步骤改为 `npm ci`
+  （lockfile 与 `package.json` 不同步时会直接失败，正是想要的效果；已用 `npm ci --dry-run` 验证同步）。
+  降级后本包唯一平台相关可选依赖是 darwin 的 `fsevents`，Linux CI 会自动跳过，无跨平台风险。
+
 - `.eslintrc` 为 `tests/**`、`e2e/**` 关闭 `@typescript-eslint/no-var-requires`
   （测试中刻意使用 `require` 处理 `jest.mock` 的提升顺序）。
 - 全仓 prettier 格式化，`npm run lint` 由「194 error」变为 **0 error**（CI 的 lint 步骤由红转绿）。
