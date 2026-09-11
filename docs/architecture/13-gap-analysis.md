@@ -144,7 +144,14 @@
 - `persistence/Deserializer.ts:54-58` 对未知类型直接 `new Clazz(state)`（`Clazz` 为 `undefined`）→ 抛错，无跳过/容错。
 - `consts/COMPONENT_TYPE_MAPPING.ts:27-39` **漏了 `ICERose`**（另有 `ICELinkSlot` / `ICELinkHook`）——这些类型**存得下、读不回**。
 
-**方向**：改显式 `typeId` 注册表（字符串常量，与类名解耦）+ 反序列化容错 + 版本迁移（`Deserializer.migrate` 目前只有 `throw`，`Deserializer.ts:45-51`）。
+**方向（2026-09-10 已落地）**：改为「构造函数 → 注册名」**反查**（`ICE.getTypeId()`），与类的 JS 名解耦：
+- 已注册类型：序列化写出注册名，terser 压缩改名不再破坏已存数据
+- 未注册的自定义类型：仍回退 `constructor.name`（保持既有约定，不破坏下游）
+- 补齐漏注册的 **`ICERose`**（此前存得下、读不回）
+- 反序列化容错：未注册类型**跳过该节点（含子树）并记录到 `deserializer.unknownTypes`**，
+  不再 `new undefined(...)` 抛错导致整份数据打不开
+- 版本迁移改为可扩展的 `SERIALIZATION_MIGRATIONS`（按 `to` 升序逐级执行）；高于当前版本仍明确抛错
+- 旧数据（type 写类名、无 version 字段）继续可加载
 
 ### P1-7 发行契约与质量门禁
 
@@ -284,3 +291,4 @@
 | 2026-09-10 | P0-1 剩余：多指手势（pinch 缩放 / 双指旋转） | ⏳ 待做（按 09-roadmap 边界，属应用层 UX；引擎侧原语已具备） |
 | 2026-09-10 | P1-1 文本：自动换行 / maxLines 省略 / grapheme 分段 | ✅ 已完成（默认关闭，零行为变化） |
 | 2026-09-10 | P1-2 文本量测 HTML 注入（安全） | ✅ 已修复（textContent + white-space:pre） |
+| 2026-09-10 | P1-6 序列化 typeId 反查 + 反序列化容错 + 迁移框架（补 ICERose） | ✅ 已完成 |

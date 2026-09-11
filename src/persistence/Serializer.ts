@@ -73,9 +73,12 @@ export default class Serializer {
 
   //递归序列化
   private encodeRecursively(component, parentData) {
+    // 优先用注册表反查稳定 typeId（与类名解耦，压缩改名不破坏数据）；
+    // 未注册的自定义类型回退到 constructor.name（保持既有约定）。
+    const typeId = this.ice.getTypeId(component.constructor) || component.constructor.name;
     const currentData = {
       state: this.pickSerializableState(component.state),
-      type: component.constructor.name,
+      type: typeId,
       childNodes: [],
     };
 
