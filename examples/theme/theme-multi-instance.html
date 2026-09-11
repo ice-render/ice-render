@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render 实例级主题（多品牌隔离）</title>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">实例级主题：多画布 / 多品牌互不污染</h2>
+    <p style="color:#555; margin: 0 0 10px; max-width: 1100px;">
+      同一个页面上两个 <code>ICE</code> 实例，各自持有自己的主题：<code>ice.setTheme()</code>
+      只改本实例（旧实现改的是模块级单例，两个画布会互相污染）。<br />
+      按钮只切左画布的主题，右画布保持不变；组件上的 <code>preset</code>
+      （<code>card</code>/<code>title</code>/<code>body</code>）在加入实例时按该实例的主题解析。
+    </p>
+    <p>
+      <button id="dark">左画布 → dark</button>
+      <button id="light">左画布 → default</button>
+      <span id="status" style="margin-left:8px; color:#555;"></span>
+    </p>
+    <div style="display:flex; gap:16px;">
+      <div>
+        <div style="font-weight:600; margin-bottom:4px;">实例 A（可切换）</div>
+        <canvas id="canvas-a" width="440" height="300" style="background:#fff; border:1px solid #ddd;"></canvas>
+      </div>
+      <div>
+        <div style="font-weight:600; margin-bottom:4px;">实例 B（固定 default）</div>
+        <canvas id="canvas-b" width="440" height="300" style="background:#fff; border:1px solid #ddd;"></canvas>
+      </div>
+    </div>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+
+      function buildScene(ice) {
+        ice.addChild(
+          new ICE.ICERect({
+            preset: 'card', left: 24, top: 24, width: 390, height: 250,
+            zIndex: 1,
+          })
+        );
+        ice.addChild(
+          new ICE.ICEText({
+            preset: 'title', left: 44, top: 48, text: '主题标题', zIndex: 10,
+          })
+        );
+        ice.addChild(
+          new ICE.ICEText({
+            preset: 'body', left: 44, top: 96, width: 340, wrap: true,
+            text: '正文样式来自 preset，切换主题时按本实例的主题重新解析。', zIndex: 11,
+          })
+        );
+        ice.addChild(
+          new ICE.ICERect({
+            preset: 'button', left: 44, top: 190, width: 140, height: 44, radius: 8, zIndex: 12,
+          })
+        );
+        ice.addChild(
+          new ICE.ICEText({
+            preset: 'label', left: 200, top: 205, text: '标签文本', zIndex: 13,
+          })
+        );
+      }
+
+      const iceA = new ICE.ICE().init('canvas-a');
+      const iceB = new ICE.ICE().init('canvas-b');
+      buildScene(iceA);
+      buildScene(iceB);
+      window.__iceA = iceA;
+      window.__iceB = iceB;
+
+      function status() {
+        document.getElementById('status').textContent =
+          'A.text=' + iceA.getTheme().semantic.text + '   B.text=' + iceB.getTheme().semantic.text;
+      }
+      document.getElementById('dark').addEventListener('click', () => {
+        iceA.setTheme('dark');
+        status();
+      });
+      document.getElementById('light').addEventListener('click', () => {
+        iceA.setTheme('default');
+        status();
+      });
+      status();
+      iceA.dirty = true;
+      iceB.dirty = true;
+    })();
+  </script>
+</html>
