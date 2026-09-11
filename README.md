@@ -15,6 +15,31 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 
 > 概要介绍视频：<https://www.bilibili.com/video/BV1hT4y1v7G5>
 
+## ⭐ 差异化能力
+
+以下三点是本引擎在同类 Canvas 图形引擎中较少同时具备的能力，且都有回归测试或基准数据支撑。
+
+**1. 极端规模下的内存与构建效率**
+
+- **默认配置不复制** —— 所有实例原型继承同一份默认 `props` / `state`，只有显式传入的字段才落到实例上；嵌套对象在合并时才做写时复制。
+- **挂载去重为 O(1)** —— 用 `WeakSet`，批量挂载不再有 `indexOf` 的 O(n²) 放大。
+- **实测**：**100 万个最小矩形的堆增量约 0.87GB**（朴素实现约 2.0GB）；**100 万图元构建约 6s**。
+- **回归**：`tests/graphic/ICEComponent.props-sharing.test.ts`、`tests/ICE.add-child.test.ts`；微基准见 `bench/micro/`。
+
+**2. 局部重绘是一条可证明的像素契约**
+
+- 默认渲染路径为**脏矩形局部重绘**，不满足局部条件时自动回退全量；`ICE.init(ctx, { renderMode: 'full' })` 可强制全量。
+- 为保证两条路径**逐像素一致**，每个组件在 `render()` 末尾把自身污染过的 `ctx` 全局状态（阴影 / `globalAlpha` / 合成模式 / 虚线等）归位，使组件渲染自包含。
+- 用 golden image 做像素一致性回归（`e2e/visual/dirty-rect-pixel.spec.ts`），覆盖文本、参数化图元、半透明落墨等场景。
+- 配套优化：组件级离屏缓存（含纯平移复用位图）、渲染队列缓存、矩阵零分配。`bench/render.cjs` 实测 **5000 图元静态重绘约 0.8ms/帧**（引擎 JS 逻辑开销，不含光栅化）。
+
+**3. 小程序是一等公民**
+
+- 一套代码同时面向 **Web 浏览器**与**各类小程序**：所有全局对象访问收敛到 `cross-platform/root` 适配层。
+- **无全局 `Path2D` 的运行时自动降级**：`PolyfillPath2D` 记录路径命令、渲染时重放，与原生 `Path2D` 逐像素一致（老版本小程序基础库可用）。
+- 字体、图片、离屏画布、像素比全部有平台适配（`FontFace` / 小程序 `loadFont`、`Image` / 小程序 `createImage`、`document.createElement('canvas')` / 小程序 `createOffscreenCanvas`、`devicePixelRatio` / 小程序系统信息）。
+- `ICE.init(ctx)` 支持直接传入 Canvas 上下文，完全绕开 DOM。
+
 ## ✨ 核心特性
 
 **架构与组件模型**
@@ -31,7 +56,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 
 **交互与连接线**
 
-- **鼠标 + 键盘事件** —— 完整事件系统（`on/off/once/trigger` 及 W3C 别名），支持拖拽、框选、多选。
+- **鼠标 + 键盘事件** —— 完整事件系统（`on/off/once/trigger` 及 W3C 别名），支持拖拽与方向键微调。
 - **变换控制面板** —— 选中组件后出现旋转 / 缩放手柄。
 - **Visio 风格连接线** —— 端点插槽吸附（上 / 右 / 下 / 左 / 中心五个方向），建立组件间的连线关系。
 
@@ -42,8 +67,8 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 
 **性能与工程质量**
 
-- **高性能** —— 脏标记 + 全量重绘的简单模型，配合「渲染队列缓存」与「矩阵零分配」，`bench/render.cjs` 实测 **5000 图元静态重绘约 0.8ms/帧（引擎 JS 逻辑开销，不含光栅化）**。
-- **完整工程化** —— 46 个单元测试、Playwright 可视化回归（golden-image）、eslint、GitHub Actions CI、架构设计文档。
+- **高性能** —— 脏标记 + **脏矩形局部重绘**（默认，不满足局部条件时自动回退全量），配合组件级离屏缓存、渲染队列缓存与矩阵零分配，`bench/render.cjs` 实测 **5000 图元静态重绘约 0.8ms/帧（引擎 JS 逻辑开销，不含光栅化）**。
+- **完整工程化** —— 47 个测试文件 / 249 个用例、Playwright 可视化回归（golden-image）、eslint、GitHub Actions CI、架构设计文档。
 
 ## 🚀 快速开始
 
@@ -81,7 +106,7 @@ ice.addChild(new ICERect({ width: 100, height: 50 }));
 ## 📚 文档
 
 - **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容。
-- **示例** —— [`examples/`](./examples/index.html) 目录提供 75 个可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、性能基准等）。
+- **示例** —— [`examples/`](./examples/index.html) 目录提供 79 个可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、性能基准等）。
 
 ## 🧪 工程化
 
