@@ -21,6 +21,7 @@ import ICELinkSlotManager from './graphic/link/ICELinkSlotManager';
 import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
 import PluginHost, { ICEPlugin } from './plugin/PluginHost';
+import { buildAccessibilityTree, ICEAccessibleNode, ICEAccessibilityOptions } from './a11y/accessibility';
 import CanvasRenderer from './renderer/CanvasRenderer';
 import ImageCache from './util/ImageCache';
 import { setTheme, getTheme, registerTheme, ICETheme, ICESemanticTheme } from './theme/ICETheme';
@@ -457,6 +458,43 @@ class ICE {
       return false;
     }
     return this.plugins.syncTools(this.selectionList[0] || null);
+  }
+
+  /**
+   * 无障碍：取「可访问节点快照」，供应用层渲染隐藏 DOM 镜像（screen reader / 键盘导航）。
+   *
+   * 引擎**不**自建 DOM 镜像层 —— 镜像的 DOM 结构、ARIA 属性、文案与焦点环高度依赖具体产品语义。
+   * 引擎负责给出：id / 角色建议 / 可读名称 / **屏幕坐标盒（CSS 像素）** / 层级 / tab 顺序 / 选中态；
+   * 应用层据此渲染 `<div role="img" aria-label=... style="position:absolute; ...">` 之类的镜像元素，
+   * 并用 `setFocusedComponent()` 把 DOM 焦点映射回组件。
+   *
+   * 不含未上屏（无有效变换矩阵）的组件，也不会修改任何组件 state。
+   */
+  public getAccessibilityTree(options?: ICEAccessibilityOptions): ICEAccessibleNode[] {
+    return buildAccessibilityTree(this, options);
+  }
+
+  /**
+   * 设置键盘事件的焦点组件（无障碍 / 键盘导航原语）。
+   *
+   * 未设置时维持既有行为：键盘事件派发给「上次点击命中的组件」。
+   * 传入 id 字符串或组件实例；传 null / undefined 清除焦点。
+   */
+  public setFocusedComponent(component: any | string | null): this {
+    let target = component;
+    if (typeof component === 'string') {
+      const all = flattenTree([], this.childNodes).concat(flattenTree([], this.toolNodes));
+      target = all.filter((c: any) => c.props && c.props.id === component)[0] || null;
+    }
+    if (this.eventDispatcher) {
+      this.eventDispatcher.focusedComponent = target || null;
+    }
+    return this;
+  }
+
+  /** 当前键盘焦点组件（未设置时为 null）。 */
+  public getFocusedComponent(): any {
+    return this.eventDispatcher ? this.eventDispatcher.focusedComponent : null;
   }
 
   /**

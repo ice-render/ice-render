@@ -60,3 +60,5 @@ export { default as ICE } from './ICE';
 export { default as CanvasRenderer } from './renderer/CanvasRenderer';
 export { default as PluginHost } from './plugin/PluginHost';
 export type { ICEPlugin, ICEPluginTool, ICERenderHook, ICERenderFrame } from './plugin/PluginHost';
+export { buildAccessibilityTree } from './a11y/accessibility';
+export type { ICEAccessibleNode, ICEAccessibleRole, ICEAccessibilityOptions } from './a11y/accessibility';

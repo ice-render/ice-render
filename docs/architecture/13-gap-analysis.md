@@ -128,6 +128,16 @@
 
 **对标**：MDN 明确 `<canvas>` 只是位图、不向辅助技术暴露绘制对象，仅提供 fallback 文本；W3C 把 canvas 的命中测试、放大、动态焦点列为**未解决用例**。业界已有引擎用「隐藏 DOM 覆盖层 + accessible 标题/提示/类型/tabIndex 语义标注」的方案解决，可直接借鉴。
 
+**进展（2026-09-10，方案 B：引擎只给原语）**：新增 `ICE.getAccessibilityTree()` 与 `ICE.setFocusedComponent()`，
+**不自建 DOM 镜像层**——理由与方案 A 需要解决的问题见 [14 · 无障碍原语](14-accessibility.md)：
+- `getAccessibilityTree(options)`：产出可访问节点快照（id / 角色建议 / 可读名称 / **屏幕坐标盒（CSS 像素，含视口换算）**
+  / 层级 / 父 id / tab 顺序 / 选中态 / 可聚焦性）。只含已上屏组件；**不修改任何组件 state**
+  （用缓存的 `composedMatrix`，不调 `composeMatrix()`，避免点集路径 `dots` 漂移）
+- `setFocusedComponent(componentOrId)`：键盘事件改为派发给焦点组件；**未设置焦点时行为完全不变**
+- 应用层负责 DOM 结构、ARIA、文案、焦点环（参考实现见 `examples/a11y/a11y-mirror.html`）
+- **仍缺**：若要做方案 A（引擎内建镜像层），需要先解决生命周期同步、多运行时禁用、按需加载包体、
+  镜像与画布命中坐标一致、焦点环绘制五个问题
+
 ### P1-5 无插件 / 扩展机制
 
 **证据**：唯一扩展点是 `ICE.registerType()`（`ICE.ts:343-354`），且**只服务于反序列化的类名映射**。新增图元须手改 `consts/COMPONENT_TYPE_MAPPING.ts`。
@@ -317,3 +327,4 @@
 | 2026-09-10 | P1-6 序列化 typeId 反查 + 反序列化容错 + 迁移框架（补 ICERose） | ✅ 已完成 |
 | 2026-09-10 | P1-7 发行门禁：exports/sideEffects、CI 接可视化回归、CHANGELOG、husky 权限位、lint 转绿 | ✅ 已完成 |
 | 2026-09-10 | P1-5 插件三层注册点（组件/渲染/交互工具）+ 生命周期 `use`/`unuse` | ✅ 已完成 |
+| 2026-09-10 | P1-4 无障碍原语（`getAccessibilityTree` / `setFocusedComponent`，方案 B）+ 文档 14 + 示例 | ✅ 已完成 |
