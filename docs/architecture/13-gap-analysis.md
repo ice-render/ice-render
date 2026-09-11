@@ -137,6 +137,21 @@
 2. 自定义渲染 pass / 命中判定；
 3. 自定义交互工具（控制面板、手势）。
 
+**进展（2026-09-10）**：新增 `ICE.use(plugin)` / `ICE.unuse(name)` 与 `PluginHost`（`src/plugin/PluginHost.ts`），
+开放三层注册点，并按 09-roadmap 边界保持在「原语」层面（不做应用层 UX）：
+
+| 层 | 注册点 | 实现 |
+|---|---|---|
+| ① 组件 | `components: { typeId: Ctor }` | 宿主代为 `registerType`，因此自动获得 typeId 反查 → 自定义图元可序列化 |
+| ② 渲染 | `render(frame)` | 每帧调用；坐标系为世界坐标（CTM = dpr·viewport，与组件一致）；两条渲染路径都调用，局部帧在 `clip` 之内 |
+| ③ 交互 | `tools: [{ id, match(c), create(), exclusive?, onTargetChange? }]` | 复用既有 `toolNodes`：命中 `addTool`、失配 `removeTool`，实例跨选中复用；`exclusive` 命中时禁用内置变换/连线面板 |
+
+- 生命周期：`use` 幂等（同名不重复 `setup`）；`unuse` 撤销渲染回调与工具并调用 `teardown`，
+  **`components` 的类型注册保留**（反序列化仍可能依赖，撤销会让已存数据失效）
+- 选中改为统一入口 `ICE.setSelection()` 并同步插件工具；`match` 抛错按未命中处理（不影响引擎）
+- **仍缺**：自定义**命中判定**注册点（目前只能覆盖 `containsPoint`）、自定义布局/主题的正式注册协议、
+  插件依赖声明与版本约束
+
 ### P1-6 序列化的类型键不健壮
 
 **证据**：
@@ -301,3 +316,4 @@
 | 2026-09-10 | P1-2 文本量测 HTML 注入（安全） | ✅ 已修复（textContent + white-space:pre） |
 | 2026-09-10 | P1-6 序列化 typeId 反查 + 反序列化容错 + 迁移框架（补 ICERose） | ✅ 已完成 |
 | 2026-09-10 | P1-7 发行门禁：exports/sideEffects、CI 接可视化回归、CHANGELOG、husky 权限位、lint 转绿 | ✅ 已完成 |
+| 2026-09-10 | P1-5 插件三层注册点（组件/渲染/交互工具）+ 生命周期 `use`/`unuse` | ✅ 已完成 |

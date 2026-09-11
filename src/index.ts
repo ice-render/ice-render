@@ -58,3 +58,5 @@ export {
 } from './theme/ICETheme';
 export { default as ICE } from './ICE';
 export { default as CanvasRenderer } from './renderer/CanvasRenderer';
+export { default as PluginHost } from './plugin/PluginHost';
+export type { ICEPlugin, ICEPluginTool, ICERenderHook, ICERenderFrame } from './plugin/PluginHost';

@@ -220,6 +220,9 @@ class CanvasRenderer extends ICEEventTarget {
       }
     }
 
+    //插件渲染钩子（世界坐标，与组件同一坐标系）
+    this.__invokePluginRender(null);
+
     this.__finalizeHidden(this.componentQueue);
     this.__finalizeHidden(this.toolsQueue);
     this.__primed = true;
@@ -403,6 +406,9 @@ class CanvasRenderer extends ICEEventTarget {
       this.__capture(tool);
     }
 
+    //插件渲染钩子：仍在 clip 之内，语义与组件一致
+    this.__invokePluginRender(r);
+
     ctx.restore();
 
     this.__finalizeHidden(this.componentQueue);
@@ -410,6 +416,29 @@ class CanvasRenderer extends ICEEventTarget {
 
     this.ice.dirty = false;
     this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
+  }
+
+  /**
+   * 调用插件渲染钩子。要求：
+   * - 与世界坐标一致：先把 CTM 设为「渲染视口」（dpr · viewport），插件即可按世界坐标绘制
+   * - 在两条渲染路径中都调用；局部重绘时处于 clip 之内，语义与组件一致
+   * - 未注册任何钩子时零开销（不构造 frame 对象）
+   */
+  private __invokePluginRender(region: number[] | null): void {
+    const host: any = this.ice && this.ice.plugins;
+    if (!host || typeof host.hasRenderHooks !== 'function' || !host.hasRenderHooks()) {
+      return;
+    }
+    const ctx = this.ice.ctx;
+    const vp = typeof this.ice.getRenderViewport === 'function' ? this.ice.getRenderViewport() : this.ice.viewport;
+    ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.tx, vp.ty);
+    host.invokeRenderHooks({
+      ctx,
+      mode: this.renderMode,
+      region,
+      width: this.ice.canvasWidth,
+      height: this.ice.canvasHeight,
+    });
   }
 
   // ===================== 局部重绘支撑 =====================

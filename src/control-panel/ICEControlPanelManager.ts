@@ -89,9 +89,15 @@ class ICEControlPanelManager {
       return;
     }
 
-    this.ice.selectionList = [component];
+    // 统一选中入口：写 selectionList 并同步插件工具；返回「排他」插件工具是否命中
+    const exclusiveMatched = this.ice.setSelection([component]);
     this.lineControlPanel.disable();
     this.transformControlPanel.disable();
+
+    // 排他插件工具命中：由插件接管该组件的交互，屏蔽内置变换/连线面板
+    if (exclusiveMatched) {
+      return;
+    }
 
     //线条型的组件变换工具与其它组件不同
     if (component.isLine) {

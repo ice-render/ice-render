@@ -24,6 +24,13 @@
 - **`package.json` 增加 `exports` 与 `sideEffects: false`**：显式条件导出（`types` / `import` / `require`）
   与 tree-shaking 支持；保留 `./dist/*` 子路径以兼容既有的直接引用方式。
 - **CI 增加可视化 / 示例回归任务**：`npm run test:visual:ci`（examples 冒烟 + 交互 + 像素一致性）。
+- **插件机制 `ICE.use(plugin)` / `ICE.unuse(name)`**：开放三层注册点——
+  ① `components`（自定义图元类型，自动注册并可通过 typeId 反查，因此可序列化）；
+  ② `render(frame)`（每帧世界坐标叠加绘制，两条渲染路径都调用，局部帧在 clip 之内）；
+  ③ `tools`（按 `match(component)` 挂载/摘除自定义工具，`exclusive` 可屏蔽内置变换/连线面板）。
+  提供 `setup` / `teardown` 生命周期与幂等注册。
+- **选中统一入口 `ICE.setSelection(components)`**：写 `selectionList` 并同步插件工具；
+  返回值表示是否有「排他」插件工具命中（供调用方禁用内置面板）。
 
 ### 修复
 
