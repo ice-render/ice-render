@@ -25,6 +25,13 @@ class ICEEllipse extends ICEPath {
       counterclockwise: true,
       ...props,
     };
+    // width/height 是高层 API 的便捷写法；未显式给 radiusX/radiusY 时从它们反推。
+    if (props.radiusX === undefined && props.width !== undefined) {
+      param.radiusX = Number(props.width) / 2;
+    }
+    if (props.radiusY === undefined && props.height !== undefined) {
+      param.radiusY = Number(props.height) / 2;
+    }
     param.width = param.radiusX * 2;
     param.height = param.radiusY * 2;
     super(param);
