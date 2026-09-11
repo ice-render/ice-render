@@ -33,6 +33,21 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 
 - **`once` 可摘除铁律（2026-09-11 确立）**：`ICEEventTarget.once(name, fn, scope)` 内部会把 `fn` 包成 `callback` 再 `on`，因此**必须在包装函数上留 `__onceOriginal = fn`**，`off` 也要同时匹配「包装函数」与「原始回调」——否则外部 `off(name, fn, scope)` 永远删不掉一次监听，只能等它自己触发一次。约束：① 注册在**跨组件 / 总线级**（如 `ice.evtBus`）上的监听，组件 `destory()` 时 `purgeEvents()` 清不掉（它清的是本组件的 `listeners`），**必须在 `destory()` 里显式 `off`，且要在 `super.destory()`（会置空 `evtBus`）之前**；② 事件回调要能容忍「组件已销毁」：写 `this.ice.xxx` 前先判空（全仓 `this.ice.dirty` 唯一一处漏判就在 `ICEPolyLine.syncConnections`，正是应用层 undo/redo 崩溃的来源）。回归用例见 `tests/event/once-off.test.ts`、`tests/link/polyline-destroy.test.ts`。
 
+### 性能相关铁律（2026-09-11 因一次真实回归确立）
+
+- **任何触碰每帧热路径的改动，都必须做「同时刻新旧对照」的基准测量**，不能只看单次数值：
+  `npm run bench 5000`（场景 A 静态重绘 / B 动画全量 compose / C 文本缓存命中 / D 文本重建缓存）。
+  做法是：改动前先 `git stash`（或切上一提交）构建并测 3 次，改动后同样测 3 次，**比较中位数区间是否重叠**。
+  本机负载可达 load 4~5，单次读数会有 ±10% 噪声；实测同一版本组内波动 <1.5%，所以「3 次中位数区间不重叠」
+  才是真回归。
+  先例：可见性判定（`isEffectivelyVisible`）每帧被调 3~4 次/组件、且组件多层嵌套，实现里沿父链走导致
+  5000 图元场景 **+15%**；因为没做对照，是靠后来补测才发现的。修法是「代际缓存」（`bumpVisibilityEpoch`）。
+- **基准脚本本身也要被门禁守住**：`bench/render.cjs` 曾引用早已改名的 `dist/index.cjs.js`，
+  于是 `npm run bench` 直接跑不起来、README 的性能数字也无法复现，且因为不在任何门禁里长期没人发现。
+  现在有 `tests/tooling/bench-smoke.test.ts` 用 N=200 真跑一遍（**不断言耗时**，CI 机器不可控）。
+- **性能数字不写死在文档里**：写「用 `npm run bench 5000` 复现」+ 标注实测机器与日期，
+  否则跨机器差数倍的数字会变成不可复现的宣称（README 旧版本的「5000 图元 0.8ms」实测是 2.2ms）。
+
 ## 已知技术债（严重度）
 
 > 复核日期 **2026-09-11**。此前本节长期停留在「8 suite / 36 用例」等早期口径，与仓库实际严重脱节，已按实测重写。
@@ -61,6 +76,13 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 
 - 核心引擎在 `dev` 分支开发，远程 `origin/dev`。
 - 提交信息遵循 `@commitlint/config-conventional`（已在 devDeps）。
+
+## 提交前自检
+
+- 一条命令跑完全部门禁：**`npm run verify`**（lint → types:check → build → jest → bench 2000 → pkg:check）；
+  需要浏览器回归时用 `npm run verify:full`（再追加 Playwright 全量）。
+- CI（`.github/workflows/ci.yml`，跑在 GitHub 镜像上）执行的是同一批步骤；**主仓 Gitee 没有 runner**，
+  所以 Gitee 侧的改动质量完全依赖本地跑 `npm run verify`。
 
 ## 测试约定
 

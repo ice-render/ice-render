@@ -35,6 +35,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # 基准脚本必须能跑通（曾因引用改名后的产物路径而长期静默失效）。
+      # 只做「可执行性 + 指标齐全」检查，不断言耗时（CI 机器不可控，时间断言必然 flaky）。
+      - name: Bench smoke
+        run: npm run bench 2000
+
   # 可视化 / 示例回归：examples 冒烟会逐个打开 examples/ 下所有页面并断言无错误、画布有输出。
   # 这里刻意**不跑** e2e/visual/visual.spec.ts（golden 图像比对）：Playwright 基线图按平台命名
   # （*-darwin.png），跨平台会因渲染差异必然失败，需在生成基线的同一环境本地运行。
