@@ -416,6 +416,17 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   /**
+   * 显式「测量」：刷新一次自身派生参数（尺寸 / 点集 / 文本量测）。
+   *
+   * 布局管理器（`ICELayoutManager`）排布时读的是 `child.state.width/height`，
+   * 而这些值在首次渲染之前是 0（文本甚至是 10 的哨兵值）—— 布局因此会算错。
+   * 由容器在布局前统一调一次本方法，布局就不必「等一帧才正确」。
+   */
+  public measure(): void {
+    this.calcComponentParams();
+  }
+
+  /**
    * 计算本地原点坐标，相对于组件本地坐标系。
    * 此方法依赖于 width/height ，需要先计算组件的尺寸，然后才能调用此方法。
    * @returns
