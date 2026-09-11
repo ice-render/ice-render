@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render 文本换行与省略</title>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">ice-render 文本换行 / 最大行数省略 / grapheme</h2>
+    <p style="color:#555; margin: 0 0 10px; max-width: 1100px;">
+      <code>wrap: true</code> 按 <code>width</code> 自动断行（默认 <code>wrap: false</code> 保持旧的
+      「只按 <code>\n</code> 拆行 + 超宽横向压缩」行为）；<code>maxLines</code> 限制行数，超出时末行以
+      <code>ellipsis</code> 截断（逐 grapheme 回退，保证「内容+省略号」不超宽）；
+      断行按 grapheme cluster 切分（优先 <code>Intl.Segmenter</code>），不会把 emoji / ZWJ 序列拆开。
+    </p>
+    <canvas id="canvas-1" width="1040" height="420" style="background:#fff; border:1px solid #ddd;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+      const ice = new ICE.ICE().init('canvas-1');
+      window.__ice = ice;
+
+      const TEXT = 'Canvas 的 fillText 传 maxWidth 会把超宽文字横向压缩，而不是换行。';
+
+      function label(y, text) {
+        ice.addChild(
+          new ICE.ICEText({
+            left: 20, top: y, text,
+            stroke: false,
+            style: { fontSize: 14, fontFamily: 'Arial', fillStyle: '#2563EB' },
+            zIndex: 1,
+          })
+        );
+      }
+
+      // 1) 旧行为：不换行，超宽被横向压缩
+      label(10, '1) wrap:false —— 超宽横向压缩（旧行为）');
+      ice.addChild(
+        new ICE.ICEText({
+          left: 20, top: 32, text: TEXT, width: 300,
+          stroke: false,
+          style: { fontSize: 18, fontFamily: 'Arial', fillStyle: '#111827' },
+          zIndex: 2,
+        })
+      );
+
+      // 2) 自动换行
+      label(80, '2) wrap:true —— 自动断行');
+      ice.addChild(
+        new ICE.ICEText({
+          left: 20, top: 102, text: TEXT, width: 300, wrap: true,
+          stroke: false,
+          style: { fontSize: 18, fontFamily: 'Arial', fillStyle: '#111827' },
+          zIndex: 3,
+        })
+      );
+
+      // 3) 最大行数 + 省略号
+      label(210, '3) wrap:true, maxLines:2 —— 末行省略号');
+      ice.addChild(
+        new ICE.ICEText({
+          left: 20, top: 232, text: TEXT, width: 300, wrap: true, maxLines: 2,
+          stroke: false,
+          style: { fontSize: 18, fontFamily: 'Arial', fillStyle: '#111827' },
+          zIndex: 4,
+        })
+      );
+
+      // 4) grapheme：emoji ZWJ 序列不被拆开
+      label(10 + 0, '');
+      ice.addChild(
+        new ICE.ICEText({
+          left: 400, top: 10, text: '4) grapheme 切分（不拆 emoji / ZWJ）',
+          stroke: false,
+          style: { fontSize: 14, fontFamily: 'Arial', fillStyle: '#2563EB' },
+          zIndex: 11,
+        })
+      );
+      ice.addChild(
+        new ICE.ICEText({
+          left: 400, top: 34, text: '👩‍👩‍👧 👍🏽 🇨🇳 áè 混合文本按 grapheme 断行，不会出现半个字符。',
+          width: 300, wrap: true,
+          stroke: false,
+          style: { fontSize: 20, fontFamily: 'Arial', fillStyle: '#10B981' },
+          zIndex: 12,
+        })
+      );
+
+      // 5) 与 \n 段落混排
+      ice.addChild(
+        new ICE.ICEText({
+          left: 740, top: 10, text: '5) 段落 \\n 与自动换行叠加',
+          stroke: false,
+          style: { fontSize: 14, fontFamily: 'Arial', fillStyle: '#2563EB' },
+          zIndex: 21,
+        })
+      );
+      ice.addChild(
+        new ICE.ICEText({
+          left: 740, top: 34, text: '第一段很长需要自动断行处理。\n第二段同样需要断行。',
+          width: 280, wrap: true,
+          stroke: false,
+          style: { fontSize: 18, fontFamily: 'Arial', fillStyle: '#F59E0B' },
+          zIndex: 22,
+        })
+      );
+
+      // 安全回归：文本里的 HTML 一律按纯文本显示（不会被当标签执行）
+      ice.addChild(
+        new ICE.ICEText({
+          left: 400, top: 300, text: '安全性：<img src=x onerror=alert(1)> 按纯文本渲染',
+          width: 600, wrap: true,
+          stroke: false,
+          style: { fontSize: 18, fontFamily: 'Arial', fillStyle: '#EF4444' },
+          zIndex: 30,
+        })
+      );
+    })();
+  </script>
+</html>

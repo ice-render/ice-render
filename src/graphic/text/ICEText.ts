@@ -53,6 +53,10 @@ class ICEText extends ICEComponent {
         height: 10,
         editing: false, //是否处于内联编辑状态
         caretIndex: 0, //编辑光标位置（字符下标）
+        wrap: false, //是否按 state.width 自动换行（默认关，保持既有「按 \n 拆行」行为）
+        maxLines: 0, //最大行数（0 = 不限）；超出时末行以 ellipsis 截断
+        ellipsis: '…', //截断时追加的省略号
+        lines: null, //派生：换行后的行数组（不序列化，随 measureText 重算）
         transformable: false, //文本默认不显示变换手柄（选中时只允许拖动），需变换时显式设 true
         style: {
           fontWeight: 'bold',
@@ -330,6 +334,10 @@ class ICEText extends ICEComponent {
    * FIXME:对文本位置的控制需要更精细的计算方法。
    */
   private measureText(evt?: ICEEvent) {
+    // 0) 自动换行：只有显式开启 wrap 且给了可用宽度、且不在编辑态时才重排。
+    //    编辑态不换行，避免 caretIndex（按原始文本计）与显示行错位。
+    this.state.lines = this.__computeWrappedLines();
+
     // 优先用 Canvas 的真实字形边界测量，避免 DOM line-height 的 leading 造成 padding 偏差。
     const canvas = this.__measureByCanvas();
     if (canvas) {
@@ -339,13 +347,113 @@ class ICEText extends ICEComponent {
     return this.__measureByDOM();
   }
 
+  /**
+   * 计算换行后的行数组；返回 null 表示「不换行，按 \n 拆」。
+   */
+  private __computeWrappedLines(): string[] | null {
+    if (!this.state.wrap || this.state.editing) return null;
+    const maxWidth = Number(this.state.width);
+    if (!(maxWidth > 0)) return null;
+    const ctx: any = this.ctx;
+    if (!ctx || typeof ctx.measureText !== 'function') return null;
+
+    const measure = this.__measureFn();
+    const lines = this.__wrapText(maxWidth, measure);
+    return this.__truncateLines(
+      lines,
+      maxWidth,
+      Number(this.state.maxLines) || 0,
+      String(this.state.ellipsis ?? '…'),
+      measure
+    );
+  }
+
+  /** 统一的测宽函数：优先 ctx.measureText；无 ctx 时按 fontSize 粗估。 */
+  private __measureFn(): (s: string) => number {
+    const ctx: any = this.ctx;
+    if (this.state.style.font && ctx && typeof ctx.measureText === 'function') {
+      ctx.font = this.state.style.font;
+    }
+    const fallbackChar = Number(this.state.style.fontSize) || 12;
+    return (s: string): number => {
+      if (ctx && typeof ctx.measureText === 'function') {
+        const m = ctx.measureText(s);
+        return (m && m.width) || 0;
+      }
+      return s.length * fallbackChar;
+    };
+  }
+
+  /**
+   * 按 grapheme cluster 切分。
+   * 优先 Intl.Segmenter（Baseline 2024），能把 emoji / ZWJ 序列 / 组合字符合成一个单元；
+   * 不可用时退化为码点切分（至少不会把代理对拆开）。
+   */
+  private __graphemes(s: string): string[] {
+    const intl: any = this.root && this.root.Intl;
+    if (intl && typeof intl.Segmenter === 'function') {
+      try {
+        const seg = new intl.Segmenter(undefined, { granularity: 'grapheme' });
+        const out: string[] = [];
+        for (const part of seg.segment(s)) {
+          out.push(part.segment);
+        }
+        return out;
+      } catch (err) {
+        // 某些实现不支持 granularity → 退化
+      }
+    }
+    return Array.from(s);
+  }
+
+  /** 贪心换行：逐 grapheme 累加，超过可用宽度即断行。保留段落自身的 \n。 */
+  private __wrapText(maxWidth: number, measure: (s: string) => number): string[] {
+    const out: string[] = [];
+    const paragraphs = String(this.state.text ?? '').split('\n');
+    for (let p = 0; p < paragraphs.length; p++) {
+      const gs = this.__graphemes(paragraphs[p]);
+      let line = '';
+      for (let i = 0; i < gs.length; i++) {
+        const next = line + gs[i];
+        if (line !== '' && measure(next) > maxWidth) {
+          out.push(line);
+          line = gs[i];
+        } else {
+          line = next;
+        }
+      }
+      out.push(line);
+    }
+    return out;
+  }
+
+  /**
+   * 超过 maxLines 时截断末行并追加省略号；逐 grapheme 回退直到「内容+省略号」放得下。
+   */
+  private __truncateLines(
+    lines: string[],
+    maxWidth: number,
+    maxLines: number,
+    ellipsis: string,
+    measure: (s: string) => number
+  ): string[] {
+    if (!(maxLines > 0) || lines.length <= maxLines) return lines;
+    const kept = lines.slice(0, maxLines);
+    const gs = this.__graphemes(kept[maxLines - 1]);
+    while (gs.length > 0 && measure(gs.join('') + ellipsis) > maxWidth) {
+      gs.pop();
+    }
+    kept[maxLines - 1] = gs.join('') + ellipsis;
+    return kept;
+  }
+
   /** 用 Canvas TextMetrics.actualBoundingBox* 测量文本真实宽高；不支持则返回 null 降级。 */
   private __measureByCanvas(): { textWidth: number; textHeight: number } | null {
     if (!this.ctx || typeof this.ctx.measureText !== 'function') return null;
     if (this.state.style.font) {
       this.ctx.font = this.state.style.font;
     }
-    const lines = this.state.text.split('\n');
+    const lines: string[] = this.state.lines || String(this.state.text ?? '').split('\n');
     let textWidth = 0;
     let maxAscent = 0;
     let maxDescent = 0;
@@ -395,6 +503,8 @@ class ICEText extends ICEComponent {
           fontWeight: this.state.style.fontWeight,
           fontSize: this.state.style.fontSize + 'px',
           lineHeight: '1',
+          // 用 white-space:pre 保留 \n 换行，替代旧的 <br> 拼接（后者是 HTML 注入面）
+          whiteSpace: 'pre',
         };
         for (const key in styleObj) {
           div.style[key] = styleObj[key];
@@ -403,7 +513,9 @@ class ICEText extends ICEComponent {
         this.root.document.body.appendChild(div);
       }
 
-      div.innerHTML = this.state.text.split('\n').join('<br>');
+      // 安全：文本内容一律走 textContent（旧实现用 innerHTML 拼接 <br>，用户文本里的
+      // `<img onerror=...>` 之类会被当作 HTML 执行）。换行由 white-space:pre 负责。
+      div.textContent = this.state.text;
 
       const { paddingTop, paddingBottom, paddingLeft, paddingRight } = this.state.style;
       const cssSize = {
@@ -436,8 +548,9 @@ class ICEText extends ICEComponent {
   protected doRender() {
     this.dirty && this.measureText();
     const { paddingTop, paddingBottom, paddingLeft, paddingRight, textAlign, textBaseline } = this.state.style;
-    // 多行文本：按 \n 拆分，逐行绘制；行高用 DIV 实测的文本高度均分，保证单行与旧基线一致
-    const lines = this.state.text.split('\n');
+    // 多行文本：优先用换行结果（state.lines），否则按 \n 拆分；
+    // 行高用实测的文本总高均分，保证单行与旧基线一致。
+    const lines: string[] = this.state.lines || String(this.state.text ?? '').split('\n');
     const textHeight = this.state.textHeight || this.state.style.fontSize;
     const lineHeight = textHeight / lines.length;
 
