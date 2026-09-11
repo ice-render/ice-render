@@ -62,6 +62,8 @@ class CanvasRenderer extends ICEEventTarget {
   private __primed: boolean = false;
   /** 组件级离屏缓存（v1 缓存 ICEText），与快照一样不污染组件 state/props。 */
   private cache: ObjectCache;
+  /** @internal 上一帧被视口裁剪掉的组件数（仅供性能观测与测试断言）。 */
+  public __lastFrameCulled = 0;
 
   constructor(ice: ICE, options: { renderMode?: 'full' | 'dirty-rect' } = {}) {
     super();
@@ -182,9 +184,23 @@ class CanvasRenderer extends ICEEventTarget {
     // 清屏前必须回到单位变换：上一帧组件/视口会残留 CTM，否则 clearRect 清不干净，出现重影。
     this.ice.ctx.setTransform(1, 0, 0, 1, 0, 0);
     this.ice.ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
+    //可见世界区域（视口裁剪用）。单位视口时即 [0,0,canvasWidth,canvasHeight]。
+    const visible = this.__visibleWorldRect();
+    let culled = 0;
+
     //渲染组件
     for (let i = 0; i < this.componentQueue.length; i++) {
       const component = this.componentQueue[i];
+      //@perf 视口裁剪：非脏 + 已有上屏快照 + 与可见区不相交 → 整组件跳过（不画、不捕获）。
+      // 脏组件一律照画：它可能正从屏外移入，快照仍是旧位置，用旧盒判定会误裁。
+      // 无快照（从未上屏）也照画：没有可靠盒子可判定。
+      if (visible && component.state.display && !component.dirty) {
+        const snap = this.__snap.get(component);
+        if (snap && !intersects(snap as any, visible)) {
+          culled++;
+          continue;
+        }
+      }
       //@perf: 仅在引用不一致时才重新注入（首帧 / 跨 ICE 切换），稳态下跳过 4 次属性写入
       this.__ensureContext(component);
       this.__renderComponent(component);
@@ -192,6 +208,7 @@ class CanvasRenderer extends ICEEventTarget {
         this.__capture(component);
       }
     }
+    this.__lastFrameCulled = culled;
 
     //渲染工具节点
     for (let i = 0; i < this.toolsQueue.length; i++) {
@@ -383,6 +400,27 @@ class CanvasRenderer extends ICEEventTarget {
       component.evtBus = this.ice.evtBus;
       component.ice = this.ice;
     }
+  }
+
+  /**
+   * @internal 取组件上一次上屏的世界包围盒（含 paint pad，格式 [minX,minY,maxX,maxY]）。
+   * 供命中检测做「廉价包围盒预筛」，避免对屏外组件做矩阵反变换 + 形状判定。无快照返回 null。
+   */
+  public getWorldBox(component: any): Float64Array | null {
+    return this.__snap.get(component) || null;
+  }
+
+  /**
+   * 当前视口对应的可见世界矩形 [minX,minY,maxX,maxY]。画布尺寸缺失时返回 null（不裁剪）。
+   */
+  private __visibleWorldRect(): number[] | null {
+    const cw = this.ice.canvasWidth || 0;
+    const ch = this.ice.canvasHeight || 0;
+    if (!cw || !ch) return null;
+    const [x0, y0] = this.ice.screenToWorld(0, 0);
+    const [x1, y1] = this.ice.screenToWorld(cw, ch);
+    const box = [Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)];
+    return isFiniteBox(box) ? box : null;
   }
 
   /**

@@ -10,6 +10,15 @@
 /** 抗锯齿兜底余量（px），覆盖 1px 级 AA 溢出与文字 baseline 溢出。 */
 export const PAD_AA = 2;
 
+/**
+ * 命中预筛的包围盒容差（px）。
+ *
+ * 命中的第一道筛子用「渲染快照的世界盒」做 O(1) 拒绝；快照盒本身已含 paint pad
+ * （含 AA 余量），但折线的命中判定自带 errorRange 容差，这里再放宽 1px 作为安全余量，
+ * 确保预筛绝不误杀边界命中。
+ */
+export const HIT_BOX_TOLERANCE = 1;
+
 /** 阴影简写 → 阴影外扩量（shadowBlur + max(|offsetX|,|offsetY|)），与 ICEComponent.SHADOW_PRESETS 数值一致。 */
 const SHADOW_PAD = { sm: 4 + 1, md: 10 + 3, lg: 20 + 6 };
 
@@ -31,7 +40,8 @@ export function stylePaintPad(state: any): number {
   // 阴影：显式数值优先；style.shadow 简写映射到简写档。
   const shadowBlur = Number(style.shadowBlur);
   if (shadowBlur > 0) {
-    pad += shadowBlur + Math.max(Math.abs(Number(style.shadowOffsetX) || 0), Math.abs(Number(style.shadowOffsetY) || 0));
+    pad +=
+      shadowBlur + Math.max(Math.abs(Number(style.shadowOffsetX) || 0), Math.abs(Number(style.shadowOffsetY) || 0));
   } else if (typeof style.shadow === 'string' && SHADOW_PAD[style.shadow]) {
     pad += SHADOW_PAD[style.shadow];
   }

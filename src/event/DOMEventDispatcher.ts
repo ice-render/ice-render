@@ -11,6 +11,7 @@ import ICE from '../ICE';
 import { flattenTree } from '../util/data-util';
 import ICEEvent from './ICEEvent';
 import { normalizeInput, applyNormalizedInput, toLegacyMouseName, NormalizedInput } from './input-normalize';
+import { HIT_BOX_TOLERANCE } from '../renderer/dirty-rect-util';
 
 /**
  * @class DOMEventDispatcher
@@ -148,6 +149,12 @@ class DOMEventDispatcher {
       return a.state.zIndex - b.state.zIndex;
     });
 
+    //@perf 命中预筛：复用渲染快照的世界盒（含 paint pad）做 O(1) 拒绝。
+    // 命中检测此前对每个组件都要做矩阵反变换 + 形状判定；有了预筛，屏外/远离的组件
+    // 直接被盒判定挡掉。组件从未上屏（无快照）时不预筛，保证正确性优先。
+    const renderer: any = (this.ice as any).renderer;
+    const canScreen = renderer && typeof renderer.getWorldBox === 'function';
+
     for (let i = 0; i < arr.length; i++) {
       const component: any = arr[i];
       // 控制面板本体是覆盖在目标组件之上的工具层，不作为命中目标；否则面板(zIndex 最高)会
@@ -155,8 +162,20 @@ class DOMEventDispatcher {
       // RotateControl)不是 isControlPanel，仍会参与命中，保证缩放/旋转可用。
       if (component.isControlPanel) continue;
       const { interactive, display } = component.state;
-      const flag = component.containsPoint(x, y);
-      if (flag && interactive && display) {
+      if (!interactive || !display) continue;
+      if (canScreen) {
+        const box: any = renderer.getWorldBox(component);
+        if (
+          box &&
+          (x < box[0] - HIT_BOX_TOLERANCE ||
+            x > box[2] + HIT_BOX_TOLERANCE ||
+            y < box[1] - HIT_BOX_TOLERANCE ||
+            y > box[3] + HIT_BOX_TOLERANCE)
+        ) {
+          continue;
+        }
+      }
+      if (component.containsPoint(x, y)) {
         this.selectionCandidates.push(component);
       }
     }
