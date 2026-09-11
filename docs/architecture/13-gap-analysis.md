@@ -243,7 +243,11 @@
 - ✅ 新增 `resolveTheme()`：解析主题但不修改任何全局状态（实例级主题的基础）。
 
 ### 4.4 连线与工具
-- `ICE.findComponent`（`ICE.ts:322-324`）**只搜 `childNodes` 第一层**，树内子组件无法被连线连接。
+- ⏸ `ICE.findComponent`（`ICE.ts`）**只搜 `childNodes` 第一层**，树内子组件无法被连线连接。
+  2026-09-11 复测：把查找改成递归后，连线的嵌套端点**确实能命中**，但 `dirty-rect-pixel` 富场景
+  step1 仍报 **489 px** 差异（此前约 900 px）→ 说明文档中记的前置条件（连线端点改为渲染期自推导、
+  不依赖宿主 `AFTER_RENDER`）**必要但不充分**，剩余根因在局部重绘的 clip 边界与描边抗锯齿 /
+  重绘区域未覆盖宿主移动边缘那一侧。故继续保留保守行为，等待单独排查。
 - 连接插槽为**全局共享的 5 个固定实例**（T/R/B/L/C，`graphic/link/ICELinkSlotManager.ts:204-288`），无法为多组件同时展示端口，也不支持自定义锚点。
 - `ICELinkSlot.updatePosition` 在 `AFTER_RENDER` 内 `setState`（`graphic/link/ICELinkSlot.ts:91,97`）→ 置脏 → 下帧再渲染 → 再 setState：**只要有 linkable 组件，画面永不空闲**。
 
@@ -358,7 +362,7 @@
 | 2026-09-10 | P1-5 插件三层注册点（组件/渲染/交互工具）+ 生命周期 `use`/`unuse` | ✅ 已完成 |
 | 2026-09-10 | P1-4 无障碍原语（`getAccessibilityTree` / `setFocusedComponent`，方案 B）+ 文档 14 + 示例 | ✅ 已完成 |
 | 2026-09-10 | P2 一致性簇：AFTER_REMOVE、监听器累积、插槽每帧置脏、`flattenTree` 的 `_pid`、`destroy` 别名、`getMinBoundingBox` 取值顺序 | ✅ 已完成 |
-| 2026-09-10 | P2 `findComponent` 递归查找 | ⏸ 已定位并给出修复顺序（需先改连线端点为渲染期自推导），当前保留保守行为 |
+| 2026-09-11 | P2 `findComponent` 递归查找 | ⏸ 前置条件（端点不依赖宿主 `AFTER_RENDER`）已完成并复测：递归可命中嵌套端点，但富场景 step1 仍有 489 px 差异（原约 900 px）→ 前置必要不充分，保留保守行为并记录剩余根因方向 |
 | 2026-09-10 | P2 动画：点路径 / delay / 取整策略 / 拒绝 NaN / interactive 保留 / 销毁摘除 | ✅ 已完成 |
 | 2026-09-11 | P2 动画剩余：keyframe 时间轴、spring 类缓动、数组字段补间 | ✅ 已完成（含结束判定改按时间、非法 duration 空转修复；单测 + 示例集成全绿） |
 | 2026-09-10 | P2 布局：增删自动重排、排布前测量、新容器继承布局 | ✅ 已完成 |
