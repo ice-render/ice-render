@@ -70,6 +70,8 @@ class ICE {
   private __contentBox: any = null;
   public selectionList: Array<any> = []; //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
   public typeMapping = {}; //类型名称与构造函数之间的映射关系，在序列化和反序列化时需要根据此 mapping 来创建对应的类型的示例。
+  /** 构造函数 → 类型名 的反查表（序列化用）。惰性构建，registerType/init 后失效重建。 */
+  private __typeIdMapping: Map<any, string> | null = null;
 
   public renderer: any; //渲染器实例
   public animationManager: AnimationManager;
@@ -128,6 +130,7 @@ class ICE {
     for (const p in componentTypeMap) {
       this.typeMapping[p] = componentTypeMap[p];
     }
+    this.__typeIdMapping = null;
 
     this.root = root;
 
@@ -379,6 +382,32 @@ class ICE {
    */
   public registerType(className: string, Clazz: new (...args: any[]) => any) {
     this.typeMapping[className] = Clazz;
+    this.__typeIdMapping = null; // 反查表失效，下次序列化重建
+  }
+
+  /**
+   * 由构造函数反查稳定的类型名（序列化用）。
+   *
+   * - 已注册的类型：返回注册名（与类的 JS 名解耦，压缩改名不影响已存数据）
+   * - 未注册：返回 undefined，调用方回退到 `constructor.name`（保持既有行为）
+   * - 同一个构造函数注册了多个名字时，**先注册的优先**（内置类型因此不会被别名顶掉）
+   */
+  public getTypeId(Clazz: new (...args: any[]) => any): string | undefined {
+    if (!Clazz) {
+      return undefined;
+    }
+    let mapping = this.__typeIdMapping;
+    if (!mapping) {
+      mapping = new Map<any, string>();
+      for (const key in this.typeMapping) {
+        const C = this.typeMapping[key];
+        if (typeof C === 'function' && !mapping.has(C)) {
+          mapping.set(C, key);
+        }
+      }
+      this.__typeIdMapping = mapping;
+    }
+    return mapping.get(Clazz);
   }
 
   /**
