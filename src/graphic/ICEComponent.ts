@@ -125,6 +125,22 @@ abstract class ICEComponent extends ICEEventTarget {
 
   protected __dirty: boolean = true;
 
+  /**
+   * 「自身派生参数需要重算」标志（尺寸 / 点集 / 文本量测等，由 calcComponentParams 产出）。
+   *
+   * 与 `dirty` 的区别：
+   * - `dirty` 表示**需要重绘**。祖先变换变化时，后代的绝对矩阵变了 → 必须重绘；
+   * - `paramsDirty` 表示**自身派生参数需要重算**。它只取决于组件自身的 state，
+   *   与祖先变换无关。
+   *
+   * 拆分的目的：移动一个容器时，旧实现递归把所有后代置 `dirty`，而后代又以 `dirty`
+   * 判断是否重算派生参数 → 后代（尤其点集类图元）会白白重算 `calcDots()`。
+   * 现在后代只置 `dirty`（要重绘），派生参数仍为干净 → 跳过重量测。
+   *
+   * 统一由 `refreshParams()` 读取与清理，不要在别处手工维护。
+   */
+  protected __paramsDirty: boolean = true;
+
   //@perf: 复用矩阵计算的临时缓冲，避免每帧为每个组件 / 每层祖先分配新数组（降低 GC 压力）。
   private __absScratchA: any = null;
   private __absScratchB: any = null;
@@ -359,7 +375,7 @@ abstract class ICEComponent extends ICEEventTarget {
       return;
     }
 
-    this.calcComponentParams();
+    this.refreshParams();
     this.applyStyleToCtx();
     this.applyTransformToCtx(baseMatrix, applyViewport);
     this.doRender();
@@ -424,7 +440,21 @@ abstract class ICEComponent extends ICEEventTarget {
    * 由容器在布局前统一调一次本方法，布局就不必「等一帧才正确」。
    */
   public measure(): void {
+    this.refreshParams();
+  }
+
+  /**
+   * 派生参数刷新入口（**唯一**）：按需调用子类的 `calcComponentParams()`，并在算完后清除 `paramsDirty`。
+   *
+   * - 参数干净时直接返回，因此「只重绘、不改自身参数」的帧（例如祖先移动）不会重算点集/文本量测。
+   * - 需要强制重算时请先置 `paramsDirty = true`（`setState` 已自动做这件事）。
+   */
+  public refreshParams(): void {
+    if (!this.__paramsDirty) {
+      return;
+    }
     this.calcComponentParams();
+    this.__paramsDirty = false;
   }
 
   /**
@@ -770,6 +800,8 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   public setState(newState: any) {
     merge(this.state, newState);
+    // state 变化无法廉价判断「是否影响派生参数」，因此保守地两者都置脏（与旧行为一致）。
+    this.paramsDirty = true;
     this.dirty = true;
     if (this.ice) {
       this.ice.dirty = true;
@@ -782,6 +814,14 @@ abstract class ICEComponent extends ICEEventTarget {
 
   public get dirty() {
     return this.__dirty;
+  }
+
+  public set paramsDirty(flag: boolean) {
+    this.__paramsDirty = flag;
+  }
+
+  public get paramsDirty() {
+    return this.__paramsDirty;
   }
 
   /**

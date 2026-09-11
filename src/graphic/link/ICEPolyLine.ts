@@ -210,6 +210,8 @@ class ICEPolyLine extends ICEDotPath {
       }
     }
 
+    // 连接关系变化会触发 followComponent 重算几何，保守地一并置脏派生参数
+    this.paramsDirty = true;
     this.dirty = true;
     this.ice.dirty = true;
   }
@@ -351,14 +353,14 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
-   * @method calcDots
+   * @method __calcDots
    * ICEPolyLine 有自己特殊的计算方式：
    * - 原点总是放在 startPoint 的位置。
    * - 数值相对于组件本地坐标系进行计算。
    * @overwrite
    * @returns
    */
-  protected calcDots() {
+  protected __calcDots() {
     const left = this.state.left;
     const top = this.state.top;
     this.state.dots = [];
@@ -471,7 +473,7 @@ class ICEPolyLine extends ICEDotPath {
    * @returns
    */
   protected calcComponentParams() {
-    if (!this.dirty) {
+    if (!this.paramsDirty) {
       return { width: this.state.width, height: this.state.height };
     }
 
@@ -725,6 +727,8 @@ class ICEPolyLine extends ICEDotPath {
     pts.push(end);
 
     this.state.points = pts;
+    // 直接改了折线几何（未走 setState）→ 派生参数必须一起置脏，否则 calcDots 会被跳过
+    this.paramsDirty = true;
     this.dirty = true;
   }
 

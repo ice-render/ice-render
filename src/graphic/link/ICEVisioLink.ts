@@ -60,7 +60,7 @@ export default class ICEVisioLink extends ICEPolyLine {
    * @overwrite
    * @returns
    */
-  protected calcDots() {
+  protected __calcDots() {
     const solutions = this.interpolate();
     const { left, top } = this.state;
     const arr = solutions[0][2];

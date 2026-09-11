@@ -22,6 +22,7 @@ class FakeComponent {
     composedMatrix: [1, 0, 0, 1, 10, 20],
   };
   dirty = true;
+  paramsDirty = true;
   renderToCount = 0;
   lastBase: any = null;
 
@@ -32,6 +33,13 @@ class FakeComponent {
   }
 
   calcComponentParams() {}
+
+  /** 与真实组件一致：派生参数干净时跳过重算，算完清除标志。 */
+  refreshParams() {
+    if (!this.paramsDirty) return;
+    this.calcComponentParams();
+    this.paramsDirty = false;
+  }
 
   getMaxBoundingBox() {
     return {
@@ -69,28 +77,46 @@ class FakeDotPath {
     height: 300,
   };
   dirty = true;
+  paramsDirty = true;
   renderToCount = 0;
+  private __shiftX = 0;
+  private __shiftY = 0;
 
   calcDots() {
-    // 模拟子类：每次重置 dots 为「左上角原点」坐标
+    // 模拟子类：重置 dots 为「左上角原点」坐标（绝对坐标），并归零已应用平移量
     this.state.dots = [
       [0, 0],
       [100, 0],
       [100, 100],
       [0, 100],
     ];
+    this.__shiftX = 0;
+    this.__shiftY = 0;
   }
 
   calcComponentParams() {
-    if (!this.dirty) return;
     this.calcDots();
     this.state.width = 300;
     this.state.height = 300;
   }
 
+  /** 与真实组件一致：派生参数干净时跳过重算（祖先移动不再连带重算点集）。 */
+  refreshParams() {
+    if (!this.paramsDirty) return;
+    this.calcComponentParams();
+    this.paramsDirty = false;
+  }
+
   composeMatrix() {
-    // 模拟 ICEDotPath.calcLocalOrigin：把 dots 移到「以 origin 为原点」（origin=50,50）
-    this.state.dots = this.state.dots.map((d: number[]) => [d[0] - 50, d[1] - 50]);
+    // 模拟 ICEDotPath.calcLocalOrigin：把 dots 移到「以 origin 为原点」（origin=50,50）。
+    // 与真实实现一致地**只补差额** → 重复 compose 幂等，不会累积偏移。
+    const dx = -50 - this.__shiftX;
+    const dy = -50 - this.__shiftY;
+    if (dx !== 0 || dy !== 0) {
+      this.state.dots = this.state.dots.map((d: number[]) => [d[0] + dx, d[1] + dy]);
+      this.__shiftX = -50;
+      this.__shiftY = -50;
+    }
     return this.state.composedMatrix;
   }
 
@@ -126,6 +152,7 @@ class FakeTranslucentShape {
     composedMatrix: [1, 0, 0, 1, 10, 20],
   };
   dirty = true;
+  paramsDirty = true;
   renderToCount = 0;
 
   createPathObject() {}
@@ -135,6 +162,12 @@ class FakeTranslucentShape {
   }
 
   calcComponentParams() {}
+
+  refreshParams() {
+    if (!this.paramsDirty) return;
+    this.calcComponentParams();
+    this.paramsDirty = false;
+  }
 
   getMaxBoundingBox() {
     return {
@@ -287,7 +320,8 @@ describe('ObjectCache 组件级离屏缓存', () => {
     cache.render(c);
     expect(c.renderToCount).toBe(1);
 
-    // 模拟子类 calcDots 产出不同点集（如半径变化）
+    // 模拟子类 calcDots 产出不同点集（如半径变化）：
+    // 真实引擎里这类变化走 setState → 同时置 dirty 与 paramsDirty（本用例显式模拟这一点）
     c.calcDots = () => {
       c.state.dots = [
         [0, 0],
@@ -296,6 +330,7 @@ describe('ObjectCache 组件级离屏缓存', () => {
         [0, 80],
       ];
     };
+    c.paramsDirty = true;
     c.dirty = true;
     cache.render(c);
     expect(c.renderToCount).toBe(2);

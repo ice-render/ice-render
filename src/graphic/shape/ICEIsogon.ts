@@ -37,7 +37,7 @@ class ICEIsogon extends ICEDotPath {
 
   /**
    * @overwrite
-   * @method calcDots
+   * @method __calcDots
    *
    * 计算路径上的关键点:
    * - 默认的坐标原点是 (0,0) 位置。
@@ -45,7 +45,7 @@ class ICEIsogon extends ICEDotPath {
    *
    * @returns
    */
-  protected calcDots() {
+  protected __calcDots() {
     this.state.dots = [];
     const avgAngle = (2 * Math.PI) / this.state.edges;
     //求正 N 边形的顶点坐标，极坐标法。
@@ -71,7 +71,7 @@ class ICEIsogon extends ICEDotPath {
    * @returns
    */
   protected calcComponentParams() {
-    if (!this.dirty) {
+    if (!this.paramsDirty) {
       return { width: this.state.width, height: this.state.height };
     }
 

@@ -30,7 +30,7 @@ class ICEStar extends ICEDotPath {
 
   /**
    * @overwrite
-   * @method calcDots
+   * @method __calcDots
    *
    * 计算路径上的关键点:
    * - 默认的坐标原点是 (0,0) 位置。
@@ -38,7 +38,7 @@ class ICEStar extends ICEDotPath {
    *
    * @returns
    */
-  protected calcDots() {
+  protected __calcDots() {
     this.state.dots = [];
 
     let radian = glMatrix.toRadian(this.state.startAngle); //弧度
@@ -73,7 +73,7 @@ class ICEStar extends ICEDotPath {
    * @returns
    */
   protected calcComponentParams() {
-    if (!this.dirty) {
+    if (!this.paramsDirty) {
       return { width: this.state.width, height: this.state.height };
     }
 

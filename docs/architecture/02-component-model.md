@@ -9,7 +9,7 @@ ICERender 的组件模型概念上对齐 React：
 | `props` | 构造入参，用内部 `merge`（`util/lang.ts`）与默认 props 合并 | **不可变**（构造后不再改） |
 | `state` | `cloneDeep(props)` 得到的运行时状态，动画/交互修改它 | **可变** |
 
-- `setState(newState)` 只改 `state`，并把 `this.dirty = true`（以及 `ice.dirty = true`）置位，**不会立即重绘**，等下一帧由 `FrameManager` 调度。
+- `setState(newState)` 只改 `state`，并把 `this.dirty = true`（需要重绘）、`this.paramsDirty = true`（自身派生参数需要重算）以及 `ice.dirty = true` 置位，**不会立即重绘**，等下一帧由 `FrameManager` 调度。两者的区别见下文「`dirty` 与 `paramsDirty`」。
 - 序列化时默认序列化的是 `state`（见 [06 序列化](06-serialization.md)）。
 
 每个组件的默认 `props` 包含一套完整配置，其中与架构相关的关键项：
@@ -95,16 +95,35 @@ graph TD
 render() {
   trigger(BEFORE_RENDER);
   if (!state.display) return;          // 隐藏：整棵子树跳过
-  calcComponentParams();               // 计算原始宽高（子类覆盖）
+  refreshParams();                     // 派生参数脏了才重算（内部调子类 calcComponentParams）
   applyStyleToCtx();                   // 把 style 写到 ctx
   applyTransformToCtx();               // 应用 composedMatrix
   doRender();                          // 实际绘制（子类覆盖）
   trigger(AFTER_RENDER);
-  dirty = false;
+  dirty = false;                       // paramsDirty 已在 refreshParams() 内清除
 }
 ```
 
-子类只需覆盖两个扩展点：`calcComponentParams()`（算尺寸）和 `doRender()`（画内容），矩阵/样式/事件调度都由基类统一处理。
+子类只需覆盖两个扩展点：`calcComponentParams()`（算尺寸 / 点集 / 文本量测）和 `doRender()`（画内容），矩阵/样式/事件调度都由基类统一处理。
+
+### `dirty` 与 `paramsDirty`
+
+| 标志 | 含义 | 何时置位 |
+|---|---|---|
+| `dirty` | **需要重绘** | 本组件 `setState`；祖先变换变化时由容器 `setState` 递归给**所有后代**置位 |
+| `paramsDirty` | **自身派生参数需要重算**（`calcComponentParams()` 产出的尺寸 / 点集 / 文本量测） | 只在本组件自身 `setState` 时（以及直接改几何的内部路径，如折线重算端点） |
+
+拆成两级的原因：祖先变换变了 → 后代的绝对矩阵变了 → **必须重绘**；但后代的派生参数只取决于自身 `state`，
+与祖先变换**无关** → **不需要重量测**。旧实现只有一个 `dirty`，于是「移动一个大容器」会让所有后代
+（尤其点集类图元）白白重跑 `calcDots()`。
+
+统一入口 **`refreshParams()`**：`paramsDirty` 为假时直接返回；否则调用 `calcComponentParams()` 并清标志。
+凡是要读派生参数（尺寸 / 点集）之前都先调它，不要直接调 `calcComponentParams()`。
+
+> 点集类图元另有一条相关不变量：`ICEDotPath.calcLocalOrigin()` 会把 `dots` 平移到「以 origin 为原点」。
+> 旧实现每次 compose 都无条件再平移一个 origin（连续 compose 会累积偏移），因此调用方被迫保证
+> 「compose 之前先重算 dots」。现在改为记录「已应用平移量」、只补差额，**`composeMatrix()` 对 dots 是幂等的**；
+> `calcDots()` 是重建 dots 的唯一入口（子类实现 `__calcDots()`，不要覆盖 `calcDots()`）。
 
 ## 容器与 `zIndex`
 
@@ -121,4 +140,4 @@ render() {
 | 渲染 | 每帧 `render()` 模板方法 |
 | 卸载 | `destory()`：清空事件、置空 `ice/ctx/root/evtBus/parentNode`；容器会先递归销毁子节点 |
 
-> 注意：`display:false` 的组件在 `render()` 早期 return，**不会走到末尾的 `dirty=false`**，因此其 `dirty` 会一直保持为 `true`——这是有意为之的惰性：被隐藏的组件重新显示时会立即重算。
+> 注意：`display:false` 的组件在 `render()` 早期 return，**不会走到末尾的 `dirty=false`**，因此其 `dirty`（以及 `paramsDirty`）会一直保持为 `true`——这是有意为之的惰性：被隐藏的组件重新显示时会立即重算。
