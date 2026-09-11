@@ -11,6 +11,30 @@ export function getVal(object: any, path: string): any {
  * 把 tree 形结构拉平成数组结构。
  */
 /**
+ * 可见性「代际」：任何可能改变组件的最终可见性的操作都让它自增一次 ——
+ * 目前是「自身 `display` 变化」与「树结构变化（addChild / removeChild）」。
+ *
+ * 存在的理由：`isEffectivelyVisible()` 每帧会被调用 **3~4 次/组件**（裁剪判定、render 守卫、
+ * 快照捕获、risky 扫描），而组件通常多层嵌套，每次调用都要沿父链走到底。
+ * 实测在 5000 图元场景里，这是约 **15% 的每帧开销**（对比实验：把它短路成只判自身即回到基线）。
+ * 有了代际号，同一代内每个组件只真正走一次父链，其余退化为两次字段读取。
+ *
+ * 用「代际号 + 惰性比对」而不是「主动往所有后代传播失效」：后者在最坏情况下是 O(n) 的重复遍历，
+ * 而惰性比对天然只对真正被查询的组件付代价，且不需要维护订阅关系。
+ */
+let VISIBILITY_EPOCH = 0;
+
+/** 使所有组件的可见性缓存失效。display 变化与树结构变化时必须调用。 */
+export function bumpVisibilityEpoch(): void {
+  VISIBILITY_EPOCH++;
+}
+
+/** 当前可见性代际号（供 `ICEComponent` 做惰性缓存比对）。 */
+export function getVisibilityEpoch(): number {
+  return VISIBILITY_EPOCH;
+}
+
+/**
  * 组件是否「最终可见」：自身与**所有祖先**的 `display` 都为真。
  *
  * `state.display = false` 的语义是整棵子树都不渲染（见 `ICEComponent` 的 props 文档），

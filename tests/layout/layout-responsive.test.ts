@@ -114,4 +114,20 @@ describe('布局响应式重排', () => {
     group.setLayout(new FakeLayout());
     expect(group.getPreferredSize()).toEqual([123, 45]);
   });
+
+  it('容器型子组件（ICEGroup）改尺寸同样触发重排', () => {
+    // 回归点：ICEGroup.setState 是独立实现（自己 merge、不调 super.setState），
+    // 曾因此漏掉「尺寸变化 → 请求父容器重排」，于是只有非容器子组件能触发重排。
+    const outer = new ICEGroup({ width: 400, height: 300 });
+    const boxA = new ICEGroup({ width: 100, height: 40 });
+    const boxB = new ICERect({ width: 80, height: 40 });
+    outer.addChild(boxA);
+    outer.addChild(boxB);
+    outer.setLayout(new ICEBoxLayout({ axis: 'x', gap: 10 }));
+    expect(boxB.state.left).toBe(110);
+
+    boxA.setState({ width: 150 });
+    outer.renderTo(makeCtx());
+    expect(boxB.state.left).toBe(160);
+  });
 });

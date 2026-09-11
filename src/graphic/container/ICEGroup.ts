@@ -8,6 +8,7 @@
 import { merge } from '../../util/lang';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEComponent from '../ICEComponent';
+import { bumpVisibilityEpoch } from '../../util/data-util';
 import ICERect from '../shape/ICERect';
 import type ICELayoutManager from '../../layout/ICELayoutManager';
 
@@ -183,6 +184,8 @@ class ICEGroup extends ICERect {
     child.parentNode = this;
     this.childNodes.push(child);
     this.__childSet.add(child);
+    // 挂到新父链下：整棵子树的「最终可见性」可能改变 → 让可见性缓存失效
+    bumpVisibilityEpoch();
 
     // 布局接管：父容器已设定 layout 时，新加入的子组件（及其后代）禁止手动变换和拖动
     if (this.layoutManager) {
@@ -235,6 +238,8 @@ class ICEGroup extends ICERect {
     const index = this.childNodes.indexOf(child);
     if (index !== -1) this.childNodes.splice(index, 1);
     this.__childSet.delete(child);
+    // 脱离父链：可见性缓存同样要失效
+    bumpVisibilityEpoch();
     // AFTER_REMOVE 必须在 destory() 之前触发（destory 会 purgeEvents）
     child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_REMOVE);
     this.dirty = markDirty;
@@ -272,6 +277,7 @@ class ICEGroup extends ICERect {
    * @param newState
    */
   public setState(newState: any) {
+    const sizeChanged = this.__beforeStateMerge(newState);
     merge(this.state, newState);
     // 容器**自身**的 state 变了 → 自身派生参数可能变（尺寸等），两个标志都置
     this.paramsDirty = true;
@@ -295,6 +301,8 @@ class ICEGroup extends ICERect {
     if (this.ice) {
       this.ice.dirty = true;
     }
+    // 与 ICEComponent.setState 保持同一套后置处理（尺寸变化 → 请求父容器重排）
+    this.__afterStateMerge(sizeChanged);
   }
 
   /**
