@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render 动画：关键帧时间轴 / 弹簧缓动 / 数组字段补间</title>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">动画：关键帧时间轴 / 弹簧缓动 / 数组字段补间</h2>
+    <p style="color:#555; margin: 0 0 10px; max-width: 1200px;">
+      ① <strong>关键帧时间轴</strong>：<code>keyframes: [{ offset, value, easing? }]</code>，offset 缺省按顺序均分、
+      超界会被夹紧；<code>easing</code> 写在<strong>段起始帧</strong>上，只作用于该段；<br />
+      ② <strong>弹簧类缓动</strong>：<code>easing: 'spring' | 'springSoft' | 'springSnappy'</code>，
+      自带<strong>过冲</strong>（值越过终点再回落）——因此结束判定按<strong>时间</strong>而不是「值是否越过终点」；<br />
+      ③ <strong>数组字段补间</strong>：<code>transform.scale</code> / <code>transform.translate</code> 等
+      按分量各自插值，可与关键帧组合；<br />
+      ④ 缓动/时长也可用主题 motion token 语义名（<code>duration: 'normal'</code>、<code>easing: 'out'</code>）。
+    </p>
+    <canvas id="canvas-1" width="1060" height="460" style="background:#fff; border:1px solid #ddd;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+      const ice = new ICE.ICE().init('canvas-1');
+      window.__ice = ice;
+
+      function label(x, y, text) {
+        ice.addChild(
+          new ICE.ICEText({
+            left: x, top: y, text,
+            stroke: false,
+            style: { fontSize: 14, fontFamily: 'Arial', fillStyle: '#2563EB' },
+            zIndex: 1,
+          })
+        );
+      }
+
+      // ① 关键帧时间轴：三段位置，段内各用不同缓动
+      label(30, 16, '① keyframes：0.3 处到位，两种段内缓动');
+      ice.addChild(
+        new ICE.ICERect({
+          left: 60, top: 60, width: 70, height: 60, radius: 8,
+          style: { fillStyle: '#F59E0B', strokeStyle: '#92400E', lineWidth: 2 },
+          zIndex: 10,
+          animations: {
+            left: {
+              keyframes: [
+                { offset: 0, value: 60, easing: 'easeOutCubic' },
+                { offset: 0.3, value: 300, easing: 'easeInOutCubic' },
+                { offset: 1, value: 60 },
+              ],
+              duration: 2600,
+              loop: true,
+            },
+          },
+        })
+      );
+
+      // ② 弹簧过冲：缩放会冲过目标再回落
+      label(400, 16, '② spring：过冲后回落（按时间结束）');
+      ice.addChild(
+        new ICE.ICERect({
+          left: 470, top: 70, width: 70, height: 60, radius: 8,
+          style: { fillStyle: '#10B981', strokeStyle: '#065F46', lineWidth: 2 },
+          zIndex: 11,
+          animations: {
+            'transform.scale': { from: [1, 1], to: [1.7, 1.7], duration: 1400, easing: 'spring', loop: true },
+          },
+        })
+      );
+
+      // ③ 数组字段 + 关键帧：x / y 分量各自走时间轴
+      label(30, 170, '③ 数组 + 关键帧：非等比缩放（先胀后扁）');
+      ice.addChild(
+        new ICE.ICERect({
+          left: 60, top: 220, width: 90, height: 60, radius: 8,
+          style: { fillStyle: '#3B82F6', strokeStyle: '#1E3A8A', lineWidth: 2 },
+          zIndex: 12,
+          animations: {
+            'transform.scale': {
+              keyframes: [
+                { offset: 0, value: [1, 1] },
+                { offset: 0.4, value: [1.8, 1.8], easing: 'easeOutQuart' },
+                { offset: 1, value: [0.6, 1.4] },
+              ],
+              duration: 2400,
+              loop: true,
+            },
+          },
+        })
+      );
+
+      // ④ 主题 motion token：duration 用语义名，easing 用 token
+      label(400, 170, "④ motion token：duration 'normal' + easing 'out'");
+      ice.addChild(
+        new ICE.ICERect({
+          left: 470, top: 220, width: 70, height: 60, radius: 8,
+          style: { fillStyle: '#8B5CF6', strokeStyle: '#4C1D95', lineWidth: 2 },
+          zIndex: 13,
+          animations: {
+            'transform.translate': { from: [0, 0], to: [260, 0], duration: 'normal', easing: 'out', loop: true },
+            'transform.rotate': { from: 0, to: 360, duration: 'slow', easing: 'linear', loop: true },
+          },
+        })
+      );
+
+      ice.dirty = true;
+    })();
+  </script>
+</html>

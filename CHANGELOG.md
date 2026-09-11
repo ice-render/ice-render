@@ -37,8 +37,24 @@
   引擎**不自建 DOM 镜像层**——镜像的 DOM 结构、ARIA 与文案由应用层决定（参考实现见
   `examples/a11y/a11y-mirror.html`，设计说明见 `docs/architecture/14-accessibility.md`）。
 
+- **动画关键帧时间轴**：`animations: { left: { keyframes: [{ offset, value, easing? }], duration } }`。
+  `offset` 为 0~1 的时间占比，缺省时按数组顺序均分、超出会被夹紧、乱序会自动排序；`easing` 写在
+  **段起始帧**上，只作用于该段（未写则回落到动画级 `easing`）；时间轴之外的取值分别是首帧 / 末帧值（不外推）。
+- **弹簧类缓动**：`easing: 'spring' | 'springSoft' | 'springSnappy'`（欠阻尼谐振子解析解，自带过冲），
+  并已接入主题 `motion.easing` token。缓动被拆成两层：新增 `EasingProgress`（归一化进度函数，
+  纯函数、不读时钟，供关键帧段内缓动按任意局部进度求值；**模块内导出，未加入包入口**），
+  `Easing` 保持历史的「值语义」签名不变（9 个既有函数体逐字未改）。
+- **数组字段补间**：`transform.scale` / `transform.translate` / `transform.skew` 等数组字段按分量
+  **逐元素插值**，可与关键帧、弹簧缓动组合。
+
 ### 修复
 
+- **动画 `duration` 非法时永不结束**：`duration <= 0` 或缺失时会算出 `NaN` / `Infinity`，而结束判定是
+  「值是否越过 `to`」——当 `from === to` 时该比较恒为 `false`，动画永远不结束，组件永久滞留在动画列表里
+  **每帧空转 `setState`**。现在明确落到终点、结束，并 `console.warn` 一次。
+- **未知缓动名会抛 `TypeError`**：`Easing[name]` 为 `undefined` 时直接调用会崩。现在回退 `linear` 并提示一次。
+- **非法动画配置的告警会逐帧刷屏**：改为每个动画配置只告警一次（用 `WeakSet` 记录，
+  不往会被序列化的 `props` 上塞标记字段）。
 - **安全**：`ICEText` 的 DOM 降级量测由 `innerHTML` 拼接 `<br>` 改为 `textContent` + `white-space: pre`，
   用户文本中的 HTML 不再被当作标签执行。
 - **画布带 `border` / `padding` 时命中检测整体偏移**：坐标换算与 dpr backing store 尺寸改用
@@ -89,9 +105,12 @@
 - **默认不再取整**：旧版本对所有动画属性 `Math.floor`，会让 0→1 的透明度、角度、缩放失真。
   现默认保留小数（平滑）；需要整数步进（例如像素位移要锐利边缘）时显式加 `round: true`。
 - **新增 `delay`**（毫秒）：延迟期内保持起始值，可做多属性错峰/多组件序列。
-- **数组字段不再产出 NaN**：`transform.scale/translate/skew` 等数组型字段的补间**暂不支持**，
-  现在会被跳过并 `console.warn` 一次（旧版本会写出 `NaN` 导致矩阵损坏、组件消失）。
-  需要缩放动画时请动画其数值子属性，或在外部自行补间。
+- **数组字段改为支持补间**：`transform.scale/translate/skew` 等数组型字段现在**逐元素插值**
+  （旧版本会写出 `NaN` 导致矩阵损坏、组件消失）。只有「两端长度不一致」或「含非数字」才拒绝并
+  `console.warn` 一次。此前若为此把缩放动画拆成外部补间，可以迁回 `animations`。
+- **动画结束判定改为按时间**：达到 `duration` 即结束并**精确落到终点值**，不再用「值是否越过 `to`」判断。
+  对既有单调缓动的结果没有差异；但这是弹簧类缓动（值会过冲越过 `to`）能正常工作的前提。
+- **非法 `duration`（0 / 缺失 / 非数字）不再无限空转**：见「修复」。
 - **`interactive` 不再被动画覆盖**：动画期间会保存并恢复原值（旧版本每帧强制置 `true`）。
 - **组件销毁会自动摘除动画**（旧版本销毁后仍被每帧 `setState`，CPU/内存双泄漏）。
 

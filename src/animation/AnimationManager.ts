@@ -11,7 +11,7 @@ import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../event/ICEEvent';
 import ICEComponent from '../graphic/ICEComponent';
 import ICE from '../ICE';
-import Easing from './Easing';
+import { EasingProgress } from './Easing';
 import { getTheme } from '../theme/ICETheme';
 
 /**
@@ -30,6 +30,8 @@ class AnimationManager {
   private ice: ICE;
   private paused = false;
   private pausedAt = 0;
+  // 已告警过的动画配置：只提示一次，避免非法配置每帧刷屏（WeakSet，不污染会被序列化的 props）
+  private warned = new WeakSet<object>();
 
   constructor(ice: ICE) {
     this.ice = ice;
@@ -86,10 +88,21 @@ class AnimationManager {
   }
 
   /**
-   * 每一帧推进动画：计算各属性的缓动值。
-   * - 各属性独立计时（各自维护 duration/startTime），全部结束后把对象从动画列表移除。
-   * - 支持 loop（无限循环）与 iterationCount（播放次数）。
-   * - 支持 from > to 的递减动画。
+   * 每一帧推进动画：计算各属性的取值。
+   *
+   * 支持三种配置形态（同一组件上可混用）：
+   * 1. 单段补间：`{ from, to, duration }`
+   * 2. 关键帧时间轴：`{ keyframes: [{ offset, value, easing? }], duration }`
+   *    - `offset` 为 0~1 的时间占比，缺省时按数组顺序均分，超出 [0,1] 会被夹紧；
+   *    - `easing` 写在**段起始关键帧**上，作用于「该帧 → 下一帧」这一段；未写则用动画级 `easing`；
+   *    - 时间轴之外的取值分别是首帧 / 末帧的值（保持，不外推）。
+   * 3. 缓动可用主题 motion token 语义名（`duration: 'normal'` / `easing: 'out'`）或 EasingProgress 方法名。
+   *
+   * 取值可以是**数值**，也可以是**等长的数字数组**（`transform.scale` / `transform.translate` /
+   * `transform.skew` 等逐元素补间）。
+   *
+   * 结束判定按**已流逝时间**而非「值是否越过 to」：弹簧类缓动中途会过冲（越过 to 再回落），
+   * 若按值判定，第一帧过冲就会被误判成结束、动画提前停在过冲点上。
    */
   private tween(el: ICEComponent, now?: number) {
     const newState: any = {};
@@ -104,60 +117,82 @@ class AnimationManager {
       }
       if (isUndefined(animation.startTime)) {
         animation.startTime = t;
-        // 首次解析 motion token（duration 语义名如 'normal' → 数字；easing 语义名如 'out' → Easing 方法名）
+        // 首次解析 motion token（duration 语义名如 'normal' → 数字；easing 语义名如 'out' → 缓动方法名）
         this.__resolveMotion(animation);
       }
       if (isUndefined(animation.easing)) {
         animation.easing = 'linear';
       }
 
-      // 只支持**数值**属性：旧实现在非数值上会算出 NaN 并写进 state，
-      // 对 transform.scale / translate / skew 这类数组字段会直接产生 NaN 矩阵（静默损坏渲染）。
-      // 这里明确拒绝并提示一次，而不是让它悄悄坏掉。
-      if (typeof animation.from !== 'number' || typeof animation.to !== 'number') {
-        if (!animation.__rejected) {
-          animation.__rejected = true;
-          animation.finished = true;
-          console.warn(
-            `[ICE] 动画属性「${key}」的 from/to 必须都是数字，当前为 ${typeof animation.from}/${typeof animation.to}；已跳过。` +
-              `（数组型字段如 transform.scale/translate/skew 暂不支持补间，请改为动画其数值子属性或自行在外部补间）`
+      // 关键帧形态：解析并缓存归一化后的时间轴（非法时为 null）
+      let frames: any[] | undefined;
+      if (Array.isArray(animation.keyframes)) {
+        const normalized = this.__normalizeKeyframes(animation);
+        if (!normalized) {
+          this.__reject(
+            animation,
+            `[ICE] 动画属性「${key}」的 keyframes 非法：需要 ≥2 帧、offset 为数字、各帧取值同型（都是数字或等长的数字数组）；已跳过。`
           );
+          continue;
         }
+        frames = normalized;
+      } else if (!this.__isTweenable(animation.from, animation.to)) {
+        // 旧实现在非数值上会算出 NaN 并写进 state，对 transform.* 这类数组字段会直接产生
+        // NaN 矩阵（静默损坏渲染）。这里明确拒绝并只提示一次。
+        this.__reject(
+          animation,
+          `[ICE] 动画属性「${key}」的取值必须都是数字或等长的数字数组，当前为 ` +
+            `${this.__describe(animation.from)} → ${this.__describe(animation.to)}；已跳过。`
+        );
         continue;
       }
 
-      // delay：延迟期内保持起始值不推进（可用来让同一组件的多个属性错峰，或让多个组件的动画成序列）
+      const duration = Number(animation.duration);
+      if (!Number.isFinite(duration) || duration <= 0) {
+        // 无效时长：旧实现会算出 NaN / Infinity；from === to 时甚至永远无法结束（每帧空转 setState）。
+        // 这里明确「立即落到终点并结束」，不再让组件滞留在动画列表里。
+        this.__reject(
+          animation,
+          `[ICE] 动画属性「${key}」的 duration 必须是正数，当前为 ${String(animation.duration)}；已直接落到终点。`
+        );
+        this.__writeValue(newState, key, this.__roundIfNeeded(animation, this.__sampleValue(frames, animation, 1)));
+        continue;
+      }
+
+      // delay：延迟期内保持起始值不推进（可让同一组件的多个属性错峰，或让多个组件的动画成序列）
       const delay = Number(animation.delay) || 0;
-      if (delay > 0 && t - animation.startTime < delay) {
+      const elapsed = t - animation.startTime - delay;
+      if (elapsed < 0) {
         hasActive = true;
-        this.__writeValue(newState, key, animation.from);
+        // 延迟期保持起始值，**不取整**（与旧行为一致：组件静止在 from 处）
+        this.__writeValue(newState, key, this.__sampleValue(frames, animation, 0));
         continue;
       }
 
-      // Easing 内部自行读 Date.now()，因此把 delay 折算到 startTime 上
-      const startTime = animation.startTime + delay;
-      let newValue = Easing[animation.easing](animation.from, animation.to, animation.duration, startTime);
-      const reachedEnd = animation.to >= animation.from ? newValue >= animation.to : newValue <= animation.to;
-      if (reachedEnd) {
-        newValue = animation.to;
+      if (elapsed >= duration) {
+        // 到达终点：精确落到终点值，避免浮点残差
+        let value = this.__sampleValue(frames, animation, 1);
         if (this.shouldRepeat(animation)) {
-          // 需要重复：重置 startTime，重新开始一轮，并重算本帧值（从 from 开始）
+          // 需要重复：重置 startTime，重新开始一轮，本帧取新一轮的起点
           animation.startTime = t;
-          newValue = Easing[animation.easing](animation.from, animation.to, animation.duration, animation.startTime);
+          value = this.__sampleValue(frames, animation, 0);
           hasActive = true;
         } else {
           animation.finished = true;
         }
-      } else {
-        hasActive = true;
+        this.__writeValue(newState, key, this.__roundIfNeeded(animation, value));
+        continue;
       }
 
-      // 默认**不取整**：旧实现对所有属性 Math.floor，会让 0→1 的透明度、角度、缩放彻底失真。
-      // 需要整数步进（例如像素级位移想要锐利边缘）时显式声明 `round: true`。
-      if (animation.round) {
-        newValue = Math.round(newValue);
-      }
-      this.__writeValue(newState, key, newValue);
+      hasActive = true;
+      // 关键帧：缓动由各段自己承担，这里传**线性**进度；
+      // 单段：用动画级缓动把线性进度映射成缓动后的进度。
+      const progress = frames ? elapsed / duration : this.__easingFn(animation.easing, animation)(elapsed / duration);
+      this.__writeValue(
+        newState,
+        key,
+        this.__roundIfNeeded(animation, this.__sampleValue(frames, animation, progress))
+      );
     }
 
     if (!hasActive) {
@@ -169,10 +204,165 @@ class AnimationManager {
     return el;
   }
 
+  /** 取进度 p 处的值：单段在 from→to 之间插值；关键帧按段插值（段内进度再经该段缓动）。 */
+  private __sampleValue(frames: any[] | undefined, animation: any, p: number): any {
+    if (!frames) {
+      return this.__interpolate(animation.from, animation.to, p);
+    }
+    const first = frames[0];
+    const last = frames[frames.length - 1];
+    if (p <= first.offset) {
+      return first.value;
+    }
+    if (p >= last.offset) {
+      return last.value;
+    }
+    for (let i = 0; i < frames.length - 1; i++) {
+      const a = frames[i];
+      const b = frames[i + 1];
+      if (p < a.offset || p > b.offset) {
+        continue;
+      }
+      const span = b.offset - a.offset;
+      if (span <= 0) {
+        // 同一 offset 上的重复帧：后者胜出（与排序后的书写顺序一致）
+        return b.value;
+      }
+      const u = (p - a.offset) / span;
+      const easing = this.__easingFn(isUndefined(a.easing) ? animation.easing : a.easing, animation);
+      return this.__interpolate(a.value, b.value, easing(u));
+    }
+    return last.value;
+  }
+
+  /** 按进度 p 在 from/to 之间插值：数值直接线性，等长数字数组逐元素。 */
+  private __interpolate(from: any, to: any, p: number): any {
+    if (typeof from === 'number') {
+      return from + (to - from) * p;
+    }
+    const out = new Array(from.length);
+    for (let i = 0; i < from.length; i++) {
+      out[i] = from[i] + (to[i] - from[i]) * p;
+    }
+    return out;
+  }
+
+  /** 补间取值是否合法：都是数字，或都是**等长**的数字数组。 */
+  private __isTweenable(from: any, to: any): boolean {
+    const kind = this.__valueKind(from);
+    if (kind === null || kind !== this.__valueKind(to)) {
+      return false;
+    }
+    return kind === 'number' || from.length === to.length;
+  }
+
+  /** 取值种类：number | array（非空且全为数字） | null（不支持）。 */
+  private __valueKind(value: any): 'number' | 'array' | null {
+    if (typeof value === 'number') {
+      return 'number';
+    }
+    if (Array.isArray(value) && value.length > 0) {
+      for (let i = 0; i < value.length; i++) {
+        if (typeof value[i] !== 'number') {
+          return null;
+        }
+      }
+      return 'array';
+    }
+    return null;
+  }
+
+  /** 归一化关键帧到 animation.__frames（只做一次）：夹紧 offset、排序、校验各帧取值同型。 */
+  private __normalizeKeyframes(animation: any): any[] | null {
+    if (animation.__frames) {
+      return animation.__frames;
+    }
+    const raw = animation.keyframes;
+    if (!Array.isArray(raw) || raw.length < 2) {
+      return null;
+    }
+    const frames: any[] = [];
+    for (let i = 0; i < raw.length; i++) {
+      const f = raw[i] || {};
+      const offset = isUndefined(f.offset) ? i / (raw.length - 1) : Number(f.offset);
+      if (!Number.isFinite(offset)) {
+        return null;
+      }
+      frames.push({ offset: Math.min(1, Math.max(0, offset)), value: f.value, easing: f.easing });
+    }
+    frames.sort((a, b) => a.offset - b.offset);
+    const kind = this.__valueKind(frames[0].value);
+    if (kind === null) {
+      return null;
+    }
+    const len = kind === 'array' ? frames[0].value.length : 0;
+    for (let i = 1; i < frames.length; i++) {
+      if (this.__valueKind(frames[i].value) !== kind) {
+        return null;
+      }
+      if (kind === 'array' && frames[i].value.length !== len) {
+        return null;
+      }
+    }
+    animation.__frames = frames;
+    return frames;
+  }
+
+  /** 解析缓动名 → 归一化进度函数；未知名称回退 linear 并只提示一次。 */
+  private __easingFn(name: any, animation?: any): EasingProgress {
+    const fn = typeof name === 'string' ? EasingProgress[name] : undefined;
+    if (fn) {
+      return fn;
+    }
+    if (animation) {
+      this.__warnOnce(
+        animation,
+        `[ICE] 未知的缓动「${String(name)}」，已回退为 linear。可用：${Object.keys(EasingProgress).join(' / ')}`
+      );
+    }
+    return EasingProgress.linear;
+  }
+
+  /** round: true 时对补间结果取整（数组逐元素）。 */
+  private __roundIfNeeded(animation: any, value: any): any {
+    if (!animation.round) {
+      return value;
+    }
+    if (typeof value === 'number') {
+      return Math.round(value);
+    }
+    return value.map((v: number) => Math.round(v));
+  }
+
+  /** 供告警信息使用的取值描述。 */
+  private __describe(value: any): string {
+    return Array.isArray(value) ? `数组[${value.length}]` : typeof value;
+  }
+
+  /** 拒绝一个非法的动画配置：标记结束（不再每帧重试）并只提示一次。 */
+  private __reject(animation: any, message: string): void {
+    animation.finished = true;
+    this.__warnOnce(animation, message);
+  }
+
+  /** 同一个动画配置只告警一次，避免非法配置每帧刷屏。 */
+  private __warnOnce(animation: any, message: string): void {
+    if (!animation || typeof animation !== 'object') {
+      console.warn(message);
+      return;
+    }
+    if (this.warned.has(animation)) {
+      return;
+    }
+    this.warned.add(animation);
+    console.warn(message);
+  }
+
   /**
    * 把动画配置里的 motion token 语义名解析成实际值（首次触发时执行，结果写回 animation 对象缓存）：
    * - duration: 'fast' | 'normal' | 'slow' | 'slower' → 主题 motion.duration 里的 ms。
-   * - easing: 'linear' | 'out' | 'inOut' | 'outQuart' → 主题 motion.easing 里的 Easing 方法名。
+   * - easing: 'linear' | 'out' | 'inOut' | 'outQuart' | 'spring' | 'springSoft' | 'springSnappy'
+   *   → 主题 motion.easing 里的缓动方法名。
    * 若传的是数字/已存在的 Easing 方法名，则原样保留（向后兼容）。
    */
   private __resolveMotion(animation: any): void {
