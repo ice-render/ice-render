@@ -230,11 +230,12 @@ abstract class ICEComponent extends ICEEventTarget {
    * 重新 resolve preset（主题热切换用）：把 preset 补丁按当前主题重新展开，
    * 只更新 preset 涉及的字段（style + radius/stroke/fill 等），用户显式传的值优先。
    */
-  public __reapplyPreset(): void {
+  public __reapplyPreset(theme?: any): void {
     if (!this.__presetName || !STYLE_PRESETS[this.__presetName]) {
       return;
     }
-    const patch = STYLE_PRESETS[this.__presetName](getTheme());
+    // 优先用调用方给的主题（实例级主题），否则回退模块级当前主题
+    const patch = STYLE_PRESETS[this.__presetName](theme || getTheme());
     const user = this.__userProps || {};
     const newState: any = {};
     for (const k in patch) {

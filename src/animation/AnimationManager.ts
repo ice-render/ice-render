@@ -176,7 +176,9 @@ class AnimationManager {
    * 若传的是数字/已存在的 Easing 方法名，则原样保留（向后兼容）。
    */
   private __resolveMotion(animation: any): void {
-    const motion = getTheme().semantic.motion;
+    // 优先用实例级主题（多品牌/多租户下 motion token 也应各自解析）
+    const theme = (this.ice && this.ice.theme) || getTheme();
+    const motion = theme.semantic.motion;
     if (typeof animation.duration === 'string' && motion.duration[animation.duration] !== undefined) {
       animation.duration = motion.duration[animation.duration];
     }

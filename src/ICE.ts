@@ -24,7 +24,7 @@ import PluginHost, { ICEPlugin } from './plugin/PluginHost';
 import { buildAccessibilityTree, ICEAccessibleNode, ICEAccessibilityOptions } from './a11y/accessibility';
 import CanvasRenderer from './renderer/CanvasRenderer';
 import ImageCache from './util/ImageCache';
-import { setTheme, getTheme, registerTheme, ICETheme, ICESemanticTheme } from './theme/ICETheme';
+import { resolveTheme, getTheme, registerTheme, ICETheme, ICESemanticTheme } from './theme/ICETheme';
 import { flattenTree } from './util/data-util';
 import { HIT_BOX_TOLERANCE } from './renderer/dirty-rect-util';
 
@@ -73,6 +73,15 @@ class ICE {
   public selectionList: Array<any> = []; //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
   /** 插件宿主：组件 / 渲染 / 交互工具三层注册点，见 `src/plugin/PluginHost.ts`。 */
   public plugins: PluginHost = new PluginHost(this);
+  /**
+   * 当前实例持有的主题（**实例级**，互不污染）。
+   *
+   * 初始值取模块级默认主题；`setTheme()` 只改本实例。
+   * 组件构造时若用了 `preset`，会在加入本实例时按这里的主题重新解析一次
+   * （见 `addChild` / `addTool` 中的 `__reapplyPreset`）。
+   */
+  public theme: ICETheme = getTheme();
+
   public typeMapping = {}; //类型名称与构造函数之间的映射关系，在序列化和反序列化时需要根据此 mapping 来创建对应的类型的示例。
   /** 构造函数 → 类型名 的反查表（序列化用）。惰性构建，registerType/init 后失效重建。 */
   private __typeIdMapping: Map<any, string> | null = null;
@@ -277,6 +286,11 @@ class ICE {
     this.dirty = true;
     if (this.renderer) this.renderer.markQueueDirty();
 
+    // 实例级主题：组件构造时按模块级默认主题解析了 preset，加入本实例时按本实例主题再解析一次
+    if (tool && typeof tool.__reapplyPreset === 'function') {
+      tool.__reapplyPreset(this.theme);
+    }
+
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: tool });
     tool.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
   }
@@ -336,6 +350,11 @@ class ICE {
 
     this.dirty = markDirty;
     if (this.renderer) this.renderer.markQueueDirty();
+
+    // 实例级主题：同步一次 preset（见 addTool 中的说明）
+    if (component && typeof component.__reapplyPreset === 'function') {
+      component.__reapplyPreset(this.theme);
+    }
 
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
@@ -546,7 +565,8 @@ class ICE {
    * 热切换：已渲染的组件里用了 preset 的会重新 resolve（用户显式传的样式优先）。
    */
   public setTheme(theme: string | Partial<ICESemanticTheme>): this {
-    setTheme(theme);
+    // 实例级：不修改模块级默认主题，因此多个 ICE 实例可以有各自的主题（多品牌/多租户）
+    this.theme = resolveTheme(theme, this.theme);
     this.__reapplyPresets();
     return this;
   }
@@ -787,20 +807,20 @@ class ICE {
   }
 
   /**
-   * 获取当前主题对象（{ base, semantic }）。
+   * 获取当前主题对象（{ base, semantic }）。返回的是**本实例**的主题。
    */
   public getTheme(): ICETheme {
-    return getTheme();
+    return this.theme;
   }
 
   /**
    * 遍历组件树，对每个用了 preset 的组件重新 resolve preset（主题热切换）。
    */
   private __reapplyPresets(): void {
-    const all = flattenTree([], this.childNodes);
+    const all = flattenTree([], this.childNodes).concat(flattenTree([], this.toolNodes));
     for (const comp of all) {
       if (typeof (comp as any).__reapplyPreset === 'function') {
-        (comp as any).__reapplyPreset();
+        (comp as any).__reapplyPreset(this.theme);
       }
     }
   }

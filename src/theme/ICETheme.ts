@@ -246,16 +246,28 @@ export function registerTheme(name: string, theme: ICETheme): void {
 }
 
 /**
- * 切换主题：
- * - string：按名切换到已注册的主题（如 'dark'）。
- * - object：浅合并到当前主题的 semantic（兼容旧用法 setTheme({ primary: ... })）。
+ * 解析主题但**不修改任何全局状态**：
+ * - string：按名查注册表（如 'dark'）；未注册时回退 DEFAULT_THEME。
+ * - object：浅合并到 `base` 的 semantic（兼容旧用法 `setTheme({ primary: ... })`）。
+ *
+ * 这是「实例级主题」的基础：`ICE` 用它把自己持有的主题解析出来，
+ * 不污染模块级当前主题（模块级只作为**默认值**）。
+ */
+export function resolveTheme(nameOrTheme: string | Partial<ICESemanticTheme>, base: ICETheme = currentTheme): ICETheme {
+  if (typeof nameOrTheme === 'string') {
+    return themeRegistry[nameOrTheme] || DEFAULT_THEME;
+  }
+  return { base: base.base, semantic: { ...base.semantic, ...nameOrTheme } };
+}
+
+/**
+ * 切换**模块级默认主题**（全局单例）。
+ *
+ * 注意：这是「本进程默认值」，会影响此后新建的 `ICE` 实例以及未显式设置主题的实例。
+ * 需要多实例/多品牌各自独立时，请用 `ice.setTheme()`（实例级，互不影响）。
  */
 export function setTheme(nameOrTheme: string | Partial<ICESemanticTheme>): ICETheme {
-  if (typeof nameOrTheme === 'string') {
-    currentTheme = themeRegistry[nameOrTheme] || DEFAULT_THEME;
-  } else {
-    currentTheme = { base: currentTheme.base, semantic: { ...currentTheme.semantic, ...nameOrTheme } };
-  }
+  currentTheme = resolveTheme(nameOrTheme, currentTheme);
   return currentTheme;
 }
 
