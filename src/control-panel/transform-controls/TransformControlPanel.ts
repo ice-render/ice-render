@@ -367,19 +367,30 @@ export default class TransformControlPanel extends ICEControlPanel {
     });
   }
 
+  /**
+   * 目标被移除时的处理。
+   *
+   * 必须是**稳定引用**：旧实现用 `once(BEFORE_REMOVE, () => {...})`，而 `once` 内部会把回调
+   * 再包一层，导致这个箭头函数永远无法被 `off` —— 反复选中组件会在每个组件上累积
+   * 无法回收的监听（内存泄漏 + 幽灵回调）。这里改为具名属性 + `on`，
+   * 由 setter 负责在切换目标时 `off` 掉（`on` 本身对 (fn, scope) 幂等，也不会重复注册）。
+   */
+  private __onTargetRemoved = () => {
+    this.targetComponent = null;
+    this.disable();
+  };
+
   public set targetComponent(component: ICEComponent) {
-    this._targetComponent && this._targetComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
+    const prev = this._targetComponent;
+    if (prev) {
+      prev.off(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
+      prev.off(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.__onTargetRemoved, this);
+    }
     this._targetComponent = component;
-    this._targetComponent && this._targetComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
-    this._targetComponent &&
-      this._targetComponent.once(
-        ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE,
-        () => {
-          this.targetComponent = null;
-          this.disable();
-        },
-        this
-      );
+    if (component) {
+      component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.updatePanel, this);
+      component.on(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.__onTargetRemoved, this);
+    }
     this.updatePanel();
   }
 

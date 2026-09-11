@@ -155,15 +155,18 @@ class ICEGroup extends ICERect {
 
   public removeChild(child: ICEComponent, markDirty: boolean = true) {
     if (!this.__childSet.has(child)) return;
-    child.destory();
+    child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE);
     const index = this.childNodes.indexOf(child);
     if (index !== -1) this.childNodes.splice(index, 1);
     this.__childSet.delete(child);
+    // AFTER_REMOVE 必须在 destory() 之前触发（destory 会 purgeEvents）
+    child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_REMOVE);
     this.dirty = markDirty;
     if (this.ice) {
       this.ice.dirty = markDirty;
       if (this.ice.renderer) this.ice.renderer.markQueueDirty();
     }
+    child.destory();
   }
 
   public removeChildren(arr: Array<ICEComponent>): void {

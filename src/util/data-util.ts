@@ -16,7 +16,10 @@ export function flattenTree(result: any[] = [], childNodes: any[] = [], level: n
     node._level = level;
     node._pid = pid;
     result.push(node);
-    flattenTree(result, node.childNodes || [], level + 1, node.id);
+    // 注意：真实组件的 id 定义在 props 上（旧实现取 node.id 恒为 undefined，父子关系丢失）；
+    // 同时兼容「普通对象 + 顶层 id」的调用方式（如单测夹具、外部把扁平数据当树用的场景）。
+    const childPid = node.props && node.props.id !== undefined ? node.props.id : node.id;
+    flattenTree(result, node.childNodes || [], level + 1, childPid);
   }
   return result;
 }

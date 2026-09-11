@@ -290,12 +290,16 @@ class ICE {
   public removeTool(tool: ICEComponent) {
     if (!this.__toolSet.has(tool)) return;
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: tool });
-    tool.destory();
+    tool.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE);
     const index = this.toolNodes.indexOf(tool);
     if (index !== -1) this.toolNodes.splice(index, 1);
     this.__toolSet.delete(tool);
+    // AFTER_REMOVE 必须在 destory() 之前触发：destory() 会 purgeEvents，之后再触发就没监听者了
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_REMOVE, null, { component: tool });
+    tool.trigger(ICE_EVENT_NAME_CONSTS.AFTER_REMOVE);
     this.dirty = true;
     if (this.renderer) this.renderer.markQueueDirty();
+    tool.destory();
   }
 
   /**
@@ -347,12 +351,16 @@ class ICE {
   public removeChild(component: ICEComponent, markDirty: boolean = true) {
     if (!this.__childSet.has(component)) return;
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: component });
-    component.destory();
+    component.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE);
     const index = this.childNodes.indexOf(component);
     if (index !== -1) this.childNodes.splice(index, 1);
     this.__childSet.delete(component);
+    // AFTER_REMOVE 必须在 destory() 之前触发（destory 会 purgeEvents），否则组件级监听收不到
+    this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_REMOVE, null, { component: component });
+    component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_REMOVE);
     this.dirty = markDirty;
     if (this.renderer) this.renderer.markQueueDirty();
+    component.destory();
   }
 
   public removeChildren(arr: Array<ICEComponent>): void {
@@ -366,6 +374,23 @@ class ICE {
     this.removeChildren([...this.childNodes]);
   }
 
+  /**
+   * 按 id 查找组件。
+   *
+   * 注意：旧实现只搜 `childNodes` 第一层，导致「树内子组件」永远找不到 ——
+   * 连线建立连接（`ICEPolyLine.syncConnections` → `findComponent`）因此对嵌套场景完全失效。
+   * 现在先查顶层（保持既有优先级），再递归整棵树（含工具层）。
+   */
+  /**
+   * 按 id 查找组件。
+   *
+   * 已知限制：**只搜 `childNodes` 第一层**，树内（嵌套）子组件查不到 ——
+   * 因此「连线连接嵌套子组件」在引擎侧不生效（`ICEPolyLine.syncConnections` → 本方法返回
+   * undefined）。这是刻意的保守选择：改成递归会让嵌套连线真正生效，但实测会激活
+   * 「连线端点推导 vs 局部重绘」的既有像素不稳定（`dirty-rect-pixel` 富场景 step1 报 899 px 差异）。
+   * 修复顺序应为：先把连线端点改为**渲染期自推导**（不依赖宿主事件），再放开递归查找。
+   * 回归用例：`tests/consistency/consistency.test.ts` 的「查找范围」用例记录了当前行为。
+   */
   public findComponent(id: string) {
     return this.childNodes.filter((item) => item.props.id === id)[0];
   }

@@ -704,7 +704,13 @@ abstract class ICEComponent extends ICEEventTarget {
    * @returns
    */
   public getMinBoundingBox(refresh: boolean = false): ICEBoundingBox {
-    //先基于组件本地坐标系进行计算
+    // 先刷新变换，再读派生状态：`localOrigin` 是由 `calcLocalOrigin()` 派生的，而它只在
+    // `composeMatrix()` 内部被调用。旧实现先读 `state.localOrigin` 再 composeMatrix，
+    // 导致「首次 refresh=true」读到的是尚未计算的初始值 (0,0)，与矩阵里的 origin 不一致
+    // —— 盒子会偏一个原点（控制面板/连线插槽首次定位偏移的根因）。
+    const matrix = refresh ? this.composeMatrix() : this.state.composedMatrix;
+
+    //再基于组件本地坐标系进行计算
     const originX = this.state.localOrigin[0];
     const originY = this.state.localOrigin[1];
     const width = this.state.width;
@@ -723,7 +729,6 @@ abstract class ICEComponent extends ICEEventTarget {
     ]);
 
     //再用 composedMatrix 进行变换
-    const matrix = refresh ? this.composeMatrix() : this.state.composedMatrix;
     boundingBox = boundingBox.transform(matrix);
     return boundingBox;
   }
@@ -1039,6 +1044,14 @@ abstract class ICEComponent extends ICEEventTarget {
    * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
    * - 子类需要覆盖此方法，释放自己占有的资源。
    */
+  /**
+   * `destory()` 的拼写修正别名。
+   * 历史 API 拼写为 `destory`（已对外发布，不能直接改名），这里提供正确拼写作为等价入口。
+   */
+  public destroy(): void {
+    this.destory();
+  }
+
   public destory(): void {
     this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, null, { component: this });
 
