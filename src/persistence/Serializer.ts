@@ -11,7 +11,15 @@ import ICE from '../ICE';
  * 序列化时排除的运行时缓存/计算值：这些值在反序列化后会由引擎重新计算，
  * 序列化它们只会增大 JSON 体积、并在反序列化时污染 props。
  */
-const NON_SERIALIZABLE_KEYS = ['linearMatrix', 'composedMatrix', 'localOrigin', 'absoluteOrigin', 'dots', 'textHeight'];
+const NON_SERIALIZABLE_KEYS = [
+  'linearMatrix',
+  'composedMatrix',
+  'localOrigin',
+  'absoluteOrigin',
+  'dots',
+  'textHeight',
+  'lines', // 换行结果是派生缓存，反序列化后由 measureText 重算
+];
 
 /**
  * 序列化格式版本号。数据结构发生变化时递增，并在 Deserializer 中做对应迁移。

@@ -97,11 +97,20 @@
 
 **证据**：`graphic/text/ICEText.ts:440-465` 仅按 `\n` 拆行；`fillText(text, x, y, this.state.width)` 传入 maxWidth → 超宽时 canvas **横向压缩字形**而非换行。缺：自动折行、`maxLines` + 省略号、可配 `lineHeight`、`letterSpacing` / `wordSpacing`、RTL / `ctx.direction`、富文本（混排粗体/颜色）。
 
+**进展（2026-09-10）**：自动换行 / `maxLines` + 省略号 / grapheme 感知已落地，**默认关闭**（`wrap: false`）以保持既有行为不变：
+- `wrap: true` 按 `state.width` 贪心断行；`maxLines` 限制行数，末行逐 grapheme 回退加 `ellipsis`，保证「内容+省略号」不超宽
+- 断行按 grapheme cluster 切分（优先 `Intl.Segmenter`，不可用则退化为码点），emoji / ZWJ 序列不被拆开
+- 编辑态不换行（`caretIndex` 按原始文本计，换行会错位）
+- 仍缺：`letterSpacing` / `wordSpacing`、RTL / `ctx.direction`、富文本、CJK 断行规则（标点避头尾）
+
 **grapheme 问题**：`caretIndex` 按 UTF-16 码元计数（`ICEText.ts:242-273`），`ICEPolyLine.ts:787` 降级宽度估算用 `label.length * fontSize`——中文/emoji/ZWJ 序列下**光标定位与估算均不正确**。对标：主流引擎的新版本已引入 grapheme 感知布局；标准解法是 `Intl.Segmenter`（Baseline 2024）。
 
 ### P1-2 文本量测的 HTML 注入与非 DOM 退化（**安全缺陷**）
 
-**证据**：`graphic/text/ICEText.ts:406` → `div.innerHTML = this.state.text.split('\n').join('<br>')`。若文本来自用户输入，含 `<img onerror=...>` 之类内容会**执行**。应改为 `textContent` + CSS `white-space` 或按行 `createTextNode`。
+**证据**：`graphic/text/ICEText.ts:406` → `div.innerHTML = this.state.text.split('\n').join('<br>')`。若文本来自用户输入，含 `<img onerror=...>` 之类内容会**执行**。
+
+**已修复（2026-09-10）**：改为 `div.textContent = text` + `white-space: pre` 承担换行，`innerHTML` 不再被写入；并加了回归用例锁死（断言 `textContent` 被设置、`innerHTML` 未被触碰）。
+**仍缺**：非 DOM 运行时的量测仍是「先按默认 10×10、首帧渲染后由 `calcComponentParams` 重算」——可用但首帧前尺寸不准。
 
 另：`ICEText.ts:379-428` 在无 `document` 的运行时（Node / 小程序）无法量测，退化到默认 `10×10`（除非调用方显式传 width/height）。
 
@@ -273,3 +282,5 @@
 | 2026-09-10 | P0-5 主画布 HiDPI（`ICE.init(el, { dpr })`）+ canvas 内容盒坐标修正 | ✅ 已完成（默认 dpr=1 零行为变化） |
 | 2026-09-10 | P0-4 dirty-rect 门控由「整场景」放宽到「相交级」 | ✅ 已完成（富场景局部重绘 0 次 → 2 次，像素仍 100% 一致） |
 | 2026-09-10 | P0-1 剩余：多指手势（pinch 缩放 / 双指旋转） | ⏳ 待做（按 09-roadmap 边界，属应用层 UX；引擎侧原语已具备） |
+| 2026-09-10 | P1-1 文本：自动换行 / maxLines 省略 / grapheme 分段 | ✅ 已完成（默认关闭，零行为变化） |
+| 2026-09-10 | P1-2 文本量测 HTML 注入（安全） | ✅ 已修复（textContent + white-space:pre） |
