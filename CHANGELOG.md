@@ -56,6 +56,18 @@
 
 ### 修复
 
+- **已销毁的连线仍被 `ROUND_FINISH` 驱动 → 未捕获异常**（应用层校验时发现）：
+  `ICEPolyLine.afterAddHandler` 在 **ICE 总线**上注册 `once(ROUND_FINISH, syncConnections)`，
+  该监听不在组件自己的 `listeners` 里，`purgeEvents()` 清不掉；而 `once` 内部会把回调包一层，
+  外部用原始 `fn` 去 `off` **永远匹配不到包装函数**（因此无法提前摘除）。
+  于是「新增连线 → 同一 tick 内又删除」时，下一轮渲染完成仍会触发 `syncConnections`，
+  去写已销毁组件的 `this.ice.dirty` → `Cannot set properties of null (setting 'dirty')`。
+  应用层 `ice-entity-designer` 连续 undo/redo 批量增删连线时必现。
+  修复三处：① `once` 记录 `__onceOriginal`、`off` 同时匹配包装函数与原始回调（**框架级**修复，
+  消灭「once 注册的监听无法 off」这个陷阱）；② `ICEPolyLine.destory()` 显式 `off` 掉总线监听；
+  ③ `syncConnections()` 在未挂载/已销毁（`!this.ice`）时直接返回 —— 顺带修掉
+  「未挂载时 `setState({ links })` 抛 TypeError」。回归用例见 `tests/event/once-off.test.ts`、
+  `tests/link/polyline-destroy.test.ts`（修复前 4 failed / 修复后全绿）。
 - **无 rAF 的运行时「启动即抛错」**：`root.requestFrame` 直接取 `requestAnimationFrame` 一族，
   都没有时是 `undefined`，而 `FrameManager.start()` 无条件调用它 → 在 **Node / headless（无 rAF）**
   以及部分小程序低版本基础库下引擎连启动都做不到（这是 headless 出图的两个阻塞点之一）。
