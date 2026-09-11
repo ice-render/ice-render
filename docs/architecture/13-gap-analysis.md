@@ -163,9 +163,17 @@
 
 **对标**：Node 官方就双包危害给出明确警告，业界用 **Are The Types Wrong (attw)** + **publint** 在 CI 自动检出 12 类产物问题；Playwright 官方要求 golden image 必须在**同一环境**生成基线（跨 OS/字体/DPR 会漂移）；成熟库普遍为每个大版本写独立升级指南，CHANGELOG 逐条记录行为变更。
 
-**补充证据（2026-09-10 实测发现，两条都是「门禁实际失效」）：**
-- **`.husky/pre-commit` 缺少可执行权限** → git 直接跳过该钩子，`lint-staged` 与 commitlint **本地从未真正运行**（提交时会打印 `The '.husky/pre-commit' hook was ignored because it's not set as executable`）。
-- **`eslint` 在 `master` 上就是红的**：`npx eslint src tests e2e --ext .ts,.js` 报 194 个 error（prettier 格式 + `no-var-requires`），**全部集中在既有测试文件**。也就是说 CI 的 lint 步骤实际处于失败状态，门禁形同虚设。
+**补充证据（2026-09-10 实测发现，三条都是「门禁实际失效」）：**
+- **`.husky/pre-commit` 在 git 索引里是 `100644`**（不可执行）→ git 直接跳过该钩子，`lint-staged` 与 commitlint **从未真正运行**。注意 `core.fileMode=false`，工作副本的 chmod 不会被 git 记录，必须用 `git update-index --chmod=+x` 才能修正。
+- **`eslint` 在 `master` 上就是红的**：报 194 个 error，只有两类可自动修规则（`prettier/prettier` 101 + `@typescript-eslint/no-var-requires` 12；其余是 warning）。CI 的 lint 步骤实际处于失败状态。
+- **`.gitignore` 第 7 行 `*log*` 误伤 `CHANGELOG.md`** → 变更日志根本无法被 git 跟踪。这解释了「仓库为什么没有 CHANGELOG」——不是没人写，是写了也提交不进去。（同类问题作者已为 `logo` 做过显式放行。）
+
+**修复（2026-09-10）**：
+- `.husky/pre-commit` 记录为 `100755`（并实测钩子生效：提交时 lint-staged 真正运行）
+- `.eslintrc` 为 `tests/**`、`e2e/**` 关闭 `no-var-requires`（测试刻意用 `require` 处理 `jest.mock` 提升顺序）；全仓 prettier 格式化后用 AST 比对确认 7 个文件语法树完全一致（纯格式改动）→ `npm run lint` **0 error**
+- `.gitignore` 显式放行 `CHANGELOG.md`，并新增 `CHANGELOG.md`（含升级注意事项）
+- `package.json` 增加 `exports`（`types`/`import`/`require`/`default`）+ `sideEffects: false`，保留 `./dist/*` 子路径兼容历史直接引用；新增 `test:visual:ci` 脚本
+- CI 新增 **visual 任务**（build → Playwright chromium → examples 冒烟 + 交互 + 脏矩形像素一致性）。**刻意排除 golden 图像比对**：基线按平台命名（`*-darwin.png`），跨平台必然失败——这也说明「把 golden 纳入 CI」不只是加个步骤，还要解决基线分平台的问题。
 
 ## 4. P2 · 一致性与内部脆弱点
 
@@ -292,3 +300,4 @@
 | 2026-09-10 | P1-1 文本：自动换行 / maxLines 省略 / grapheme 分段 | ✅ 已完成（默认关闭，零行为变化） |
 | 2026-09-10 | P1-2 文本量测 HTML 注入（安全） | ✅ 已修复（textContent + white-space:pre） |
 | 2026-09-10 | P1-6 序列化 typeId 反查 + 反序列化容错 + 迁移框架（补 ICERose） | ✅ 已完成 |
+| 2026-09-10 | P1-7 发行门禁：exports/sideEffects、CI 接可视化回归、CHANGELOG、husky 权限位、lint 转绿 | ✅ 已完成 |
