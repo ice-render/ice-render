@@ -604,7 +604,7 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   protected applyTransformToCtx(baseMatrix: number[] | null = null, applyViewport: boolean = false): void {
     const matrix = this.dirty ? this.composeMatrix() : this.state.composedMatrix;
-    const vp = applyViewport && this.ice ? this.ice.viewport : null;
+    const vp = applyViewport && this.ice ? this.ice.getRenderViewport() : null;
     const hasViewport = vp && (vp.scale !== 1 || vp.tx !== 0 || vp.ty !== 0);
     if (baseMatrix || hasViewport) {
       //@perf: 复用 scratch 缓冲做 base/viewport · composed，避免每帧分配新数组。
@@ -637,7 +637,7 @@ abstract class ICEComponent extends ICEEventTarget {
   protected doRender(): void {
     // 边界盒坐标是「世界坐标」，但画布已经应用视口。这里给 debug 框套同一视口矩阵，
     // 否则缩放/平移后边界框会停留在错误的屏幕位置。
-    const vp = this.ice && this.ice.viewport;
+    const vp = this.ice && this.ice.getRenderViewport();
     const hasViewport = vp && (vp.scale !== 1 || vp.tx !== 0 || vp.ty !== 0);
     if (hasViewport) {
       this.ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.tx, vp.ty);

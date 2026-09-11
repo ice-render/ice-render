@@ -50,6 +50,24 @@ class ICE {
   public canvasBoundingClientRect;
   /** 视口变换（视图缩放/平移）：屏幕 = 世界 * scale + translate。默认单位视口，不影响既有行为。 */
   public viewport: { scale: number; tx: number; ty: number } = { scale: 1, tx: 0, ty: 0 };
+  /**
+   * 设备像素比。默认 1（不改变既有行为）。
+   *
+   * 传 >1 时（`ICE.init(el, { dpr: 2 })`）：引擎把 canvas 的 backing store 放大到 cssSize*dpr，
+   * 渲染变换乘以 dpr，从而在高分屏上不发虚。**交互侧（命中/拖拽/吸附）仍用 CSS 像素语义**，
+   * 因为鼠标/触摸坐标本身就是 CSS 像素，所以 screenToWorld 不参与 dpr。
+   */
+  public dpr: number = 1;
+  /** 渲染用视口缓存（= dpr · viewport），避免每组件每帧分配对象。 */
+  private __renderVp: any = null;
+  /**
+   * canvas 内容盒（绘制区）相对视口的偏移与尺寸。
+   *
+   * `getBoundingClientRect()` 返回的是 **border-box**，而 canvas 的绘制区是**内容盒**：
+   * 画布带 border / padding 时，若直接用 rect.left/top 换算鼠标坐标会整体偏移（差一个边框宽），
+   * backing store 尺寸也会被边框撑大。这里在刷新 rect 时一并读取 computedStyle 补偿。
+   */
+  private __contentBox: any = null;
   public selectionList: Array<any> = []; //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
   public typeMapping = {}; //类型名称与构造函数之间的映射关系，在序列化和反序列化时需要根据此 mapping 来创建对应的类型的示例。
 
@@ -92,7 +110,7 @@ class ICE {
    * React StrictMode 下 effect 会被执行两次，幂等可以避免重复挂载 Manager / 重复绑定全局事件。
    * 若要换一个 canvas，请先调用 destroy()。
    */
-  public init(ctx: any, options: { renderMode?: 'full' | 'dirty-rect' } = {}) {
+  public init(ctx: any, options: { renderMode?: 'full' | 'dirty-rect'; dpr?: number } = {}) {
     if (!ctx) {
       throw new Error('ICE.init() failed...');
     }
@@ -120,6 +138,11 @@ class ICE {
       this.canvasEl = canvasEl;
     }
 
+    // 设备像素比：仅在显式传入 >1 时启用，默认 1 完全不改变既有行为。
+    if (options && typeof options.dpr === 'number' && options.dpr > 0) {
+      this.dpr = options.dpr;
+    }
+
     if (this.canvasEl) {
       //禁用 canvas 元素上的原生右键菜单
       this.canvasEl.oncontextmenu = function (e) {
@@ -129,11 +152,16 @@ class ICE {
       this.canvasWidth = this.canvasEl.width;
       this.canvasHeight = this.canvasEl.height;
       this.canvasBoundingClientRect = this.canvasEl.getBoundingClientRect();
+      this.__contentBox = this.__readContentBox(this.canvasBoundingClientRect);
       this.ctx = this.canvasEl.getContext('2d');
       // 触摸输入必需：阻止浏览器把手势解释为页面滚动/缩放，否则触摸拖拽会被浏览器抢走。
       // 应用层若确实需要页面滚动，可自行覆盖该样式。
       if (this.canvasEl.style) {
         this.canvasEl.style.touchAction = 'none';
+      }
+      // 高分屏：把 backing store 放大到 cssSize*dpr，并把 CSS 尺寸固定为逻辑尺寸。
+      if (this.dpr !== 1) {
+        this.__applyDevicePixelRatio();
       }
     } else {
       //裸 context 兜底
@@ -212,6 +240,9 @@ class ICE {
     this.ctx = null;
     this.canvasEl = null;
     this.canvasBoundingClientRect = null;
+    this.dpr = 1;
+    this.__renderVp = null;
+    this.__contentBox = null;
 
     this.__initialized = false;
   }
@@ -414,11 +445,117 @@ class ICE {
    * 否则命中检测会整体偏移（旧实现只在 init 时取一次，滚动后即失效）。
    * 高频的移动类事件复用缓存，见 DOMEventDispatcher.__resolveCanvasRect。
    */
+  /**
+   * 渲染用视口 = dpr · viewport（仅「往画布上画」这一侧需要乘 dpr）。
+   * dpr === 1 时**直接返回 viewport 本身**：零分配、且与既有行为逐字节一致。
+   */
+  public getRenderViewport(): { scale: number; tx: number; ty: number } {
+    const vp = this.viewport;
+    if (this.dpr === 1) {
+      return vp;
+    }
+    let out = this.__renderVp;
+    if (!out) {
+      out = this.__renderVp = { scale: 1, tx: 0, ty: 0, __d: 1, __s: 1, __tx: 0, __ty: 0 };
+    }
+    if (out.__d !== this.dpr || out.__s !== vp.scale || out.__tx !== vp.tx || out.__ty !== vp.ty) {
+      out.__d = this.dpr;
+      out.__s = vp.scale;
+      out.__tx = vp.tx;
+      out.__ty = vp.ty;
+      out.scale = vp.scale * this.dpr;
+      out.tx = vp.tx * this.dpr;
+      out.ty = vp.ty * this.dpr;
+    }
+    return out;
+  }
+
+  /**
+   * 把 canvas 的 backing store 放大到 cssSize * dpr，并把 CSS 尺寸固定为逻辑尺寸。
+   * 只有传了 dpr>1 才会调用。
+   */
+  private __applyDevicePixelRatio(): void {
+    const el: any = this.canvasEl;
+    if (!el) {
+      return;
+    }
+    const box = this.__readContentBox(
+      typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect() : null
+    );
+    // 内容盒尺寸（排除 border/padding）：直接用 border-box 会被边框撑大（示例页画布带 1px 边框）
+    const cssW = box.width || el.width;
+    const cssH = box.height || el.height;
+    el.width = Math.round(cssW * this.dpr);
+    el.height = Math.round(cssH * this.dpr);
+    if (el.style) {
+      el.style.width = cssW + 'px';
+      el.style.height = cssH + 'px';
+    }
+    this.canvasWidth = el.width;
+    this.canvasHeight = el.height;
+    this.updateCanvasBoundingRect();
+  }
+
   public updateCanvasBoundingRect(): any {
     if (this.canvasEl && typeof this.canvasEl.getBoundingClientRect === 'function') {
       this.canvasBoundingClientRect = this.canvasEl.getBoundingClientRect();
+      this.__contentBox = this.__readContentBox(this.canvasBoundingClientRect);
     }
     return this.canvasBoundingClientRect;
+  }
+
+  /**
+   * 读取 canvas 内容盒：把 border-box 的 rect 补偿成「绘制区」的偏移与尺寸。
+   * 无 getComputedStyle 的运行时（如小程序）补偿为 0，退回 rect 原值。
+   */
+  private __readContentBox(rect: any): any {
+    const el: any = this.canvasEl;
+    let bl = 0;
+    let br = 0;
+    let bt = 0;
+    let bb = 0;
+    let pl = 0;
+    let pr = 0;
+    let pt = 0;
+    let pb = 0;
+    const g: any =
+      this.root && typeof this.root.getComputedStyle === 'function' && el ? this.root.getComputedStyle(el) : null;
+    if (g) {
+      //@perf: parseFloat 容错，缺字段按 0 处理
+      const num = (v: any): number => {
+        const n = parseFloat(v);
+        return isFinite(n) ? n : 0;
+      };
+      bl = num(g.borderLeftWidth);
+      br = num(g.borderRightWidth);
+      bt = num(g.borderTopWidth);
+      bb = num(g.borderBottomWidth);
+      pl = num(g.paddingLeft);
+      pr = num(g.paddingRight);
+      pt = num(g.paddingTop);
+      pb = num(g.paddingBottom);
+    }
+    const left = (rect && rect.left) || 0;
+    const top = (rect && rect.top) || 0;
+    const w = (rect && rect.width) || 0;
+    const h = (rect && rect.height) || 0;
+    return {
+      left: left + bl + pl,
+      top: top + bt + pt,
+      width: Math.max(0, w - bl - br - pl - pr),
+      height: Math.max(0, h - bt - bb - pt - pb),
+    };
+  }
+
+  /**
+   * 供输入派发器做坐标换算的矩形：**内容盒左上角**。
+   * 这样 `clientX - left` 就落在绘制区坐标里，与旧实现（offsetX）语义一致，不受 border/padding 影响。
+   */
+  public getInputRect(): any {
+    if (!this.__contentBox) {
+      this.updateCanvasBoundingRect();
+    }
+    return this.__contentBox || this.canvasBoundingClientRect || { left: 0, top: 0, width: 0, height: 0 };
   }
 
   /**

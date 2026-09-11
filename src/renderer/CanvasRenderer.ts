@@ -249,6 +249,9 @@ class CanvasRenderer extends ICEEventTarget {
     // 不一致，回退全量重绘（正确性优先）。视口变化经 setViewport → markQueueDirty 已回退一次。
     const vp = this.ice.viewport;
     if (vp && (vp.scale !== 1 || vp.tx !== 0 || vp.ty !== 0)) return null;
+    // dpr !== 1 时渲染坐标被放大到物理像素，clearRect/clip（物理像素）与组件世界盒不一致，
+    // 与「非单位视口」同一类问题 → 回退全量，正确性优先。
+    if (this.ice.dpr !== 1) return null;
     const ctx = this.ice.ctx;
     const cw = this.ice.canvasWidth || 0;
     const ch = this.ice.canvasHeight || 0;
