@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render 无障碍：应用层 DOM 镜像</title>
+  <style>
+    .stage { position: relative; width: 820px; }
+    .mirror { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+    .mirror button {
+      position: absolute;
+      pointer-events: auto;
+      background: transparent;
+      border: 1px dashed rgba(37, 99, 235, 0.55);
+      border-radius: 4px;
+      padding: 0;
+      color: transparent;
+      font-size: 0;
+      box-sizing: border-box;
+    }
+    .mirror button:focus {
+      outline: none;
+      border: 3px solid #2563eb;
+      background: rgba(37, 99, 235, 0.12);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+    }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  </style>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">无障碍：引擎给原语，应用层做 DOM 镜像</h2>
+    <p style="color:#555; margin: 0 0 10px; max-width: 1100px;">
+      引擎不内建 DOM 镜像层，只提供 <code>ice.getAccessibilityTree()</code>（可访问节点快照：角色建议 /
+      可读名称 / <strong>屏幕坐标盒</strong> / 层级 / tab 顺序）与 <code>ice.setFocusedComponent()</code>（键盘焦点回传）。<br />
+      本页演示应用层实现：虚线框是镜像 <code>&lt;button&gt;</code>（带 <code>aria-label</code> 与 tabindex），
+      按 <kbd>Tab</kbd> 在它们之间移动焦点 → 焦点回传到对应组件（实线蓝框 + 下方播报）；
+      焦点在镜像元素上按 <kbd>←↑→↓</kbd>，键盘事件会被派发给该组件并移动它。
+    </p>
+    <div class="stage">
+      <canvas id="canvas-1" width="820" height="360" style="background:#fff; border:1px solid #ddd; display:block;"></canvas>
+      <div id="mirror" class="mirror"></div>
+    </div>
+    <div id="announce" class="sr-only" aria-live="polite"></div>
+    <div id="status" style="margin-top:6px; color:#555; font:12px/1.6 ui-monospace, monospace;"></div>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+      const ice = new ICE.ICE().init('canvas-1');
+      window.__ice = ice;
+
+      // ---- 场景 ----
+      const items = [
+        { left: 40, top: 40, width: 160, height: 70, fill: '#FDE68A', label: '订单实体' },
+        { left: 240, top: 40, width: 160, height: 70, fill: '#BFDBFE', label: '用户实体' },
+        { left: 440, top: 40, width: 160, height: 70, fill: '#FBCFE8', label: '商品实体' },
+        { left: 640, top: 40, width: 140, height: 70, fill: '#BBF7D0', label: '支付实体' },
+      ];
+      items.forEach((it, i) => {
+        ice.addChild(
+          new ICE.ICERect({
+            left: it.left,
+            top: it.top,
+            width: it.width,
+            height: it.height,
+            radius: 8,
+            ariaLabel: it.label, // 引擎会把它作为可读名称
+            zIndex: 10 + i,
+            style: { fillStyle: it.fill, strokeStyle: '#111827', lineWidth: 2 },
+          })
+        );
+      });
+      ice.addChild(
+        new ICE.ICEText({
+          left: 40,
+          top: 170,
+          text: '用 Tab 遍历镜像元素；焦点组件可用方向键移动。',
+          stroke: false,
+          zIndex: 30,
+          style: { fontSize: 18, fontFamily: 'Arial', fillStyle: '#111827' },
+        })
+      );
+
+      // ---- 应用层的 DOM 镜像实现 ----
+      const mirrorEl = document.getElementById('mirror');
+      const announceEl = document.getElementById('announce');
+      const statusEl = document.getElementById('status');
+      const nodesById = {};
+      let signature = '';
+
+      function computeSignature(nodes) {
+        return nodes
+          .map((n) => [n.id, Math.round(n.box.x), Math.round(n.box.y), Math.round(n.box.width), Math.round(n.box.height), n.focusable ? 1 : 0, n.selected ? 1 : 0].join(':'))
+          .join('|');
+      }
+
+      function syncMirror() {
+        const nodes = ice.getAccessibilityTree();
+        for (let i = 0; i < nodes.length; i++) {
+          nodesById[nodes[i].id] = nodes[i];
+        }
+        const sig = computeSignature(nodes);
+        if (sig === signature) {
+          return; // 无变化则不动 DOM
+        }
+        signature = sig;
+
+        const seen = {};
+        for (let i = 0; i < nodes.length; i++) {
+          const n = nodes[i];
+          seen[n.id] = true;
+          let el = mirrorEl.querySelector('[data-ice-id="' + n.id + '"]');
+          if (!el) {
+            el = document.createElement('button');
+            el.type = 'button';
+            el.setAttribute('data-ice-id', n.id);
+            el.addEventListener('focus', onMirrorFocus);
+            el.addEventListener('click', onMirrorFocus);
+            mirrorEl.appendChild(el);
+          }
+          // 语义与几何都交给应用层决定
+          el.setAttribute('aria-label', n.label);
+          el.setAttribute('aria-describedby', 'status');
+          el.tabIndex = n.focusable ? 0 : -1;
+          el.style.left = n.box.x + 'px';
+          el.style.top = n.box.y + 'px';
+          el.style.width = n.box.width + 'px';
+          el.style.height = n.box.height + 'px';
+        }
+        // 清理已消失的组件对应的镜像元素
+        const children = Array.prototype.slice.call(mirrorEl.children);
+        for (let i = 0; i < children.length; i++) {
+          const id = children[i].getAttribute('data-ice-id');
+          if (!seen[id]) {
+            mirrorEl.removeChild(children[i]);
+          }
+        }
+        statusEl.textContent = '镜像元素 = ' + nodes.length + ' 个（其中 ' + nodes.filter((n) => n.focusable).length + ' 个可聚焦）';
+      }
+
+      function onMirrorFocus(evt) {
+        const id = evt.currentTarget.getAttribute('data-ice-id');
+        const node = nodesById[id];
+        // 焦点回传：之后键盘事件会被派发给该组件
+        ice.setFocusedComponent(id);
+        const component = ice.childNodes.filter((c) => c.props.id === id)[0];
+        if (component) {
+          ice.setSelection([component]);
+        }
+        announceEl.textContent = '已聚焦：' + (node ? node.label : id) + '（' + (node ? node.role : '') + '）';
+      }
+
+      // 每轮渲染结束后同步镜像（真实项目可做增量 diff / 节流）
+      ice.evtBus.on('ROUND_FINISH', syncMirror);
+      ice.setViewport(1, 0, 0);
+      ice.dirty = true;
+      syncMirror();
+
+      window.__a11y = { syncMirror: syncMirror, getNodes: () => ice.getAccessibilityTree() };
+    })();
+  </script>
+</html>

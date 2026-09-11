@@ -31,6 +31,11 @@
   提供 `setup` / `teardown` 生命周期与幂等注册。
 - **选中统一入口 `ICE.setSelection(components)`**：写 `selectionList` 并同步插件工具；
   返回值表示是否有「排他」插件工具命中（供调用方禁用内置面板）。
+- **无障碍原语**：`ICE.getAccessibilityTree(options?)` 产出可访问节点快照（角色建议 / 可读名称 /
+  屏幕坐标盒 / 层级 / tab 顺序 / 可聚焦性 / 选中态，只含已上屏组件且不修改任何组件 state）；
+  `ICE.setFocusedComponent(componentOrId)` 让键盘事件派发给焦点组件。
+  引擎**不自建 DOM 镜像层**——镜像的 DOM 结构、ARIA 与文案由应用层决定（参考实现见
+  `examples/a11y/a11y-mirror.html`，设计说明见 `docs/architecture/14-accessibility.md`）。
 
 ### 修复
 

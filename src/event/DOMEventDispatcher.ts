@@ -36,6 +36,12 @@ class DOMEventDispatcher {
   private _stopped: boolean = false;
   /** 上一次归一化输入，用于在原生 movement 缺失（触摸）时补算位移。 */
   private __lastInput: NormalizedInput | null = null;
+  /**
+   * 键盘事件的焦点组件（无障碍 / 键盘导航）。
+   * 由应用层通过 `ICE.setFocusedComponent()` 设置；为 null 时维持既有行为
+   * ——键盘事件派发给「上次点击命中的组件」。
+   */
+  public focusedComponent: any = null;
 
   constructor(ice: ICE) {
     this.ice = ice;
@@ -75,7 +81,13 @@ class DOMEventDispatcher {
           componentCache = this.findTargetComponent(evt); //FIXME: TransformControlPanel 会遮挡住组件，导致组件收不到鼠标事件，需要做一些处理。
         }
 
-        const dispatchTarget = isWheel ? null : componentCache;
+        // 键盘事件优先派发给「焦点组件」（无障碍），未设置焦点时维持既有行为
+        let dispatchTarget = componentCache;
+        if (isWheel) {
+          dispatchTarget = null;
+        } else if (isKeyboard && this.focusedComponent) {
+          dispatchTarget = this.focusedComponent;
+        }
         //2) 原生名派发（新代码可用 pointerdown/pointermove/... 或 touchstart/...）
         this.__dispatch(nativeEvtName, evt, dispatchTarget);
         //3) 兼容名派发：pointer/touch 映射成 mousedown/mousemove/mouseup，既有组件零改动
