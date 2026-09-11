@@ -67,7 +67,7 @@ describe('preset（组件层）', () => {
 });
 
 describe('命名主题 + registerTheme', () => {
-  it('setTheme(\'dark\') 切换到暗色主题', () => {
+  it("setTheme('dark') 切换到暗色主题", () => {
     setTheme('dark');
     expect(getTheme().semantic.background).toBe('#111827');
     expect(getTheme().semantic.text).toBe(baseTokens.color.gray[200]);
@@ -122,7 +122,9 @@ describe('motion token 与动画打通', () => {
   });
 
   it('duration/easing 语义名跟随主题切换', () => {
-    setTheme({ motion: { ...getTheme().semantic.motion, duration: { fast: 50, normal: 150, slow: 400, slower: 900 } } });
+    setTheme({
+      motion: { ...getTheme().semantic.motion, duration: { fast: 50, normal: 150, slow: 400, slower: 900 } },
+    });
     const mgr = new AnimationManager({} as any);
     const anim = { duration: 'normal', easing: 'out' };
     (mgr as any).__resolveMotion(anim);
