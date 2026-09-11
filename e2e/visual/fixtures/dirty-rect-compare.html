@@ -14,6 +14,11 @@
       （无文本/折线/阴影），验证封闭 dot-path 离屏缓存后局部重绘仍像素一致；
       <code>?opaque=1&amp;alpha=1</code> 额外加入半透明矩形（无星形/折线/文本/阴影），
       验证半透明 shape 离屏缓存后局部重绘仍像素一致；
+      <code>?opaque=1&amp;zoom=1</code> 加上非单位视口（scale=1.75 + 平移），
+      验证脏区「世界坐标 → 渲染坐标」映射后局部重绘仍像素一致；
+      <code>?opaque=1&amp;hidpi=1</code> 用 dpr=2 启动，验证高分屏下同样既局部执行又像素一致；
+      <code>?opaque=1&amp;multi=1</code> 让第 1 步同时拖动相距很远的两个组件，
+      验证「脏区切成多块」时既局部执行又像素一致；
       默认富场景覆盖旋转/文本/阴影/连线/面板等边界。
     </p>
     <canvas id="canvas-a" width="700" height="500" style="background:#fff; border:1px solid #ccc;"></canvas>
@@ -27,9 +32,20 @@
       const TEXTOPAQUE = OPAQUE && new URLSearchParams(location.search).get('text') === '1';
       const STAROPAQUE = OPAQUE && new URLSearchParams(location.search).get('star') === '1';
       const ALPHAOPAQUE = OPAQUE && new URLSearchParams(location.search).get('alpha') === '1';
+      //?zoom=1：非单位视口（缩放 + 平移）。脏区在世界坐标里收集，clearRect/clip 在渲染坐标里，
+      //两者只在单位视口下重合 —— 这个开关就是用来验证映射后的逐像素一致性的。
+      const ZOOM = new URLSearchParams(location.search).get('zoom') === '1';
+      //?hidpi=1：dpr=2，backing store 与渲染视口都放大一倍。
+      const HIDPI = new URLSearchParams(location.search).get('hidpi') === '1';
+      //?multi=1：第 1 步同时拖动「相距很远的两个组件」，让脏区必须切成多块
+      //（并集成一个盒会圈进大片干净区域、直接撞面积阈值回退全量）。
+      const MULTI = new URLSearchParams(location.search).get('multi') === '1';
 
       function buildScene(ice, renderMode) {
-        ice.init('canvas-' + (renderMode === 'full' ? 'a' : 'b'), renderMode ? { renderMode } : {});
+        ice.init('canvas-' + (renderMode === 'full' ? 'a' : 'b'), {
+          renderMode,
+          ...(HIDPI ? { dpr: 2 } : {}),
+        });
 
         const group = new ICE.ICEGroup({
           left: 20, top: 20, width: 320, height: 200,
@@ -114,6 +130,11 @@
           });
         }
 
+        if (ZOOM) {
+          // 非单位视口：scale≠1 且平移非零，两个实例必须完全一致
+          ice.setViewport(1.75, -40, -25);
+        }
+
         return { ice, group, leaves, star, text, alphaRect, baseRect, box, link, addedRect: null };
       }
 
@@ -143,6 +164,8 @@
             break;
           case 1: // 拖动单个叶子（最典型局部重绘场景）
             pair((s) => s.leaves[2].moveGlobalPosition(12, 8));
+            // 分散脏区：再动一个相距很远的组件，脏区必须被切成多块
+            if (MULTI) pair((s) => s.box.moveGlobalPosition(-10, 12));
             break;
           case 2: // 改色 + 改 zIndex
             pair((s) => s.leaves[3].setState({ style: { fillStyle: '#EF4444' }, zIndex: 9000 }));

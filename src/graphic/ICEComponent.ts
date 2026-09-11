@@ -100,6 +100,32 @@ const DEFAULT_PROPS = {
   showMaxBoundingBox: false,
 };
 
+/** 把渐变 stop 归一化成 [offset, color] 且按 offset 升序。接受 [[o,c],...] 或 [{offset,color},...]。 */
+function normalizeGradientStops(stops: any): Array<[number, string]> {
+  const out: Array<[number, string]> = [];
+  if (!Array.isArray(stops)) {
+    return out;
+  }
+  for (let i = 0; i < stops.length; i++) {
+    const item = stops[i];
+    let offset = NaN;
+    let color = '';
+    if (Array.isArray(item)) {
+      offset = Number(item[0]);
+      color = String(item[1]);
+    } else if (item && typeof item === 'object') {
+      offset = Number(item.offset);
+      color = String(item.color);
+    }
+    if (!isFinite(offset) || !color) {
+      continue;
+    }
+    out.push([offset < 0 ? 0 : offset > 1 ? 1 : offset, color]);
+  }
+  out.sort((a, b) => a[0] - b[0]);
+  return out;
+}
+
 /**
  * @class ICEComponent
  *
@@ -127,6 +153,8 @@ abstract class ICEComponent extends ICEEventTarget {
 
   // __localBox() 的复用缓冲（避免每帧为每个组件的包围盒分配数组）
   private __localBoxScratch: number[] = [0, 0, 0, 0];
+  /** 声明式渐变缓存：按描述对象引用判定，`refreshParams()` 里失效（setState 必然触发它）。 */
+  private __gradCache: { fill?: { src: any; grad: any }; stroke?: { src: any; grad: any } } = {};
 
   /**
    * 「自身派生参数需要重算」标志（尺寸 / 点集 / 文本量测等，由 calcComponentParams 产出）。
@@ -372,9 +400,36 @@ abstract class ICEComponent extends ICEEventTarget {
     }
   }
 
+  /**
+   * 「最终可见」：自身与**所有祖先**的 `state.display` 都为真。
+   *
+   * `state.display = false` 的语义是「整棵子树都不渲染」（见上方 props 文档），但渲染队列
+   * 是把树拉平后逐个入队的，只判组件自身的话，把一个父容器设为 false 后它的子组件仍会被
+   * 画出来、也仍能被点中。
+   *
+   * 顶层组件（无 parentNode）走 O(1) 快路径 —— 绝大多数组件都是顶层，热路径上不付出遍历成本。
+   */
+  public isEffectivelyVisible(): boolean {
+    if (!this.state.display) {
+      return false;
+    }
+    if (!this.parentNode) {
+      return true;
+    }
+    let node: any = this.parentNode;
+    while (node) {
+      if (node.state && !node.state.display) {
+        return false;
+      }
+      node = node.parentNode;
+    }
+    return true;
+  }
+
   private __renderCore(baseMatrix: number[] | null, applyViewport: boolean): void {
     this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_RENDER);
-    if (!this.state.display) {
+    //祖先 display:false 时同样不渲染（display 的语义是整棵子树）
+    if (!this.isEffectivelyVisible()) {
       return;
     }
 
@@ -393,15 +448,41 @@ abstract class ICEComponent extends ICEEventTarget {
     //       用 for...in（零分配）而非 Object.keys（会分配 key 数组，反而加重 GC）。
     const propsStyle = this.props.style;
     const stateStyle = this.state.style;
+    // 渐变单独摘出来放到最后应用：它写的是同一个 ctx.fillStyle / strokeStyle，
+    // 若按 style 的键序谁先谁后，「渐变 vs 纯色」的胜负就会不定（state.style 覆盖 props.style）
+    let fillGrad: any = null;
+    let strokeGrad: any = null;
     if (propsStyle) {
       for (const p in propsStyle) {
+        if (p === 'fillGradient') {
+          fillGrad = propsStyle[p];
+          continue;
+        }
+        if (p === 'strokeGradient') {
+          strokeGrad = propsStyle[p];
+          continue;
+        }
         this.__applyStyleProp(p, propsStyle[p]);
       }
     }
     if (stateStyle) {
       for (const p in stateStyle) {
+        if (p === 'fillGradient') {
+          fillGrad = stateStyle[p];
+          continue;
+        }
+        if (p === 'strokeGradient') {
+          strokeGrad = stateStyle[p];
+          continue;
+        }
         this.__applyStyleProp(p, stateStyle[p]);
       }
+    }
+    if (fillGrad) {
+      this.__applyStyleProp('fillGradient', fillGrad);
+    }
+    if (strokeGrad) {
+      this.__applyStyleProp('strokeGradient', strokeGrad);
     }
   }
 
@@ -410,6 +491,21 @@ abstract class ICEComponent extends ICEEventTarget {
    * - shadow: 'sm' | 'md' | 'lg' 展开成 shadowColor/shadowBlur/shadowOffsetX/shadowOffsetY。
    */
   private __applyStyleProp(prop: string, value: any): void {
+    // 声明式渐变：fillGradient / strokeGradient 解析成 CanvasGradient 后写进 fillStyle / strokeStyle
+    if (prop === 'fillGradient' || prop === 'strokeGradient') {
+      const target = prop === 'fillGradient' ? 'fillStyle' : 'strokeStyle';
+      const resolved = this.__resolveGradient(prop === 'fillGradient' ? 'fill' : 'stroke', value);
+      if (resolved) {
+        this.ctx[target] = resolved;
+      } else if (value) {
+        // 解析失败（无 stop / 运行时缺 API）时退回纯色，避免「什么都没画出来」
+        const stops = normalizeGradientStops(value.stops);
+        if (stops.length) {
+          this.ctx[target] = stops[Math.floor(stops.length / 2)][1];
+        }
+      }
+      return;
+    }
     if (prop === 'shadow' && typeof value === 'string' && SHADOW_PRESETS[value]) {
       const preset = SHADOW_PRESETS[value];
       this.ctx.shadowColor = preset.shadowColor;
@@ -419,6 +515,77 @@ abstract class ICEComponent extends ICEEventTarget {
       return;
     }
     this.ctx[prop] = value;
+  }
+
+  /**
+   * 把声明式渐变描述解析成 `CanvasGradient`（带缓存）。
+   *
+   * 描述形状（坐标是**组件本地坐标**）：
+   * ```
+   * { type: 'linear', from: [0,0], to: [100,0], stops: [[0,'#fff'],[1,'#000']] }
+   * { type: 'radial', center: [50,50], radius: 50, innerRadius: 0, stops: [...] }
+   * { type: 'conic',  center: [50,50], startAngle: 0, stops: [...] }
+   * ```
+   * 它比手搓 `CanvasGradient` 多两个好处：**可序列化**（纯对象，存盘不丢）与**可用于主题 preset**。
+   */
+  private __resolveGradient(kind: 'fill' | 'stroke', desc: any): any {
+    if (!desc || typeof desc !== 'object') {
+      return null;
+    }
+    const slot = this.__gradCache[kind];
+    if (slot && slot.src === desc) {
+      return slot.grad;
+    }
+    const grad = this.__buildGradient(desc);
+    this.__gradCache[kind] = { src: desc, grad };
+    return grad;
+  }
+
+  /** 真正构造 CanvasGradient。缺少对应 ctx API 时返回 null（调用方会退回纯色）。 */
+  private __buildGradient(desc: any): any {
+    const ctx: any = this.ctx;
+    if (!ctx) {
+      return null;
+    }
+    const stops = normalizeGradientStops(desc.stops);
+    if (stops.length < 1) {
+      return null;
+    }
+    const w = Number(this.state.width) || 0;
+    const h = Number(this.state.height) || 0;
+    const type = desc.type || 'linear';
+    let grad: any = null;
+
+    if (type === 'radial' && typeof ctx.createRadialGradient === 'function') {
+      const c = Array.isArray(desc.center) ? desc.center : [w / 2, h / 2];
+      const radius = Number(desc.radius) > 0 ? Number(desc.radius) : Math.max(w, h) / 2;
+      const inner = Number(desc.innerRadius) > 0 ? Number(desc.innerRadius) : 0;
+      grad = ctx.createRadialGradient(c[0], c[1], inner, c[0], c[1], radius);
+    } else if (type === 'conic' && typeof ctx.createConicGradient === 'function') {
+      const c = Array.isArray(desc.center) ? desc.center : [w / 2, h / 2];
+      grad = ctx.createConicGradient(Number(desc.startAngle) || 0, c[0], c[1]);
+    } else if (type === 'conic') {
+      // 运行时没有 createConicGradient（旧 Safari / 部分小程序）→ 退回中间色纯色
+      return null;
+    } else if (typeof ctx.createLinearGradient === 'function') {
+      const from = Array.isArray(desc.from) ? desc.from : [0, 0];
+      const to = Array.isArray(desc.to) ? desc.to : [w, 0];
+      grad = ctx.createLinearGradient(from[0], from[1], to[0], to[1]);
+    }
+    if (!grad && typeof ctx.createLinearGradient !== 'function') {
+      return null;
+    }
+    if (!grad) {
+      return null;
+    }
+    for (let i = 0; i < stops.length; i++) {
+      try {
+        grad.addColorStop(stops[i][0], stops[i][1]);
+      } catch (e) {
+        // 非法颜色：跳过这一档，别让一个笔误把整帧渲染打断
+      }
+    }
+    return grad;
   }
 
   /**
@@ -481,6 +648,9 @@ abstract class ICEComponent extends ICEEventTarget {
     }
     this.calcComponentParams();
     this.__paramsDirty = false;
+    // 样式可能一起变了：渐变按描述对象引用缓存，这里失效一次即可（重建只发生一次）
+    this.__gradCache.fill = undefined;
+    this.__gradCache.stroke = undefined;
   }
 
   /**
@@ -817,12 +987,21 @@ abstract class ICEComponent extends ICEEventTarget {
    * @param newState
    */
   public setState(newState: any) {
+    // 尺寸变化会让父容器的布局结果失效，需要请求重排；先读旧值再 merge。
+    const sizeChanged =
+      !!newState &&
+      ((newState.width !== undefined && newState.width !== this.state.width) ||
+        (newState.height !== undefined && newState.height !== this.state.height));
     merge(this.state, newState);
     // state 变化无法廉价判断「是否影响派生参数」，因此保守地两者都置脏（与旧行为一致）。
     this.paramsDirty = true;
     this.dirty = true;
     if (this.ice) {
       this.ice.dirty = true;
+    }
+    // 父容器若是布局容器，尺寸变化后必须重排（请求合并到下一帧，见 ICEGroup.requestLayout）
+    if (sizeChanged && this.parentNode && typeof this.parentNode.requestLayout === 'function') {
+      this.parentNode.requestLayout();
     }
   }
 

@@ -44,7 +44,18 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 
 **架构与组件模型**
 
-- **极简依赖** —— 运行时仅 `gl-matrix` 一个库，无其它依赖。
+- **声明式渐变（可序列化）** —— `style.fillGradient` / `style.strokeGradient` 用纯对象描述
+  `linear` / `radial` / `conic` 渐变（`{ type, from/to | center/radius | startAngle, stops }`），
+  渲染时构造 `CanvasGradient` 并按描述对象引用缓存。与手搓 `CanvasGradient` 的关键差别是
+  **能进 JSON**（存盘不丢）且**能写进主题 preset**（随 `setTheme` 重新展开）。
+- **`display: false` 是整棵子树隐藏** —— 隐藏父容器后子组件不再被绘制、也不参与命中
+  （判定收敛在 `isEffectivelyVisible()`，渲染/命中/a11y/离屏缓存共用）。
+- **变换手柄支持修改键约束** —— `Shift` 拖角手柄保持宽高比、`Shift` 拖旋转手柄吸附 15°。
+  输入层会把 DOM 事件的修饰键显式透传到组件事件（`shiftKey` 是原型上的不可枚举 getter，
+  默认拷贝带不过来）。
+- **脏矩形局部重绘在缩放/平移与高分屏下同样生效** —— 脏区按「世界坐标收集、渲染坐标裁剪」
+  （`dpr · viewport` 一次换算），并把分散脏区聚合成多块裁剪区，而不是并成一个把干净区域也圈进去的大盒。
+- **零运行时依赖** —— `gl-matrix` 在构建时被**内联**进产物（它只列在 devDependencies，产物里没有任何 `import`/`require`），安装后开箱即用，不需要额外装包。内联的第三方代码保留其许可声明，见 `dist/THIRD-PARTY-NOTICES.txt`。
 - **纯 TypeScript** —— 100% TS 源码，产出完整的 `.d.ts` 类型声明，`tsc --noEmit` 零错误。
 - **React 式组件模型** —— `props`（不可变构造入参）/ `state`（可变运行时状态）分离，`render()` 模板方法 + 清晰的类继承体系。
 - **无限嵌套容器** —— `ICEGroup` 可任意嵌套，形成组件树。
@@ -83,7 +94,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 **性能与工程质量**
 
 - **高性能** —— 脏标记 + **脏矩形局部重绘**（默认，不满足局部条件时自动回退全量），配合组件级离屏缓存、渲染队列缓存与矩阵零分配，`bench/render.cjs` 实测 **5000 图元静态重绘约 0.8ms/帧（引擎 JS 逻辑开销，不含光栅化）**。
-- **完整工程化** —— **68 个测试文件 / 531 个用例**（jest，带「只许上调」的覆盖率门槛）、Playwright 可视化回归（golden-image + 脏矩形像素一致性 + 视口/对齐/交互）、发布包完整性门禁（`publint` + `attw`）、eslint、架构设计文档。
+- **完整工程化** —— **76 个测试文件 / 623 个用例**（jest，带「只许上调」的覆盖率门槛）、Playwright 可视化回归（golden-image + 脏矩形像素一致性 + 视口/对齐/交互）、发布包完整性门禁（`publint` + `attw`）、eslint、架构设计文档。
 
 ## 🚀 快速开始
 
@@ -121,7 +132,7 @@ ice.addChild(new ICERect({ width: 100, height: 50 }));
 ## 📚 文档
 
 - **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容。
-- **示例** —— [`examples/`](./examples/index.html) 目录提供 **86 个**可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、文本、视口、对齐、插件、无障碍、性能基准等）。
+- **示例** —— [`examples/`](./examples/index.html) 目录提供 **87 个**可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、文本、视口、对齐、插件、无障碍、性能基准等）。
 
 ## 🧪 工程化
 
@@ -176,7 +187,7 @@ export default class Relation extends ICEVisioLink {
 ## 📸 截图
 
 > 截图由 `examples/` 下的示例页直接采集（Playwright、2× 像素比、**按内容包围盒裁切**，不含浏览器外壳与页面留白）。
-> 全部 86 个示例都可以在 [`examples/index.html`](./examples/index.html) 里点开运行。
+> 全部 87 个示例都可以在 [`examples/index.html`](./examples/index.html) 里点开运行。
 
 **图元与样式** —— 形状库、渐变、阴影、虚线等（`examples/shapes/shapes-basic.html`）
 

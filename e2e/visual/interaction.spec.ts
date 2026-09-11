@@ -237,3 +237,82 @@ test('文本编辑：IME 中文输入 + 文本选中不显示变换面板', asyn
   expect(panel).toBe(false);
   expect(await page.evaluate(() => window.__text.state.transformable)).toBe(false);
 });
+
+/**
+ * 修饰键约束：Shift 等比缩放 / Shift 旋转吸附。
+ *
+ * 这条用例同时守住两件事：
+ * 1. 输入层必须把 DOM 事件的修饰键透传到组件事件上 —— `shiftKey` 是 DOM 事件原型上的
+ *    不可枚举 getter，`ICEEvent` 的 `for...in` 拷贝带不过来（曾整条链路丢失）；
+ * 2. 手柄确实按约束计算（等比 / 吸附 15°）。
+ */
+test('Shift 拖角手柄：保持目标宽高比（未旋转目标）', async ({ page }) => {
+  await page.goto('/e2e/visual/fixtures/nested-interaction.html');
+  await page.waitForTimeout(400);
+
+  // 用顶层「未旋转」矩形：轴对齐时变换面板外框 = 组件盒子，等比约束可以精确断言。
+  // （目标带旋转时面板是世界轴对齐外框，外框↔本地尺寸的映射本身有损，不适合做精确断言。）
+  const c = await page.evaluate(() => window.__center('plain'));
+  await page.mouse.click(c.x, c.y);
+  await page.waitForTimeout(200);
+
+  const before = await page.evaluate(() => {
+    const r = (window as any).__components.plain.state;
+    return { width: r.width, height: r.height };
+  });
+  expect(before.width).toBeGreaterThan(1);
+  const originRatio = before.width / before.height;
+
+  await page.keyboard.down('Shift');
+  for (let i = 0; i < 3; i++) {
+    const hc = await page.evaluate(() => {
+      const h = (window as any).__handles().find((x: any) => x.state.quadrant === 1);
+      return (window as any).__handleCenter(h);
+    });
+    await page.mouse.move(hc.x, hc.y);
+    await page.mouse.down();
+    // 故意用非等比位移：只有等比约束生效，比例才不会被带歪
+    await page.mouse.move(hc.x + 30, hc.y - 4, { steps: 5 });
+    await page.mouse.up();
+    await page.waitForTimeout(80);
+  }
+  await page.keyboard.up('Shift');
+
+  const after = await page.evaluate(() => {
+    const r = (window as any).__components.plain.state;
+    return { width: r.width, height: r.height };
+  });
+  expect(after.width).toBeGreaterThan(before.width); // 反向自检：确实被拉大了
+  expect(after.width / after.height).toBeCloseTo(originRatio, 2);
+});
+
+test('Shift 拖旋转手柄：角度吸附到 15° 整数倍', async ({ page }) => {
+  await page.goto('/e2e/visual/fixtures/nested-interaction.html');
+  await page.waitForTimeout(400);
+
+  const c = await page.evaluate(() => window.__center('rect'));
+  await page.mouse.click(c.x, c.y);
+  await page.waitForTimeout(150);
+  const initialWorld = await page.evaluate(() => (window as any).__components.rect.getRotateAngle(true));
+
+  await page.keyboard.down('Shift');
+  const rhc = await page.evaluate(() => (window as any).__handleCenter((window as any).__rotateHandle()));
+  await page.mouse.move(rhc.x, rhc.y);
+  await page.mouse.down();
+  // 用非 15° 整数倍的位移，确保「不吸附就必然不是整数倍」
+  await page.mouse.move(rhc.x + 37, rhc.y + 13, { steps: 10 });
+  await page.mouse.up();
+  await page.waitForTimeout(100);
+  await page.keyboard.up('Shift');
+
+  // 断言「世界旋转角」而不是目标本地角：本地角还会叠加祖先旋转（夹具的 root 带 45°），
+  // 手柄控制的是面板角，setGlobalRotate 再把它换算到目标本地。
+  const world = await page.evaluate(() => (window as any).__components.rect.getRotateAngle(true));
+  expect(Number.isFinite(world)).toBe(true);
+  // 必须落在 15° 整数倍上。容差取 1e-3：矩阵链（atan2 → 逆矩阵 → 变换叠加）会累积 ~1e-6 级误差，
+  // 不能按「精确整除」断言。
+  const offGrid = Math.abs(world - Math.round(world / 15) * 15);
+  expect(offGrid).toBeLessThan(1e-3);
+  // 反向自检：这次拖拽确实改变了角度（否则上面的断言会空转）
+  expect(Math.abs(world - initialWorld)).toBeGreaterThan(1);
+});

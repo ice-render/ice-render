@@ -18,6 +18,7 @@
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
+import { isEffectivelyVisible } from '../util/data-util';
 
 /** 可访问节点的角色建议（应用层可映射为 role / 元素类型）。 */
 export type ICEAccessibleRole = 'graphic' | 'container' | 'link' | 'text' | 'image' | 'tool';
@@ -143,7 +144,8 @@ export function buildAccessibilityTree(ice: any, options: ICEAccessibilityOption
     for (let i = 0; i < sorted.length; i++) {
       const c: any = sorted[i];
       const state = c.state || {};
-      const visible = state.display !== false;
+      // 祖先 display:false 时也视为不可见（display 的语义是整棵子树）
+      const visible = isEffectivelyVisible(c);
       const interactive = state.interactive !== false;
       const box = resolveBox(ice, c);
       const passesBase = (options.includeHidden || visible) && !!box;

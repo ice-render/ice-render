@@ -29,6 +29,11 @@ export interface NormalizedInput {
   buttons: number;
   isPrimary: boolean;
   isTouch: boolean;
+  /** 修饰键：变换手柄靠它做「Shift 等比 / 角度吸附」这类约束，必须显式透传 */
+  shiftKey: boolean;
+  ctrlKey: boolean;
+  altKey: boolean;
+  metaKey: boolean;
 }
 
 export interface RectLike {
@@ -106,6 +111,12 @@ export function normalizeInput(evt: any, rect: RectLike | null, prev?: Normalize
     buttons: typeof evt.buttons === 'number' ? evt.buttons : 0,
     isPrimary: evt.isPrimary !== false,
     isTouch: touch,
+    // 修饰键是 DOM 事件原型上的不可枚举 getter，ICEEvent 的 for...in 拷贝带不过来，
+    // 必须在归一化阶段显式读取，否则组件永远拿不到 shiftKey（变换手柄也就没法做约束）
+    shiftKey: !!evt.shiftKey,
+    ctrlKey: !!evt.ctrlKey,
+    altKey: !!evt.altKey,
+    metaKey: !!evt.metaKey,
   };
 }
 
@@ -127,6 +138,10 @@ export function applyNormalizedInput(target: any, input: NormalizedInput): void 
   target.pointerType = input.pointerType;
   target.pointerId = input.pointerId;
   target.isTouchInput = input.isTouch;
+  target.shiftKey = input.shiftKey;
+  target.ctrlKey = input.ctrlKey;
+  target.altKey = input.altKey;
+  target.metaKey = input.metaKey;
 }
 
 /**

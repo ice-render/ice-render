@@ -39,13 +39,24 @@
     const rect = new ICE.ICERect({ left: 50, top: 10, width: 40, height: 20 });
     group2.addChild(rect);
 
+    // 顶层未旋转矩形：轴对齐情形下，变换面板外框与组件盒子 1:1 对应，
+    // 用于精确验证「Shift 等比缩放」这类约束（旋转目标下外框映射本身是有损的）
+    const plain = new ICE.ICERect({
+      left: 620,
+      top: 120,
+      width: 120,
+      height: 40,
+      style: { strokeStyle: '#0f766e', fillStyle: '#ccfbf1', lineWidth: 1 },
+    });
+    ice.addChild(plain);
+
     // 顶层文本（用于内联编辑测试）
     const text = new ICE.ICEText({ left: 400, top: 300, text: 'hello' });
     ice.addChild(text);
 
     // 暴露给 Playwright 检查/驱动
     window.__ice = ice;
-    window.__components = { root, group1, group2, circle, rect };
+    window.__components = { root, group1, group2, circle, rect, plain };
     window.__text = text;
     // 组件全局中心（用于点击），实时计算
     window.__center = (name) => {

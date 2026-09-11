@@ -298,6 +298,27 @@ export const STYLE_PRESETS: { [name: string]: (theme: ICETheme) => any } = {
     radius: t.base.radius.lg,
     style: { fillStyle: t.semantic.background, strokeStyle: t.semantic.border, lineWidth: 1, shadow: 'md' },
   }),
+  /**
+   * 渐变卡片：声明式线性渐变（纯对象，可序列化）。
+   * presets 的返回值会 merge 进 props.style，所以渐变可以直接写在 preset 里，
+   * 并随 setTheme 热切换重新按新主题色展开。
+   */
+  gradient: (t) => ({
+    radius: t.base.radius.lg,
+    style: {
+      fillGradient: {
+        type: 'linear',
+        from: [0, 0],
+        to: [0, 200],
+        stops: [
+          [0, t.semantic.primary],
+          [1, t.semantic.background],
+        ],
+      },
+      strokeStyle: t.semantic.border,
+      lineWidth: 1,
+    },
+  }),
   panel: (t) => ({
     radius: t.base.radius.md,
     style: { fillStyle: t.semantic.background, strokeStyle: t.semantic.border, lineWidth: 1, shadow: 'sm' },

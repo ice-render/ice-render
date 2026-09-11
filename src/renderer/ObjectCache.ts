@@ -10,6 +10,7 @@
  */
 import root from '../cross-platform/root';
 import { stylePaintPad, isOpaqueDrawing } from './dirty-rect-util';
+import { isEffectivelyVisible } from '../util/data-util';
 
 /**
  * 封闭 dot-path 的最小缓存面积（逻辑像素，200x200）。
@@ -49,20 +50,20 @@ class ObjectCache {
    */
   isCachable(component: any): boolean {
     if (typeof component.measureText === 'function') {
-      return !component.state.editing && component.state.display !== false;
+      return !component.state.editing && isEffectivelyVisible(component);
     }
     // 封闭点集路径（星形/正N边形/玫瑰）：排除连线类（isLine）与蚂蚁线流动，
     // 且仅缓存足够大的图形（小图形 drawImage 不划算）。
     if (typeof component.calcDots === 'function' && !component.isLine) {
       const w = Number(component.state.width) || 0;
       const h = Number(component.state.height) || 0;
-      return component.state.display !== false && !component.state.lineDashFlow && w * h >= MIN_DOT_PATH_CACHE_AREA;
+      return isEffectivelyVisible(component) && !component.state.lineDashFlow && w * h >= MIN_DOT_PATH_CACHE_AREA;
     }
     // 半透明普通 path 图形（rgba/阴影/globalAlpha/composite）：排除容器/图片/连线。
     if (!isOpaqueDrawing(component.state)) {
       if (typeof component.createPathObject !== 'function') return false;
       if (component.childNodes || component.isLine) return false;
-      return component.state.display !== false;
+      return isEffectivelyVisible(component);
     }
     return false;
   }

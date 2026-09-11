@@ -102,6 +102,116 @@ export function integerAlign(box: number[]): number[] {
 }
 
 /**
+ * 合并两个盒为一个盒（取并集，不修改入参）。
+ */
+export function mergeBox(a: number[], b: number[]): number[] {
+  return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+}
+
+/**
+ * 把一组脏盒聚合成若干块**互不相接**的裁剪区。
+ *
+ * 为什么不是并成一个盒：脏组件常是分散的（多选拖拽、布局重排、若干条独立动画），
+ * 一个并集大盒会把中间大片干净区域一起圈进来，很容易撞上「脏区面积占比」阈值
+ * 从而回退全量 —— 局部重绘的收益被吃掉。多块裁剪区让每块都贴近真实脏区。
+ *
+ * 策略：
+ * 1. 贪心合并 —— 与已有区相交/相接的盒并进去；合并会改变相邻关系，故迭代到收敛；
+ * 2. 区数超 `maxRegions` 时，反复合并「并集面积增量最小」的两块（避免区数失控，
+ *    因为每块区都要独立跑一遍组件 pass）。
+ *
+ * 返回值保证两两不相接（可安全地按块分别 clearRect + clip）。
+ */
+export function coalesceRegions(boxes: number[][], maxRegions = 6): number[][] {
+  const out: number[][] = [];
+  for (let i = 0; i < boxes.length; i++) {
+    const b = boxes[i];
+    if (!isFiniteBox(b)) continue;
+    let merged = false;
+    for (let j = 0; j < out.length; j++) {
+      if (intersects(out[j], b)) {
+        out[j] = mergeBox(out[j], b);
+        merged = true;
+        break;
+      }
+    }
+    if (!merged) out.push([b[0], b[1], b[2], b[3]]);
+  }
+
+  // 合并后可能产生新的相接关系，迭代到收敛（通常 1~2 轮）
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < out.length && !changed; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        if (intersects(out[i], out[j])) {
+          out[i] = mergeBox(out[i], out[j]);
+          out.splice(j, 1);
+          changed = true;
+          break;
+        }
+      }
+    }
+  }
+
+  // 区数超上限：合并「并集面积增量最小」的两块，代价最小
+  while (out.length > maxRegions) {
+    let bi = 0;
+    let bj = 1;
+    let best = Infinity;
+    for (let i = 0; i < out.length; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        const cost = boxArea(mergeBox(out[i], out[j])) - boxArea(out[i]) - boxArea(out[j]);
+        if (cost < best) {
+          best = cost;
+          bi = i;
+          bj = j;
+        }
+      }
+    }
+    out[bi] = mergeBox(out[bi], out[bj]);
+    out.splice(bj, 1);
+  }
+  return out;
+}
+
+/**
+ * 多块裁剪区的总面积占画布的比例（用于「接近整屏则回退全量」的判定）。
+ * 各块互不相接，面积可直接相加。
+ */
+export function regionsAreaRatio(regions: number[][], canvasWidth: number, canvasHeight: number): number {
+  if (!canvasWidth || !canvasHeight) return 1;
+  let area = 0;
+  for (let i = 0; i < regions.length; i++) {
+    area += boxArea(regions[i]);
+  }
+  return area / (canvasWidth * canvasHeight);
+}
+
+/**
+ * 把「世界坐标盒」映射到「渲染坐标盒」（含 dpr），并向外取整。
+ *
+ * 渲染坐标 = 世界坐标 × 渲染视口 scale + 渲染视口 tx/ty，而 `ICE.getRenderViewport()` 已经
+ * 把 dpr 乘进 scale 与 tx/ty（见 `ICE.getRenderViewport`）。`clearRect` / `clip` 用的正是这个
+ * 坐标系，但脏区收集是在**世界坐标**里做的（上屏快照盒、组件几何盒都是世界盒），
+ * 两者只在「视口为单位变换且 dpr === 1」时才重合 —— 这个函数就是它们之间唯一的换算点。
+ *
+ * 向外取整（min 向下、max 向上）保证映射后的区域不小于真实脏区，避免缩放时边缘出现接缝。
+ */
+export function mapBoxToRender(
+  box: number[],
+  viewport: { scale: number; tx: number; ty: number },
+  out?: number[]
+): number[] {
+  const o = out || [0, 0, 0, 0];
+  o[0] = Math.floor(box[0] * viewport.scale + viewport.tx);
+  o[1] = Math.floor(box[1] * viewport.scale + viewport.ty);
+  o[2] = Math.ceil(box[2] * viewport.scale + viewport.tx);
+  o[3] = Math.ceil(box[3] * viewport.scale + viewport.ty);
+  return o;
+}
+
+/**
  * 区域占画布总面积的比例，用于「接近整屏则回退全量」的判定。
  */
 export function regionRatio(box: number[], canvasWidth: number, canvasHeight: number): number {

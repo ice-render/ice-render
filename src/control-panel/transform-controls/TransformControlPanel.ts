@@ -6,6 +6,7 @@
  *
  */
 import { mat2d, vec2 } from 'gl-matrix';
+import { applyAspectLock } from './constraints';
 import bigZIndexNum from '../../consts/BIG_ZINDEX_NUMBER';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEComponent from '../../graphic/ICEComponent';
@@ -278,6 +279,19 @@ export default class TransformControlPanel extends ICEControlPanel {
         break;
       default:
         break;
+    }
+
+    // Shift：等比缩放（约束必须加在这里 —— 尺寸是从目标重算的，ResizeControl 上的面板盒子不参与计算）。
+    // 手柄缩放是围绕中心对称进行的（见上面的 case 分支），按比例改完宽高后把中心补回去即可。
+    // 基准取目标**当前**的本地宽高：每次锁定后比例都严格保持，因此逐帧基准不会漂移。
+    if (evt && evt.shiftKey) {
+      const locked = applyAspectLock(targetState.width, targetState.height, newWidth, newHeight);
+      const cx = newLeft + newWidth / 2;
+      const cy = newTop + newHeight / 2;
+      newLeft = cx - locked.width / 2;
+      newTop = cy - locked.height / 2;
+      newWidth = locked.width;
+      newHeight = locked.height;
     }
 
     this.targetComponent.setState({

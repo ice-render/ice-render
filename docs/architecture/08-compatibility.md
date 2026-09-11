@@ -4,7 +4,10 @@
 
 ## 约束：运行时依赖极简
 
-- 运行时依赖**仅 `gl-matrix`**（`lodash` 已用 `src/util/lang.ts` 自研工具替代），无其它依赖。
+- **零运行时依赖**：`gl-matrix` 在构建时被**内联**进产物（它只列在 `devDependencies`，产物里没有任何 `import`/`require`），
+  `lodash` 已用 `src/util/lang.ts` 自研工具替代。安装后开箱即用，不会因为缺少运行时依赖而报错。
+- 内联的第三方代码**保留其版权与许可声明**：随包产出 `dist/THIRD-PARTY-NOTICES.txt`（由 `rollup-plugin-license` 生成）。
+  MIT 要求随分发保留声明，只留引擎自己的 banner 是不够的。
 - 这保证了引擎可以在任何能跑 JS、能提供 Canvas Context 的环境中使用，而不被 npm 生态的浏览器假设拖累。
 
 ## 跨平台根对象 `cross-platform/root.ts`

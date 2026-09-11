@@ -32,9 +32,9 @@
 |---|---|---|---|---|
 | 1 | 输入层只有 mouse + keyboard，无 pointer / touch / wheel / 手势 | **P0** | 完全没做 | ✅ **已做**：`pointer*` / `touch*` / `wheel` 三通道，按运行时能力自动选择。多指手势按 §5 边界归应用层 |
 | 2 | 无框选、无多选（`selectionList` 恒为单值） | **P0** | 完全没做 | ➖ **引擎侧原语已给**（`setSelection(components)` 支持多选）；框选 UX 归应用层（§5） |
-| 3 | 命中检测每次全量 flattenTree + sort + 逐组件判定 | **P0** | 完全没做 | ⚠️ **部分**：已做视口裁剪 + O(1) 包围盒预筛（实测 1.89x）。**空间索引（四叉树 / R-tree）仍未做** |
-| 4 | dirty-rect 遇文本 / 点集 / 半透明整场景回退全量 | **P0** | 已做但用不上 | ✅ **已修**：门控放宽到「相交级」，富场景局部重绘 0 → 2 次，10 步逐像素仍一致 |
-| 5 | 主画布无 devicePixelRatio / HiDPI 处理 | **P0** | 完全没做 | ✅ **已做**：`ICE.init(el, { dpr })`（默认 1，零行为变化） |
+| 3 | 命中检测每次全量 flattenTree + sort + 逐组件判定 | **P0** | 完全没做 | ⚠️ **部分**：已做视口裁剪 + O(1) 包围盒预筛（实测 1.89x）；画布点击与 `ICE.hitTest()` 已收敛为**同一实现** `hitTestComponents()`。**空间索引（四叉树 / R-tree）仍未做**（上万节点且大部分在屏内时才划算） |
+| 4 | dirty-rect 遇文本 / 点集 / 半透明整场景回退全量 | **P0** | 已做但用不上 | ✅ **已修**（两层）：门控放宽到「相交级」；**并解开「非单位视口」与「dpr≠1」两个回退**（脏区世界坐标收集 → 渲染坐标裁剪），分散脏区改为**多块裁剪**。回归见 §8（zoom / dpr2 / multi 四个像素场景全部「局部执行 > 0 且逐像素一致」） |
+| 5 | 主画布无 devicePixelRatio / HiDPI 处理 | **P0** | 完全没做 | ✅ **已做**：`ICE.init(el, { dpr })`（默认 1，零行为变化）；且 `dpr>1` 下**不再牺牲局部重绘** |
 | 6 | 文本无自动换行 / 省略，超宽时横向压缩字形 | P1 | 完全没做 | ✅ **已做**（`wrap` / `maxLines` / `ellipsis` / grapheme 分段，默认关闭）。仍缺 `letterSpacing` / RTL / 富文本 / CJK 避头尾 |
 | 7 | 文本含 HTML 注入；非 DOM 环境量不出尺寸 | P1 | 缺陷 | ✅ **已修**：改用 `textContent`；量测改为 canvas 优先 + DOM 降级 |
 | 8 | 无 SVG / PDF 导出，无 SVG 导入 | P1 | 部分 | ❌ **未做**（§6 已标注待定：需独立 exporter + 有诚实边界） |
@@ -46,6 +46,13 @@
 | 14 | 布局不随增删自动重排；容器 setState 递归置脏全部后代 | P2 | 部分 | ✅ **已做**（自动重排 + 排布前 measure + `dirty`/`paramsDirty` 拆级） |
 | 15 | 主题为模块级全局单例，多实例互相污染 | P2 | 部分 | ✅ **已修**（主题改为实例级，含 preset 与 motion token） |
 | 16 | 内部脆弱点若干（事件监听累积、销毁不彻底、死代码等） | P2 | 见 §4 | ✅ **已修**（§4.3–4.5）；§4.6 三条待复核项已全部核实（两条确认无问题、一条已修） |
+| 17 | `display: false` 只判组件自身，子组件照样渲染/命中 | **P1** | 评估时未列 | ✅ **已修**：`isEffectivelyVisible()` 沿父链判断，渲染/命中/a11y/离屏缓存统一消费（与 props 文档承诺的「整棵子树」一致） |
+| 18 | 布局只在 `setLayout`/`addChild` 时排一次，子项改尺寸不重排 | P2 | 评估时未列 | ✅ **已修**：`ICEGroup.requestLayout()`（下一帧合并重排，布局期间不自激）+ `getPreferredSize()` 转发 |
+| 19 | 修饰键（Shift/Ctrl/Alt/Meta）根本到不了组件 | P1 | 评估时未列 | ✅ **已修**：输入归一化显式透传（DOM 原型上的不可枚举 getter 靠 `ICEEvent` 的 `for...in` 拷贝带不过来）；据此实现 `Shift` 等比缩放与旋转吸附 15° |
+| 20 | 拖拽移出画布丢事件（无 `setPointerCapture`） | P1 | 评估时未列 | ✅ **已修**：`pointerdown` 捕获、`pointerup/cancel` 释放 |
+| 21 | 渐变只能塞原生 `CanvasGradient`，**不可序列化** | P1 | 评估时未列 | ✅ **已做**：声明式 `fillGradient`/`strokeGradient`（纯对象、可进 JSON、可写进主题 preset） |
+| 22 | 几何能力（求交/采样/点在多边形）全是私有实现，未上提 | P2 | 评估时未列 | ✅ **已做**：`GeoUtil.pointInPolygon` / `distanceToSegment` / `distanceToPolyline` / `samplePolyline` / `segmentIntersect`，图元改为消费公共实现 |
+| 23 | 产物内联 gl-matrix 但**没有保留其版权声明**；`rollup` 的 `external` 是死代码 | P1 | 评估时未列 | ✅ **已修**：产出 `dist/THIRD-PARTY-NOTICES.txt`；删掉 `external` 死代码并在注释里写明「全部内联 = 零运行时依赖」的取舍 |
 
 ## 2. P0 · 决定「是否算交互图形引擎」
 
@@ -454,6 +461,19 @@
 | 2026-09-11 | 连线形态可切：`linkShape: 'visio' | 'bezier'`（贝塞尔 = 插槽法线方向的三次曲线采样） | ✅ 已做（`ICEVisioLink.__calcDots()` 分支；采样点写回 `state.points` 以保证包围盒/标签/局部重绘正确；bezier 下拦掉正交路由）。顺带修 `doCalcArrowPoints` 零切线 NaN。回归见 `tests/link/visio-bezier.test.ts`（10 例） + 应用层 `e2e/entity-editor.spec.ts` 的连线形态用例 |
 | 2026-09-11 | **同一类缺陷在下游应用层复现**：`ice-entity-designer` 仍有 10 处 `constructor.name === 'Entity'` 判类型 | ✅ 已修（改用 `static typeId` 稳定标识 + `component_type_util.ts` 统一判型 + ESLint 门禁 + 显式模拟改名的回归测试）。**教训**：引擎在 P1-6 修掉「类型键依赖类名」后，只在引擎侧加了防线；下游打包器 mangle 类名会让应用层同类判断**静默失效**（`entities` 恒空、update/remove 变 no-op，页面零报错），而包自身构建配了 `keep_classnames`，包内测试永远发现不了 |
 
+| 2026-09-11 | 脏矩形局部重绘**支持非单位视口与 `dpr>1`**：脏区经 `mapBoxToRender()` 映射到渲染坐标后再 clear/clip | ✅ 已做（去掉 `__collect()` 里两条「视口非单位 / dpr≠1 就回退全量」的兜底）。回归：`e2e/visual/dirty-rect-pixel.spec.ts` 的 `?zoom=1` / `?hidpi=1` / `?zoom=1&hidpi=1` 三个场景均断言「局部执行 > 0」且 10 步逐像素一致（旧代码下三条全红） |
+| 2026-09-11 | **多块脏矩形**：`coalesceRegions()` 把分散脏区聚合成互不相接的多块裁剪区 | ✅ 已做（此前并成单个 AABB，画布对角两处小脏点会圈进大半画布、直接撞 35% 阈值）。回归：单测 17 例 + `?multi=1` 像素场景 |
+| 2026-09-11 | `display:false` 的**子树语义**（`isEffectivelyVisible()`） | ✅ 已做。回归：`tests/graphic/effectively-visible.test.ts`（4 例，含命中）+ dirty-rect 的「父容器隐藏」两例；反证：把渲染守卫改回只判自身 → 如期转红 |
+| 2026-09-11 | 命中检测两份实现收敛为 `hitTestComponents()`；`flattenAllComponents()` 消重 | ✅ 已做（行为等价，577 例全绿后继续；`ICE.hitTest` 与画布点击再也不会不一致） |
+| 2026-09-11 | 交互式连线支持**嵌套子组件** + 修掉「碰撞点粘住不重置」 | ✅ 已做（改用拉平全集 + z 序取最上层，与点击语义一致）。回归：`tests/link/link-slot-collision.test.ts`（4 例）；反证 3 例转红 |
+| 2026-09-11 | 声明式渐变 `fillGradient` / `strokeGradient` | ✅ 已做（可序列化、可主题 preset、按引用缓存、渐变最后应用；conic 缺 API 退回纯色）。回归：`tests/graphic/gradient.test.ts`（11 例）+ 示例页 `examples/theme/gradient.html` |
+| 2026-09-11 | 布局响应式重排（子项改尺寸触发） | ✅ 已做（一帧合并、布局期间不自激）。回归：`tests/layout/layout-responsive.test.ts`（5 例）；反证 3 例转红 |
+| 2026-09-11 | 修改键透传 + `Shift` 等比缩放 / 旋转吸附 15° | ✅ 已做。回归：`tests/event/DOMEventDispatcher.input.test.ts`（修饰键透传）+ `tests/control-panel/transform-constraints.test.ts`（约束算法）+ `e2e/visual/interaction.spec.ts` 两条真实按键用例 |
+| 2026-09-11 | 指针捕获（拖出画布不丢事件） | ✅ 已做（`pointerdown` 捕获 / `pointerup`、`pointercancel` 释放，异常吞掉不影响派发）。回归：dispatcher 输入测试 +2 例 |
+| 2026-09-11 | 公共几何 API（`GeoUtil`） | ✅ 已做（5 个函数，图元改为消费公共实现）。回归：`tests/geometry/geo-util-extras.test.ts`（16 例），原有命中测试全绿 |
+| 2026-09-11 | 依赖合规与打包契约：第三方版权声明 + 删 `external` 死代码 + 更正「运行时仅 gl-matrix」的说法 | ✅ 已做（`dist/THIRD-PARTY-NOTICES.txt`；README 与 08 文档改为「零运行时依赖（内联）」） |
+
 > **说明**：上表只记录「决定要做的项」的进展。因此**表内全绿 ≠ 报告里的缺口全部清零** ——
-> 未建的项（空间索引、导出与互操作、attw/publint/覆盖率门槛）与明确划归应用层的项
-> （框选交互、多指手势）见上面四行；`§1 结论速览` 那张表是最初的**评估快照**，不随进展更新。
+> 仍未建的项（空间索引、SVG/PDF 导出与互操作、动画帧对 risky 图元的局部重绘）见 §1 速览与
+> [09 路线图](09-roadmap.md) 的「仍未做」表；明确划归应用层的项（框选交互、多指手势）见 §5 边界。
+> `§1 结论速览` 是**滚动更新**的双列表（左三列是评估当天判断，最后一列是当前状态），不再当快照用。

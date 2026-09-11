@@ -25,7 +25,7 @@ import { buildAccessibilityTree, ICEAccessibleNode, ICEAccessibilityOptions } fr
 import CanvasRenderer from './renderer/CanvasRenderer';
 import ImageCache from './util/ImageCache';
 import { resolveTheme, getTheme, registerTheme, ICETheme, ICESemanticTheme } from './theme/ICETheme';
-import { flattenTree } from './util/data-util';
+import { flattenAllComponents, hitTestComponents } from './util/data-util';
 import { HIT_BOX_TOLERANCE } from './renderer/dirty-rect-util';
 
 /**
@@ -545,7 +545,7 @@ class ICE {
   public setFocusedComponent(component: any | string | null): this {
     let target = component;
     if (typeof component === 'string') {
-      const all = flattenTree([], this.childNodes).concat(flattenTree([], this.toolNodes));
+      const all = flattenAllComponents(this);
       target = all.filter((c: any) => c.props && c.props.id === component)[0] || null;
     }
     if (this.eventDispatcher) {
@@ -786,34 +786,7 @@ class ICE {
    */
   public hitTest(sx: number, sy: number): any {
     const [wx, wy] = this.screenToWorld(sx, sy);
-    const all = flattenTree([], this.childNodes).concat(flattenTree([], this.toolNodes));
-    all.sort((a: any, b: any) => a.state.zIndex - b.state.zIndex);
-    //@perf 命中预筛：复用渲染快照的世界盒做 O(1) 拒绝（与 DOMEventDispatcher 同一策略）
-    const renderer: any = this.renderer;
-    const canScreen = renderer && typeof renderer.getWorldBox === 'function';
-    for (let i = all.length - 1; i >= 0; i--) {
-      const component = all[i];
-      if (component.isControlPanel) continue;
-      if (component.state.display === false || !component.state.interactive) {
-        continue;
-      }
-      if (canScreen) {
-        const box: any = renderer.getWorldBox(component);
-        if (
-          box &&
-          (wx < box[0] - HIT_BOX_TOLERANCE ||
-            wx > box[2] + HIT_BOX_TOLERANCE ||
-            wy < box[1] - HIT_BOX_TOLERANCE ||
-            wy > box[3] + HIT_BOX_TOLERANCE)
-        ) {
-          continue;
-        }
-      }
-      if (component.containsPoint(wx, wy)) {
-        return component;
-      }
-    }
-    return null;
+    return hitTestComponents(this, wx, wy, HIT_BOX_TOLERANCE);
   }
 
   /**
@@ -835,7 +808,7 @@ class ICE {
    * 遍历组件树，对每个用了 preset 的组件重新 resolve preset（主题热切换）。
    */
   private __reapplyPresets(): void {
-    const all = flattenTree([], this.childNodes).concat(flattenTree([], this.toolNodes));
+    const all = flattenAllComponents(this);
     for (const comp of all) {
       if (typeof (comp as any).__reapplyPreset === 'function') {
         (comp as any).__reapplyPreset(this.theme);

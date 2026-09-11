@@ -87,3 +87,55 @@ test('含半透明矩形的全不透明场景：半透明 shape 离屏缓存后�
   console.log(`[dirty-rect-pixel:alpha] 10 步全部一致；局部重绘执行=${collectOk} 次`);
   console.log(`  ${stepResults.join('  ')}`);
 });
+
+/**
+ * 非单位视口（缩放 + 平移）：脏区在世界坐标里收集，而 clearRect/clip 在渲染坐标里。
+ * 这两个坐标系只在「视口为单位变换」时重合 —— 以前这里直接回退全量，现在走映射，
+ * 因此既要断言**局部重绘真的执行了**（collectOk > 0），又要断言**逐像素仍一致**。
+ */
+test('非单位视口（缩放+平移）：局部重绘执行且逐像素一致', async ({ page }) => {
+  const { stepResults, collectOk } = await runSteps(
+    page,
+    '/e2e/visual/fixtures/dirty-rect-compare.html?opaque=1&zoom=1',
+    true
+  );
+  console.log(`[dirty-rect-pixel:zoom] 10 步全部一致；局部重绘执行=${collectOk} 次`);
+  console.log(`  ${stepResults.join('  ')}`);
+});
+
+/** dpr=2：backing store 与渲染视口都放大一倍，同样不能靠回退全量来「蒙对」。 */
+test('dpr=2 高分屏：局部重绘执行且逐像素一致', async ({ page }) => {
+  const { stepResults, collectOk } = await runSteps(
+    page,
+    '/e2e/visual/fixtures/dirty-rect-compare.html?opaque=1&hidpi=1',
+    true
+  );
+  console.log(`[dirty-rect-pixel:dpr2] 10 步全部一致；局部重绘执行=${collectOk} 次`);
+  console.log(`  ${stepResults.join('  ')}`);
+});
+
+/** 两个因子同时生效：渲染视口 = dpr · viewport，映射必须一次到位。 */
+test('非单位视口 + dpr=2 组合：局部重绘执行且逐像素一致', async ({ page }) => {
+  const { stepResults, collectOk } = await runSteps(
+    page,
+    '/e2e/visual/fixtures/dirty-rect-compare.html?opaque=1&zoom=1&hidpi=1',
+    true
+  );
+  console.log(`[dirty-rect-pixel:zoom+dpr2] 10 步全部一致；局部重绘执行=${collectOk} 次`);
+  console.log(`  ${stepResults.join('  ')}`);
+});
+
+/**
+ * 分散脏区：同一步里拖动两个相距很远的组件。
+ * 若把脏区并成唯一的大盒，这个场景会直接撞上面积阈值 → 回退全量；
+ * 切成多块后每块都贴近真实脏区，因此必须断言局部重绘确实执行了。
+ */
+test('分散脏区（多块裁剪）：局部重绘执行且逐像素一致', async ({ page }) => {
+  const { stepResults, collectOk } = await runSteps(
+    page,
+    '/e2e/visual/fixtures/dirty-rect-compare.html?opaque=1&multi=1',
+    true
+  );
+  console.log(`[dirty-rect-pixel:multi] 10 步全部一致；局部重绘执行=${collectOk} 次`);
+  console.log(`  ${stepResults.join('  ')}`);
+});

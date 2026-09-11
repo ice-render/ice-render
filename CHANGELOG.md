@@ -65,6 +65,54 @@
 - **数组字段补间**：`transform.scale` / `transform.translate` / `transform.skew` 等数组字段按分量
   **逐元素插值**，可与关键帧、弹簧缓动组合。
 
+### 新增（2026-09-11 第二轮）
+
+- **声明式渐变 `style.fillGradient` / `style.strokeGradient`**：用纯对象描述 `linear` / `radial` / `conic`
+  渐变（`{ type, from/to | center/radius/innerRadius | startAngle, stops }`，坐标是组件本地坐标）。
+  与手搓 `CanvasGradient` 的关键差别：**可序列化**（纯对象，存盘不丢，手搓的会被 `NON_SERIALIZABLE_KEYS`
+  一类机制剔除）与**可写进主题 preset**（随 `setTheme` 重新按新主题色展开，内置 `preset: 'gradient'`）。
+  渲染时按描述对象**引用**缓存 `CanvasGradient`（`refreshParams` 失效），`stops` 支持 `[[offset,color]]`
+  与 `[{offset,color}]` 两种写法；运行时缺 `createConicGradient` 时退回中间色纯色，不会「什么都没画出来」。
+  渐变在样式应用的最后一步写入，保证压过同层 `fillStyle`（不依赖 style 的键序）。
+- **布局响应式重排**：子组件改 `width/height` 后，父容器会在**下一帧**重排（`ICEGroup.requestLayout()`，
+  一帧内多次请求合并成一次，布局执行期间的子项变化不会自激）。此前只在 `setLayout()`/`addChild()` 排一次，
+  改子项尺寸不会触发重排、兄弟节点停在老位置。另新增 `ICEGroup.getPreferredSize()` 转发布局策略。
+- **`display: false` 的子树语义**：新增 `ICEComponent.isEffectivelyVisible()`（沿父链判断，顶层走 O(1) 快路径），
+  渲染、命中检测、离屏缓存、无障碍快照统一用它。此前只判组件自身，隐藏父容器后子组件照样被画、照样能点中。
+- **变换手柄修改键约束**：`Shift` 拖角手柄保持宽高比、`Shift` 拖旋转手柄吸附 15°（`ROTATE_SNAP_STEP`）。
+  同时在输入归一化层**透传修饰键**（`shiftKey/ctrlKey/altKey/metaKey`）—— 它们是 DOM 事件原型上的
+  不可枚举 getter，`ICEEvent` 的 `for...in` 拷贝带不过来，此前组件永远拿不到。
+- **指针捕获**：`pointerdown` 时把指针捕获到画布、`pointerup/cancel` 释放。此前拖拽（拖组件/拖手柄/拖连线钩子）
+  时指针移出画布就收不到后续事件，表现为「拖着拖着不跟手」甚至「松手了还在拖」。
+- **公共几何 API**（`GeoUtil`）：`pointInPolygon`、`distanceToSegment`、`distanceToPolyline`、
+  `samplePolyline`、`segmentIntersect`。这些原先都以私有实现散落在图元里（`ICEDotPath` 的射线法、
+  `ICEPolyLine` 的点-线段距离），现在图元改为消费公共实现，应用层做自己的命中/碰撞/路径计算不必再抄。
+
+### 修复（2026-09-11 第二轮）
+
+- **脏矩形局部重绘此前在「非单位视口」与「dpr≠1」下直接回退全量**：`__collect()` 曾用
+  `if (vp.scale !== 1 || vp.tx !== 0 || vp.ty !== 0) return null` 与 `if (dpr !== 1) return null` 兜底，
+  理由是「世界盒与屏幕 clearRect/clip 不一致」。但这两类恰好是真实场景（编辑器必然缩放平移；
+  高分屏要开 dpr 才不发虚），等于招牌优化在最需要的地方完全失效。现在改为把脏区经
+  `mapBoxToRender()` 映射到**渲染坐标**（`dpr · viewport`，向外取整防接缝）后再 clear/clip，
+  相交判定仍在世界坐标里做。回归：`e2e/visual/dirty-rect-pixel.spec.ts` 新增 `?zoom=1`、`?hidpi=1`、
+  `?zoom=1&hidpi=1` 三个场景，断言「局部重绘执行次数 > 0」且 10 步逐像素与全量 100% 一致。
+- **分散脏区被并成一个大盒 → 极易回退全量**：新增 `coalesceRegions()`，把脏区聚合成若干块
+  **互不相接**的裁剪区（上限 6 块，超出时合并「面积增量最小」的两块），逐块 clear + clip。
+  此前画布对角两处小脏点会被并成一个覆盖大半画布的大盒，直接撞「脏区面积 > 35%」阈值。
+- **命中检测有两份几乎相同的实现**（`DOMEventDispatcher` 与 `ICE.hitTest`）→ 收敛为
+  `hitTestComponents()` 单一实现（含 z 序、控制面板过滤、有效可见性、包围盒预筛），避免
+  「点得到但 `hitTest` 找不到」这类不一致；`flattenTree(childNodes)+flattenTree(toolNodes)`
+  的重复也收敛为 `flattenAllComponents()`。
+- **交互式连线连不上嵌套子组件**：`ICELinkSlotManager` 的碰撞检测只遍历顶层 `childNodes`，
+  现在改用拉平后的全集并按 z 序取最上层（与点击语义一致）。同时修掉「命中后从不重置
+  `collision`」——旧实现在钩子离开组件后仍把插槽粘在原处不消失。
+- **`gl-matrix` 的版权声明缺失 + rollup `external` 是死代码**：产物内联了 gl-matrix（MIT），
+  但此前 banner 只有引擎自己的 MIT，不满足「保留版权声明」；现在 `rollup-plugin-license` 产出
+  `dist/THIRD-PARTY-NOTICES.txt`。同时删掉 `rollup.config.mjs` 里定义后从未被引用的 `external`
+  —— 它是地雷：谁把它接上就会去 require 一个只声明在 `devDependencies` 的包，下游直接炸。
+  文档里「运行时仅 gl-matrix 一个库」的说法一并改为「零运行时依赖（内联）」。
+
 ### 修复
 
 - **相邻两点重合时箭头算出 NaN**：`ICEPolyLine.doCalcArrowPoints()` 用 `p2 / hypot(p2)` 归一化切线方向，

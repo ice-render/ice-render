@@ -26,6 +26,10 @@ class ICEGroup extends ICERect {
   private __childSet = new WeakSet<any>();
   public layoutManager: ICELayoutManager = null; //布局策略（借鉴 Swing 的策略模式，setLayout 持有）
   private __layoutExplicit = false; //是否显式设置了布局（用于区分「显式设置」与「从父层继承」）
+  /** 挂起的重排请求（一帧内合并；`doRender` 时消费）。 */
+  private __layoutRequested = false;
+  /** 正在执行布局：期间子项的位置/尺寸变化不再反向请求重排，避免自激循环。 */
+  private __layingOut = false;
 
   constructor(props) {
     super(props);
@@ -91,13 +95,52 @@ class ICEGroup extends ICERect {
     if (!this.layoutManager) {
       return;
     }
-    for (let i = 0; i < this.childNodes.length; i++) {
-      const child: any = this.childNodes[i];
-      if (typeof child.measure === 'function') {
-        child.measure();
+    this.__layingOut = true;
+    try {
+      for (let i = 0; i < this.childNodes.length; i++) {
+        const child: any = this.childNodes[i];
+        if (typeof child.measure === 'function') {
+          child.measure();
+        }
       }
+      this.layoutManager.layoutContainer(this);
+    } finally {
+      this.__layingOut = false;
+      this.__layoutRequested = false;
     }
-    this.layoutManager.layoutContainer(this);
+  }
+
+  /**
+   * 请求重排：**下一帧执行**，一帧内多次请求只排一次。
+   *
+   * 触发来源是「子项改了 width/height」—— 布局结果依赖子项尺寸，尺寸变了必须重排，
+   * 否则会出现「改了某个子项的大小，兄弟节点还停在老位置」。
+   * 旧实现只在 `setLayout()` / `addChild()` 时排一次，子项尺寸变化完全不会触发重排。
+   *
+   * 合并到下一帧是因为：逐个 setState 立刻重排会退化成 O(n²)（布局本身又要 setState 子项位置）。
+   */
+  public requestLayout(): void {
+    if (!this.layoutManager || this.__layingOut) {
+      return;
+    }
+    this.__layoutRequested = true;
+    this.dirty = true;
+    if (this.ice) {
+      this.ice.dirty = true;
+    }
+  }
+
+  /** 容器内容的首选尺寸（转发布局策略；未设置布局时返回 [0,0]）。 */
+  public getPreferredSize(): [number, number] {
+    return this.layoutManager ? this.layoutManager.getPreferredSize(this) : [0, 0];
+  }
+
+  protected doRender(): void {
+    // 渲染前先把挂起的重排做掉（父容器先于子项渲染，所以本帧子项位置就是新的）
+    if (this.__layoutRequested) {
+      this.doLayout();
+    }
+    super.doRender();
   }
 
   protected initEvents(): void {
