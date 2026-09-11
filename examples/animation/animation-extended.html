@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render 动画扩展（点路径 / delay / 取整策略）</title>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">动画扩展：点路径 / delay / 取整策略</h2>
+    <p style="color:#555; margin: 0 0 10px; max-width: 1200px;">
+      ① <strong>点路径</strong>：<code>'transform.rotate'</code>、<code>'style.globalAlpha'</code> 这类嵌套字段现在真正生效
+      （旧实现会把点当成字面量键名，静默失效）；<br />
+      ② <strong>delay</strong>：延迟期内保持起始值，可让同一组件多属性错峰，或让多个组件形成序列；<br />
+      ③ <strong>取整策略</strong>：默认<strong>不取整</strong>（0→1 的透明度、角度、缩放不再被 Math.floor 压掉），
+      需要整数步进时显式写 <code>round: true</code>；<br />
+      ④ 非数值字段（如数组型 <code>transform.scale</code>）会被<strong>明确拒绝并提示一次</strong>，
+      而不是写出 <code>NaN</code> 破坏矩阵。
+    </p>
+    <canvas id="canvas-1" width="1060" height="460" style="background:#fff; border:1px solid #ddd;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+      const ice = new ICE.ICE().init('canvas-1');
+      window.__ice = ice;
+
+      function label(x, y, text) {
+        ice.addChild(
+          new ICE.ICEText({
+            left: x, top: y, text,
+            stroke: false,
+            style: { fontSize: 14, fontFamily: 'Arial', fillStyle: '#2563EB' },
+            zIndex: 1,
+          })
+        );
+      }
+
+      // ① 点路径：旋转 + 透明度
+      label(30, 16, "① 'transform.rotate' + 'style.globalAlpha'");
+      ice.addChild(
+        new ICE.ICERect({
+          left: 90, top: 70, width: 110, height: 70, radius: 10,
+          style: { fillStyle: '#F59E0B', strokeStyle: '#92400E', lineWidth: 2 },
+          zIndex: 10,
+          animations: {
+            'transform.rotate': { from: 0, to: 360, duration: 4000, loop: true },
+            'style.globalAlpha': { from: 0.15, to: 1, duration: 1200, loop: true, iterationCount: 4 },
+          },
+        })
+      );
+
+      // ② 错峰（序列）：同一个组件的两个属性用不同 delay
+      label(330, 16, '② delay 错峰（左下依次启动）');
+      ice.addChild(
+        new ICE.ICERect({
+          left: 360, top: 70, width: 60, height: 60,
+          style: { fillStyle: '#10B981', strokeStyle: '#065F46', lineWidth: 2 },
+          zIndex: 11,
+          animations: { left: { from: 360, to: 560, duration: 1400, loop: true } },
+        })
+      );
+      ice.addChild(
+        new ICE.ICERect({
+          left: 360, top: 160, width: 60, height: 60,
+          style: { fillStyle: '#3B82F6', strokeStyle: '#1E3A8A', lineWidth: 2 },
+          zIndex: 12,
+          animations: { left: { from: 360, to: 560, duration: 1400, delay: 400, loop: true } },
+        })
+      );
+      ice.addChild(
+        new ICE.ICERect({
+          left: 360, top: 250, width: 60, height: 60,
+          style: { fillStyle: '#8B5CF6', strokeStyle: '#4C1D95', lineWidth: 2 },
+          zIndex: 13,
+          animations: { left: { from: 360, to: 560, duration: 1400, delay: 800, loop: true } },
+        })
+      );
+
+      // ③ 取整策略：上方不取整（平滑），下方 round:true（整数步进）
+      label(640, 16, '③ 上：默认不取整（平滑）  下：round:true（整数步进）');
+      ice.addChild(
+        new ICE.ICERect({
+          left: 660, top: 60, width: 44, height: 44,
+          style: { fillStyle: '#EF4444', strokeStyle: '#7F1D1D', lineWidth: 2 },
+          zIndex: 20,
+          animations: { left: { from: 660, to: 980, duration: 2400, loop: true } },
+        })
+      );
+      ice.addChild(
+        new ICE.ICERect({
+          left: 660, top: 130, width: 44, height: 44,
+          style: { fillStyle: '#14B8A6', strokeStyle: '#134E4A', lineWidth: 2 },
+          zIndex: 21,
+          animations: { left: { from: 660, to: 980, duration: 2400, loop: true, round: true } },
+        })
+      );
+
+      // ④ 非数值字段：被拒绝并提示一次（不会写出 NaN）
+      label(640, 210, '④ 非数值字段 transform.scale 会被拒绝（控制台提示一次）');
+      ice.addChild(
+        new ICE.ICERect({
+          left: 660, top: 250, width: 120, height: 70,
+          style: { fillStyle: '#E5E7EB', strokeStyle: '#6B7280', lineWidth: 2 },
+          zIndex: 22,
+          animations: { 'transform.scale': { from: [1, 1], to: [2, 2], duration: 1000, loop: true } },
+        })
+      );
+
+      ice.dirty = true;
+    })();
+  </script>
+</html>
