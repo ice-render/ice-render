@@ -116,12 +116,47 @@ export function mergeBox(a: number[], b: number[]): number[] {
  * 从而回退全量 —— 局部重绘的收益被吃掉。多块裁剪区让每块都贴近真实脏区。
  *
  * 策略：
- * 1. 贪心合并 —— 与已有区相交/相接的盒并进去；合并会改变相邻关系，故迭代到收敛；
- * 2. 区数超 `maxRegions` 时，反复合并「并集面积增量最小」的两块（避免区数失控，
- *    因为每块区都要独立跑一遍组件 pass）。
+ * 1. 贪心合并 —— 与已有区相交/相接**且合并划算**的盒并进去；合并会改变相邻关系，故迭代到收敛；
+ * 2. 区数超 `maxRegions` 时，反复合并「并集面积增量最小」的两块（只合并划算的）。
+ *    `maxRegions` 是**软上限**：没有划算的合并时就多留几块（多跑几遍便宜的 AABB 过滤，
+ *    好过把脏区撑成整屏）；区数超过 `MAX_REGIONS_HARD` 时塌缩成一个并集盒，
+ *    让面积阈值去回退全量。
+ *
+ * ## 「合并划算」护栏（`isWorthMerging`，2026-09-11 加）
+ *
+ * 只按「相交就合并」会把**细长盒串联**：编辑器里拖动一个实体时，8 条横跨画布的关系连线
+ * 旧/新盒互相交叉，22 个脏盒会被串成一个**整屏大盒**（实测面积占画布 1.004），
+ * 于是永远撞上「脏区面积占比 > 0.35 回退全量」——局部重绘在该编辑器里 100% 失效，
+ * 而 22 个盒的**实际面积之和只有画布的 6%**。
+ * 护栏用「合并后面积 ≤ 两块面积之和 × 2」把这类无意义的合并挡掉，同时不影响
+ * 相邻 / 嵌套 / 同向延展的正常合并（它们的比值 ≈ 1.0~1.3）。
  *
  * 返回值保证两两不相接（可安全地按块分别 clearRect + clip）。
  */
+/**
+ * 合并两块时允许的**面积增长倍数**上限（见 `coalesceRegions` 的护栏说明）。
+ *
+ * 2 的含义：合并后的盒最多只能比「两块之和」大一倍（即至少一半面积是真脏的）。
+ * 相邻/嵌套/同向延展的正常脏盒合并后 ≈ 1.0~1.3，远在阈值内；
+ * 而两条互相交叉的细长连线合并后能到 10 倍以上 —— 那种合并必须拒绝。
+ */
+const MAX_MERGE_AREA_GROWTH = 2;
+
+/**
+ * 区数的**硬上限**。`maxRegions`（默认 6）是「尽量做到」的目标，不是硬闸门：
+ * 当已经没有划算的合并时，多留几块区只是多跑几遍「组件 ↔ 区域」的 AABB 过滤
+ *（每遍 O(组件数)，很便宜），而强行合并会把脏区撑成整屏、白扔掉局部重绘。
+ * 但区数必须仍然有界 —— 超过本上限就直接塌缩成一个并集盒，交给面积阈值回退全量。
+ */
+const MAX_REGIONS_HARD = 24;
+
+/** 合并两块是否「划算」：不会把大片干净区域圈进来。 */
+function isWorthMerging(a: number[], b: number[]): boolean {
+  const sum = boxArea(a) + boxArea(b);
+  if (sum <= 0) return true;
+  return boxArea(mergeBox(a, b)) <= sum * MAX_MERGE_AREA_GROWTH;
+}
+
 export function coalesceRegions(boxes: number[][], maxRegions = 6): number[][] {
   const out: number[][] = [];
   for (let i = 0; i < boxes.length; i++) {
@@ -129,7 +164,7 @@ export function coalesceRegions(boxes: number[][], maxRegions = 6): number[][] {
     if (!isFiniteBox(b)) continue;
     let merged = false;
     for (let j = 0; j < out.length; j++) {
-      if (intersects(out[j], b)) {
+      if (intersects(out[j], b) && isWorthMerging(out[j], b)) {
         out[j] = mergeBox(out[j], b);
         merged = true;
         break;
@@ -144,7 +179,7 @@ export function coalesceRegions(boxes: number[][], maxRegions = 6): number[][] {
     changed = false;
     for (let i = 0; i < out.length && !changed; i++) {
       for (let j = i + 1; j < out.length; j++) {
-        if (intersects(out[i], out[j])) {
+        if (intersects(out[i], out[j]) && isWorthMerging(out[i], out[j])) {
           out[i] = mergeBox(out[i], out[j]);
           out.splice(j, 1);
           changed = true;
@@ -154,7 +189,9 @@ export function coalesceRegions(boxes: number[][], maxRegions = 6): number[][] {
     }
   }
 
-  // 区数超上限：合并「并集面积增量最小」的两块，代价最小
+  // 区数超上限：合并「并集面积增量最小」的两块。**优先挑划算的合并**（同样受护栏约束），
+  // 只有在所有配对都不划算时才退而求其次 —— 否则上限这道闸门会把刚被护栏挡住的
+  // 「细长盒串成一整块」又放进来。
   while (out.length > maxRegions) {
     let bi = 0;
     let bj = 1;
@@ -162,12 +199,24 @@ export function coalesceRegions(boxes: number[][], maxRegions = 6): number[][] {
     for (let i = 0; i < out.length; i++) {
       for (let j = i + 1; j < out.length; j++) {
         const cost = boxArea(mergeBox(out[i], out[j])) - boxArea(out[i]) - boxArea(out[j]);
-        if (cost < best) {
+        if (isWorthMerging(out[i], out[j]) && cost < best) {
           best = cost;
           bi = i;
           bj = j;
         }
       }
+    }
+    if (best === Infinity) {
+      // 已经没有划算的合并了：细长盒再合只会把大片干净区圈进来。此时宁可多留几块。
+      if (out.length > MAX_REGIONS_HARD) {
+        // 但区数必须仍然有界：塌缩成一个并集盒，让面积阈值去回退全量（保持既有保守行为）。
+        const union = out.reduce(
+          (acc: number[], b: number[]) => mergeBox(acc, b),
+          [Infinity, Infinity, -Infinity, -Infinity]
+        );
+        return [union];
+      }
+      break;
     }
     out[bi] = mergeBox(out[bi], out[bj]);
     out.splice(bj, 1);

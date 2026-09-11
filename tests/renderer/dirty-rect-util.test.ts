@@ -18,6 +18,7 @@ import {
   mergeBox,
   coalesceRegions,
   regionsAreaRatio,
+  boxArea,
 } from '../../src/renderer/dirty-rect-util';
 
 describe('stylePaintPad', () => {
@@ -187,13 +188,35 @@ describe('coalesceRegions', () => {
     expect(out).toEqual([[0, 0, 40, 10]]);
   });
 
-  test('超出上限时合并「面积增量最小」的两块', () => {
-    const boxes = [];
+  test('划算的合并会一直做到 maxRegions 以内', () => {
+    // 5 个 100x100 的盒，间距只有 1px —— 合并的「浪费」极小（比值 ≈ 1.005），属于划算的合并
+    const boxes: number[][] = [];
+    for (let i = 0; i < 5; i++) {
+      boxes.push([i * 101, 0, i * 101 + 100, 100]);
+    }
+    const out = coalesceRegions(boxes, 2);
+    expect(out.length).toBe(2);
+  });
+
+  /**
+   * 契约变更（2026-09-11）：`maxRegions` 从**硬上限**改成**软上限**。
+   *
+   * 原来的语义是「区数必须 ≤ maxRegions，为此不惜强行合并」。但那样会把细长盒串联成
+   * 一个整屏大盒 —— 于是面积阈值把局部重绘永远挡在门外（编辑器里实测 100% 回退全量）。
+   * 现在：只合并划算的；没有划算的合并时就多留几块（每块区只是一遍 O(组件数) 的 AABB 过滤），
+   * 区数超过 24 才塌缩成一个并集盒、交给面积阈值回退全量。
+   */
+  test('上限是软上限：没有划算的合并时宁可多留几块（不把脏区撑成整屏）', () => {
+    const boxes: number[][] = [];
     for (let i = 0; i < 8; i++) {
       boxes.push([i * 100, 0, i * 100 + 10, 10]);
     }
     const out = coalesceRegions(boxes, 3);
-    expect(out.length).toBe(3);
+    const total = out.reduce((a, b) => a + boxArea(b), 0);
+    // 强行合并到 3 块的话，会得到 ~[0,0,710,10] 这种大盒（面积 7100）；
+    // 保留 8 块的总面积只有 800，便宜得多。
+    expect(boxArea([0, 0, 710, 10])).toBeGreaterThan(total * 8);
+    expect(out.length).toBe(8);
     // 合并后的各块仍互不相接
     for (let i = 0; i < out.length; i++) {
       for (let j = i + 1; j < out.length; j++) {
@@ -203,6 +226,40 @@ describe('coalesceRegions', () => {
         expect(disjoint).toBe(true);
       }
     }
+  });
+
+  /**
+   * 实测自 ice-entity-designer（2026-09-11）：拖动一个实体时 22 个脏盒里含 8 条**横跨画布的
+   * 关系连线**，它们的旧/新盒互相交叉 —— 原来的「相交就合并」会把 22 个盒串成一个**整屏大盒**
+   * （实测面积占比 1.004），于是永远撞上 0.35 的面积阈值回退全量，
+   * 局部重绘在这个编辑器里 100% 失效。而 22 个盒的**实际面积之和**只有画布的 6%。
+   */
+  test('交叉的细长盒不该被串成一整块（编辑器里 8 条横跨连线的情形）', () => {
+    const boxes: number[][] = [];
+    for (let i = 0; i < 8; i++) {
+      // 一条横跨画布的细长连线（世界盒）：长 2780、宽 30；8 条横的 + 8 条竖的互相交叉
+      boxes.push([20, 200 * i + 20, 2800, 200 * i + 50]);
+      boxes.push([200 * i + 20, 20, 200 * i + 50, 1600]);
+    }
+    const sumOfBoxes = boxes.reduce((a, b) => a + boxArea(b), 0);
+    const out = coalesceRegions(boxes, 6);
+    const total = out.reduce((a, b) => a + boxArea(b), 0);
+    // 串成一整块的话面积会是 [20,20,2800,1600]=4.39M，约等于「各盒面积之和」的 4.2 倍；
+    // 正确的做法是保留几块「细长」的区域，总面积与各盒面积之和同量级。
+    expect(boxArea([20, 20, 2800, 1600])).toBeGreaterThan(sumOfBoxes * 4);
+    expect(total).toBeLessThan(sumOfBoxes * 2);
+    // 区数上限是**软**的：没有划算的合并时就多留几块（多跑几遍便宜的 AABB 过滤），
+    // 但仍然必须有界。
+    expect(out.length).toBeLessThanOrEqual(24);
+  });
+
+  test('真正相邻/嵌套的盒仍然照并（护栏不能把正常合并也挡住）', () => {
+    expect(
+      coalesceRegions([
+        [0, 0, 100, 100],
+        [10, 10, 20, 20], // 完全嵌套
+      ])
+    ).toEqual([[0, 0, 100, 100]]);
   });
 
   test('忽略非法（NaN/Infinity）盒', () => {
