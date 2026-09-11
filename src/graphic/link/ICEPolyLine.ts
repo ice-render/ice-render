@@ -422,8 +422,17 @@ class ICEPolyLine extends ICEDotPath {
     p2[1] = p2[1] - p1[1];
 
     //极坐标计算箭头的两个点
-    const cosp2 = p2[0] / Math.hypot(...p2);
-    const sinp2 = p2[1] / Math.hypot(...p2);
+    const hyp = Math.hypot(p2[0], p2[1]);
+    if (hyp === 0) {
+      //零切线（相邻两点重合，例如两端点完全重合的退化连线）：方向无定义。
+      //这里返回退化的三角面而不是让它算出 NaN —— NaN 一旦写进点集会污染包围盒与命中判定。
+      return [
+        [p1[0], p1[1]],
+        [p1[0], p1[1]],
+      ];
+    }
+    const cosp2 = p2[0] / hyp;
+    const sinp2 = p2[1] / hyp;
 
     const cosArrow = Math.cos(this.state.arrowAngel);
     const sinArrow = Math.sin(this.state.arrowAngel);
@@ -749,8 +758,10 @@ class ICEPolyLine extends ICEDotPath {
 
   /**
    * 插槽方向 → 单位方向向量（T=上/B=下/L=左/R=右，其余为无方向）。
+   *
+   * 用 `protected` 而不是 `private`：子类 `ICEVisioLink` 的贝塞尔形态需要按插槽法线推导控制点。
    */
-  private static dirVector(position: string): number[] {
+  protected static dirVector(position: string): number[] {
     switch (position) {
       case 'T':
         return [0, -1];

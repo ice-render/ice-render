@@ -5,11 +5,23 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { isNil } from '../../util/lang';
+import { isNil, round } from '../../util/lang';
 import GeoLine from '../../geometry/GeoLine';
 import GeoPoint from '../../geometry/GeoPoint';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICEPolyLine from './ICEPolyLine';
+
+/**
+ * 贝塞尔形态（`linkShape: 'bezier'`）的参数。
+ *
+ * - 控制点沿两端**插槽外法线**伸出，长度 = 两端直线距离 × `BEZIER_OFFSET_RATIO`，并取下限 `BEZIER_MIN_OFFSET`；
+ * - 曲线等分采样成密集折线（段数按距离自适应并夹在 [MIN, MAX]），复用既有的折线渲染/箭头/命中/包围盒通路。
+ */
+const BEZIER_OFFSET_RATIO = 0.45;
+const BEZIER_MIN_OFFSET = 24;
+const BEZIER_SEGMENT_LENGTH = 12;
+const BEZIER_MIN_SEGMENTS = 8;
+const BEZIER_MAX_SEGMENTS = 24;
 
 /**
  * ! FIXME: 删掉对 GeoPoint/GeoLine/GeoUtil 的依赖
@@ -50,7 +62,14 @@ export default class ICEVisioLink extends ICEPolyLine {
     props.points = [[...props.startPoint], [...props.endPoint]];
 
     //escapeDistance 疏散距离，是 4 个距离边界盒子边缘的点，线条从组件上出来时会首先经过这些点。
-    props = { escapeDistance: 30, ...props };
+    //linkShape 连线形态：visio=正交折线（默认，与历史行为一致），bezier=普通贝塞尔曲线。
+    props = { escapeDistance: 30, linkShape: 'visio', ...props };
+
+    //bezier 走「采样成折线」的绘制通路，与 curveType 的 cubic/quadratic 互斥：
+    //后者会把 dots[1]/dots[2] 当控制点，而箭头三角面顶点也插在 dots 两端 → 必然画错。
+    if (props.linkShape === 'bezier') {
+      props.curveType = 'straight';
+    }
     return props;
   }
 
@@ -61,6 +80,9 @@ export default class ICEVisioLink extends ICEPolyLine {
    * @returns
    */
   protected __calcDots() {
+    if (this.state.linkShape === 'bezier') {
+      return this.__calcBezierDots();
+    }
     const solutions = this.interpolate();
     const { left, top } = this.state;
     const arr = solutions[0][2];
@@ -76,6 +98,100 @@ export default class ICEVisioLink extends ICEPolyLine {
     this.calcArrowPoints();
 
     return this.state.dots;
+  }
+
+  /**
+   * 贝塞尔形态：从两端点与插槽法线构造三次贝塞尔，等分采样后写回 points/dots。
+   *
+   * **为什么要把采样点写回 `state.points`**（而不是只算 dots）：`ICEPolyLine.isDotsOnSameLine()`
+   * 与 `getLabelPosition()` 都只读 `state.points`。若 points 只剩首尾两点会被判「共线」，
+   * 包围盒就会走 `splitEndpointsTo4Points()`、只按线宽沿弦外扩 → 曲线鼓出的部分落在盒外
+   * → dirty-rect 上屏快照盒偏小、局部重绘会把曲线裁掉。写回之后包围盒/标签/命中都自然正确。
+   *
+   * @returns
+   */
+  protected __calcBezierDots() {
+    const points = this.state.points;
+    const start = [...points[0]];
+    const end = [...points[points.length - 1]];
+    const { left, top } = this.state;
+
+    const sampled = this.buildBezierPoints(start, end);
+    this.state.points = sampled.map((p) => [...p]);
+    this.state.dots = sampled.map((p) => [p[0] - left, p[1] - top]);
+    //运行期兜底：即使有人事后 setState 把 curveType 改成 cubic，也不至于把采样点当控制点画
+    this.state.curveType = 'straight';
+
+    this.calcArrowPoints();
+    return this.state.dots;
+  }
+
+  /**
+   * 由两端点构造三次贝塞尔并等分采样（世界坐标）。
+   *
+   * 控制点：`C1 = start + dir(start 插槽) * offset`、`C2 = end + dir(end 插槽) * offset`，
+   * `offset = max(|end-start| * 0.45, 24)`，方向为插槽**外法线**（与正交布线的语义一致）。
+   */
+  protected buildBezierPoints(start: number[], end: number[]): number[][] {
+    const dx = end[0] - start[0];
+    const dy = end[1] - start[1];
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1e-6) {
+      //零长退化（两端点完全重合）：直接给两点，避免除零与 NaN
+      return [[...start], [...end]];
+    }
+
+    const chord = [dx / dist, dy / dist];
+    const offset = Math.max(dist * BEZIER_OFFSET_RATIO, BEZIER_MIN_OFFSET);
+    const d1 = this.slotDirection('start', chord);
+    const d2 = this.slotDirection('end', chord);
+    const c1 = [start[0] + d1[0] * offset, start[1] + d1[1] * offset];
+    const c2 = [end[0] + d2[0] * offset, end[1] + d2[1] * offset];
+
+    const segments = Math.min(
+      BEZIER_MAX_SEGMENTS,
+      Math.max(BEZIER_MIN_SEGMENTS, Math.round(dist / BEZIER_SEGMENT_LENGTH))
+    );
+    const out: number[][] = [];
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const mt = 1 - t;
+      const x = mt * mt * mt * start[0] + 3 * mt * mt * t * c1[0] + 3 * mt * t * t * c2[0] + t * t * t * end[0];
+      const y = mt * mt * mt * start[1] + 3 * mt * mt * t * c1[1] + 3 * mt * t * t * c2[1] + t * t * t * end[1];
+      out.push([round(x, 2), round(y, 2)]);
+    }
+    //去掉相邻重合点：箭头方向用的是「相邻两点之差」，重合会让归一化退化成 0/0
+    return out.filter((p, i) => i === 0 || p[0] !== out[i - 1][0] || p[1] !== out[i - 1][1]);
+  }
+
+  /**
+   * 某端插槽的外法线方向；C 槽 / 未连接 / 未知位置回落到弦方向。
+   *
+   * 注意 start 端用 `+chord`、end 端用 `-chord`（指向弦的内侧）：两端都取 `+chord` 的话，
+   * 控制点会落在两端点连线之外，曲线会先冲出去再拐回来（终点被越过）。
+   */
+  protected slotDirection(terminal: string, chord: number[]): number[] {
+    const link = this.state.links && this.state.links[terminal];
+    const dir = ICEPolyLine.dirVector(link && link.position);
+    if (dir[0] !== 0 || dir[1] !== 0) {
+      return dir;
+    }
+    return terminal === 'start' ? chord : [-chord[0], -chord[1]];
+  }
+
+  /**
+   * @overwrite
+   * 贝塞尔形态不走正交路由。
+   *
+   * 应用层（如 ice-entity-designer 的 `routeRelations()`）会在布局后无条件把 `routeType` 设为
+   * `'orthogonal'`；不拦掉的话每次布局/移动都会用正交折线整体覆盖 `state.points`：
+   * 虽然下一帧 `__calcDots` 会把曲线重新采样回来，但语义错乱且白算一次。
+   */
+  protected recalculateRoute(): void {
+    if (this.state.linkShape === 'bezier') {
+      return;
+    }
+    super.recalculateRoute();
   }
 
   /**

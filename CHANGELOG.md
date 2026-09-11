@@ -9,6 +9,13 @@
 
 ### 新增
 
+- **连线形态可配 `linkShape: 'visio' | 'bezier'`（默认 `'visio'`）**：
+  `ICEVisioLink` 此前只画 Visio 形态（正交折线 + 出口点 + 路径评分）。现在可切**普通贝塞尔曲线**：
+  从两端点与**插槽外法线**构造三次贝塞尔（控制点伸出长度 = 两端直线距离 × 0.45，下限 24px），
+  再按距离自适应等分采样（8~24 段）成密集折线。采样点**写回 `state.points`** 而不是只算 dots ——
+  因为 `isDotsOnSameLine()` / `getLabelPosition()` 只读 points，只留首尾两点会被判「共线」，
+  包围盒就退化成「弦 ± 线宽」，曲线鼓出的部分会落在盒外（dirty-rect 局部重绘会把曲线裁掉）。
+  绘制仍走既有折线通路（描边 + 箭头），因此命中检测、箭头、label 都无需改动。
 - **端点箭头样式可配 `arrowStyle: 'filled' | 'hollow'`（默认 `'filled'` 实心）**：
   线条端点三角箭头此前只有描边（看起来是空心），现在默认用**线色**填充成实心；
   需要旧观感的显式传 `arrowStyle: 'hollow'`。填充色跟随线色（`strokeStyle`），未新增颜色配置项；
@@ -60,6 +67,10 @@
 
 ### 修复
 
+- **相邻两点重合时箭头算出 NaN**：`ICEPolyLine.doCalcArrowPoints()` 用 `p2 / hypot(p2)` 归一化切线方向，
+  两点重合（例如两端点完全重合的退化连线、或贝塞尔零长退化）时会得到 `0/0 = NaN`，
+  而 NaN 一旦写进点集会**污染包围盒与命中判定**（且不报错）。现加零向量短路：方向无定义时返回
+  退化的三角面（三点重合），保持点集有限。
 - **已销毁的连线仍被 `ROUND_FINISH` 驱动 → 未捕获异常**（应用层校验时发现）：
   `ICEPolyLine.afterAddHandler` 在 **ICE 总线**上注册 `once(ROUND_FINISH, syncConnections)`，
   该监听不在组件自己的 `listeners` 里，`purgeEvents()` 清不掉；而 `once` 内部会把回调包一层，
@@ -205,6 +216,13 @@
 > **箭头默认由「空心描边」变为「实心填充」（行为变更）**：线条端点三角箭头现在默认 `arrowStyle: 'filled'`，
 > 用**线色**填充。需要保持旧观感的，显式传 `arrowStyle: 'hollow'`。
 > `stroke: false` 的折线仍然不画箭头 —— 与改动前一致（那条路径既不描边也不填充，本就看不见箭头）。
+>
+> **`linkShape: 'bezier'` 的四点须知**：① 它与 `curveType` 的 `quadratic/cubic` **互斥**
+> （后者会把采样点当控制点、且与箭头插入点冲突），bezier 模式下 `curveType` 会被强制成 `'straight'`；
+> ② `escapeDistance` / `routeOffset` **只服务正交路径**，bezier 用内部常量（本次未新增 `curveOffset` 配置项）；
+> ③ 采样点写回 `state.points`，引擎 `Serializer` 里的连线点数会从 2~4 个涨到最多 25 个
+> （每条约 +270B；应用层自己的项目快照是白名单、不含 `points`，**持久化体积不受影响**）；
+> ④ 插槽正对且共线时（典型「右出左进且 y 对齐」）贝塞尔**就是一条直线** —— 这是插槽法线语义的固有结果。
 
 1. **`dpr` 默认 1、`wrap` 默认 `false`**：不显式开启时行为与 1.0.4 完全一致。
 2. **命中检测坐标改为内容盒语义**：画布带 `border` / `padding` 的项目，命中位置会被**修正**

@@ -46,7 +46,7 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | 字体 | `root.loadFont` 平台适配（浏览器 `FontFace` / 小程序 `wx.loadFont`） |
 | 动画 | 点路径键（`'transform.rotate'`）、`delay`、取整可配（默认不取整）、**关键帧时间轴**、**弹簧类缓动**（`spring` / `springSoft` / `springSnappy`，自带过冲）、**数组字段逐元素补间**；结束判定按时间（弹簧能过冲的前提） |
 | 布局 | `addChild` / `removeChild` 立即重排、批量操作只排一次；排布前有 measure 阶段；新容器型子组件继承父层布局 |
-| 连接线 | 正交路由 `routeType: 'orthogonal'`、连线标签 `label + labelStyle`、5 个共享插槽吸附；端点箭头默认实心（`arrowStyle: 'filled' \| 'hollow'`）；`findComponent` 递归查找（因此**连线可连嵌套子组件**） |
+| 连接线 | 正交路由 `routeType: 'orthogonal'`、连线标签 `label + labelStyle`、5 个共享插槽吸附；端点箭头默认实心（`arrowStyle: 'filled' \| 'hollow'`）、连线形态可切（`linkShape: 'visio' \| 'bezier'`，贝塞尔为插槽法线方向的三次曲线采样）；`findComponent` 递归查找（因此**连线可连嵌套子组件**） |
 | 序列化 | `ICE.getTypeId(ctor)` 类型反查（与类的 JS 名解耦，压缩改名不破坏已存数据）；`version` 字段 + `SERIALIZATION_MIGRATIONS` 迁移表；未注册类型跳过并记入 `deserializer.unknownTypes` |
 | 插件 | `ICE.use(plugin)` / `unuse(name)` 三层注册点（组件类型 / 每帧渲染 / 交互工具）+ `setup` / `teardown` 生命周期 |
 | 无障碍 | `getAccessibilityTree()` 可访问节点快照 + `setFocusedComponent()` 键盘焦点回传。**引擎不自建 DOM 镜像层**（见 [14](14-accessibility.md)） |
