@@ -47,6 +47,26 @@
   （旧实现只在 `init` 时取一次）。
 - **一个未知组件导致整份数据打不开**：反序列化遇到未注册类型时跳过该节点并记录，不再抛 `TypeError`。
 - **`.husky/pre-commit` 缺少可执行位**：git 会直接跳过该钩子，导致 `lint-staged` / commitlint 从未真正运行。
+- **`getMinBoundingBox(refresh=true)` 首次取值偏移**：旧实现先读 `state.localOrigin` 再调
+  `composeMatrix()`，而 `localOrigin` 由后者内部派生 → 首次刷新读到初始 `(0,0)`，包围盒偏一个原点
+  （控制面板 / 连线插槽首次定位偏移的根因）。
+- **`AFTER_REMOVE` 从不触发**（死代码）：现由 `removeChild` / `removeTool` / `ICEGroup.removeChild`
+  在 `destory()` **之前**触发（`destory` 会 `purgeEvents`，之后触发监听者收不到）。
+- **监听器累积**：`TransformControlPanel.targetComponent` 与 `ICELinkSlot.hostComponent` 原用
+  `once(BEFORE_REMOVE, 箭头函数)`，因 `once` 内部再包一层而**永远无法 `off`**，反复选中会持续泄漏；
+  改为具名属性 + `on`，切换时摘除。
+- **只要存在 linkable 组件画面就永不空闲**：`ICELinkSlot.updatePosition` 挂在宿主 `AFTER_RENDER` 上
+  无条件 `setState`；现仅位置真正变化时才置脏。
+- **`flattenTree` 的 `_pid` 恒为 `undefined`**（旧实现取 `node.id`，而 id 在 `props` 上）。
+- **连线端点不再依赖宿主 `AFTER_RENDER`**：局部重绘帧的 render 事件只对脏区域内的组件触发，
+  用它驱动几何会让两条渲染路径产生不同结果；改为在建立连接时直接同步（内部会现场重算矩阵）。
+
+### 已知限制（未修，附修复顺序）
+
+- **`ICE.findComponent` 只搜顶层**：树内（嵌套）子组件与工具层都查不到，因此「连线连接嵌套子组件」
+  在引擎侧不生效。改成递归后该能力会生效，但实测会破坏「两条渲染路径逐像素一致」这一不变量
+  （`dirty-rect-pixel` 富场景 step1 约 900 px 差异）。**正确顺序：先把连线端点改为渲染期自推导，
+  再放开递归查找。** 当前行为已由 `tests/consistency/consistency.test.ts` 锁定。
 
 ### 性能
 

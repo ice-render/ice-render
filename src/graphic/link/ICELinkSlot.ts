@@ -88,28 +88,42 @@ class ICELinkSlot extends ICECircle {
       default:
         break;
     }
+    // 位置未变则不 setState：插槽挂在宿主的 AFTER_RENDER 上，每帧无条件置脏会让
+    // 「只要有 linkable 组件，画面就永不空闲」（局部重绘/全量重绘被反复触发）。
+    if (this.state.left === left && this.state.top === top) {
+      return;
+    }
     this.setState({ left, top });
   }
 
+  /**
+   * 宿主被移除时的处理。
+   *
+   * 与 TransformControlPanel 同一问题：旧实现用 `once(BEFORE_REMOVE, () => {...})`，
+   * `once` 内部包裹后的回调无法被 `off`，反复切换宿主会在宿主上累积无法回收的监听。
+   * 改为稳定引用 + `on`，由 setter 在切换时 `off`（`on` 对 (fn, scope) 幂等）。
+   */
+  private __onHostRemoved = () => {
+    this._hostComponent = null;
+    this.setState({
+      display: false,
+    });
+  };
+
   public set hostComponent(component) {
-    this._hostComponent && this._hostComponent.off(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
+    const prev = this._hostComponent;
+    if (prev) {
+      prev.off(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
+      prev.off(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.__onHostRemoved, this);
+    }
     this._hostComponent = component;
-    this._hostComponent && this._hostComponent.on(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
-    this._hostComponent &&
-      this._hostComponent.once(
-        ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE,
-        () => {
-          this._hostComponent = null;
-          this.setState({
-            display: false,
-          });
-        },
-        this
-      );
-    this._hostComponent &&
+    if (component) {
+      component.on(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
+      component.on(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.__onHostRemoved, this);
       this.setState({
         display: true,
       });
+    }
   }
 
   public get hostComponent() {

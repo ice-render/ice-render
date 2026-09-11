@@ -221,11 +221,14 @@
 - 连接插槽为**全局共享的 5 个固定实例**（T/R/B/L/C，`graphic/link/ICELinkSlotManager.ts:204-288`），无法为多组件同时展示端口，也不支持自定义锚点。
 - `ICELinkSlot.updatePosition` 在 `AFTER_RENDER` 内 `setState`（`graphic/link/ICELinkSlot.ts:91,97`）→ 置脏 → 下帧再渲染 → 再 setState：**只要有 linkable 组件，画面永不空闲**。
 
-### 4.5 监听器与死代码
-- `control-panel/transform-controls/TransformControlPanel.ts:374-382` 与 `graphic/link/ICELinkSlot.ts:98-108`：每次设置 target/host 都注册 `once(BEFORE_REMOVE, 箭头函数)`，旧箭头函数**无法被 `off`**（引用不同），反复选中会累积。
-- `consts/ICE_EVENT_NAME_CONSTS.ts:17` 声明 `AFTER_REMOVE` 但**全仓库从不 trigger**（`ICE.removeChild` 只触发 `BEFORE_REMOVE`）。
-- `util/data-util.ts:19` 的 `flattenTree` 往组件上写 `_level` / `_pid`，其中 `pid` 取 `node.id`（应为 `node.props.id`，`id` 实际定义在 props 上）→ `_pid` 恒为 `undefined`。
-- `ICEComponent.destory()` 拼写错误，已成为公开 API 的一部分。
+### 4.5 监听器与死代码（**2026-09-10 已修**）
+- ✅ `TransformControlPanel.targetComponent` 与 `ICELinkSlot.hostComponent` 的 `once(BEFORE_REMOVE, 箭头函数)` 改为**具名属性 + `on`**，切换时由 setter `off`（`on` 对 `(fn, scope)` 幂等）。旧写法因 `once` 内部再包一层，箭头回调永远无法 `off`，反复选中会持续泄漏。
+- ✅ `AFTER_REMOVE` 从死代码变为真正触发：`removeChild` / `removeTool` / `ICEGroup.removeChild` 都补上，且**必须在 `destory()` 之前**（`destory` 会 `purgeEvents`，之后触发监听者收不到）。
+- ✅ `flattenTree` 的 `_pid` 改为优先 `props.id`（旧实现取 `node.id` 恒为 `undefined`），同时兼容「普通对象 + 顶层 id」的用法。
+- ✅ `ICEComponent.destroy()` 作为 `destory()` 的拼写修正别名（历史拼写已发布，不能直接改名）。
+- ✅ `ICELinkSlot.updatePosition` 位置未变时不再 `setState` —— 旧实现挂在宿主 `AFTER_RENDER` 上无条件置脏，导致「只要有 linkable 组件画面就永不空闲」。
+- ✅ **`getMinBoundingBox(refresh=true)` 的取值顺序 bug**：旧实现**先读** `state.localOrigin` **再** `composeMatrix()`，而 `localOrigin` 是 `composeMatrix()` 内部才派生的 → 首次刷新读到初始 `(0,0)`，盒子**偏一个原点**。这正是连线插槽要靠「每帧重算」掩盖首次错误的根因。已改为先 compose 再读。
+- ⚠️ **`findComponent` 只搜顶层**（未改，附原因）：改成递归后「连线连接嵌套子组件」会真正生效，但实测会激活「连线端点推导 vs 局部重绘」的既有像素不稳定（`dirty-rect-pixel` 富场景 step1 约 900 px 差异：full 画布为抗锯齿混合色、dirty-rect 画布为饱和纯色）。**修复顺序：先把连线端点改为渲染期自推导（不依赖宿主事件），再放开递归查找。** 顺带已移除 `createLink` 里对宿主 `AFTER_RENDER` 的依赖（局部帧的 render 事件只对脏区域内的组件触发，用它驱动几何会引入渲染模式相关的不一致）。回归用例见 `tests/consistency/consistency.test.ts`。
 
 ### 4.6 待复核项（未做行为验证）
 以下为阅读代码时的疑点，**未经运行时验证**，落地前应先写复现用例：
@@ -328,3 +331,5 @@
 | 2026-09-10 | P1-7 发行门禁：exports/sideEffects、CI 接可视化回归、CHANGELOG、husky 权限位、lint 转绿 | ✅ 已完成 |
 | 2026-09-10 | P1-5 插件三层注册点（组件/渲染/交互工具）+ 生命周期 `use`/`unuse` | ✅ 已完成 |
 | 2026-09-10 | P1-4 无障碍原语（`getAccessibilityTree` / `setFocusedComponent`，方案 B）+ 文档 14 + 示例 | ✅ 已完成 |
+| 2026-09-10 | P2 一致性簇：AFTER_REMOVE、监听器累积、插槽每帧置脏、`flattenTree` 的 `_pid`、`destroy` 别名、`getMinBoundingBox` 取值顺序 | ✅ 已完成 |
+| 2026-09-10 | P2 `findComponent` 递归查找 | ⏸ 已定位并给出修复顺序（需先改连线端点为渲染期自推导），当前保留保守行为 |

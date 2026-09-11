@@ -219,7 +219,11 @@ class ICEPolyLine extends ICEDotPath {
     component && component.on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, this.followComponent, this);
     component && component.on(ICE_EVENT_NAME_CONSTS.AFTER_RESIZE, this.followComponent, this);
     component && component.on(ICE_EVENT_NAME_CONSTS.AFTER_ROTATE, this.followComponent, this);
-    component && component.once(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.followComponent, this);
+    // 注意：这里**不能**依赖宿主的 AFTER_RENDER 做首次同步。
+    // 局部重绘帧的 BEFORE/AFTER_RENDER 只对脏区域内的组件触发（引擎有意的可观测差异），
+    // 若连线端点由 AFTER_RENDER 驱动，两个渲染路径会得到不同的连线几何 → 逐像素不一致。
+    // followComponent() 内部用 getMinBoundingBox(true) 现场重算矩阵，不依赖「已渲染过」，
+    // 因此直接同步调用即可；宿主移动/缩放/旋转时由上面的 AFTER_* 监听继续驱动。
     component && this.followComponent();
     this.state.draggable = false;
   }
