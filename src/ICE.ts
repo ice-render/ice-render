@@ -20,6 +20,7 @@ import ICEComponent from './graphic/ICEComponent';
 import ICELinkSlotManager from './graphic/link/ICELinkSlotManager';
 import Deserializer from './persistence/Deserializer';
 import Serializer from './persistence/Serializer';
+import PluginHost, { ICEPlugin } from './plugin/PluginHost';
 import CanvasRenderer from './renderer/CanvasRenderer';
 import ImageCache from './util/ImageCache';
 import { setTheme, getTheme, registerTheme, ICETheme, ICESemanticTheme } from './theme/ICETheme';
@@ -69,6 +70,8 @@ class ICE {
    */
   private __contentBox: any = null;
   public selectionList: Array<any> = []; //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
+  /** 插件宿主：组件 / 渲染 / 交互工具三层注册点，见 `src/plugin/PluginHost.ts`。 */
+  public plugins: PluginHost = new PluginHost(this);
   public typeMapping = {}; //类型名称与构造函数之间的映射关系，在序列化和反序列化时需要根据此 mapping 来创建对应的类型的示例。
   /** 构造函数 → 类型名 的反查表（序列化用）。惰性构建，registerType/init 后失效重建。 */
   private __typeIdMapping: Map<any, string> | null = null;
@@ -229,7 +232,10 @@ class ICE {
       FrameManager.stop();
     }
 
-    //4) 清空场景并释放引用
+    //4) 清空场景并释放引用（插件工具也一并摘下）
+    if (this.plugins) {
+      this.plugins.clear();
+    }
     this.clearAll();
     this.renderer = null;
     this.animationManager = null;
@@ -408,6 +414,49 @@ class ICE {
       this.__typeIdMapping = mapping;
     }
     return mapping.get(Clazz);
+  }
+
+  /**
+   * 注册插件（幂等：同名插件重复调用直接返回，不重复 setup）。
+   *
+   * 插件可提供三层扩展点：`components`（自定义图元类型）、`render`（每帧绘制回调）、
+   * `tools`（按选中组件匹配的交互工具）。详见 `src/plugin/PluginHost.ts`。
+   *
+   * @returns 是否本次真的注册（同名已存在时为 false）
+   */
+  public use(plugin: ICEPlugin): boolean {
+    return this.plugins.use(plugin);
+  }
+
+  /**
+   * 注销插件：撤销其渲染回调与交互工具，并调用 `teardown`。
+   * 注意：`components` 里注册的类型**保留**（反序列化可能仍依赖，且撤销会让已存数据失效）。
+   */
+  public unuse(name: string): boolean {
+    return this.plugins.unuse(name);
+  }
+
+  /** 已注册插件名（只读快照）。 */
+  public getPlugins(): string[] {
+    return this.plugins.names;
+  }
+
+  /**
+   * 更新选中集合的**统一入口**：写 `selectionList` 并同步插件工具。
+   * 约定：目前插件工具按「首个选中组件」匹配（引擎当前也仅支持单选）。
+   *
+   * @returns 是否有「排他」插件工具命中 —— 调用方据此禁用内置变换/连线面板
+   */
+  public setSelection(components: Array<any> | any | null): boolean {
+    if (components == null) {
+      this.selectionList = [];
+    } else {
+      this.selectionList = Array.isArray(components) ? components : [components];
+    }
+    if (!this.plugins) {
+      return false;
+    }
+    return this.plugins.syncTools(this.selectionList[0] || null);
   }
 
   /**

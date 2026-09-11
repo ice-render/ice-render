@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render 插件（三层注册点）</title>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">ice-render 插件 <code>ice.use(plugin)</code></h2>
+    <p style="color:#555; margin: 0 0 10px; max-width: 1100px;">
+      一个插件同时用到三层注册点：<br />
+      ① <strong>组件层</strong> <code>components: { PlugBadge }</code> —— 自定义图元自动注册，因此可被序列化
+      （typeId 反查命中插件注册名）；<br />
+      ② <strong>渲染层</strong> <code>render(frame)</code> —— 每帧在世界坐标下叠加绘制：给所有 PlugBadge 画虚线外框，
+      并在左上角画图例；<br />
+      ③ <strong>交互层</strong> <code>tools</code> —— 选中 PlugBadge 时挂一个自定义工具（青绿色虚线高亮），
+      且 <code>exclusive: true</code> 会屏蔽内置变换面板。
+      点击下方图元试试。
+    </p>
+    <canvas id="canvas-1" width="820" height="420" style="background:#fff; border:1px solid #ddd; cursor: pointer;"></canvas>
+    <div id="badge" style="margin-top:6px; color:#555; font:12px/1.6 ui-monospace, monospace;"></div>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+      const ice = new ICE.ICE().init('canvas-1');
+      window.__ice = ice;
+
+      // ① 组件层：自定义图元
+      class PlugBadge extends ICE.ICERect {
+        constructor(props) {
+          super({ radius: 8, width: 120, height: 48, ...props });
+        }
+      }
+
+      // ③ 交互层：选中 PlugBadge 时显示的自定义工具
+      const badgeTool = new ICE.ICERect({
+        left: 0,
+        top: 0,
+        width: 0,
+        height: 0,
+        display: false,
+        zIndex: 9000000,
+        fill: false,
+        style: { strokeStyle: '#14B8A6', lineWidth: 3, lineDash: [8, 6] },
+        transformable: false,
+        draggable: false,
+        linkable: false,
+      });
+
+      // ② 渲染层：世界坐标叠加绘制
+      function renderOverlay(frame) {
+        const ctx = frame.ctx;
+        const badges = [];
+        (function walk(list) {
+          for (let i = 0; i < list.length; i++) {
+            const c = list[i];
+            if (c instanceof PlugBadge) badges.push(c);
+            if (c.childNodes && c.childNodes.length) walk(c.childNodes);
+          }
+        })(ice.childNodes);
+
+        ctx.save();
+        ctx.setLineDash([6, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#6366F1';
+        for (let i = 0; i < badges.length; i++) {
+          const b = badges[i].getMaxBoundingBox(true);
+          const m = b.getMinAndMaxPoint();
+          ctx.strokeRect(m.minX - 4, m.minY - 4, m.maxX - m.minX + 8, m.maxY - m.minY + 8);
+        }
+        ctx.setLineDash([]);
+
+        // 图例
+        ctx.fillStyle = 'rgba(17,24,39,0.85)';
+        ctx.fillRect(16, 16, 300, 30);
+        ctx.fillStyle = '#A5F3FC';
+        ctx.font = 'bold 15px Arial';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('插件渲染钩子：PlugBadge = ' + badges.length + ' 个', 28, 32);
+        ctx.restore();
+      }
+
+      const plugin = {
+        name: 'demo-badges',
+        components: { PlugBadge: PlugBadge },
+        render: renderOverlay,
+        tools: [
+          {
+            id: 'badge-tool',
+            match: (c) => c instanceof PlugBadge,
+            create: () => badgeTool,
+            exclusive: true,
+            onTargetChange: (tool, component) => {
+              const b = component.getMaxBoundingBox(true);
+              const m = b.getMinAndMaxPoint();
+              tool.setState({
+                display: true,
+                left: m.minX - 6,
+                top: m.minY - 6,
+                width: m.maxX - m.minX + 12,
+                height: m.maxY - m.minY + 12,
+                style: { strokeStyle: '#14B8A6', lineWidth: 3, lineDash: [8, 6] },
+              });
+              document.getElementById('badge').textContent =
+                '插件工具已接管：' + component.props.id + '（内置变换面板被 exclusive 屏蔽）';
+            },
+          },
+        ],
+        setup: (target) => {
+          target.evtBus.on('mousedown', (evt) => {
+            const c = evt.target;
+            if (c && c.ice && !(c instanceof PlugBadge)) {
+              target.setSelection([c]);
+              badgeTool.setState({ display: false });
+              document.getElementById('badge').textContent = '已选中非插件图元：内置面板生效';
+            }
+          });
+        },
+      };
+
+      ice.use(plugin);
+
+      // 场景：3 个自定义图元 + 1 个普通矩形
+      const colors = ['#FDE68A', '#BFDBFE', '#FBCFE8'];
+      for (let i = 0; i < 3; i++) {
+        ice.addChild(
+          new PlugBadge({
+            left: 60 + i * 170,
+            top: 110,
+            width: 140,
+            height: 56,
+            zIndex: 10 + i,
+            style: { fillStyle: colors[i], strokeStyle: '#111827', lineWidth: 2 },
+          })
+        );
+      }
+      ice.addChild(
+        new ICE.ICERect({
+          left: 60,
+          top: 250,
+          width: 200,
+          height: 80,
+          zIndex: 30,
+          style: { fillStyle: '#E5E7EB', strokeStyle: '#6B7280', lineWidth: 2 },
+        })
+      );
+
+      // 序列化验证：插件注册的类型写出的是插件给的 typeId
+      window.__pluginJson = ice.toJSONObject();
+    })();
+  </script>
+</html>
