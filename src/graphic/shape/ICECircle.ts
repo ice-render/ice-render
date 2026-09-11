@@ -17,6 +17,11 @@ import ICEEllipse from './ICEEllipse';
 class ICECircle extends ICEEllipse {
   constructor(props: any = {}) {
     const param = { radius: 10, ...props };
+    if (props.radius === undefined && props.width !== undefined) {
+      param.radius = Number(props.width) / 2;
+    } else if (props.radius === undefined && props.height !== undefined) {
+      param.radius = Number(props.height) / 2;
+    }
     param.radiusX = param.radius;
     param.radiusY = param.radius;
 
