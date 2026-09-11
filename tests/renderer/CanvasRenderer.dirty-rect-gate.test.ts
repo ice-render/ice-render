@@ -15,6 +15,7 @@ import ICE from '../../src/ICE';
 import ICERect from '../../src/graphic/shape/ICERect';
 import ICEGroup from '../../src/graphic/container/ICEGroup';
 import ICEText from '../../src/graphic/text/ICEText';
+import ICEPolyLine from '../../src/graphic/link/ICEPolyLine';
 import ICEStar from '../../src/graphic/shape/ICEStar';
 import EventBus from '../../src/event/EventBus';
 import root from '../../src/cross-platform/root';
@@ -272,18 +273,33 @@ describe('dirty-rect 相交级门控', () => {
     expect(renderer.__collect()).not.toBeNull();
   });
 
-  test('内容变化（paramsDirty）时仍一律回退：墨迹可能超出几何盒', () => {
+  test('非文本 risky 的「几何变化」也放行：盒 = 几何 + paint pad，且 old∪new 已进脏区', () => {
     const { ice, renderer } = makeHarness();
-    for (let i = 0; i < 6; i++) {
-      ice.addChild(opaque(20 + i * 40, 20, i));
+    for (let i = 0; i < 24; i++) {
+      ice.addChild(opaque(20 + (i % 12) * 40, 20 + Math.floor(i / 12) * 30, i));
     }
-    const star = smallStar(600, 500, 50); // 不可缓存的 risky
+    const star = smallStar(300, 300, 50); // 不可缓存的 risky（点集路径）
     ice.addChild(star);
     prime(renderer, ice);
 
     star.setState({ outerRadius: 11 }); // 几何变了 → paramsDirty
     ice.dirty = true;
     expect(star.paramsDirty).toBe(true);
+    // 非文本组件的墨迹 = 几何 + paint pad，且脏区已并进它的旧盒∪新盒 → clip 切不到墨迹
+    expect(renderer.__collect()).not.toBeNull();
+  });
+
+  test('文本的「内容变化」仍一律回退：字形墨迹会超出几何盒（这条是原始实测的来源）', () => {
+    const { ice, renderer } = makeHarness();
+    for (let i = 0; i < 24; i++) {
+      ice.addChild(opaque(20 + (i % 12) * 40, 20 + Math.floor(i / 12) * 30, i));
+    }
+    const label: any = new ICEText({ left: 300, top: 300, width: 10, height: 10, text: 'hi' });
+    ice.addChild(label);
+    prime(renderer, ice);
+
+    label.setState({ text: 'changed' }); // 内容变了 → paramsDirty
+    ice.dirty = true;
     expect(renderer.__collect()).toBeNull();
   });
 
@@ -346,6 +362,34 @@ describe('dirty-rect 相交级门控', () => {
     prime(renderer, ice);
     expect(renderer.cache.has(label)).toBe(true);
     box.setState({ left: 340 });
+    ice.dirty = true;
+    expect(renderer.__collect()).not.toBeNull();
+  });
+
+  test('干净且已缓存的连线与脏区相交 → 不阻塞（编辑器里最常见的阻塞源）', () => {
+    const { ice, renderer } = makeHarness();
+    for (let i = 0; i < 24; i++) {
+      ice.addChild(opaque(20 + (i % 12) * 40, 20 + Math.floor(i / 12) * 30, i));
+    }
+    // 连线横跨画布：任何脏区都会与它相交 —— 这正是编辑器里局部重绘一直失效的原因
+    const line = new ICEPolyLine({
+      points: [
+        [0, 0],
+        [780, 580],
+      ],
+      style: { strokeStyle: '#334155', lineWidth: 2 },
+    });
+    ice.addChild(line);
+    prime(renderer, ice);
+    // 再走一帧让状态安定（真实使用中 rAF 连续跑；首帧还处在「刚挂载」的脏状态）
+    ice.dirty = true;
+    renderer.frameEvtHandler();
+    expect(renderer.cache.isCachable(line)).toBe(true);
+    expect(renderer.cache.has(line)).toBe(true);
+    expect(line.dirty).toBe(false);
+
+    const mover = ice.childNodes[0];
+    mover.setState({ left: 26 });
     ice.dirty = true;
     expect(renderer.__collect()).not.toBeNull();
   });

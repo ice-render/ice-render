@@ -114,6 +114,9 @@ class CanvasRenderer extends ICEEventTarget {
   private frameEvtHandler(evt: ICEEvent) {
     if (this.ice.dirty) {
       this.refreshQueue();
+      // 先让离屏缓存知道「本帧视口是否变过」：视口一变，位图栅格与设备栅格错位，
+      // 本帧一律退回直接绘制（见 ObjectCache.beginFrame）。
+      this.cache.beginFrame();
       // dirty-rect：能构造出局部重绘计划就走局部；否则回退全量。
       if (this.renderMode === 'dirty-rect' && !this.__forceFullRender) {
         const plan = this.__collect();
@@ -387,22 +390,28 @@ class CanvasRenderer extends ICEEventTarget {
       if (!c.isEffectivelyVisible()) continue;
       const risky = this.__isDotPath(c) || this.__isText(c) || !isOpaqueDrawing(c.state);
       if (!risky) continue;
-      // 变脏：位图/参数要重建，默认回退。可按「墨迹是否可能超出几何盒」细分：
-      //   ① 内容或几何变了（`paramsDirty`）→ 一律回退：字形/描边的实际墨迹范围可能超出几何盒；
-      //   ② 仅位置变化（`paramsDirty === false`，祖先变换导致的平移）：
-      //      · 非文本：脏组件的 old∪new 盒（含 paint pad）本来就会并进脏区，clip 切不到它的墨迹 → 放行；
-      //      · 文本：字形墨迹可能超出几何盒 → 必须有离屏缓存（主画布只是 drawImage 平移贴回位图，
-      //        clip 只作用于整像素采样），否则回退。
-      // 「拖动一个含文本的实体」走的正是 ②：后代只被标 dirty、不重量测参数 —— 此前被无条件回退拦住，
-      // 于是编辑器里局部重绘几乎永不生效。
+      // 变脏：先按「墨迹是否可能超出几何盒」分两类。
+      //
+      // **文本**：字形 + 描边的墨迹会超出几何盒（实测「文本内容变更」时差异色正是文本的描边色），
+      // clip 下重绘无法与全量逐像素一致 → 必须有离屏缓存（主画布只是 drawImage 位图，
+      // clip 只作用于整像素采样），否则回退。
+      //
+      // **非文本**（点集路径 / 折线 / 半透明落墨）：墨迹 = 几何 + `stylePaintPad`
+      //（连线还含标签，见 `ICEPolyLine.__localBox`），而「它是脏的」意味着**旧盒 ∪ 新盒都已并进脏区** ——
+      // 也就是说：旧墨迹在区域内会被擦掉、新墨迹也完全落在区域内，clip 边界落在墨迹之外。
+      // 因此内容/几何变了同样放行。（原实现是「刚变脏一律回退」，那条结论来自上面那个文本实测，
+      // 泛化到全部 risky 类别过于保守 —— 编辑器里拖动实体时关系连线会重新布线、每帧都变脏，
+      // 局部重绘因此 100% 失效。）
       if (c.dirty) {
-        if (!c.__paramsDirtyAtCollect) {
-          if (!this.__isText(c)) {
-            continue;
-          }
-          if (this.cache.isCachable(c) && this.cache.has(c)) {
-            continue;
-          }
+        if (!this.__isText(c)) {
+          continue;
+        }
+        // 文本：只有「仅位置变化（paramsDirty 为 false，即祖先平移）+ 已缓存」才放行 ——
+        // 此时主画布只是把位图平移贴回；内容/几何一变，字形墨迹仍可能超出几何盒（缓存位图同样受
+        // 盒子限制，超出的部分一样会被裁掉），必须回退。
+        // 注意读的是收集阶段拍的快照：`__freshBox()` 会清掉 `paramsDirty`。
+        if (!c.__paramsDirtyAtCollect && this.cache.isCachable(c) && this.cache.has(c)) {
+          continue;
         }
         return true;
       }

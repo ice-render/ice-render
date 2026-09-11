@@ -667,6 +667,16 @@ class ICEPolyLine extends ICEDotPath {
         if (v[1] > maxY) maxY = v[1];
       }
     }
+    // 并入标签矩形：标签画在折线中点，墨迹天然超出「折线带宽盒」。盒子不含标签时，
+    // 上屏快照盒/脏区擦除盒会漏掉标签（留下残影），离屏缓存位图会把标签裁掉
+    //（2026-09-11 应用层 A/B：开启连线缓存后墨色像素少约 6%）。
+    const lm = this.__measureLabelBoxForBounds();
+    if (lm) {
+      if (lm.x - lm.halfW < minX) minX = lm.x - lm.halfW;
+      if (lm.x + lm.halfW > maxX) maxX = lm.x + lm.halfW;
+      if (lm.y - lm.halfH < minY) minY = lm.y - lm.halfH;
+      if (lm.y + lm.halfH > maxY) maxY = lm.y + lm.halfH;
+    }
     box[0] = minX;
     box[1] = minY;
     box[2] = maxX;
@@ -844,9 +854,11 @@ class ICEPolyLine extends ICEDotPath {
     const lineColor = needArrowFill ? this.ctx.strokeStyle : null;
 
     super.doRender();
-    // super.doRender() 内部的边界框绘制会重置 ctx 为 viewport 矩阵，丢掉 line 自身的平移；
-    // 这里重新应用 line 的完整 CTM，再绘制箭头填充与 label，否则它们会跑到错误的坐标。
-    this.applyTransformToCtx(null, true);
+    // super.doRender() 链上的边界框绘制会把 ctx 换成「世界 → 设备」矩阵，丢掉 line 自身的平移；
+    // 这里复原**本渲染通道的完整 CTM**，再绘制箭头填充与 label。
+    // 注意必须是 applyActiveTransform()：它同时适配主画布通道与离屏位图通道，
+    // 写死 applyTransformToCtx(null, true) 会让箭头/标签在缓存位图里整块跑到位图外（消失）。
+    this.applyActiveTransform();
     if (needArrowFill) {
       // 先填箭头、后画 label：label 背景（白底）需要压住箭头，保持既有层次
       this.drawArrowFills(lineColor);
@@ -860,7 +872,7 @@ class ICEPolyLine extends ICEDotPath {
    * 箭头三角形是通过在 `state.dots` 里插入顶点来构造的，它只被**描边**（折线强制 fill:false），
    * 所以默认看起来是空心的。这里在描边之后单独把三角面填充一次。
    *
-   * 必须在 CTM 复原（`applyTransformToCtx(null, true)`）之后调用 —— 用的是 dots 的本地坐标，
+   * 必须在 CTM 复原（`applyActiveTransform()`）之后调用 —— 用的是 dots 的本地坐标，
    * 与 `drawLabel()` 同一坐标系。
    */
   private drawArrowFills(lineColor: string): void {
@@ -895,37 +907,70 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
+   * 标签的**本地矩形**度量：`{ x, y, halfW, halfH }`；无标签时返回 null。
+   *
+   * 绘制（`drawLabel`）与包围盒（`__localBox`）**共用**这一份口径，避免「画的框」与「算的盒」漂移。
+   * 注意：`measureText` 前必须先设 `ctx.font`（字体状态跨调用遗留，先量后设会按上次字体算宽）——
+   * 本方法设置 font 但**不负责恢复**：绘制路径由 `ctx.save/restore` 兜住，包围盒路径见
+   * `__measureLabelBoxForBounds()`（盒子计算不应留下渲染副作用）。
+   */
+  private __labelMetrics(): { x: number; y: number; halfW: number; halfH: number } | null {
+    const label = this.state.label;
+    if (!label) {
+      return null;
+    }
+    const style = this.state.labelStyle || {};
+    const fontSize = style.fontSize || 14;
+    const padding = 4;
+    const pos = this.getLabelPosition();
+    let textWidth = 0;
+    const ctx: any = this.ctx;
+    if (ctx && typeof ctx.measureText === 'function') {
+      ctx.font = `${fontSize}px Arial`;
+      textWidth = ctx.measureText(label).width;
+    } else {
+      textWidth = label.length * fontSize; // 降级估算
+    }
+    return { x: pos[0], y: pos[1], halfW: textWidth / 2 + padding, halfH: fontSize / 2 + padding };
+  }
+
+  /** `__localBox()` 专用包装：算完把 `ctx.font` 恢复 —— 盒子计算不该改变渲染状态。 */
+  private __measureLabelBoxForBounds(): { x: number; y: number; halfW: number; halfH: number } | null {
+    const ctx: any = this.ctx;
+    const hasFont = !!ctx && 'font' in ctx;
+    const prevFont = hasFont ? ctx.font : undefined;
+    const metrics = this.__labelMetrics();
+    if (hasFont) {
+      ctx.font = prevFont;
+    }
+    return metrics;
+  }
+
+  /**
    * 绘制连线标签：在折线中点绘制带背景的文本，遮住下面的线以保证可读性。
+   * 度量口径与 `__labelMetrics()` 共用（后者同时服务于包围盒）。
    */
   private drawLabel(): void {
     const label = this.state.label;
     if (!label) {
       return;
     }
-    const pos = this.getLabelPosition();
     const ctx = this.ctx;
     const style = this.state.labelStyle || {};
-    const fontSize = style.fontSize || 14;
-    const padding = 4;
 
     ctx.save();
-    // 必须先设 font 再 measureText：ctx 的字体状态是**跨调用遗留**的，先量后设会按上一次绘制
-    // 留下的字体算宽，背景框与实际字形不符（框过宽或过窄）。降级估算同理，用 label.length * fontSize 近似。
-    ctx.font = `${fontSize}px Arial`;
-    let textWidth = 0;
-    if (typeof ctx.measureText === 'function') {
-      textWidth = ctx.measureText(label).width;
-    } else {
-      textWidth = label.length * fontSize; // 降级估算
+    // 内含「先设 font 再 measureText」；font 由本次 save/restore 归位
+    const lm = this.__labelMetrics();
+    if (!lm) {
+      ctx.restore();
+      return;
     }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const halfW = textWidth / 2 + padding;
-    const halfH = fontSize / 2 + padding;
     ctx.fillStyle = style.backgroundColor || '#ffffff';
-    ctx.fillRect(pos[0] - halfW, pos[1] - halfH, halfW * 2, halfH * 2);
+    ctx.fillRect(lm.x - lm.halfW, lm.y - lm.halfH, lm.halfW * 2, lm.halfH * 2);
     ctx.fillStyle = style.fillStyle || '#000000';
-    ctx.fillText(label, pos[0], pos[1]);
+    ctx.fillText(label, lm.x, lm.y);
     ctx.restore();
   }
 
