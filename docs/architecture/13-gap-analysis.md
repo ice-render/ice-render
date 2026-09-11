@@ -165,7 +165,7 @@
 ### P1-6 序列化的类型键不健壮
 
 **证据**：
-- `persistence/Serializer.ts:70` 写 `type: component.constructor.name`。当前靠 `rollup.config.js:36-39` 的 `terser({ keep_classnames: true, keep_fnames: true })` 兜住压缩；一旦改用普通构建产物，或用户自定义子类名与映射不符，即失败。
+- `persistence/Serializer.ts:70` 写 `type: component.constructor.name`。当前靠 `rollup.config.mjs:36-39` 的 `terser({ keep_classnames: true, keep_fnames: true })` 兜住压缩；一旦改用普通构建产物，或用户自定义子类名与映射不符，即失败。
 - `persistence/Deserializer.ts:54-58` 对未知类型直接 `new Clazz(state)`（`Clazz` 为 `undefined`）→ 抛错，无跳过/容错。
 - `consts/COMPONENT_TYPE_MAPPING.ts:27-39` **漏了 `ICERose`**（另有 `ICELinkSlot` / `ICELinkHook`）——这些类型**存得下、读不回**。
 
@@ -390,7 +390,8 @@
 | 2026-09-11 | §6 阻塞点：无 rAF 运行时（Node / headless / 小程序低版本）启动即抛错 | ✅ 已修（`root.requestFrame` 加定时器兜底；另一阻塞点「文本量测依赖 DOM」此前已由 canvas 优先量测解决） |
 | — | §7-2 的**空间索引**（四叉树 / R-tree） | ❌ **未做**（只做了「视口裁剪 + 命中检测 O(1) 包围盒预筛」，见 P0-3 行。全屏内的大规模场景命中仍是 O(n)；索引收益要到「上万节点且大部分在屏内」才显著） |
 | — | P1-3 导出与互操作（SVG 导出 / SVG 导入 / PNG·JPEG 带背景·切边·多倍图 / 剪贴板 / 打印） | ❌ **未做**（§6 已标注「待定，取决于产品定位 + 需独立 exporter + 有诚实边界：阴影/虚线/字形/Path2D 无法像素级还原」） |
-| — | §7-7 余项：`attw` + `publint` 入 CI、jest 覆盖率门槛 | ❌ **未做**（`exports`/`sideEffects`/CHANGELOG/CI 可视化回归已完成；这三项需新增 devDependencies 与 CI 步骤，且覆盖率门槛要先定基线） |
+| 2026-09-11 | §7-7 余项：`attw` + `publint` 入 CI、jest 覆盖率门槛 | ✅ 已完成（`npm run pkg:check`；覆盖率门槛按实测基线设棘轮。**首跑即发现真实打包缺陷**：ESM 入口被声明为 CJS → 已修，见下条） |
+| 2026-09-11 | 打包契约：ESM/CJS 入口被声明为 CJS（类型解析错误） | ✅ 已修（`dist/index.js`→`index.mjs`、`index.cjs.js`→`index.cjs`；import 条件用 `.d.mts`；`rollup.config.js`→`.mjs`。**深链旧文件名的用法会断**，见 CHANGELOG「需要注意」） |
 | — | P0-2 的 marquee 框选交互、P0-1 的多指手势 | ➖ **不做**（§5 明确划归应用层 UX；引擎侧原语已给：`setSelection(components)` 多选、`zoomAt` 锚点缩放。客观上是「未实现」，但按边界不算引擎欠账） |
 
 > **说明**：上表只记录「决定要做的项」的进展。因此**表内全绿 ≠ 报告里的缺口全部清零** ——

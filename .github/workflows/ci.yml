@@ -29,8 +29,8 @@ jobs:
       - name: Type check
         run: npm run types:check
 
-      - name: Unit tests
-        run: npm test
+      - name: Unit tests（含覆盖率门槛）
+        run: npm test -- --coverage
 
       - name: Build
         run: npm run build
@@ -56,6 +56,11 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # 包完整性门禁：publint（exports / types / files 契约）+ attw（类型在各解析模式下是否正确）。
+      # 放在本 job 是因为它已经 build 过产物，两项工具都直接检查 dist，不必再构建一次。
+      - name: Package integrity (publint + attw)
+        run: npm run pkg:check
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium

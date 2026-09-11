@@ -1,7 +1,7 @@
 /**
  * ice-render 内核渲染热路径基准测试（零依赖，node 内置 hrtime）。
  *
- * 直接在 node 中消费构建产物 dist/index.cjs.js，用 stub ctx 驱动渲染循环，
+ * 直接在 node 中消费构建产物 dist/index.cjs，用 stub ctx 驱动渲染循环，
  * 测量每帧 CPU 开销（引擎 JS 开销：flattenTree+sort、矩阵组合、属性赋值）。
  * 注意：本脚本只测「引擎 JS 逻辑层」开销，不含真实 canvas 光栅化（ctx 为 no-op 桩）。
  * 光栅化/帧预算需在浏览器用 DevTools Performance 面板另测。
@@ -10,7 +10,7 @@
  *   node bench/render.cjs [组件数N] [distPath]
  * 示例：
  *   node bench/render.cjs 5000
- *   node bench/render.cjs 5000 ./dist/index.cjs.js
+ *   node bench/render.cjs 5000 ./dist/index.cjs
  *
  * 场景：
  *   A) 静态重绘：首帧全量 compose，之后每帧仅置 ice.dirty（模拟选中/悬停/resize 触发的整屏重绘）

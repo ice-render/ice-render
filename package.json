@@ -3,22 +3,31 @@
   "name": "ice-render",
   "version": "1.0.4",
   "description": "A canvas engine for interactive graphics.",
-  "repository": "https://gitee.com/ice-render/ice-render",
-  "module": "dist/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://gitee.com/ice-render/ice-render.git"
+  },
+  "type": "commonjs",
+  "module": "dist/index.mjs",
   "types": "dist/types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs.js",
-      "default": "./dist/index.js"
+      "import": {
+        "types": "./dist/types/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/index.cjs"
+      },
+      "default": "./dist/index.mjs"
     },
     "./dist/*": "./dist/*",
     "./package.json": "./package.json"
   },
   "sideEffects": false,
   "browser": "dist/index.umd.js",
-  "main": "dist/index.cjs.js",
+  "main": "dist/index.cjs",
   "files": [
     "dist/**/*"
   ],
@@ -26,7 +35,7 @@
     "start": "rollup -c -w  --environment NODE_ENV:development",
     "build": "npm run clean && npm run build:types && npm run build:js",
     "build:js": "rollup -c --environment NODE_ENV:production",
-    "build:types": "tsc --emitDeclarationOnly",
+    "build:types": "tsc --emitDeclarationOnly && node scripts/emit-dmts.cjs",
     "clean": "rimraf dist",
     "pretty": "prettier src/**/* --write",
     "types:check": "tsc --noEmit",
@@ -38,10 +47,13 @@
     "prepare": "husky install",
     "bench": "node bench/render.cjs",
     "bench:micro": "node bench/micro/index.mjs",
+    "pkg:lint": "publint",
+    "pkg:types": "attw --pack .",
+    "pkg:check": "npm run pkg:lint && npm run pkg:types",
     "test:visual:ci": "playwright test e2e/visual/examples-smoke.spec.ts e2e/visual/interaction.spec.ts e2e/visual/dirty-rect-pixel.spec.ts e2e/visual/viewport.spec.ts e2e/visual/alignment.spec.ts e2e/visual/hidpi.spec.ts e2e/visual/worker-perf.spec.ts"
   },
-  "dependencies": {},
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@babel/core": "7.28.5",
     "@babel/plugin-proposal-class-properties": "7.18.6",
     "@babel/plugin-proposal-decorators": "7.28.0",
@@ -71,6 +83,7 @@
     "lint-staged": "15.5.2",
     "mitata": "^1.0.34",
     "prettier": "3.7.4",
+    "publint": "^0.3.24",
     "rimraf": "5.0.10",
     "rollup": "3.29.5",
     "rollup-plugin-license": "3.6.0",
@@ -99,6 +112,6 @@
   },
   "license": "MIT",
   "lint-staged": {
-    "*.{ts,js}": "eslint --fix"
+    "{src,tests,e2e}/**/*.{ts,js}": "eslint --fix"
   }
 }
