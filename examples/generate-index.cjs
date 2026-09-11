@@ -16,6 +16,8 @@ function walk(dir, rel = '') {
       if (name === 'assets') continue;
       walk(full, rel ? `${rel}/${name}` : name);
     } else if (name.endsWith('.html')) {
+      // 跳过导航页自身：否则它会把自己也登记成一个「示例」，页面头部计数与真实示例数差 1
+      if (path.resolve(full) === path.resolve(root, 'index.html')) continue;
       const content = fs.readFileSync(full, 'utf8');
       const m = /<title>([^<]*)<\/title>/i.exec(content);
       const title = m ? m[1].trim() : name;

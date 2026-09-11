@@ -29,7 +29,9 @@
         let img=new Image();
         img.style.width=50;
         img.style.height=50;
-        img.src="../assets/1.png"
+        // 素材用项目 logo（examples/assets/ice-render.png）。此前这里引用的是 README 的一张截图
+        // （assets/1.png），截图被替换/清理后本页会 404，故改为始终存在的 logo。
+        img.src="../assets/ice-render.png"
         img.onload=()=>{
             // context.drawImage(img,100,100,200,200);
             
