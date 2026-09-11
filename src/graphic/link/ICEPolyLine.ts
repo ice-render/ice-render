@@ -72,20 +72,7 @@ class ICEPolyLine extends ICEDotPath {
       return super.containsLocalPoint(localX, localY);
     }
     const threshold = Math.max(4, (this.state.lineWidth || 1) / 2 + 3);
-    for (let i = 0; i < dots.length - 1; i++) {
-      const x1 = dots[i][0];
-      const y1 = dots[i][1];
-      const x2 = dots[i + 1][0];
-      const y2 = dots[i + 1][1];
-      const dx = x2 - x1;
-      const dy = y2 - y1;
-      const lenSq = dx * dx + dy * dy;
-      let t = lenSq === 0 ? 0 : ((localX - x1) * dx + (localY - y1) * dy) / lenSq;
-      t = Math.max(0, Math.min(1, t));
-      const dist = Math.hypot(localX - (x1 + t * dx), localY - (y1 + t * dy));
-      if (dist <= threshold) return true;
-    }
-    return false;
+    return GeoUtil.distanceToPolyline(dots, localX, localY) <= threshold;
   }
 
   /**

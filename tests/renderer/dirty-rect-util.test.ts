@@ -14,6 +14,10 @@ import {
   boxWidth,
   boxHeight,
   isOpaqueDrawing,
+  mapBoxToRender,
+  mergeBox,
+  coalesceRegions,
+  regionsAreaRatio,
 } from '../../src/renderer/dirty-rect-util';
 
 describe('stylePaintPad', () => {
@@ -103,5 +107,133 @@ describe('integerAlign 与区域占比', () => {
   test('regionRatio 正常与除零保护', () => {
     expect(regionRatio([0, 0, 50, 50], 100, 100)).toBeCloseTo(0.25);
     expect(regionRatio([0, 0, 50, 50], 0, 0)).toBe(1);
+  });
+});
+
+describe('mapBoxToRender（世界盒 → 渲染坐标盒）', () => {
+  test('单位视口 + dpr=1：恒等映射', () => {
+    const out = mapBoxToRender([10, 20, 30, 40], { scale: 1, tx: 0, ty: 0 });
+    expect(out).toEqual([10, 20, 30, 40]);
+  });
+
+  test('非单位视口：世界坐标乘以 scale 并加平移', () => {
+    const out = mapBoxToRender([10, 20, 30, 40], { scale: 2, tx: 100, ty: 50 });
+    expect(out).toEqual([120, 90, 160, 130]);
+  });
+
+  test('dpr 已乘进渲染视口：传入 2 倍视口即得物理像素坐标', () => {
+    // 渲染视口 = dpr · viewport，两个因子一起体现
+    const out = mapBoxToRender([10, 20, 30, 40], { scale: 1.5 * 2, tx: 0, ty: 0 });
+    expect(out).toEqual([30, 60, 90, 120]);
+  });
+
+  test('向外取整：映射后的区域不小于真实脏区（避免缩放后边缘接缝）', () => {
+    const out = mapBoxToRender([10.4, 20.6, 30.2, 40.9], { scale: 1.3, tx: 7.5, ty: -3.25 });
+    // 世界 10.4 → 10.4*1.3+7.5 = 21.02 → floor 21；世界 30.2 → 46.76 → ceil 47
+    expect(out[0]).toBe(21);
+    expect(out[2]).toBe(47);
+    expect(out[0]).toBeLessThanOrEqual(10.4 * 1.3 + 7.5);
+    expect(out[2]).toBeGreaterThanOrEqual(30.2 * 1.3 + 7.5);
+  });
+
+  test('可复用外部数组（零分配路径）', () => {
+    const scratch = [0, 0, 0, 0];
+    const out = mapBoxToRender([1, 2, 3, 4], { scale: 1, tx: 0, ty: 0 }, scratch);
+    expect(out).toBe(scratch);
+    expect(scratch).toEqual([1, 2, 3, 4]);
+  });
+});
+
+describe('mergeBox', () => {
+  test('取并集且不修改入参', () => {
+    const a = [10, 10, 20, 20];
+    const b = [15, 5, 30, 12];
+    expect(mergeBox(a, b)).toEqual([10, 5, 30, 20]);
+    expect(a).toEqual([10, 10, 20, 20]);
+  });
+});
+
+describe('coalesceRegions', () => {
+  test('相交或相接的盒并成一块', () => {
+    const out = coalesceRegions([
+      [0, 0, 10, 10],
+      [10, 0, 20, 10], // 与上一块相接
+      [0, 10, 10, 20], // 与第一块相接
+    ]);
+    expect(out).toEqual([[0, 0, 20, 20]]);
+  });
+
+  test('分离的盒各成一块（不并成大盒）', () => {
+    const out = coalesceRegions([
+      [0, 0, 10, 10],
+      [500, 400, 510, 410],
+    ]);
+    expect(out.length).toBe(2);
+    expect(out).toEqual(
+      expect.arrayContaining([
+        [0, 0, 10, 10],
+        [500, 400, 510, 410],
+      ])
+    );
+  });
+
+  test('链式相接：合并后产生的新相接关系也要收敛', () => {
+    // 中间块把左右两块连起来 → 最终应合成一块
+    const out = coalesceRegions([
+      [0, 0, 10, 10],
+      [9, 0, 30, 10],
+      [29, 0, 40, 10],
+    ]);
+    expect(out).toEqual([[0, 0, 40, 10]]);
+  });
+
+  test('超出上限时合并「面积增量最小」的两块', () => {
+    const boxes = [];
+    for (let i = 0; i < 8; i++) {
+      boxes.push([i * 100, 0, i * 100 + 10, 10]);
+    }
+    const out = coalesceRegions(boxes, 3);
+    expect(out.length).toBe(3);
+    // 合并后的各块仍互不相接
+    for (let i = 0; i < out.length; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        const a = out[i];
+        const b = out[j];
+        const disjoint = a[2] < b[0] || b[2] < a[0] || a[3] < b[1] || b[3] < a[1];
+        expect(disjoint).toBe(true);
+      }
+    }
+  });
+
+  test('忽略非法（NaN/Infinity）盒', () => {
+    expect(
+      coalesceRegions([
+        [NaN, 0, 10, 10],
+        [0, 0, 5, 5],
+      ])
+    ).toEqual([[0, 0, 5, 5]]);
+  });
+
+  test('空输入返回空数组', () => {
+    expect(coalesceRegions([])).toEqual([]);
+  });
+});
+
+describe('regionsAreaRatio', () => {
+  test('各块面积相加后除以画布面积', () => {
+    expect(
+      regionsAreaRatio(
+        [
+          [0, 0, 10, 10],
+          [100, 100, 110, 110],
+        ],
+        100,
+        100
+      )
+    ).toBeCloseTo(0.02, 6);
+  });
+
+  test('画布尺寸为 0 时返回 1（保守回退）', () => {
+    expect(regionsAreaRatio([[0, 0, 10, 10]], 0, 0)).toBe(1);
   });
 });

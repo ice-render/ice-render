@@ -6,6 +6,7 @@
  *
  */
 import { vec2 } from 'gl-matrix';
+import GeoUtil from '../geometry/GeoUtil';
 import root from '../cross-platform/root';
 import ICEPath from './ICEPath';
 
@@ -67,16 +68,7 @@ export default abstract class ICEDotPath extends ICEPath {
     if (!dots || dots.length < 3) {
       return super.containsLocalPoint(localX, localY);
     }
-    let inside = false;
-    for (let i = 0, j = dots.length - 1; i < dots.length; j = i++) {
-      const xi = dots[i][0];
-      const yi = dots[i][1];
-      const xj = dots[j][0];
-      const yj = dots[j][1];
-      const intersect = yi > localY !== yj > localY && localX < ((xj - xi) * (localY - yi)) / (yj - yi) + xi;
-      if (intersect) inside = !inside;
-    }
-    return inside;
+    return GeoUtil.pointInPolygon(localX, localY, dots);
   }
 
   /**

@@ -199,6 +199,100 @@ describe('CanvasRenderer dirty-rect', () => {
     expect(clears[0]).toEqual([0, 0, 800, 600]);
   });
 
+  test('父容器 display:false → 子组件不渲染、不捕获，旧墨迹被擦除', () => {
+    const { ice, renderer, clears } = makeHarness('dirty-rect');
+    const group = new ICEGroup({ left: 100, top: 100, width: 200, height: 200 });
+    //子组件坐标相对父容器：世界盒 = 父(100,100) + 子(20,20) → 120..160 x 120..150
+    const child = new ICERect({ left: 20, top: 20, width: 40, height: 30 });
+    group.addChild(child);
+    attach(ice, group);
+    renderFrame(renderer, ice);
+    expect(renderer.__snap.has(child)).toBe(true);
+
+    //render() 在渲染队列里是无条件调用的（display 守卫在 __renderCore 内），
+    //所以「有没有真的落笔」要看 doRender
+    const drawn: any[] = [];
+    const orig = child.doRender.bind(child);
+    child.doRender = () => {
+      drawn.push(child);
+      return orig();
+    };
+
+    clears.length = 0;
+    group.setState({ display: false });
+    renderFrame(renderer, ice);
+
+    //父容器隐藏 = 整棵子树隐藏：子组件不能被画
+    expect(drawn).not.toContain(child);
+    //子组件的快照被收敛掉，避免残留旧盒把后续局部帧反复顶成全量
+    expect(renderer.__snap.has(child)).toBe(false);
+    expect(child.dirty).toBe(false);
+    //旧墨迹必须被擦掉（本帧有一次 clear 覆盖了子组件旧盒 120..160 x 120..150）
+    const covers = clears.some((c: number[]) => c[0] <= 120 && c[1] <= 120 && c[0] + c[2] >= 160 && c[1] + c[3] >= 150);
+    expect(covers).toBe(true);
+  });
+
+  test('父容器隐藏 + 其它组件同时变脏 → 局部路径也要并入子组件旧盒', () => {
+    const { ice, renderer, clears } = makeHarness('dirty-rect');
+    const group = new ICEGroup({ left: 100, top: 100, width: 60, height: 60, zIndex: 1 });
+    //故意让子组件溢出父盒：父盒(100..160)盖不住它，子组件旧盒本身也得并入擦除区
+    const child = new ICERect({ left: 80, top: 80, width: 40, height: 30, zIndex: 2 }); // 世界盒 180..220 x 180..210
+    group.addChild(child);
+    const mover = new ICERect({ left: 10, top: 10, width: 30, height: 20, zIndex: 3 });
+    attach(ice, group);
+    attach(ice, mover);
+    for (let i = 0; i < 8; i++) {
+      attach(ice, new ICERect({ left: 500 + i * 30, top: 500, width: 20, height: 20, zIndex: 10 + i }));
+    }
+    renderFrame(renderer, ice);
+    clears.length = 0;
+
+    mover.setState({ left: 40 }); // 唯一可见脏 → 应走局部路径
+    group.setState({ display: false });
+    renderFrame(renderer, ice);
+
+    //三处脏区互不相接（移动的 mover / 父容器盒 / 溢出父盒的子组件）→ 切成多块，各擦各的
+    expect(clears.length).toBeGreaterThan(1);
+    //任何一块都不该退化成全量
+    for (const c of clears) {
+      expect(c[2] < 800 || c[3] < 600).toBe(true);
+    }
+    //其中必须有一块覆盖子组件旧盒（180..220 x 180..210），否则会留下残影
+    const coversChild = clears.some(
+      (c: number[]) => c[0] <= 180 && c[1] <= 180 && c[0] + c[2] >= 220 && c[1] + c[3] >= 210
+    );
+    expect(coversChild).toBe(true);
+  });
+
+  test('分散脏组件 → 切成多块小区域，不并成一个「大盒」把干净区域圈进来', () => {
+    const { ice, renderer, clears } = makeHarness('dirty-rect');
+    // 画布对角两个小方块，中间大片是干净区域
+    const a = new ICERect({ left: 10, top: 10, width: 30, height: 20, zIndex: 1 });
+    const b = new ICERect({ left: 740, top: 560, width: 30, height: 20, zIndex: 2 });
+    attach(ice, a);
+    attach(ice, b);
+    for (let i = 0; i < 8; i++) {
+      attach(ice, new ICERect({ left: 300, top: 250, width: 10, height: 10, zIndex: 10 + i }));
+    }
+    renderFrame(renderer, ice);
+    clears.length = 0;
+
+    // 两处同时变脏：单块并集大盒面积 = 780*570 ≈ 44.5 万 ≈ 画布(48 万)的 93% → 必然回退全量，
+    // 多块则各自 ≈ 30*20，总面积占比 < 1%
+    a.setState({ left: 20 });
+    b.setState({ left: 730 });
+    renderFrame(renderer, ice);
+
+    expect(clears.length).toBe(2);
+    let total = 0;
+    for (const c of clears) {
+      total += c[2] * c[3];
+      expect(c[2]).toBeLessThan(120); // 每块都贴近真实脏区
+      expect(c[3]).toBeLessThan(120);
+    }
+    expect(total / (800 * 600)).toBeLessThan(0.05);
+  });
+
   test('renderMode=full 恒走全量 clear', () => {
     const { ice, ctx, renderer, clears } = makeHarness('full');
     const a = new ICERect({ left: 10, top: 10, width: 40, height: 30 });
@@ -265,5 +359,56 @@ describe('CanvasRenderer dirty-rect', () => {
     expect(clears.length).toBe(1);
     expect(clears[0][2]).toBeLessThan(800); // 局部而非全量
     expect(clears[0][3]).toBeLessThan(600);
+  });
+
+  test('非单位视口下仍走局部重绘：clear 用渲染坐标（世界×scale+平移）', () => {
+    const { ice, renderer, clears } = makeHarness('dirty-rect');
+    const a = new ICERect({ left: 10, top: 10, width: 40, height: 30, zIndex: 1 });
+    attach(ice, a);
+    for (let i = 0; i < 8; i++) {
+      attach(ice, new ICERect({ left: 500 + i * 30, top: 500, width: 20, height: 20, zIndex: 10 + i }));
+    }
+    renderFrame(renderer, ice);
+    clears.length = 0;
+
+    // 缩放 2 倍 + 平移(100,50)：世界盒 (10..70, 10..70) → 渲染坐标 (120..240, 70..190)
+    ice.viewport = { scale: 2, tx: 100, ty: 50 };
+    a.setState({ left: 30, top: 40 });
+    renderFrame(renderer, ice);
+
+    expect(clears.length).toBe(1);
+    const [rx, ry, rw, rh] = clears[0];
+    expect(rw).toBeLessThan(800); // 没有退化成全量
+    expect(rx).toBeLessThanOrEqual(120);
+    expect(ry).toBeLessThanOrEqual(70);
+    expect(rx + rw).toBeGreaterThanOrEqual(240);
+    expect(ry + rh).toBeGreaterThanOrEqual(190);
+  });
+
+  test('dpr>1 时仍走局部重绘：clear 区域按设备像素放大', () => {
+    const { ice, renderer, clears } = makeHarness('dirty-rect');
+    const a = new ICERect({ left: 10, top: 10, width: 40, height: 30, zIndex: 1 });
+    attach(ice, a);
+    for (let i = 0; i < 8; i++) {
+      attach(ice, new ICERect({ left: 500 + i * 30, top: 500, width: 20, height: 20, zIndex: 10 + i }));
+    }
+    renderFrame(renderer, ice);
+    clears.length = 0;
+
+    // dpr=2：backing store 与 canvasWidth 同步放大（与 ICE.__applyDevicePixelRatio 一致）
+    ice.dpr = 2;
+    ice.canvasWidth = 1600;
+    ice.canvasHeight = 1200;
+    a.setState({ left: 30, top: 40 });
+    renderFrame(renderer, ice);
+
+    expect(clears.length).toBe(1);
+    const [rx, ry, rw, rh] = clears[0];
+    expect(rw).toBeLessThan(1600); // 没有退化成全量
+    // 世界 (10..70, 10..70) × dpr2 → (20..140, 20..140)
+    expect(rx).toBeLessThanOrEqual(20);
+    expect(ry).toBeLessThanOrEqual(20);
+    expect(rx + rw).toBeGreaterThanOrEqual(140);
+    expect(ry + rh).toBeGreaterThanOrEqual(140);
   });
 });

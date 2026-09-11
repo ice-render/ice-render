@@ -41,6 +41,15 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | 命中检测精度 | 全局→本地变换后调 `containsLocalPoint()`：圆/椭圆走椭圆方程、点集类（星形/正N边形/玫瑰）走射线法、折线走点-线段距离（`ICEEllipse` / `ICEDotPath` / `ICEPolyLine`） |
 | 命中检测性能 | 视口裁剪 + 包围盒 O(1) 预筛（实测 N=6000、屏外 50%：**1.89x**） |
 | 渲染 | 脏矩形局部重绘门控由「整场景」细化为「相交级」；本地盒收敛到唯一来源 `__localBox()`（`getMinBoundingBox()` 与上屏快照盒必然一致） |
+| 渲染（坐标与裁剪） | **脏区「世界坐标收集 → 渲染坐标裁剪」**（`mapBoxToRender()`，一次乘 `dpr · viewport`、向外取整防接缝）：**缩放/平移与 `dpr>1` 不再回退全量**；**多块裁剪区**（`coalesceRegions()`，分散脏区不再被并成一个大盒）——见 [04](04-rendering-performance.md) |
+| 渐变 | 声明式 `style.fillGradient` / `strokeGradient`（`linear`/`radial`/`conic`，**可序列化**、可写进主题 preset，按描述引用缓存）；手搓 `CanvasGradient` 仍可用 |
+| 可见性 | `display:false` 是**整棵子树**语义（`isEffectivelyVisible()` 沿父链判断，渲染/命中/a11y/离屏缓存统一消费） |
+| 布局 | 除 `addChild`/`removeChild` 立即重排外，**子项改 `width/height` 会在下一帧触发重排**（一帧内合并一次，布局期间不自激）；`ICEGroup.getPreferredSize()` 转发布局策略 |
+| 变换手柄 | 修改键约束：`Shift` 等比缩放、`Shift` 旋转吸附 15°；输入层**透传修饰键**（`shiftKey` 等是 DOM 原型上的不可枚举 getter，需显式读取） |
+| 指针输入 | 拖拽时 `setPointerCapture` 捕获指针（拖出画布不丢 move/up） |
+| 几何 | 公共 API `GeoUtil.pointInPolygon` / `distanceToSegment` / `distanceToPolyline` / `samplePolyline` / `segmentIntersect`；图元内部私有实现改为消费它们 |
+| 命中检测 | 画布点击与应用层 `hitTest()` **共用同一实现** `hitTestComponents()`（z 序 + 控制面板过滤 + 有效可见性 + 盒预筛） |
+| 依赖与合规 | **零运行时依赖**（gl-matrix 内联，产物无 `import`/`require`）+ `dist/THIRD-PARTY-NOTICES.txt` 保留内联依赖的版权声明 |
 | 渲染（派生参数） | `dirty` / `paramsDirty` 两级脏标记：祖先变换变化只重绘、不连带重量测后代（实测移动整组：`calcComponentParams` 10→0、`calcDots` 6→0） |
 | 文本 | 内联编辑（光标 / 退格 / 删除 / 方向键 / Home / End / Enter）；**中文 IME**（叠加透明 HTML input + `compositionend`，无 `document` 的运行时降级为 canvas keydown）；自动换行 / `maxLines` 省略号 / grapheme 分段（默认关闭）；量测改为 **canvas 优先 + DOM 降级**，`innerHTML` 注入已消除 |
 | 字体 | `root.loadFont` 平台适配（浏览器 `FontFace` / 小程序 `wx.loadFont`） |
@@ -51,7 +60,7 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | 插件 | `ICE.use(plugin)` / `unuse(name)` 三层注册点（组件类型 / 每帧渲染 / 交互工具）+ `setup` / `teardown` 生命周期 |
 | 无障碍 | `getAccessibilityTree()` 可访问节点快照 + `setFocusedComponent()` 键盘焦点回传。**引擎不自建 DOM 镜像层**（见 [14](14-accessibility.md)） |
 | 多运行时 | `root.createPath2D()`（原生 `Path2D` / `PolyfillPath2D` 降级）、离屏 canvas、图片、像素比全部有平台适配；`requestFrame` 无 rAF 时定时器兜底（Node / headless / 小程序低版本也能启动） |
-| 工程化 | 68 个测试文件 / 531 个用例 + 覆盖率棘轮门槛、Playwright 可视化与像素一致性回归、`publint` + `attw` 发布包门禁、lockfile 入库 + CI 用 `npm ci`、CHANGELOG |
+| 工程化 | 76 个测试文件 / 623 个用例 + 覆盖率棘轮门槛、Playwright 可视化与像素一致性回归、`publint` + `attw` 发布包门禁、lockfile 入库 + CI 用 `npm ci`、CHANGELOG |
 
 ### 仍未做（引擎侧）
 
@@ -60,6 +69,8 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | P1 | **错切（skew）手柄** | 引擎的 skew 变换本身可用（`gl-matrix-skew.ts`），缺的是控制面板上的手柄 UI；代码里已有 `TODO:添加斜切手柄？` |
 | P2 | **自定义命中判定注册点** | 插件目前只能通过覆盖组件的 `containsPoint` / `containsLocalPoint` 定制命中，没有独立的注册协议；自定义布局 / 主题的正式注册协议同样未定 |
 | P2 | **空间索引（四叉树 / R-tree）** | 已做视口裁剪 + O(1) 包围盒预筛；「上万节点且大部分在屏内」时全量命中仍是 O(n)，索引收益要到那个规模才显著 |
+| P2 | **动画帧对「risky 图元」仍回退全量** | 动画纯色图元已经能走局部重绘；但**变脏**的点集路径 / 文本 / 非不透明落墨会被 `__riskyIntersectsRegion()` 一律回退（它们的墨迹可能超出几何盒，clip 下重绘无法与全量逐像素一致，历史上实测过 594px 差异）。要解开需要「让脏区覆盖真实墨迹范围」的更精确估算（如按字形/描边外扩量修正盒），而不是仅靠 `stylePaintPad` |
+| P3 | **渐变的更细粒度能力** | 目前支持 linear/radial/conic + `stops`；尚未支持**渐变描边的圆角/虚线交互细节**、`stops` 动画补间、以及 per-corner 渐变坐标系 |
 | P2 | **SVG / PDF 导出、SVG 导入** | 需独立 exporter。**诚实边界**：阴影、虚线流动、`measureText` 字形、`Path2D` 命令是 canvas 特有，导出只能近似，做不到像素级一致。是否做取决于产品定位 |
 | P2 | **小程序真机验证** | `PolyfillPath2D`、离屏 canvas、字体加载在低版本基础库上的逐像素一致性与可用性，需微信开发者工具 / 真机确认（自动化测试覆盖不到） |
 | P3 | **控制面板抽象** | 「按组件类型展现不同操作工具」需进一步抽象（`src/control-panel/ICEControlPanelManager.ts` 内有 FIXME）。插件机制的 `tools` 注册点可视为该抽象的第一层 |

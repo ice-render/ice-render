@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ICERender-gradient</title>
+  <body style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+    <div>
+      声明式渐变：<code>style.fillGradient</code> / <code>style.strokeGradient</code> ——
+      纯对象描述，**可序列化**（手搓 <code>CanvasGradient</code> 存盘会丢），也能写进主题 preset。
+      <button id="btn-dark" style="margin-left: 8px;">暗色主题</button>
+      <button id="btn-light">亮色主题</button>
+    </div>
+    <canvas id="canvas-1" width="900" height="440" style="background-color: #fafafa;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    const ice = new ICE.ICE().init('canvas-1');
+    window.__ice = ice;
+
+    const label = (text, left, top) =>
+      new ICE.ICEText({
+        left: left,
+        top: top,
+        width: 200,
+        height: 20,
+        text: text,
+        stroke: false,
+        style: { fontSize: 12, fillStyle: '#555' },
+      });
+
+    // ① 线性渐变：横向
+    ice.addChild(
+      new ICE.ICERect({
+        left: 40,
+        top: 50,
+        width: 240,
+        height: 90,
+        radius: 8,
+        style: {
+          fillGradient: {
+            type: 'linear',
+            from: [0, 0],
+            to: [240, 0],
+            stops: [
+              [0, '#61D9FB'],
+              [1, '#3FBEEB'],
+            ],
+          },
+        },
+      })
+    );
+    ice.addChild(label('linear · 横向', 40, 24));
+
+    // ② 线性渐变：纵向 + 多档 stop
+    ice.addChild(
+      new ICE.ICERect({
+        left: 320,
+        top: 50,
+        width: 160,
+        height: 90,
+        radius: 8,
+        style: {
+          fillGradient: {
+            type: 'linear',
+            from: [0, 0],
+            to: [0, 90],
+            stops: [
+              [0, '#FDE68A'],
+              [0.5, '#F59E0B'],
+              [1, '#B45309'],
+            ],
+          },
+        },
+      })
+    );
+    ice.addChild(label('linear · 纵向 3 档', 320, 24));
+
+    // ③ 径向渐变（带内半径，形成光环效果）
+    ice.addChild(
+      new ICE.ICERect({
+        left: 520,
+        top: 50,
+        width: 160,
+        height: 90,
+        radius: 8,
+        style: {
+          fillGradient: {
+            type: 'radial',
+            center: [80, 45],
+            radius: 70,
+            innerRadius: 12,
+            stops: [
+              [0, '#22C55E'],
+              [1, '#064E3B'],
+            ],
+          },
+        },
+      })
+    );
+    ice.addChild(label('radial · innerRadius', 520, 24));
+
+    // ④ 锥形渐变（运行时缺 createConicGradient 时自动退回中间色纯色）
+    const hasConic = typeof document.createElement('canvas').getContext('2d').createConicGradient === 'function';
+    ice.addChild(
+      new ICE.ICERect({
+        left: 720,
+        top: 50,
+        width: 140,
+        height: 90,
+        radius: 8,
+        style: {
+          fillGradient: {
+            type: 'conic',
+            center: [70, 45],
+            startAngle: 0,
+            stops: [
+              [0, '#8B5CF6'],
+              [0.5, '#EC4899'],
+              [1, '#8B5CF6'],
+            ],
+          },
+        },
+      })
+    );
+    ice.addChild(label(hasConic ? 'conic · 锥形' : 'conic · 该运行时退回纯色', 720, 24));
+
+    // ⑤ 渐变描边
+    ice.addChild(
+      new ICE.ICECircle({
+        left: 60,
+        top: 180,
+        radius: 50,
+        style: {
+          fillStyle: 'rgba(0,0,0,0)',
+          strokeGradient: {
+            type: 'linear',
+            from: [0, 0],
+            to: [100, 100],
+            stops: [
+              [0, '#61D9FB'],
+              [1, '#EC4899'],
+            ],
+          },
+          lineWidth: 6,
+        },
+      })
+    );
+    ice.addChild(label('strokeGradient', 20, 296));
+
+    // ⑥ 主题 preset 里的渐变（随主题热切换重新展开）
+    ice.addChild(new ICE.ICERect({ preset: 'gradient', left: 300, top: 180, width: 200, height: 160, radius: 10 }));
+    ice.addChild(label("preset: 'gradient'", 300, 348));
+
+    // ⑦ 序列化：渐变是纯对象，round-trip 不丢
+    const json1 = ice.serializer.toJSONString();
+    const keptGradient = json1.indexOf('fillGradient') >= 0;
+    ice.addChild(
+      new ICE.ICEText({
+        left: 560,
+        top: 200,
+        width: 320,
+        height: 120,
+        stroke: false,
+        text: (keptGradient ? '序列化保留渐变 ✓' : '序列化丢失渐变 ✗') + '\n（fillGradient 是纯对象）',
+        style: { fontSize: 14, fillStyle: '#0F766E', lineHeight: 22 },
+      })
+    );
+
+    const refreshBg = () => {
+      document.querySelector('canvas').style.background = ice.getTheme().semantic.background;
+    };
+    document.querySelector('#btn-dark').addEventListener('click', () => {
+      ice.setTheme('dark');
+      refreshBg();
+    });
+    document.querySelector('#btn-light').addEventListener('click', () => {
+      ice.setTheme('default');
+      refreshBg();
+    });
+  </script>
+</html>

@@ -13,6 +13,7 @@ import ICE from '../../ICE';
 import ICEComponent from '../ICEComponent';
 import ICELinkSlot from './ICELinkSlot';
 import ICEPolyLine from './ICEPolyLine';
+import { flattenTree, isEffectivelyVisible } from '../../util/data-util';
 
 /**
  * @class ICELinkSlotManager
@@ -53,18 +54,22 @@ export default class ICELinkSlotManager {
     const linkHook = evt.target as any;
     const hookBounding: ICEBoundingBox = linkHook.getMaxBoundingBox();
 
-    //连接钩子是否碰到了某个可连接组件的边缘
-    // let collision = null;
-    const childNodes = [...this.ice.childNodes];
-    for (let i = 0; i < childNodes.length; i++) {
-      const component = childNodes[i];
-      if (!component || !component.state.linkable) {
+    //连接钩子是否碰到了某个可连接组件的边缘。
+    // 逐次移动都要**重新计算**（下面的 !collision 分支靠它来隐藏插槽）：旧实现只在命中时赋值、
+    // 从不重置，一旦碰到过就会一直粘在那个组件上。
+    // 用拉平后的全集而不是只看顶层：嵌套组件（如卡片里的实体）也要能被连线命中。
+    // 命中语义与点击一致 —— z 序最高者胜出，否则父容器会一直盖住它的子组件。
+    const all = flattenTree([], this.ice.childNodes);
+    all.sort((a: any, b: any) => a.state.zIndex - b.state.zIndex);
+    this.collision = null;
+    for (let i = 0; i < all.length; i++) {
+      const component: any = all[i];
+      if (!component || !component.state.linkable || !isEffectivelyVisible(component)) {
         continue;
       }
       const componentBounding: ICEBoundingBox = component.getMaxBoundingBox();
       if (componentBounding.isIntersect(hookBounding)) {
         this.collision = component;
-        break;
       }
     }
 

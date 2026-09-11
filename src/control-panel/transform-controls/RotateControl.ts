@@ -6,6 +6,7 @@
  *
  */
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
+import { snapAngle } from './constraints';
 import ICEEvent from '../../event/ICEEvent';
 import GeoUtil from '../../geometry/GeoUtil';
 import ICECircle from '../../graphic/shape/ICECircle';
@@ -36,10 +37,17 @@ export default class RotateControl extends ICECircle {
     const parentOrigin = this.parentNode.calcAbsoluteOrigin();
     const rotateAngle = GeoUtil.calcRotateAngle(evt.offsetX, evt.offsetY, parentOrigin[0], parentOrigin[1]);
 
+    //旋转手柄默认处于逆时针 90 度位置，这里加 90 度进行补偿。
+    let rotate = rotateAngle + 90;
+    // Shift：吸附到 15° 整数倍（吸附作用在补偿后的最终角度上）
+    if (evt && evt.shiftKey) {
+      rotate = snapAngle(rotate);
+    }
+
     //parentNode 旋转角与手柄旋转角同步
     const param = {
       transform: {
-        rotate: rotateAngle + 90, //旋转手柄默认处于逆时针 90 度位置，这里加 90 度进行补偿。
+        rotate,
       },
     };
 

@@ -8,7 +8,7 @@
 import { buildDomEventList, MOVE_ICE_EVENTS } from '../consts/DOM_EVENT_MAPPING_CONSTS';
 import root from '../cross-platform/root';
 import ICE from '../ICE';
-import { flattenTree } from '../util/data-util';
+import { hitTestComponents } from '../util/data-util';
 import ICEEvent from './ICEEvent';
 import { normalizeInput, applyNormalizedInput, toLegacyMouseName, NormalizedInput } from './input-normalize';
 import { HIT_BOX_TOLERANCE } from '../renderer/dirty-rect-util';
@@ -64,6 +64,8 @@ class DOMEventDispatcher {
 
         //1) 归一化坐标与位移（pointer/mouse/touch 统一）。键盘等无坐标事件返回 null。
         const rawEvt: any = (evt as any).originalEvent || evt;
+        //0) 指针捕获：拖拽时必须捕获，否则指针移出画布就收不到后续事件
+        this.__handlePointerCapture(iceEvtName, rawEvt);
         const input = normalizeInput(rawEvt, this.__resolveCanvasRect(nativeEvtName), this.__lastInput);
         if (input) {
           applyNormalizedInput(evt, input);
@@ -97,6 +99,44 @@ class DOMEventDispatcher {
       });
     }
     return this;
+  }
+
+  /**
+   * 指针捕获：`pointerdown` 时把指针捕获到画布，`pointerup` / `pointercancel` 时释放。
+   *
+   * 为什么需要：拖组件、拖变换手柄、拖连线钩子时，指针很容易移出画布范围。没有捕获就会出现
+   * 「拖着拖着不跟手」甚至「松开鼠标了还在拖」—— 因为后续 `pointermove` / `pointerup`
+   * 被派发到了画布之外的元素上。捕获后这些事件会被重定向回画布。
+   *
+   * 只处理 Pointer Events 通道：mouse/touch 旧通道的 move/up 会冒泡到 window，本来就不会丢。
+   */
+  private __handlePointerCapture(iceEvtName: string, rawEvt: any): void {
+    const el: any = (this.ice as any).canvasEl;
+    if (!el || typeof el.setPointerCapture !== 'function') {
+      return;
+    }
+    const pointerId = rawEvt && rawEvt.pointerId;
+    if (typeof pointerId !== 'number') {
+      return;
+    }
+    try {
+      if (iceEvtName === 'ICE_POINTERDOWN') {
+        // 只在「按下的目标就是画布（或画布内的元素）」时捕获。
+        // 监听器挂在 window 上，画布外的 DOM UI（工具栏按钮、面板下拉）也会走到这里；
+        // 无条件捕获会把后续 pointerup/click 重定向到画布，**按钮的 click 就不再触发**。
+        const target = rawEvt && rawEvt.target;
+        if (target && target !== el && !(el.contains && el.contains(target))) {
+          return;
+        }
+        el.setPointerCapture(pointerId);
+      } else if (iceEvtName === 'ICE_POINTERUP' || iceEvtName === 'ICE_POINTERCANCEL') {
+        if (typeof el.releasePointerCapture === 'function' && el.hasPointerCapture && el.hasPointerCapture(pointerId)) {
+          el.releasePointerCapture(pointerId);
+        }
+      }
+    } catch (e) {
+      // 元素已脱离文档 / 运行时不支持真实指针捕获：忽略，不影响事件派发本身
+    }
   }
 
   /**
@@ -156,49 +196,9 @@ class DOMEventDispatcher {
       return null;
     }
     // 命中检测在「世界坐标」进行：屏幕像素坐标先经视口逆变换回世界。
+    // 具体扫描逻辑收敛在 hitTestComponents（与 ICE.hitTest 共用同一份实现）
     const [x, y] = this.ice.screenToWorld(offsetX, offsetY);
-
-    const arr1 = flattenTree([], this.ice.childNodes);
-    const arr2 = flattenTree([], this.ice.toolNodes);
-    const arr = [...arr1, ...arr2];
-    arr.sort((a, b) => {
-      return a.state.zIndex - b.state.zIndex;
-    });
-
-    //@perf 命中预筛：复用渲染快照的世界盒（含 paint pad）做 O(1) 拒绝。
-    // 命中检测此前对每个组件都要做矩阵反变换 + 形状判定；有了预筛，屏外/远离的组件
-    // 直接被盒判定挡掉。组件从未上屏（无快照）时不预筛，保证正确性优先。
-    const renderer: any = (this.ice as any).renderer;
-    const canScreen = renderer && typeof renderer.getWorldBox === 'function';
-
-    for (let i = 0; i < arr.length; i++) {
-      const component: any = arr[i];
-      // 控制面板本体是覆盖在目标组件之上的工具层，不作为命中目标；否则面板(zIndex 最高)会
-      // 遮挡住被选组件及其子组件，导致 N 层嵌套下点击子组件无法命中。面板的子手柄(ResizeControl/
-      // RotateControl)不是 isControlPanel，仍会参与命中，保证缩放/旋转可用。
-      if (component.isControlPanel) continue;
-      const { interactive, display } = component.state;
-      if (!interactive || !display) continue;
-      if (canScreen) {
-        const box: any = renderer.getWorldBox(component);
-        if (
-          box &&
-          (x < box[0] - HIT_BOX_TOLERANCE ||
-            x > box[2] + HIT_BOX_TOLERANCE ||
-            y < box[1] - HIT_BOX_TOLERANCE ||
-            y > box[3] + HIT_BOX_TOLERANCE)
-        ) {
-          continue;
-        }
-      }
-      if (component.containsPoint(x, y)) {
-        this.selectionCandidates.push(component);
-      }
-    }
-
-    const component = this.selectionCandidates.pop();
-    this.selectionCandidates = [];
-    return component;
+    return hitTestComponents(this.ice, x, y, HIT_BOX_TOLERANCE);
   }
 }
 

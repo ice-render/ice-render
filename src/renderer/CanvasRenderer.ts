@@ -16,7 +16,10 @@ import {
   intersects,
   emptyBox,
   integerAlign,
-  regionRatio,
+  regionsAreaRatio,
+  coalesceRegions,
+  mergeBox,
+  mapBoxToRender,
   isFiniteBox,
   isOpaqueDrawing,
 } from './dirty-rect-util';
@@ -26,6 +29,11 @@ import ObjectCache from './ObjectCache';
 const FULL_FALLBACK_DIRTY_RATIO = 0.2;
 /** 脏区域占画布面积比例超过该值时回退全量重绘。 */
 const FULL_FALLBACK_AREA_RATIO = 0.35;
+/**
+ * 局部重绘最多切成几块裁剪区。
+ * 每块区都要独立跑一遍组件 pass，太多反而亏；超出的块按下述策略并成代价最小的一组。
+ */
+const MAX_DIRTY_REGIONS = 6;
 
 /**
  * @class CanvasRenderer Canvas 渲染器
@@ -194,7 +202,7 @@ class CanvasRenderer extends ICEEventTarget {
       //@perf 视口裁剪：非脏 + 已有上屏快照 + 与可见区不相交 → 整组件跳过（不画、不捕获）。
       // 脏组件一律照画：它可能正从屏外移入，快照仍是旧位置，用旧盒判定会误裁。
       // 无快照（从未上屏）也照画：没有可靠盒子可判定。
-      if (visible && component.state.display && !component.dirty) {
+      if (visible && component.isEffectivelyVisible() && !component.dirty) {
         const snap = this.__snap.get(component);
         if (snap && !intersects(snap as any, visible)) {
           culled++;
@@ -204,7 +212,7 @@ class CanvasRenderer extends ICEEventTarget {
       //@perf: 仅在引用不一致时才重新注入（首帧 / 跨 ICE 切换），稳态下跳过 4 次属性写入
       this.__ensureContext(component);
       this.__renderComponent(component);
-      if (component.state.display) {
+      if (component.isEffectivelyVisible()) {
         this.__capture(component);
       }
     }
@@ -215,7 +223,7 @@ class CanvasRenderer extends ICEEventTarget {
       const tool = this.toolsQueue[i];
       this.__ensureContext(tool);
       tool.render();
-      if (tool.state.display) {
+      if (tool.isEffectivelyVisible()) {
         this.__capture(tool);
       }
     }
@@ -246,15 +254,8 @@ class CanvasRenderer extends ICEEventTarget {
    * 能确定要回退全量的情况（无可见脏组件 / 脏占比超阈）绝不进入
    * 「场景门控 + 逐组件算包围盒」的昂贵路径——否则动画全量帧会被重复 compose 翻倍。
    */
-  private __collect(): { region: number[] } | null {
+  private __collect(): { regions: number[][]; renderRegions: number[][]; bounding: number[] } | null {
     if (!this.__primed) return null;
-    // 视口非单位时，世界坐标 ≠ 屏幕坐标，dirty-rect 的 clearRect/clip 区域与组件世界盒
-    // 不一致，回退全量重绘（正确性优先）。视口变化经 setViewport → markQueueDirty 已回退一次。
-    const vp = this.ice.viewport;
-    if (vp && (vp.scale !== 1 || vp.tx !== 0 || vp.ty !== 0)) return null;
-    // dpr !== 1 时渲染坐标被放大到物理像素，clearRect/clip（物理像素）与组件世界盒不一致，
-    // 与「非单位视口」同一类问题 → 回退全量，正确性优先。
-    if (this.ice.dpr !== 1) return null;
     const ctx = this.ice.ctx;
     const cw = this.ice.canvasWidth || 0;
     const ch = this.ice.canvasHeight || 0;
@@ -270,21 +271,44 @@ class CanvasRenderer extends ICEEventTarget {
     // 脏组件占比过高 → 相交裁剪收益小
     if (preComp.visible > 0 && preComp.dirty / preComp.visible > FULL_FALLBACK_DIRTY_RATIO) return null;
 
-    const region = emptyBox();
-    if (!this.__unionDirtyRegions(region, this.componentQueue)) return null;
-    if (!this.__unionDirtyRegions(region, this.toolsQueue)) return null;
-    if (!isFiniteBox(region)) return null;
-    integerAlign(region);
-    if (regionRatio(region, cw, ch) > FULL_FALLBACK_AREA_RATIO) return null;
+    const boxes: number[][] = [];
+    if (!this.__collectDirtyBoxes(boxes, this.componentQueue)) return null;
+    if (!this.__collectDirtyBoxes(boxes, this.toolsQueue)) return null;
+
+    // 聚合：相邻脏区并为一块，分散脏区各自成块 —— 不再并成唯一的「大盒」，
+    // 否则画布对角两处小脏点会把中间大片干净区域一起圈进来，直接撞面积阈值回退全量。
+    const regions = coalesceRegions(boxes, MAX_DIRTY_REGIONS);
+    if (!regions.length) return null;
+
+    // 世界盒 → 渲染坐标（乘渲染视口，即 dpr·viewport）：clip/clearRect 必须用渲染坐标，
+    // 而区域收集、与上屏快照盒的相交判定仍在世界坐标里做（快照盒是世界盒）。
+    const rvp = this.__renderViewport();
+    const renderRegions: number[][] = [];
+    for (let i = 0; i < regions.length; i++) {
+      integerAlign(regions[i]);
+      renderRegions.push(mapBoxToRender(regions[i], rvp));
+    }
+    if (regionsAreaRatio(renderRegions, cw, ch) > FULL_FALLBACK_AREA_RATIO) return null;
 
     // 相交级门控（替代原先的「整场景」门控）：clip 边界与半透明落墨 / 字形 / 点集路径的
     // 抗锯齿边缘相交会产生与全量不一致的接缝，但**只有真正与本次脏区域相交的那些组件**
     // 才有风险。屏外的同类组件不影响本区域，因此按「盒是否与区域相交」逐个判定即可。
     // 这样含文本/星形/控制面板的编辑器场景也能真正用上局部重绘。
-    if (this.__riskyIntersectsRegion(region, this.componentQueue)) return null;
-    if (this.__riskyIntersectsRegion(region, this.toolsQueue)) return null;
+    if (this.__riskyIntersectsRegions(regions, this.componentQueue)) return null;
+    if (this.__riskyIntersectsRegions(regions, this.toolsQueue)) return null;
 
-    return { region };
+    // 插件渲染钩子仍只接收一个盒（既有 API），给所有脏区的并集（世界坐标）
+    const bounding = emptyBox();
+    for (let i = 0; i < regions.length; i++) {
+      unionBoxes(bounding, regions[i]);
+    }
+
+    return { regions, renderRegions, bounding };
+  }
+
+  /** 渲染视口（dpr·viewport）。ICE 侧有缓存，dpr===1 时直接返回 viewport 本身。 */
+  private __renderViewport(): { scale: number; tx: number; ty: number } {
+    return typeof this.ice.getRenderViewport === 'function' ? this.ice.getRenderViewport() : this.ice.viewport;
   }
 
   /**
@@ -297,8 +321,10 @@ class CanvasRenderer extends ICEEventTarget {
     let hiddenErase = false;
     for (let i = 0; i < queue.length; i++) {
       const c = queue[i];
-      if (!c.state.display) {
-        if (c.dirty && this.__snap.has(c)) hiddenErase = true;
+      if (!c.isEffectivelyVisible()) {
+        //曾上屏就说明它的墨迹还在画布上，本帧必须擦掉 —— 不能只看 dirty：
+        //「父容器被设为 false」时子组件自身并不会被置脏。
+        if (this.__snap.has(c)) hiddenErase = true;
         continue;
       }
       visible++;
@@ -309,26 +335,26 @@ class CanvasRenderer extends ICEEventTarget {
 
   /**
    * 区域收集 pass：仅当预检通过、即将走局部时才调用。
-   * 把「可见且脏」组件的旧快照盒 ∪ 新几何盒，与「隐藏且脏、曾上屏」组件的旧快照盒并进 region。
+   * 把「可见且脏」组件的旧快照盒 ∪ 新几何盒、以及「隐藏且曾上屏」组件的旧快照盒
+   * 逐条推进 `boxes`（聚合交给 `coalesceRegions`，这里不做并集）。
    * 返回 false = 有组件盒非法（回退全量）。
    */
-  private __unionDirtyRegions(region: number[], queue: any[]): boolean {
+  private __collectDirtyBoxes(boxes: number[][], queue: any[]): boolean {
     for (let i = 0; i < queue.length; i++) {
       const c = queue[i];
-      if (!c.state.display) {
-        // 隐藏且曾上屏、本帧有脏：仅并入旧盒（擦除）
-        if (c.dirty) {
-          const old = this.__snap.get(c);
-          if (old) unionBoxes(region, old as any);
-        }
+      if (!c.isEffectivelyVisible()) {
+        // 隐藏且曾上屏：只需擦除旧盒。判据是「有快照」而不是「脏」——
+        // 父容器被设为 false 时子组件不会有脏标记，但它的墨迹必须被擦掉。
+        const old = this.__snap.get(c);
+        if (old) boxes.push([old[0], old[1], old[2], old[3]]);
         continue;
       }
       if (!c.dirty) continue;
       const nb = this.__freshBox(c);
       if (!nb) return false;
-      unionBoxes(region, nb);
       const old = this.__snap.get(c);
-      if (old) unionBoxes(region, old as any);
+      // 同一个组件的移动/变形区间（旧盒 ∪ 新盒）必然要一起擦一起画 → 先并成一条
+      boxes.push(old ? mergeBox(old as any, nb) : nb);
     }
     return true;
   }
@@ -351,10 +377,10 @@ class CanvasRenderer extends ICEEventTarget {
    * 干净的 risky 组件才做相交判定，盒取上屏快照（世界轴对齐盒，含 paint pad）；
    * 快照缺失（从未上屏）时无法判定 → 保守回退。
    */
-  private __riskyIntersectsRegion(region: number[], queue: any[]): boolean {
+  private __riskyIntersectsRegions(regions: number[][], queue: any[]): boolean {
     for (let i = 0; i < queue.length; i++) {
       const c = queue[i];
-      if (!c.state.display) continue;
+      if (!c.isEffectivelyVisible()) continue;
       const risky = this.__isDotPath(c) || this.__isText(c) || !isOpaqueDrawing(c.state);
       if (!risky) continue;
       // 变脏 → 无条件回退（见上方说明）
@@ -364,52 +390,62 @@ class CanvasRenderer extends ICEEventTarget {
 
       const box: any = this.__snap.get(c);
       if (!box) return true; // 干净但无快照：没有可信盒子 → 保守回退
-      if (intersects(box as any, region)) return true;
+      for (let k = 0; k < regions.length; k++) {
+        if (intersects(box as any, regions[k])) return true;
+      }
     }
     return false;
   }
 
-  private __renderDirtyRect(plan: { region: number[] }) {
+  private __renderDirtyRect(plan: { regions: number[][]; renderRegions: number[][]; bounding: number[] }) {
     const ctx = this.ice.ctx;
-    const r = plan.region;
-    const rx = r[0];
-    const ry = r[1];
-    const rw = r[2] - r[0];
-    const rh = r[3] - r[1];
+    //regions 是世界盒（与上屏快照盒同一坐标系，用于相交判定）；renderRegions 是渲染坐标（用于擦除与裁剪）
+    const regions = plan.regions;
+    const renderRegions = plan.renderRegions;
 
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(rx, ry, rw, rh);
-    // 在画布坐标建立裁剪区；组件 render 内部自行 setTransform 只替换 CTM、不清除 clip
-    ctx.beginPath();
-    ctx.rect(rx, ry, rw, rh);
-    ctx.clip();
+    for (let k = 0; k < regions.length; k++) {
+      const r = regions[k];
+      const d = renderRegions[k];
+      const rx = d[0];
+      const ry = d[1];
+      const rw = d[2] - d[0];
+      const rh = d[3] - d[1];
+      if (rw <= 0 || rh <= 0) continue;
 
-    // 组件 pass：画「本帧脏」或「包围盒与本帧区域相交」的组件（z 升序，与全量路径一致）
-    for (let i = 0; i < this.componentQueue.length; i++) {
-      const component = this.componentQueue[i];
-      if (!component.state.display) continue;
-      const snap = this.__snap.get(component);
-      const needDraw = component.dirty || (snap && intersects(snap as any, r));
-      if (!needDraw) continue;
-      this.__ensureContext(component);
-      this.__renderComponent(component);
-      this.__capture(component);
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(rx, ry, rw, rh);
+      // 在画布坐标建立裁剪区；组件 render 内部自行 setTransform 只替换 CTM、不清除 clip
+      ctx.beginPath();
+      ctx.rect(rx, ry, rw, rh);
+      ctx.clip();
+
+      // 组件 pass：画「本帧脏」或「包围盒与本块区域相交」的组件（z 升序，与全量路径一致）
+      for (let i = 0; i < this.componentQueue.length; i++) {
+        const component = this.componentQueue[i];
+        if (!component.isEffectivelyVisible()) continue;
+        const snap = this.__snap.get(component);
+        const needDraw = component.dirty || (snap && intersects(snap as any, r));
+        if (!needDraw) continue;
+        this.__ensureContext(component);
+        this.__renderComponent(component);
+        this.__capture(component);
+      }
+
+      // 工具 pass：clip 内恒画（数量恒小），与全量路径「组件层→工具层」合成序一致
+      for (let i = 0; i < this.toolsQueue.length; i++) {
+        const tool = this.toolsQueue[i];
+        if (!tool.isEffectivelyVisible()) continue;
+        this.__ensureContext(tool);
+        tool.render();
+        this.__capture(tool);
+      }
+
+      //插件渲染钩子：仍在 clip 之内，语义与组件一致
+      this.__invokePluginRender(r);
+
+      ctx.restore();
     }
-
-    // 工具 pass：clip 内恒画（数量恒小），与全量路径「组件层→工具层」合成序一致
-    for (let i = 0; i < this.toolsQueue.length; i++) {
-      const tool = this.toolsQueue[i];
-      if (!tool.state.display) continue;
-      this.__ensureContext(tool);
-      tool.render();
-      this.__capture(tool);
-    }
-
-    //插件渲染钩子：仍在 clip 之内，语义与组件一致
-    this.__invokePluginRender(r);
-
-    ctx.restore();
 
     this.__finalizeHidden(this.componentQueue);
     this.__finalizeHidden(this.toolsQueue);
@@ -430,7 +466,7 @@ class CanvasRenderer extends ICEEventTarget {
       return;
     }
     const ctx = this.ice.ctx;
-    const vp = typeof this.ice.getRenderViewport === 'function' ? this.ice.getRenderViewport() : this.ice.viewport;
+    const vp = this.__renderViewport();
     ctx.setTransform(vp.scale, 0, 0, vp.scale, vp.tx, vp.ty);
     host.invokeRenderHooks({
       ctx,
@@ -535,7 +571,7 @@ class CanvasRenderer extends ICEEventTarget {
   private __finalizeHidden(queue: any[]): void {
     for (let i = 0; i < queue.length; i++) {
       const c = queue[i];
-      if (!c.state.display && c.dirty) {
+      if (!c.isEffectivelyVisible() && c.dirty) {
         c.dirty = false;
         this.__snap.delete(c);
       }

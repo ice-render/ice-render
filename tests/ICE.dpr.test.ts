@@ -153,11 +153,10 @@ describe('ICE.dpr 主画布高分屏', () => {
     ice.destroy();
   });
 
-  it('dpr=2 时 dirty-rect 回退全量（物理像素与组件世界盒不一致）', () => {
+  it('dpr=2 时 dirty-rect 仍能局部重绘，且裁剪区按设备像素放大', () => {
     const { el } = makeCanvas();
     const ice: any = new ICE().init(el, { dpr: 2 });
-    // 8 个不透明组件、只脏 1 个：脏占比 1/8 <= 0.2，其余前置条件都满足，
-    // 这样 __collect 若返回 null 就只能是 dpr 分支拦下的（避免断言变成空转）。
+    // 8 个不透明组件、只脏 1 个：脏占比 1/8 <= 0.2，前置条件都满足。
     const comps: any[] = [];
     for (let i = 0; i < 8; i++) {
       const r: any = new ICERect({ left: 20 + i * 30, top: 20, width: 20, height: 20, zIndex: i });
@@ -179,14 +178,18 @@ describe('ICE.dpr 主画布高分屏', () => {
     ice.dirty = true;
     // 前置条件自检：脏占比门控不该拦住（否则下面的断言不成立）
     expect(renderer.__preCount(renderer.componentQueue).dirty).toBe(1);
-    expect(renderer.__collect()).toBeNull(); // dpr=2 -> 回退全量
 
-    // 对照：dpr 归 1 后可正常构造局部重绘计划
-    ice.dpr = 1;
-    prime();
-    comps[0].setState({ left: 24 });
-    ice.dirty = true;
-    expect(renderer.__collect()).not.toBeNull();
+    // dpr≠1 以前是「直接回退全量」，现在改为把世界盒映射到渲染坐标（× dpr）后照常局部重绘：
+    // region 是世界盒（供相交判定），renderRegions 是渲染坐标（供 clearRect/clip）。
+    const plan = renderer.__collect();
+    expect(plan).not.toBeNull();
+    expect(plan.regions.length).toBe(1);
+    expect(plan.renderRegions.length).toBe(1);
+    // 渲染坐标必须正好是世界坐标的两倍（单位视口 × dpr=2）
+    expect(plan.renderRegions[0][0]).toBeCloseTo(plan.regions[0][0] * 2, 6);
+    expect(plan.renderRegions[0][1]).toBeCloseTo(plan.regions[0][1] * 2, 6);
+    expect(plan.renderRegions[0][2]).toBeCloseTo(plan.regions[0][2] * 2, 6);
+    expect(plan.renderRegions[0][3]).toBeCloseTo(plan.regions[0][3] * 2, 6);
     ice.destroy();
   });
 

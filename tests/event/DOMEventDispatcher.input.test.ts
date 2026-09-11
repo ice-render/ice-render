@@ -185,4 +185,97 @@ describe('DOMEventDispatcher 输入归一化与双通道派发', () => {
     expect(hit[0]).toEqual([30, 40]);
     expect(hit[1]).toEqual([30, 70]);
   });
+
+  it('修饰键透传到事件对象（Shift 等比 / 角度吸附依赖它）', () => {
+    globalRoot.PointerEvent = function () {};
+    const { ice, evtBus, comp } = makeIce();
+    new DOMEventDispatcher(ice).start();
+
+    // 模拟真实 DOM 事件：修饰键挂在原型上且不可枚举，ICEEvent 的 for...in 拷贝带不过来
+    class FakePointerEvent {
+      type = 'pointerdown';
+      clientX = 130;
+      clientY = 90;
+      pointerType = 'mouse';
+      pointerId = 7;
+      get shiftKey() {
+        return true;
+      }
+      get altKey() {
+        return true;
+      }
+      get ctrlKey() {
+        return false;
+      }
+    }
+    evtBus.trigger('ICE_POINTERDOWN', new FakePointerEvent());
+
+    const passed = names(comp.trigger.mock.calls, 'pointerdown')[0];
+    expect(passed).toBeTruthy();
+    expect(passed[1].shiftKey).toBe(true);
+    expect(passed[1].altKey).toBe(true);
+    expect(passed[1].ctrlKey).toBe(false);
+  });
+
+  it('pointerdown 捕获指针、pointerup 释放（拖出画布不丢事件）', () => {
+    globalRoot.PointerEvent = function () {};
+    const { ice, evtBus } = makeIce();
+    const captured: number[] = [];
+    const released: number[] = [];
+    ice.canvasEl = {
+      setPointerCapture: (id: number) => captured.push(id),
+      releasePointerCapture: (id: number) => released.push(id),
+      hasPointerCapture: () => true,
+    };
+    new DOMEventDispatcher(ice).start();
+
+    evtBus.trigger('ICE_POINTERDOWN', { type: 'pointerdown', clientX: 130, clientY: 90, pointerId: 7 });
+    expect(captured).toEqual([7]);
+
+    evtBus.trigger('ICE_POINTERUP', { type: 'pointerup', clientX: 140, clientY: 95, pointerId: 7 });
+    expect(released).toEqual([7]);
+  });
+
+  it('无 canvasEl 或运行时无指针捕获能力时不报错', () => {
+    globalRoot.PointerEvent = function () {};
+    const { ice, evtBus } = makeIce();
+    new DOMEventDispatcher(ice).start();
+    expect(() =>
+      evtBus.trigger('ICE_POINTERDOWN', { type: 'pointerdown', clientX: 130, clientY: 90, pointerId: 7 })
+    ).not.toThrow();
+  });
+
+  it('按下目标不在画布内时不捕获指针（否则工具栏按钮的 click 会被吃掉）', () => {
+    globalRoot.PointerEvent = function () {};
+    const { ice, evtBus } = makeIce();
+    const captured: number[] = [];
+    const canvasEl: any = {
+      setPointerCapture: (id: number) => captured.push(id),
+      releasePointerCapture: () => {},
+      hasPointerCapture: () => true,
+      contains: () => false, // 画布外的 DOM 元素
+    };
+    ice.canvasEl = canvasEl;
+    new DOMEventDispatcher(ice).start();
+
+    // 监听器挂在 window 上，画布外的按钮点击也会走到这里 —— 不能捕获
+    evtBus.trigger('ICE_POINTERDOWN', {
+      type: 'pointerdown',
+      clientX: 10,
+      clientY: 10,
+      pointerId: 3,
+      target: { tagName: 'BUTTON' },
+    });
+    expect(captured).toEqual([]);
+
+    // 按下目标就是画布时照常捕获
+    evtBus.trigger('ICE_POINTERDOWN', {
+      type: 'pointerdown',
+      clientX: 130,
+      clientY: 90,
+      pointerId: 4,
+      target: canvasEl,
+    });
+    expect(captured).toEqual([4]);
+  });
 });
