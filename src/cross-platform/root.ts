@@ -23,6 +23,17 @@ let root: any = null;
     root.mozRequestAnimationFrame ||
     root.oRequestAnimationFrame ||
     root.msRequestAnimationFrame;
+  // 无 rAF 的运行时兜底（Node / headless 出图 / 小程序低版本基础库）：
+  // 否则 `FrameManager.start()` 会调用 undefined 直接抛错，引擎在这些环境里连启动都做不到。
+  // 用定时器模拟一帧循环（浏览器早期 rAF polyfill 的经典做法）。
+  // 注意：headless 出图通常只需手动渲染一次，这里只保证帧循环可用、不崩。
+  if (typeof root.requestFrame !== 'function') {
+    root.requestFrame = function (callback: any) {
+      return setTimeout(function () {
+        callback(Date.now());
+      }, 16);
+    };
+  }
   // 创建路径对象：优先用运行时自带的 Path2D（浏览器/小程序基础库 2.11.0+），
   // 否则降级为 PolyfillPath2D（命令记录 + 渲染时重放），兼容小程序低版本 / Node。
   root.createPath2D = () => {
