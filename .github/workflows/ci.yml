@@ -34,3 +34,39 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # 可视化 / 示例回归：examples 冒烟会逐个打开 examples/ 下所有页面并断言无错误、画布有输出。
+  # 这里刻意**不跑** e2e/visual/visual.spec.ts（golden 图像比对）：Playwright 基线图按平台命名
+  # （*-darwin.png），跨平台会因渲染差异必然失败，需在生成基线的同一环境本地运行。
+  # 依赖 dist：examples 页面通过 <script src="../../dist/index.umd.js"> 加载引擎。
+  visual:
+    name: examples + interaction regression (Playwright)
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Examples + interaction + pixel-consistency regression
+        run: npm run test:visual:ci
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
