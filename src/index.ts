@@ -46,6 +46,15 @@ export { default as ICEBoxLayout } from './layout/ICEBoxLayout';
 export { default as ICECardLayout } from './layout/ICECardLayout';
 export { default as ICEOverlayLayout } from './layout/ICEOverlayLayout';
 export { default as ICELayeredLayout } from './layout/ICELayeredLayout';
-export { default as ICETheme, baseTokens, DEFAULT_THEME, DARK_THEME, registerTheme, setTheme, getTheme, STYLE_PRESETS } from './theme/ICETheme';
+export {
+  default as ICETheme,
+  baseTokens,
+  DEFAULT_THEME,
+  DARK_THEME,
+  registerTheme,
+  setTheme,
+  getTheme,
+  STYLE_PRESETS,
+} from './theme/ICETheme';
 export { default as ICE } from './ICE';
 export { default as CanvasRenderer } from './renderer/CanvasRenderer';

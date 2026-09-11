@@ -84,18 +84,88 @@ export function computeSnap(
 
   for (const t of targets) {
     if (options.edge) {
-      consider({ axis: 'x', type: 'edge', delta: t.minX - source.minX, guideValue: t.minX, guideStart: Math.min(source.minY, t.minY), guideEnd: Math.max(source.maxY, t.maxY) });
-      consider({ axis: 'x', type: 'edge', delta: t.maxX - source.minX, guideValue: t.maxX, guideStart: Math.min(source.minY, t.minY), guideEnd: Math.max(source.maxY, t.maxY) });
-      consider({ axis: 'x', type: 'edge', delta: t.minX - source.maxX, guideValue: t.minX, guideStart: Math.min(source.minY, t.minY), guideEnd: Math.max(source.maxY, t.maxY) });
-      consider({ axis: 'x', type: 'edge', delta: t.maxX - source.maxX, guideValue: t.maxX, guideStart: Math.min(source.minY, t.minY), guideEnd: Math.max(source.maxY, t.maxY) });
-      consider({ axis: 'y', type: 'edge', delta: t.minY - source.minY, guideValue: t.minY, guideStart: Math.min(source.minX, t.minX), guideEnd: Math.max(source.maxX, t.maxX) });
-      consider({ axis: 'y', type: 'edge', delta: t.maxY - source.minY, guideValue: t.maxY, guideStart: Math.min(source.minX, t.minX), guideEnd: Math.max(source.maxX, t.maxX) });
-      consider({ axis: 'y', type: 'edge', delta: t.minY - source.maxY, guideValue: t.minY, guideStart: Math.min(source.minX, t.minX), guideEnd: Math.max(source.maxX, t.maxX) });
-      consider({ axis: 'y', type: 'edge', delta: t.maxY - source.maxY, guideValue: t.maxY, guideStart: Math.min(source.minX, t.minX), guideEnd: Math.max(source.maxX, t.maxX) });
+      consider({
+        axis: 'x',
+        type: 'edge',
+        delta: t.minX - source.minX,
+        guideValue: t.minX,
+        guideStart: Math.min(source.minY, t.minY),
+        guideEnd: Math.max(source.maxY, t.maxY),
+      });
+      consider({
+        axis: 'x',
+        type: 'edge',
+        delta: t.maxX - source.minX,
+        guideValue: t.maxX,
+        guideStart: Math.min(source.minY, t.minY),
+        guideEnd: Math.max(source.maxY, t.maxY),
+      });
+      consider({
+        axis: 'x',
+        type: 'edge',
+        delta: t.minX - source.maxX,
+        guideValue: t.minX,
+        guideStart: Math.min(source.minY, t.minY),
+        guideEnd: Math.max(source.maxY, t.maxY),
+      });
+      consider({
+        axis: 'x',
+        type: 'edge',
+        delta: t.maxX - source.maxX,
+        guideValue: t.maxX,
+        guideStart: Math.min(source.minY, t.minY),
+        guideEnd: Math.max(source.maxY, t.maxY),
+      });
+      consider({
+        axis: 'y',
+        type: 'edge',
+        delta: t.minY - source.minY,
+        guideValue: t.minY,
+        guideStart: Math.min(source.minX, t.minX),
+        guideEnd: Math.max(source.maxX, t.maxX),
+      });
+      consider({
+        axis: 'y',
+        type: 'edge',
+        delta: t.maxY - source.minY,
+        guideValue: t.maxY,
+        guideStart: Math.min(source.minX, t.minX),
+        guideEnd: Math.max(source.maxX, t.maxX),
+      });
+      consider({
+        axis: 'y',
+        type: 'edge',
+        delta: t.minY - source.maxY,
+        guideValue: t.minY,
+        guideStart: Math.min(source.minX, t.minX),
+        guideEnd: Math.max(source.maxX, t.maxX),
+      });
+      consider({
+        axis: 'y',
+        type: 'edge',
+        delta: t.maxY - source.maxY,
+        guideValue: t.maxY,
+        guideStart: Math.min(source.minX, t.minX),
+        guideEnd: Math.max(source.maxX, t.maxX),
+      });
     }
     if (options.center) {
-      consider({ axis: 'x', type: 'center', delta: t.centerX - source.centerX, guideValue: t.centerX, guideStart: Math.min(source.minY, t.minY), guideEnd: Math.max(source.maxY, t.maxY) });
-      consider({ axis: 'y', type: 'center', delta: t.centerY - source.centerY, guideValue: t.centerY, guideStart: Math.min(source.minX, t.minX), guideEnd: Math.max(source.maxX, t.maxX) });
+      consider({
+        axis: 'x',
+        type: 'center',
+        delta: t.centerX - source.centerX,
+        guideValue: t.centerX,
+        guideStart: Math.min(source.minY, t.minY),
+        guideEnd: Math.max(source.maxY, t.maxY),
+      });
+      consider({
+        axis: 'y',
+        type: 'center',
+        delta: t.centerY - source.centerY,
+        guideValue: t.centerY,
+        guideStart: Math.min(source.minX, t.minX),
+        guideEnd: Math.max(source.maxX, t.maxX),
+      });
     }
   }
 
@@ -108,13 +178,27 @@ export function computeSnap(
         const maxX = Math.max(a.centerX, b.centerX);
         if (source.centerX > minX && source.centerX < maxX) {
           const midX = (a.centerX + b.centerX) / 2;
-          consider({ axis: 'x', type: 'spacing', delta: midX - source.centerX, guideValue: midX, guideStart: Math.min(source.minY, a.minY, b.minY), guideEnd: Math.max(source.maxY, a.maxY, b.maxY) });
+          consider({
+            axis: 'x',
+            type: 'spacing',
+            delta: midX - source.centerX,
+            guideValue: midX,
+            guideStart: Math.min(source.minY, a.minY, b.minY),
+            guideEnd: Math.max(source.maxY, a.maxY, b.maxY),
+          });
         }
         const minY = Math.min(a.centerY, b.centerY);
         const maxY = Math.max(a.centerY, b.centerY);
         if (source.centerY > minY && source.centerY < maxY) {
           const midY = (a.centerY + b.centerY) / 2;
-          consider({ axis: 'y', type: 'spacing', delta: midY - source.centerY, guideValue: midY, guideStart: Math.min(source.minX, a.minX, b.minX), guideEnd: Math.max(source.maxX, a.maxX, b.maxX) });
+          consider({
+            axis: 'y',
+            type: 'spacing',
+            delta: midY - source.centerY,
+            guideValue: midY,
+            guideStart: Math.min(source.minX, a.minX, b.minX),
+            guideEnd: Math.max(source.maxX, a.maxX, b.maxX),
+          });
         }
       }
     }
@@ -215,7 +299,13 @@ class AlignmentGuideManager {
     const enter = this.options.threshold / scale;
     const exit = (this.options.threshold + this.options.hysteresis) / scale;
     // 滞回：未吸附轴用进入阈值(threshold)，已吸附轴用更大的脱离阈值(threshold+hysteresis)。
-    const snap = computeSnap(source, this.cachedTargets, this.engagedX ? exit : enter, this.engagedY ? exit : enter, this.options);
+    const snap = computeSnap(
+      source,
+      this.cachedTargets,
+      this.engagedX ? exit : enter,
+      this.engagedY ? exit : enter,
+      this.options
+    );
 
     if (snap.x || snap.y) {
       // delta 取整：中心/等间距候选可能产生 0.5 之类的浮点，取整避免亚像素抖动。
@@ -287,7 +377,12 @@ class AlignmentGuideManager {
     const style = { ...this.options.guideStyle };
     if (!this.guideX) {
       this.guideX = new ICERect({
-        left: 0, top: 0, width: 1, height: 1, display: false, zIndex: this.options.guideZIndex,
+        left: 0,
+        top: 0,
+        width: 1,
+        height: 1,
+        display: false,
+        zIndex: this.options.guideZIndex,
         origin: 'top-left',
         stroke: false,
         style,
@@ -296,7 +391,12 @@ class AlignmentGuideManager {
     }
     if (!this.guideY) {
       this.guideY = new ICERect({
-        left: 0, top: 0, width: 1, height: 1, display: false, zIndex: this.options.guideZIndex,
+        left: 0,
+        top: 0,
+        width: 1,
+        height: 1,
+        display: false,
+        zIndex: this.options.guideZIndex,
         origin: 'top-left',
         stroke: false,
         style,

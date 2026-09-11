@@ -23,6 +23,16 @@
     "createDefaultProgram": true
   },
   "plugins": ["@typescript-eslint", "jest", "prettier"],
+  "overrides": [
+    {
+      "files": ["tests/**/*.ts", "e2e/**/*.ts"],
+      "rules": {
+        // 测试里刻意用 require 做「jest.mock 之后再取真实模块」「按需重载 root」这类操作，
+        // 静态 import 无法表达（import 会被提升到 jest.mock 之前），因此对测试目录关掉该规则。
+        "@typescript-eslint/no-var-requires": 0
+      }
+    }
+  ],
   "rules": {
     "@typescript-eslint/explicit-function-return-type": 0,
     "@typescript-eslint/no-explicit-any": 0,
