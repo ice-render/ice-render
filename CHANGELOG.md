@@ -9,6 +9,10 @@
 
 ### 新增
 
+- **端点箭头样式可配 `arrowStyle: 'filled' | 'hollow'`（默认 `'filled'` 实心）**：
+  线条端点三角箭头此前只有描边（看起来是空心），现在默认用**线色**填充成实心；
+  需要旧观感的显式传 `arrowStyle: 'hollow'`。填充色跟随线色（`strokeStyle`），未新增颜色配置项；
+  `arrow: 'both'` 时两端共用同一开关。
 - **输入层支持触控与触控笔**：按运行时能力自动选择输入通道——有 `PointerEvent` 走 `pointer*`，
   否则回退 `mouse* + touch*`（小程序）。新增滚轮通道 `ICE_WHEEL` 与 `ICE_POINTER*` / `ICE_TOUCH*` 事件名。
 - **`ICE.zoomAt(screenX, screenY, factor, minScale?, maxScale?)`**：以屏幕点为锚点的视口缩放原语，
@@ -85,6 +89,13 @@
   并修掉 `splitEndpointsTo4Points()` 的**循环依赖**（它拿 `state.height` 当线宽输入，而 height 又是
   它的输出 → 结果随上一次的 height 漂移，首帧还读到默认哨兵值 10）。
 - **折线宽度/高度不再依赖「上一次的 height」**：同上，反复量测现在结果稳定。
+- **直线（共线）折线的包围盒不含箭头 wing 的横向张开**：`calc4VertexPoints()` 在共线时走
+  `splitEndpointsTo4Points()`，那条路径只按 `lineWidth` 沿线段方向外扩，**不含箭头三角形的张开**
+  （默认 `arrowLength: 15` / `arrowAngel: 30°` ⇒ 距轴线 ±7.5px，远大于线宽的一半）。
+  由于 `__localBox()` 同时供 `getMinBoundingBox()`（选择框/控制面板）与渲染器的 `__paintWorldBox()`
+  （dirty-rect 上屏快照盒）消费，盒子偏小会导致**局部重绘把箭头裁掉**、选择框切到箭头。
+  现由 `__localBox()` 并入箭头三角面的三个顶点（**不动** `splitEndpointsTo4Points()`，
+  因此 `state.width/height` 的既有语义与命中判定都不受影响）。回归见 `tests/link/line-arrow.test.ts`。
 - **`composeMatrix()` 会累积平移点集（潜在漂移）**：`ICEDotPath.calcLocalOrigin()` 会就地把 `dots` 平移到
   「以 origin 为原点」，而旧实现每次 compose 都**无条件**再平移一个 origin —— 连续 `composeMatrix()`
   会让点集依次偏移 1/2/3 个原点。因此此前所有调用方都必须严格保证「compose 之前先重算 dots」，
@@ -190,6 +201,10 @@
   几乎永久回退全量，实测富场景局部重绘执行次数 **0 → 2**，且 10 步逐像素比对仍 100% 一致。
 
 ### 需要注意（升级前请确认）
+
+> **箭头默认由「空心描边」变为「实心填充」（行为变更）**：线条端点三角箭头现在默认 `arrowStyle: 'filled'`，
+> 用**线色**填充。需要保持旧观感的，显式传 `arrowStyle: 'hollow'`。
+> `stroke: false` 的折线仍然不画箭头 —— 与改动前一致（那条路径既不描边也不填充，本就看不见箭头）。
 
 1. **`dpr` 默认 1、`wrap` 默认 `false`**：不显式开启时行为与 1.0.4 完全一致。
 2. **命中检测坐标改为内容盒语义**：画布带 `border` / `padding` 的项目，命中位置会被**修正**

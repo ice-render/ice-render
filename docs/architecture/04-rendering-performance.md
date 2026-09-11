@@ -116,6 +116,8 @@ graph TD
 - **全量路径** `doRenderFull()` 先 `clearRect(0,0,canvasWidth,canvasHeight)` 整屏清屏；**局部路径** `doRenderDirtyRect()` 只 `clearRect` 脏区域（旧盒 ∪ 新盒 + paint pad）。两条路径的正确性以逐像素一致为验收标准。
 - 对每个组件注入 `root/ctx/evtBus/ice` 后调用 `component.render()`（稳态下这些引用已一致，跳过重复注入）。
 - 一轮结束后 `ice.dirty=false`，并触发 `ROUND_FINISH` 事件（供 `linkSlotManager` 等订阅）。
+- **折线的端点箭头**：`ICEPolyLine.calcArrowPoints()` 把三角形顶点**插进点集**（`[P0,A1,A2,P0,…]`），路径本身只描边；填充是描边之后单独做的一次 `fill`（用线色，`arrowStyle:'hollow'` 可关闭）。
+  ⚠️ 那次 `fill` **必须先 `beginPath()`**：无全局 `Path2D` 的运行时（小程序低版本 / Node）走 `replayPath()`，它会把整条开放折线留在 ctx 当前路径上，不重开路径会把折线一并填满。
 
 ## 性能基线
 

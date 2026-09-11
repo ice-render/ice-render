@@ -107,6 +107,7 @@ class ICEPolyLine extends ICEDotPath {
         arrow: 'none',
         arrowLength: 15,
         arrowAngel: glMatrix.toRadian(30),
+        arrowStyle: 'filled', //箭头样式：filled=实心（默认），hollow=空心（只有描边）
         points: [],
         showMinBoundingBox: false,
         showMaxBoundingBox: false,
@@ -388,6 +389,8 @@ class ICEPolyLine extends ICEDotPath {
    * 计算箭头坐标
    */
   protected calcArrowPoints() {
+    // 复用数组，零分配（arrow === 'none' 时这里只是清空一个空数组）
+    this.__arrowFaceIndexes.length = 0;
     //计算起点箭头坐标
     if (this.state.arrow === 'start' || this.state.arrow === 'both') {
       const firstPoint = [...this.state.dots[0]];
@@ -395,6 +398,8 @@ class ICEPolyLine extends ICEDotPath {
       points = this.doCalcArrowPoints(points);
       this.state.dots.unshift(...points);
       this.state.dots.unshift([...firstPoint]);
+      // 插入后点集开头为 [P0, A1, A2, P0, ...]，三角面 = dots[0..2]
+      this.__arrowFaceIndexes.push(0);
     }
     //计算终点箭头坐标
     if (this.state.arrow === 'end' || this.state.arrow === 'both') {
@@ -404,6 +409,8 @@ class ICEPolyLine extends ICEDotPath {
       points = this.doCalcArrowPoints(points);
       this.state.dots.push(...points);
       this.state.dots.push([...lastPoint]);
+      // 追加后点集结尾为 [..., Pn, B1, B2, Pn]，三角面 = dots[length-4 .. length-2]
+      this.__arrowFaceIndexes.push(this.state.dots.length - 4);
     }
   }
 
@@ -598,6 +605,15 @@ class ICEPolyLine extends ICEDotPath {
   private __polyBoxScratch: number[] = [0, 0, 0, 0];
 
   /**
+   * 箭头三角面在 `state.dots` 中的**起始下标**（每个三角面占连续 3 个顶点：P0/A1/A2 或 Pn/B1/B2）。
+   *
+   * 由 `calcArrowPoints()` 维护，只在「填充实心箭头」与「并入包围盒」两处被读取。
+   * 存下标而不是坐标：坐标始终读实时的 `state.dots`，避免与点集的生命周期脱节。
+   * 它是运行时派生值，**不写入 `state`**，因此不参与序列化。
+   */
+  private __arrowFaceIndexes: number[] = [];
+
+  /**
    * @overwrite
    * @method __localBox  折线的本地包围盒
    *
@@ -636,6 +652,24 @@ class ICEPolyLine extends ICEDotPath {
       if (p[0] > maxX) maxX = p[0];
       if (p[1] < minY) minY = p[1];
       if (p[1] > maxY) maxY = p[1];
+    }
+    // 并入箭头三角面的顶点：共线直线走 splitEndpointsTo4Points()，那条路径只按「线宽」外扩，
+    // 不含箭头 wing 的横向张开（默认 arrowLength=15 / 30° ⇒ 距轴线 ±7.5px）。不并入的话
+    // dirty-rect 的上屏快照盒会偏小、局部重绘可能裁掉箭头，选择框也会切到箭头。
+    // 非共线时 calc4VertexPoints() 已遍历 dots（含箭头顶点），此处并入是等值冗余。
+    const arrowFaces = this.__arrowFaceIndexes;
+    for (let i = 0; i < arrowFaces.length; i++) {
+      const start = arrowFaces[i];
+      for (let k = 0; k < 3; k++) {
+        const v = dots[start + k];
+        if (!v) {
+          continue;
+        }
+        if (v[0] < minX) minX = v[0];
+        if (v[0] > maxX) maxX = v[0];
+        if (v[1] < minY) minY = v[1];
+        if (v[1] > maxY) maxY = v[1];
+      }
     }
     box[0] = minX;
     box[1] = minY;
@@ -805,11 +839,61 @@ class ICEPolyLine extends ICEDotPath {
    * 先绘制折线，再绘制连线标签（若 label 非空）。
    */
   protected doRender(): void {
+    // 线色必须在 super.doRender() **之前**取：ICEComponent.doRender() 在绘制调试包围盒时会把
+    // ctx.strokeStyle 改成 #ff0000/#0000ff（并把 fillStyle 改成全透明）且不 restore。
+    const needArrowFill =
+      this.__arrowFaceIndexes.length > 0 && this.state.arrowStyle !== 'hollow' && this.state.stroke !== false;
+    const lineColor = needArrowFill ? this.ctx.strokeStyle : null;
+
     super.doRender();
     // super.doRender() 内部的边界框绘制会重置 ctx 为 viewport 矩阵，丢掉 line 自身的平移；
-    // 这里重新应用 line 的完整 CTM，再绘制 label，否则 label 会跑到错误的坐标。
+    // 这里重新应用 line 的完整 CTM，再绘制箭头填充与 label，否则它们会跑到错误的坐标。
     this.applyTransformToCtx(null, true);
+    if (needArrowFill) {
+      // 先填箭头、后画 label：label 背景（白底）需要压住箭头，保持既有层次
+      this.drawArrowFills(lineColor);
+    }
     this.drawLabel();
+  }
+
+  /**
+   * 用「线色」把端点箭头三角形填实（`arrowStyle: 'filled'`，默认）。
+   *
+   * 箭头三角形是通过在 `state.dots` 里插入顶点来构造的，它只被**描边**（折线强制 fill:false），
+   * 所以默认看起来是空心的。这里在描边之后单独把三角面填充一次。
+   *
+   * 必须在 CTM 复原（`applyTransformToCtx(null, true)`）之后调用 —— 用的是 dots 的本地坐标，
+   * 与 `drawLabel()` 同一坐标系。
+   */
+  private drawArrowFills(lineColor: string): void {
+    const idxs = this.__arrowFaceIndexes;
+    const dots = this.state.dots;
+    if (!dots || idxs.length === 0) {
+      return;
+    }
+    const ctx = this.ctx;
+    ctx.save();
+    // 必须 beginPath：PolyfillPath2D 运行时 ICEPath 的 replayPath() 会把整条折线留在
+    // ctx 的当前路径上，不重开路径会把开放的折线一并填满。
+    ctx.beginPath();
+    for (let i = 0; i < idxs.length; i++) {
+      const start = idxs[i];
+      const a = dots[start];
+      const b = dots[start + 1];
+      const c = dots[start + 2];
+      // 防御：addDot / rmDot 会 splice dots，下标可能失效
+      if (!a || !b || !c) {
+        continue;
+      }
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+      ctx.lineTo(c[0], c[1]);
+      ctx.closePath();
+    }
+    ctx.fillStyle = lineColor || this.state.style.strokeStyle || '#000000';
+    // 无参 fill：只填上面构造的闭合子路径（原生与 Polyfill 运行时行为一致）
+    ctx.fill();
+    ctx.restore();
   }
 
   /**
