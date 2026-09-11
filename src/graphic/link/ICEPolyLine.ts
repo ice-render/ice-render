@@ -12,7 +12,6 @@ import { round } from '../../util/lang';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../../event/ICEEvent';
 import GeoUtil from '../../geometry/GeoUtil';
-import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICEComponent from '../ICEComponent';
 import ICEDotPath from '../ICEDotPath';
 import root from '../../cross-platform/root';
@@ -479,21 +478,28 @@ class ICEPolyLine extends ICEDotPath {
 
     this.calcDots();
 
-    const points = this.calc4VertexPoints(); //最小包围盒的4个顶点
-    const width = Math.abs(points[1][0] - points[0][0]); //maxX-minX
-    let height = this.state.style.lineWidth;
-
-    //先进行共线判断，如果所有点都在同一条直线上，那么边界盒子的整体高度就等于线条的粗细
-    if (this.isDotsOnSameLine()) {
-      this.state.width = width;
-      this.state.height = height;
-      return { width: this.state.width, height: this.state.height };
-    } else {
-      height = Math.abs(points[2][1] - points[0][1]); //maxY-minY
-      this.state.width = width;
-      this.state.height = height;
-      return { width: this.state.width, height: this.state.height };
+    // 宽高取「笔画带宽 4 顶点」的 min/max。
+    // 注意：**不能**再用 `points[1].x - points[0].x` 这类**顶点对**差来推导 ——
+    // ICEPolyLine.calc4VertexPoints() 返回的是沿路径方向排列的带宽顶点（并非包围盒的
+    // 左上/右上角），在近似水平的折线上两者之差会得到 ≈ 0 的宽度。历史缺陷：
+    // width≈0 → 包围盒退化 → 局部重绘挑不中折线 → 擦除区域内折线笔迹丢失
+    // （详见 ICEComponent.__localBox 的说明）。
+    // 顺带：共线情形不再需要单独分支 —— 水平线的带宽顶点 y 差恰好等于 lineWidth。
+    const points = this.calc4VertexPoints();
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      if (p[0] < minX) minX = p[0];
+      if (p[0] > maxX) maxX = p[0];
+      if (p[1] < minY) minY = p[1];
+      if (p[1] > maxY) maxY = p[1];
     }
+    this.state.width = Math.abs(maxX - minX);
+    this.state.height = Math.abs(maxY - minY);
+    return { width: this.state.width, height: this.state.height };
   }
 
   /**
@@ -561,9 +567,13 @@ class ICEPolyLine extends ICEDotPath {
     const endY = this.state.points[len - 1][1] - this.state.points[0][1];
     const angle = this.getRotateAngle();
 
-    const height = this.state.height;
-    let deltaX = (Math.cos((angle * Math.PI) / 180) * height) / 2;
-    let deltaY = (Math.sin((angle * Math.PI) / 180) * height) / 2;
+    // 偏移量必须取**笔画粗细**（lineWidth），不能取 `state.height`：
+    // 本方法的结果反过来用于计算 state.height（calcComponentParams → 顶点 min/max），
+    // 若这里读 state.height 就形成循环依赖 —— 结果会随「上一次的 height」漂移，
+    // 且首帧读到的是默认哨兵值 10，几何完全不对（水平直线甚至会算出高度 0）。
+    const thickness = this.state.style.lineWidth || 1;
+    let deltaX = (Math.cos((angle * Math.PI) / 180) * thickness) / 2;
+    let deltaY = (Math.sin((angle * Math.PI) / 180) * thickness) / 2;
     deltaX = round(deltaX, 3);
     deltaY = round(deltaY, 3);
 
@@ -576,34 +586,54 @@ class ICEPolyLine extends ICEDotPath {
     return [point1, point2, point3, point4];
   }
 
-  /**
-   * @method getMinBoundingBox  获取最小包围盒
-   *
-   * 此盒子的变换矩阵与组件自身的变换矩阵完全相同。
-   *
-   * @returns
-   */
-  public getMinBoundingBox(): ICEBoundingBox {
-    //先基于组件本地坐标系进行计算
-    const originX = this.state.localOrigin[0];
-    const originY = this.state.localOrigin[1];
-    const points = this.calc4VertexPoints();
-    let boundingBox = new ICEBoundingBox([
-      points[0][0] - originX,
-      points[0][1] - originY,
-      points[1][0] - originX,
-      points[1][1] - originY,
-      points[2][0] - originX,
-      points[2][1] - originY,
-      points[3][0] - originX,
-      points[3][1] - originY,
-      0,
-      0,
-    ]);
+  // __localBox() 的复用缓冲
+  private __polyBoxScratch: number[] = [0, 0, 0, 0];
 
-    //再用 composedMatrix 进行变换
-    boundingBox = boundingBox.transform(this.state.composedMatrix);
-    return boundingBox;
+  /**
+   * @overwrite
+   * @method __localBox  折线的本地包围盒
+   *
+   * 折线的本地原点固定为 (0,0)（见 calcLocalOrigin），点集可含负坐标，因此基类默认的
+   * 「[0,0,width,height]」约定**不成立** —— 必须由笔画带宽的顶点给出真实盒子。
+   *
+   * 基类的 `getMinBoundingBox()` 与渲染器的 `__paintWorldBox()` 都消费本方法，因此
+   * 「面板/插槽定位用的盒子」与「上屏快照盒」从此**同源一致**。
+   * 此前只有 `getMinBoundingBox()` 被覆盖，`__paintWorldBox()` 仍按 width/height 推导
+   * （而折线的 width 曾是 ≈0）→ 快照盒退化 → 局部重绘漏画折线。
+   *
+   * @returns [minX, minY, maxX, maxY]（实例内复用缓冲，需立即读取）
+   */
+  protected __localBox(): number[] {
+    const box = this.__polyBoxScratch;
+    // dots 属运行时缓存、不参与序列化，反序列化后可能为空 —— 这里惰性补齐
+    // （沿用 ICEDotPath.ensureDots 的既有约定；折线的盒子必须由真实点集算出来）
+    this.ensureDots();
+    const dots = this.state.dots;
+    if (!dots || dots.length === 0) {
+      // 空折线（既无 dots 也无 points）：退化为本地原点处的空盒，避免读取 dots[0] 抛错
+      box[0] = 0;
+      box[1] = 0;
+      box[2] = 0;
+      box[3] = 0;
+      return box;
+    }
+    const points = this.calc4VertexPoints();
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      if (p[0] < minX) minX = p[0];
+      if (p[0] > maxX) maxX = p[0];
+      if (p[1] < minY) minY = p[1];
+      if (p[1] > maxY) maxY = p[1];
+    }
+    box[0] = minX;
+    box[1] = minY;
+    box[2] = maxX;
+    box[3] = maxY;
+    return box;
   }
 
   /**

@@ -37,6 +37,9 @@
   引擎**不自建 DOM 镜像层**——镜像的 DOM 结构、ARIA 与文案由应用层决定（参考实现见
   `examples/a11y/a11y-mirror.html`，设计说明见 `docs/architecture/14-accessibility.md`）。
 
+- **`ICE.findComponent` 支持递归查找**：先查顶层（同 id 顶层优先，保持既有优先级），再深度优先
+  递归子树；工具层不参与查找。这样**「连线连接嵌套子组件」**才真正生效
+  （此前只搜 `childNodes` 第一层，嵌套场景的连接会静默失效）。
 - **动画关键帧时间轴**：`animations: { left: { keyframes: [{ offset, value, easing? }], duration } }`。
   `offset` 为 0~1 的时间占比，缺省时按数组顺序均分、超出会被夹紧、乱序会自动排序；`easing` 写在
   **段起始帧**上，只作用于该段（未写则回落到动画级 `easing`）；时间轴之外的取值分别是首帧 / 末帧值（不外推）。
@@ -49,6 +52,18 @@
 
 ### 修复
 
+- **折线的包围盒退化成 ≈0（导致局部重绘漏画折线）**：`ICEPolyLine.calcComponentParams` 用
+  「顶点对相减」（`points[1].x - points[0].x`）推导宽高，但 `ICEPolyLine.calc4VertexPoints()` 返回的
+  是**沿路径排列的笔画带宽顶点**（不是包围盒的左上/右上角）→ 近似水平的折线算出 `width ≈ 0`。
+  更关键的是存在**两条各自算盒子的路径**：`getMinBoundingBox()`（被折线覆盖为顶点盒，正确）与
+  `ICEComponent.__paintWorldBox()`（按 width/height 推导，退化）。后者用于上屏快照盒，于是
+  dirty-rect 按快照盒挑选「需要重画的对象」时会漏掉折线 → 被擦除区域内的折线笔迹丢失
+  （表现为 full 与 dirty-rect 的像素分歧，且只在「连线真正连上嵌套宿主」时才暴露）。
+  修法：抽 `ICEComponent.__localBox()` 作为本地盒**唯一来源**（两条路径都消费它，从此必然一致），
+  折线覆盖该方法给出真实带宽盒；`calcComponentParams` 改为取带宽顶点 min/max；
+  并修掉 `splitEndpointsTo4Points()` 的**循环依赖**（它拿 `state.height` 当线宽输入，而 height 又是
+  它的输出 → 结果随上一次的 height 漂移，首帧还读到默认哨兵值 10）。
+- **折线宽度/高度不再依赖「上一次的 height」**：同上，反复量测现在结果稳定。
 - **`composeMatrix()` 会累积平移点集（潜在漂移）**：`ICEDotPath.calcLocalOrigin()` 会就地把 `dots` 平移到
   「以 origin 为原点」，而旧实现每次 compose 都**无条件**再平移一个 origin —— 连续 `composeMatrix()`
   会让点集依次偏移 1/2/3 个原点。因此此前所有调用方都必须严格保证「compose 之前先重算 dots」，
@@ -121,13 +136,8 @@
 
 ### 已知限制（未修，附修复顺序）
 
-- **`ICE.findComponent` 只搜顶层**：树内（嵌套）子组件与工具层都查不到，因此「连线连接嵌套子组件」
-  在引擎侧不生效。改成递归后该能力会生效，但实测会破坏「两条渲染路径逐像素一致」这一不变量
-  （`dirty-rect-pixel` 富场景 step1 差异）。
-  2026-09-11 复测：把「连线端点改为建立连接时现场同步重算、不依赖宿主 `AFTER_RENDER`」这一步做完后，
-  放开递归仍残留 **489 px** 差异（此前约 900 px）——即该前置条件**必要但不充分**，剩余根因在
-  局部重绘的 clip 边界与描边抗锯齿 / 重绘区域未覆盖宿主移动边缘一侧，需单独排查。
-  当前保守行为由 `tests/consistency/consistency.test.ts` 锁定。
+- **`ICE.findComponent` 只搜顶层**（已修，见「新增」）——原「已知限制」条目已解除：根因不是
+  连线端点推导，而是折线包围盒退化，详见下方「修复」。
 
 ### 性能
 

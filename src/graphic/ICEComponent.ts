@@ -125,6 +125,9 @@ abstract class ICEComponent extends ICEEventTarget {
 
   protected __dirty: boolean = true;
 
+  // __localBox() 的复用缓冲（避免每帧为每个组件的包围盒分配数组）
+  private __localBoxScratch: number[] = [0, 0, 0, 0];
+
   /**
    * 「自身派生参数需要重算」标志（尺寸 / 点集 / 文本量测等，由 calcComponentParams 产出）。
    *
@@ -430,6 +433,29 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   protected calcComponentParams() {
     return { width: this.state.width, height: this.state.height };
+  }
+
+  /**
+   * 组件**本地包围盒**（未变换、未减去原点），写入并返回 [x0, y0, x1, y1]。
+   *
+   * 默认约定：几何自本地 (0,0) 起、尺寸为 `state.width/height`。
+   * **子类若几何不遵守该约定必须覆盖本方法** —— 例如 `ICEPolyLine` 的本地原点固定为 (0,0)，
+   * 而点集可以含负坐标，此时 [0,0,w,h] 并非它的真实盒子。
+   *
+   * `getMinBoundingBox()` 与 `__paintWorldBox()` 都消费本方法，因此两者**必然一致**。
+   * 这两者以前各算各的：`__paintWorldBox()` 直接由 width/height 推导，而折线的 `width ≈ 0`
+   * （见 ICEPolyLine.calcComponentParams 的历史实现）→ 它上屏快照是个退化小盒 →
+   * dirty-rect 按快照盒挑选「需要重画的组件」时会漏掉折线，导致擦除区域内折线笔迹丢失。
+   *
+   * 注意：返回的是实例内复用缓冲，调用方应**立即读取**，不要持有。
+   */
+  protected __localBox(): number[] {
+    const box = this.__localBoxScratch;
+    box[0] = 0;
+    box[1] = 0;
+    box[2] = this.state.width || 0;
+    box[3] = this.state.height || 0;
+    return box;
   }
 
   /**
@@ -752,23 +778,15 @@ abstract class ICEComponent extends ICEEventTarget {
     // —— 盒子会偏一个原点（控制面板/连线插槽首次定位偏移的根因）。
     const matrix = refresh ? this.composeMatrix() : this.state.composedMatrix;
 
-    //再基于组件本地坐标系进行计算
+    //再基于组件本地坐标系进行计算（本地盒由 __localBox() 提供，与 __paintWorldBox() 同源）
     const originX = this.state.localOrigin[0];
     const originY = this.state.localOrigin[1];
-    const width = this.state.width;
-    const height = this.state.height;
-    let boundingBox = new ICEBoundingBox([
-      0 - originX,
-      0 - originY,
-      0 - originX + width,
-      0 - originY,
-      0 - originX,
-      0 - originY + height,
-      0 - originX + width,
-      0 - originY + height,
-      0,
-      0,
-    ]);
+    const lb = this.__localBox();
+    const x0 = lb[0] - originX;
+    const y0 = lb[1] - originY;
+    const x1 = lb[2] - originX;
+    const y1 = lb[3] - originY;
+    let boundingBox = new ICEBoundingBox([x0, y0, x1, y0, x0, y1, x1, y1, 0, 0]);
 
     //再用 composedMatrix 进行变换
     boundingBox = boundingBox.transform(matrix);
@@ -1013,26 +1031,27 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   /**
-   * @internal 渲染器专用：用「当前的 composedMatrix + width/height/localOrigin」计算世界轴对齐包围盒
-   * [minX, minY, maxX, maxY]，零分配（手动 4 角变换，不复用 vec2 以免每帧分配）。
+   * @internal 渲染器专用：用「当前的 composedMatrix + __localBox() + localOrigin」计算世界轴对齐
+   * 包围盒 [minX, minY, maxX, maxY]，零分配（手动 4 角变换，不复用 vec2 以免每帧分配）。
    * 前置条件：调用方已保证 composedMatrix 新鲜（render 之后 / composeMatrix 之后）。
    */
   public __paintWorldBox(out: any = [0, 0, 0, 0]): number[] {
     const m = this.state.composedMatrix;
-    const w = this.state.width || 0;
-    const h = this.state.height || 0;
     const origin = this.state.localOrigin;
     const ox = origin ? origin[0] : 0;
     const oy = origin ? origin[1] : 0;
+    const lb = this.__localBox();
+    const xs = [lb[0] - ox, lb[2] - ox];
+    const ys = [lb[1] - oy, lb[3] - oy];
     out[0] = out[1] = Infinity;
     out[2] = out[3] = -Infinity;
 
     if (!m || m.length < 6) {
       // 未合成过矩阵：退回本地几何（此时若真上屏，render 会先合成）
-      out[0] = -ox;
-      out[1] = -oy;
-      out[2] = w - ox;
-      out[3] = h - oy;
+      out[0] = xs[0];
+      out[1] = ys[0];
+      out[2] = xs[1];
+      out[3] = ys[1];
       return out;
     }
     const a = m[0];
@@ -1041,8 +1060,6 @@ abstract class ICEComponent extends ICEEventTarget {
     const d = m[3];
     const e = m[4];
     const f = m[5];
-    const xs = [-ox, w - ox];
-    const ys = [-oy, h - oy];
     for (let i = 0; i < 2; i++) {
       const lx = xs[i];
       for (let j = 0; j < 2; j++) {

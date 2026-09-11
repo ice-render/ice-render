@@ -396,22 +396,40 @@ class ICE {
   /**
    * 按 id 查找组件。
    *
-   * 注意：旧实现只搜 `childNodes` 第一层，导致「树内子组件」永远找不到 ——
-   * 连线建立连接（`ICEPolyLine.syncConnections` → `findComponent`）因此对嵌套场景完全失效。
-   * 现在先查顶层（保持既有优先级），再递归整棵树（含工具层）。
-   */
-  /**
-   * 按 id 查找组件。
+   * 查找范围：**先查顶层 `childNodes`**（同 id 时顶层优先，保持既有优先级），再深度优先递归整棵
+   * 子树。「连线连接嵌套子组件」依赖本方法（`ICEPolyLine.syncConnections` → 本方法）。
    *
-   * 已知限制：**只搜 `childNodes` 第一层**，树内（嵌套）子组件查不到 ——
-   * 因此「连线连接嵌套子组件」在引擎侧不生效（`ICEPolyLine.syncConnections` → 本方法返回
-   * undefined）。这是刻意的保守选择：改成递归会让嵌套连线真正生效，但实测会激活
-   * 「连线端点推导 vs 局部重绘」的既有像素不稳定（`dirty-rect-pixel` 富场景 step1 报 899 px 差异）。
-   * 修复顺序应为：先把连线端点改为**渲染期自推导**（不依赖宿主事件），再放开递归查找。
-   * 回归用例：`tests/consistency/consistency.test.ts` 的「查找范围」用例记录了当前行为。
+   * **工具层 `toolNodes` 不参与查找**：工具是 UI 覆盖层（变换/连线手柄等），不应成为连线端点。
+   *
+   * 历史：早期只搜第一层，嵌套场景连线会静默失效；中途曾尝试放开递归但被回退 ——
+   * 当时表现为 `dirty-rect-pixel` 富场景 step1 约 900 px 差异，看起来像「连线端点推导与局部重绘
+   * 冲突」，实际根因是**折线的包围盒是退化的**（`state.width ≈ 0`），导致 dirty-rect 按快照盒
+   * 挑选重画对象时漏掉折线（擦除区域内的折线笔迹丢失）。该根因已修（见 `ICEComponent.__localBox`
+   * 与 `ICEPolyLine.calcComponentParams`），因此递归可以放开。
    */
   public findComponent(id: string) {
-    return this.childNodes.filter((item) => item.props.id === id)[0];
+    if (!id) {
+      return undefined;
+    }
+    const top = this.childNodes.filter((item) => item.props.id === id)[0];
+    return top || this.__findComponentInTree(this.childNodes, id);
+  }
+
+  /** 深度优先查找子树（不含工具层）。 */
+  private __findComponentInTree(nodes: any[], id: string): any {
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      if (node.props && node.props.id === id) {
+        return node;
+      }
+      if (node.childNodes && node.childNodes.length) {
+        const hit = this.__findComponentInTree(node.childNodes, id);
+        if (hit) {
+          return hit;
+        }
+      }
+    }
+    return undefined;
   }
 
   public set dirty(flag: boolean) {
