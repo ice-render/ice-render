@@ -37,6 +37,10 @@
   引擎**不自建 DOM 镜像层**——镜像的 DOM 结构、ARIA 与文案由应用层决定（参考实现见
   `examples/a11y/a11y-mirror.html`，设计说明见 `docs/architecture/14-accessibility.md`）。
 
+- **包完整性门禁 `npm run pkg:check`**：`publint`（`exports`/`types`/`files` 契约）+ `attw`
+  （类型在 `node10` / `node16`(CJS/ESM) / `bundler` 各解析模式下是否正确），已接入 CI。
+- **jest 覆盖率门槛**：`collectCoverageFrom` 改为全量 `src`，并按实测基线设「只许上调」的棘轮门槛
+  （语句 65 / 分支 58 / 函数 72 / 行 65）；CI 单测改为 `npm test -- --coverage`。
 - **`ICE.findComponent` 支持递归查找**：先查顶层（同 id 顶层优先，保持既有优先级），再深度优先
   递归子树；工具层不参与查找。这样**「连线连接嵌套子组件」**才真正生效
   （此前只搜 `childNodes` 第一层，嵌套场景的连接会静默失效）。
@@ -170,6 +174,20 @@
    （由 pointer 事件归一化而来），既有代码无需改动；新增可用 `'pointerdown'` 等原生名。
 6. **CI 不跑 golden 图像比对**：`e2e/visual/visual.spec.ts` 的基线图按平台命名（`*-darwin.png`），
    跨平台必然失败。请在生成基线的同一环境本地运行 `npm run test:visual`。
+
+### 需要注意（打包产物路径变更，**可能影响深链引用**）
+
+- **入口文件名变更**：`dist/index.js` → **`dist/index.mjs`**（ESM）、`dist/index.cjs.js` → **`dist/index.cjs`**（CJS）。
+  原因：旧布局下 package.json 没有 `type` 字段，按 Node 规范 `.js` 即 CJS，而 ESM 产物却叫 `.js`
+  —— 包元数据与实际产物不一致，导致 **TS 在 ESM 解析模式下把类型当 CJS 处理**（`attw` 报
+  `Unexpected module syntax`，`publint` 报 types 歧义）。现代 Node（≥22.7）的语法探测会掩盖运行时症状，
+  但旧版 Node 与严格工具链不会。
+- **影响面**：用裸包名 `ice-render`（经 `exports` 解析）的用法**不受影响**；
+  但**直接写死文件路径**的深链引用（如 `ice-render/dist/index.js`）会 404，需改为 `.mjs` / `.cjs`。
+  一次性 CDN 引用 `dist/index.umd.js` **未变**。
+- 同时：`rollup.config.js` → `rollup.config.mjs`（因为新增了 `"type": "commonjs"`）；
+  `repository` 字段由字符串改为 `{ type, url }` 对象式。
+- 若你更在意深链兼容性，建议把这一批次发为 **2.0.0**；否则请在 1.1.0 的升级说明里保留本段。
 
 ### 需要注意（自定义组件）
 

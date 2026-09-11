@@ -1,7 +1,7 @@
 /**
  * bench/micro 微基准共享 fixture。
  *
- * 加载构建产物 dist/index.cjs.js（CJS），构造 stub ctx 驱动的引擎场景，
+ * 加载构建产物 dist/index.cjs（CJS），构造 stub ctx 驱动的引擎场景，
  * 供各 .bench.mjs 用例使用。注意：
  *  - 微基准直接消费 dist，改动 src/ 后需先 `npm run build` 再跑 `npm run bench:micro`。
  *  - 本套件只测「引擎 JS 逻辑层」开销，不含真实 canvas 光栅化（ctx 为 no-op 桩）。

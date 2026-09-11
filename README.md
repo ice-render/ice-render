@@ -105,7 +105,7 @@ const ice = new ICE().init('canvas-1');
 ice.addChild(new ICERect({ width: 100, height: 50 }));
 ```
 
-发布包提供 **ESM（`dist/index.js`）/ CJS（`dist/index.cjs.js`）/ UMD（`dist/index.umd.js`）** 三种格式。
+发布包提供 **ESM（`dist/index.mjs`）/ CJS（`dist/index.cjs`）/ UMD（`dist/index.umd.js`）** 三种格式。
 
 ## 📚 文档
 
