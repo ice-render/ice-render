@@ -267,17 +267,19 @@ class CanvasRenderer extends ICEEventTarget {
     // 脏组件占比过高 → 相交裁剪收益小
     if (preComp.visible > 0 && preComp.dirty / preComp.visible > FULL_FALLBACK_DIRTY_RATIO) return null;
 
-    // 场景级门控：场景里存在「非不透明落墨 / 点集路径 / 文本」任一可见组件就回退全量。
-    // clip 边界与半透明落墨、字形、折线/星形抗锯齿边缘相交会产生与全量不一致的接缝，
-    // 因此采取保守的「整场景」判定，正确性优先。
-    if (!this.__sceneAllowsPartial()) return null;
-
     const region = emptyBox();
     if (!this.__unionDirtyRegions(region, this.componentQueue)) return null;
     if (!this.__unionDirtyRegions(region, this.toolsQueue)) return null;
     if (!isFiniteBox(region)) return null;
     integerAlign(region);
     if (regionRatio(region, cw, ch) > FULL_FALLBACK_AREA_RATIO) return null;
+
+    // 相交级门控（替代原先的「整场景」门控）：clip 边界与半透明落墨 / 字形 / 点集路径的
+    // 抗锯齿边缘相交会产生与全量不一致的接缝，但**只有真正与本次脏区域相交的那些组件**
+    // 才有风险。屏外的同类组件不影响本区域，因此按「盒是否与区域相交」逐个判定即可。
+    // 这样含文本/星形/控制面板的编辑器场景也能真正用上局部重绘。
+    if (this.__riskyIntersectsRegion(region, this.componentQueue)) return null;
+    if (this.__riskyIntersectsRegion(region, this.toolsQueue)) return null;
 
     return { region };
   }
@@ -329,23 +331,39 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   /**
-   * 场景级门控：任一可见组件是点集路径/文本，或存在非不透明落墨，则不开放局部重绘。
+   * 相交级门控：判断「对本帧脏区域有 AA 风险的组件」是否真的与区域相交。
+   *
+   * 有风险的类别（与整场景门控时代一致）：
+   * - 点集路径（星形/正N边形/玫瑰/折线）：clip 会切断折线抗锯齿边缘
+   * - 文本：clip 会改变字形 AA
+   * - 非不透明落墨（rgba/hsla 色、阴影、globalAlpha≠1、非 source-over）
+   *
+   * 例外：已离屏缓存的组件在主画布上只是 drawImage（不透明位图整像素采样），
+   * 不再受 clip 影响，因此不阻塞。
+   *
+   * **刚变脏的 risky 组件一律回退**：它本轮要重建位图/重算参数，而实际墨迹范围可能超出
+   * 几何盒（文本的字形与描边尤甚，实测「文本内容变更」时墨迹会超出盒若干像素），
+   * 在 clip 下重绘无法保证与全量逐像素一致。dirty-rect 像素回归正是靠这条兜住的。
+   *
+   * 干净的 risky 组件才做相交判定，盒取上屏快照（世界轴对齐盒，含 paint pad）；
+   * 快照缺失（从未上屏）时无法判定 → 保守回退。
    */
-  private __sceneAllowsPartial(): boolean {
-    const check = (queue: any[]): boolean => {
-      for (let i = 0; i < queue.length; i++) {
-        const c = queue[i];
-        if (!c.state.display) continue;
-        if (this.__isDotPath(c) || this.__isText(c) || !isOpaqueDrawing(c.state)) {
-          // 已离屏缓存的文本：主画布只 drawImage（不透明位图），clip 只作用于位图的
-          // 整像素采样，不再改变字形/半透明落墨内部 AA，因此不再阻塞局部重绘。
-          if (this.cache.isCachable(c) && this.cache.has(c)) continue;
-          return false;
-        }
-      }
-      return true;
-    };
-    return check(this.componentQueue) && check(this.toolsQueue);
+  private __riskyIntersectsRegion(region: number[], queue: any[]): boolean {
+    for (let i = 0; i < queue.length; i++) {
+      const c = queue[i];
+      if (!c.state.display) continue;
+      const risky = this.__isDotPath(c) || this.__isText(c) || !isOpaqueDrawing(c.state);
+      if (!risky) continue;
+      // 变脏 → 无条件回退（见上方说明）
+      if (c.dirty) return true;
+      // 干净的已缓存组件：主画布只是 drawImage 不透明位图，clip 不影响 → 不阻塞
+      if (this.cache.isCachable(c) && this.cache.has(c)) continue;
+
+      const box: any = this.__snap.get(c);
+      if (!box) return true; // 干净但无快照：没有可信盒子 → 保守回退
+      if (intersects(box as any, region)) return true;
+    }
+    return false;
   }
 
   private __renderDirtyRect(plan: { region: number[] }) {
