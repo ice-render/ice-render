@@ -94,5 +94,20 @@
           arrow:'end',//none,start,end,both
         });
         ice.addChild(line1);
+
+        // 箭头样式对比：arrowStyle 默认 'filled'（实心，用线色填充）；'hollow' 是旧的空心描边观感。
+        // 这条用 both + hollow，正好和上面 line1 的 end + filled 形成对照。
+        let line2 = new ICE.ICEPolyLine({
+          left: 0,
+          top: 0,
+          points: [[500, 580],[600, 680]],
+          style: {
+            strokeStyle: '#22C55E',
+            lineWidth: 2,
+          },
+          arrow: 'both',
+          arrowStyle: 'hollow',
+        });
+        ice.addChild(line2);
   </script>
 </html>
