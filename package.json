@@ -1,7 +1,7 @@
 {
   "author": "大漠穷秋",
   "name": "ice-render",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A canvas engine for interactive graphics.",
   "repository": {
     "type": "git",
@@ -44,7 +44,6 @@
     "test:visual": "playwright test",
     "lint": "eslint src tests e2e --ext .ts,.js",
     "lint:fix": "eslint src tests e2e --ext .ts,.js --fix",
-    "prepare": "husky install",
     "bench": "node bench/render.cjs",
     "bench:micro": "node bench/micro/index.mjs",
     "pkg:lint": "publint",
