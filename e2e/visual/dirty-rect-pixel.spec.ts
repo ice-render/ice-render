@@ -34,6 +34,14 @@ async function runSteps(page: any, url: string, requirePartial: boolean) {
   return { stepResults, collectOk: stats.collectOk };
 }
 
+/**
+ * 富场景：含旋转 / 文本 / 阴影 / **已连接的折线** / 控制面板，覆盖「回退边界」。
+ *
+ * 注意：本场景预期**稳定回退全量**（`局部执行=0`），这不是失败 ——
+ * 折线属于「clip 会切断描边抗锯齿」的风险类别（见 CanvasRenderer.__riskyIntersectsRegion），
+ * 而它在连上宿主后包围盒是真实且较大的，因此与任何脏区域都相交 → 回退全量。
+ * 局部重绘是否真正执行由下面几个 `opaque` 场景断言（`collectOk > 0`）。
+ */
 test('富场景：dirty-rect 与 full 逐步逐像素一致（含回退边界）', async ({ page }) => {
   const { stepResults, collectOk } = await runSteps(page, '/e2e/visual/fixtures/dirty-rect-compare.html', false);
   console.log(`[dirty-rect-pixel:rich] 10 步全部一致（局部执行=${collectOk} 次）`);

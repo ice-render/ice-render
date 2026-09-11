@@ -82,6 +82,13 @@ this.setPosition(this.state.left + point[0], this.state.top + point[1]);
 
 ## 边界盒
 
+- **`__localBox()`：本地盒的「唯一来源」** —— 返回 `[x0, y0, x1, y1]`（未变换、未减原点），
+  默认 `[0, 0, width, height]`。`getMinBoundingBox()` 与渲染器的 `__paintWorldBox()` **都消费它**，
+  因此「面板/插槽定位用的盒子」与「上屏快照盒」**必然一致**。几何不遵守默认约定的组件
+  （如 `ICEPolyLine`：原点固定在起点、点集可含负坐标）必须覆盖本方法。
+  只让其中一条路径覆盖、另一条自行推导会造成二者不一致（历史上折线 `width ≈ 0` →
+  快照盒退化 → 脏矩形局部重绘漏画折线，详见 [13](13-gap-analysis.md) §4.4）。
 - `getMinBoundingBox()`：随组件一起旋转/错切的最小包围盒（4 角用 `composedMatrix` 变换）。
 - `getMaxBoundingBox()`：保持水平竖直的 AABB（4 边在全局 X/Y 轴上的投影范围）。
+- `__paintWorldBox(out)`：渲染器专用的零分配快照盒（手动 4 角变换），与 `getMinBoundingBox()` 同源。
 - 二者用于碰撞检测（连接线插槽）与选择高亮。旋转 90° 时 AABB 宽高会互换，回归用例见 `tests/graphic/transform-edge.test.ts`。

@@ -38,29 +38,37 @@ function beforeRemoveCount(c: any): number {
 
 describe('findComponent 查找范围（记录当前行为与已知限制）', () => {
   /**
-   * 已知限制：只搜 `childNodes` 第一层，树内（嵌套）子组件与工具层都查不到。
+   * 查找范围：**先顶层（同 id 顶层优先），再深度优先递归子树**；工具层不参与查找。
    *
-   * 这不是新引入的问题，而是**刻意保留**的保守行为：把查找改成递归会让「连线连接嵌套子组件」
-   * 真正生效，但实测会激活「连线端点推导 vs 局部重绘」的既有像素不稳定——
-   * `e2e/visual/dirty-rect-pixel.spec.ts` 富场景 step1 出现差异
-   * （A=full 画布为抗锯齿混合色，B=dirty-rect 画布为饱和纯色，位于被拖动图元底边 3px 带）。
-   *
-   * **2026-09-11 复测**：步骤 ①（连线端点不再依赖宿主 `AFTER_RENDER`，改为建立连接时现场同步重算）
-   * 已完成，但放开递归后富场景 step1 仍有 **489 px** 差异（此前约 900 px）——即该前置条件
-   * **必要但不充分**，剩余根因在「局部重绘的 clip 边界与连线描边抗锯齿 / 重绘区域未覆盖宿主移动边缘」
-   * 一侧，需要单独排查。因此本用例继续锁定「只查顶层」的保守行为；修复后应改为断言递归命中。
+   * 递归是「连线连接嵌套子组件」能生效的前提。2026-09-11 之前只搜顶层，是因为放开递归会让
+   * `dirty-rect-pixel` 富场景 step1 出现约 900 px 差异；后经定位，根因**不是**连线端点推导，
+   * 而是**折线包围盒退化**（`ICEPolyLine` 的 `state.width ≈ 0` → 上屏快照盒退化 →
+   * 局部重绘挑不中折线 → 擦除区域内的折线笔迹丢失）。该缺陷已修（`ICEComponent.__localBox` +
+   * `ICEPolyLine.calcComponentParams`），像素回归恢复 100% 一致，故放开递归。
    */
-  it('已知限制：嵌套子组件查不到（改为递归前需先修连线端点推导）', () => {
+  it('嵌套子组件可命中（递归查找）', () => {
     const ice = makeIce();
     const group: any = new ICEGroup({ width: 100, height: 100 });
     const nested: any = new ICERect({ width: 10, height: 10 });
     group.addChild(nested);
     ice.addChild(group);
 
-    expect(ice.findComponent(nested.props.id)).toBeUndefined();
+    expect(ice.findComponent(nested.props.id)).toBe(nested);
   });
 
-  it('已知限制：工具层组件查不到（与历史行为一致）', () => {
+  it('多层嵌套也能命中', () => {
+    const ice = makeIce();
+    const outer: any = new ICEGroup({ width: 100, height: 100 });
+    const inner: any = new ICEGroup({ width: 50, height: 50 });
+    const deep: any = new ICERect({ width: 10, height: 10 });
+    inner.addChild(deep);
+    outer.addChild(inner);
+    ice.addChild(outer);
+
+    expect(ice.findComponent(deep.props.id)).toBe(deep);
+  });
+
+  it('工具层组件不参与查找（工具是 UI 覆盖层，不应成为连线端点）', () => {
     const ice = makeIce();
     const tool: any = new ICERect({ width: 10, height: 10 });
     ice.addTool(tool);

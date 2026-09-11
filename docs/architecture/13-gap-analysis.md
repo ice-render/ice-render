@@ -242,12 +242,28 @@
 - ✅ `AnimationManager` 的 motion token（`duration`/`easing` 语义名）也改用实例主题。
 - ✅ 新增 `resolveTheme()`：解析主题但不修改任何全局状态（实例级主题的基础）。
 
-### 4.4 连线与工具
-- ⏸ `ICE.findComponent`（`ICE.ts`）**只搜 `childNodes` 第一层**，树内子组件无法被连线连接。
-  2026-09-11 复测：把查找改成递归后，连线的嵌套端点**确实能命中**，但 `dirty-rect-pixel` 富场景
-  step1 仍报 **489 px** 差异（此前约 900 px）→ 说明文档中记的前置条件（连线端点改为渲染期自推导、
-  不依赖宿主 `AFTER_RENDER`）**必要但不充分**，剩余根因在局部重绘的 clip 边界与描边抗锯齿 /
-  重绘区域未覆盖宿主移动边缘那一侧。故继续保留保守行为，等待单独排查。
+### 4.4 连线与工具（**2026-09-11 已完成**）
+- ✅ **`ICE.findComponent` 改为递归查找**（2026-09-11）：先查顶层（同 id 顶层优先，保持既有优先级），
+  再深度优先递归子树；**工具层不参与查找**（工具是 UI 覆盖层，不应成为连线端点）。
+  这样「连线连接嵌套子组件」在引擎侧真正生效。
+  - 该项此前被**误判**为「放开递归会与局部重绘冲突」：实测 step1 有约 900 px 差异，于是记为
+    「前置条件：先把连线端点改为渲染期自推导」。2026-09-11 把那个前置条件做完后复测，差异只降到
+    489 px —— 说明方向错了。
+  - **真正的根因**：折线的包围盒是**退化的**。`ICEPolyLine.calcComponentParams` 用「顶点对相减」
+    （`points[1].x - points[0].x`）推导宽高，而 `ICEPolyLine.calc4VertexPoints()` 返回的是沿路径
+    排列的**笔画带宽顶点**（不是包围盒的左上/右上角）→ 近似水平的折线算出 `width ≈ 0`；同时
+    `ICEComponent.__paintWorldBox()` 又是**另一条**由 width/height 推导盒子的路径（`getMinBoundingBox()`
+    被折线覆盖过、`__paintWorldBox()` 没有）→ 上屏快照盒退化 → 局部重绘按快照盒挑选「需要重画的对象」
+    时**漏掉折线** → 被擦除区域内的折线笔迹丢失。
+  - 修法：把「本地盒」抽成唯一来源 `ICEComponent.__localBox()`（`getMinBoundingBox()` 与
+    `__paintWorldBox()` 都消费它，从此**必然一致**），折线覆盖该方法给出真实带宽盒；
+    `calcComponentParams` 改为取带宽顶点的 min/max；并修掉 `splitEndpointsTo4Points` 的
+    **循环依赖**（它用 `state.height` 当线宽输入，而 height 又是它的输出 → 结果随上一次的 height 漂移，
+    首帧还读到默认哨兵值 10）。
+  - **副作用（需知）**：折线连上后包围盒变真实、且在大场景里往往很大，而折线属于「clip 会切断描边
+    抗锯齿」的风险类别 → 富场景会**稳定回退全量**（`dirty-rect-pixel:rich` 的 `局部执行=0`）。
+    这是**正确的保守行为**：此前「能走局部重绘」恰恰是因为盒子退化漏画了折线。要恢复局部重绘，
+    需要先解决折线描边的 clip-AA 一致性（与 [04](04-rendering-performance.md) 里 v2 的门控细化是同一件事）。
 - 连接插槽为**全局共享的 5 个固定实例**（T/R/B/L/C，`graphic/link/ICELinkSlotManager.ts:204-288`），无法为多组件同时展示端口，也不支持自定义锚点。
 - `ICELinkSlot.updatePosition` 在 `AFTER_RENDER` 内 `setState`（`graphic/link/ICELinkSlot.ts:91,97`）→ 置脏 → 下帧再渲染 → 再 setState：**只要有 linkable 组件，画面永不空闲**。
 
@@ -362,7 +378,7 @@
 | 2026-09-10 | P1-5 插件三层注册点（组件/渲染/交互工具）+ 生命周期 `use`/`unuse` | ✅ 已完成 |
 | 2026-09-10 | P1-4 无障碍原语（`getAccessibilityTree` / `setFocusedComponent`，方案 B）+ 文档 14 + 示例 | ✅ 已完成 |
 | 2026-09-10 | P2 一致性簇：AFTER_REMOVE、监听器累积、插槽每帧置脏、`flattenTree` 的 `_pid`、`destroy` 别名、`getMinBoundingBox` 取值顺序 | ✅ 已完成 |
-| 2026-09-11 | P2 `findComponent` 递归查找 | ⏸ 前置条件（端点不依赖宿主 `AFTER_RENDER`）已完成并复测：递归可命中嵌套端点，但富场景 step1 仍有 489 px 差异（原约 900 px）→ 前置必要不充分，保留保守行为并记录剩余根因方向 |
+| 2026-09-11 | P2 `findComponent` 递归查找 | ✅ 已完成（真根因是折线包围盒退化：`__paintWorldBox` 与 `getMinBoundingBox` 两条盒路径不一致 → 局部重绘漏画折线；已抽 `__localBox` 统一并修掉 `splitEndpointsTo4Points` 的循环依赖） |
 | 2026-09-10 | P2 动画：点路径 / delay / 取整策略 / 拒绝 NaN / interactive 保留 / 销毁摘除 | ✅ 已完成 |
 | 2026-09-11 | P2 动画剩余：keyframe 时间轴、spring 类缓动、数组字段补间 | ✅ 已完成（含结束判定改按时间、非法 duration 空转修复；单测 + 示例集成全绿） |
 | 2026-09-10 | P2 布局：增删自动重排、排布前测量、新容器继承布局 | ✅ 已完成 |
