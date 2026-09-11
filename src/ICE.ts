@@ -24,6 +24,7 @@ import CanvasRenderer from './renderer/CanvasRenderer';
 import ImageCache from './util/ImageCache';
 import { setTheme, getTheme, registerTheme, ICETheme, ICESemanticTheme } from './theme/ICETheme';
 import { flattenTree } from './util/data-util';
+import { HIT_BOX_TOLERANCE } from './renderer/dirty-rect-util';
 
 /**
  * @class ICE
@@ -471,10 +472,28 @@ class ICE {
     const [wx, wy] = this.screenToWorld(sx, sy);
     const all = flattenTree([], this.childNodes).concat(flattenTree([], this.toolNodes));
     all.sort((a: any, b: any) => a.state.zIndex - b.state.zIndex);
+    //@perf 命中预筛：复用渲染快照的世界盒做 O(1) 拒绝（与 DOMEventDispatcher 同一策略）
+    const renderer: any = this.renderer;
+    const canScreen = renderer && typeof renderer.getWorldBox === 'function';
     for (let i = all.length - 1; i >= 0; i--) {
       const component = all[i];
       if (component.isControlPanel) continue;
-      if (component.state.display !== false && component.state.interactive && component.containsPoint(wx, wy)) {
+      if (component.state.display === false || !component.state.interactive) {
+        continue;
+      }
+      if (canScreen) {
+        const box: any = renderer.getWorldBox(component);
+        if (
+          box &&
+          (wx < box[0] - HIT_BOX_TOLERANCE ||
+            wx > box[2] + HIT_BOX_TOLERANCE ||
+            wy < box[1] - HIT_BOX_TOLERANCE ||
+            wy > box[3] + HIT_BOX_TOLERANCE)
+        ) {
+          continue;
+        }
+      }
+      if (component.containsPoint(wx, wy)) {
         return component;
       }
     }
