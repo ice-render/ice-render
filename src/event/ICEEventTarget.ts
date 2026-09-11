@@ -81,7 +81,11 @@ abstract class ICEEventTarget {
     arr = [...arr];
     for (let i = 0; i < arr.length; i++) {
       const item = arr[i];
-      if (item.callback === fn && item.scope === scope) {
+      // `once` 注册的是包装函数，原始回调挂在它的 __onceOriginal 上（见 once()），两者都要匹配，
+      // 否则「once 注册的监听」无法被提前摘除。
+      const cb: any = item.callback;
+      const matched = cb === fn || (cb && cb.__onceOriginal === fn);
+      if (matched && item.scope === scope) {
         this.listeners[eventName].splice(i, 1);
         return;
       }
@@ -138,6 +142,11 @@ abstract class ICEEventTarget {
       that.off(eventName, callback, scope);
       fn.call(scope, evt);
     }
+
+    // 记录原始回调：否则外部 `off(eventName, fn, scope)` 永远匹配不到这个包装函数
+    // （内部 on 存的是 callback，而调用方传的是 fn）→ 监听**无法提前摘除**，只能等它自己触发一次。
+    // 这会直接造成「组件已销毁，但悬挂在总线上的 once 监听仍会在事件到来时操作已销毁对象」。
+    (callback as any).__onceOriginal = fn;
 
     that.on(eventName, callback, scope);
   }

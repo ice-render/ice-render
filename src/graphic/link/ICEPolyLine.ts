@@ -195,6 +195,14 @@ class ICEPolyLine extends ICEDotPath {
    *
    */
   protected syncConnections() {
+    // 未挂载到 ICE（尚未 addChild，或已经 destory）时不处理：本方法依赖 this.ice
+    // （createLink → this.ice.findComponent），此前会直接抛 TypeError。
+    // 另外这条 once 监听挂在 **ICE 总线**上，不在本组件的 listeners 里，purgeEvents() 清不掉它，
+    // 因此销毁后仍可能被 ROUND_FINISH 触发（应用层 undo/redo 批量增删连线就会命中）——这里再守一道。
+    if (!this.ice) {
+      return;
+    }
+
     //在尝试建立连接之前首先尝试删除当前的所有连接关系。
     this.removeLink('start');
     this.removeLink('end');
@@ -943,6 +951,13 @@ class ICEPolyLine extends ICEDotPath {
    * @method destory
    */
   public destory(): void {
+    // 先摘掉挂在 ICE 总线上的 ROUND_FINISH 监听：它不在本组件自己的 listeners 里，
+    // purgeEvents() 清不掉 → 不显式 off 的话，销毁后下一轮渲染完成时仍会触发 syncConnections，
+    // 去操作一个 this.ice 已为 null 的组件（应用层 undo/redo 批量增删连线时可复现）。
+    // 必须在 super.destory() 之前做（后者会把 this.evtBus 置空）。
+    if (this.evtBus) {
+      this.evtBus.off(ICE_EVENT_NAME_CONSTS.ROUND_FINISH, this.syncConnections, this);
+    }
     this.removeLink('start');
     this.removeLink('end');
     super.destory();
