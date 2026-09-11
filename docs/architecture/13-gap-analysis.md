@@ -1,9 +1,14 @@
 # 13 · 能力缺口分析（对标主流引擎）
 
 > 日期：2026-09-10
-> 方法：通读 `src/` 全部 62 个文件（10,300 行）+ 构建/测试/CI/文档全量核对，并外部对标 12 个主流开源与商业图形/图表引擎（按约定去名化，仅以类别描述）。
+> 方法（评估当日口径，2026-09-11 已增至 67 个文件 / 12,500 余行）：通读 `src/` 全部 62 个文件（10,300 行）+ 构建/测试/CI/文档全量核对，并外部对标 12 个主流开源与商业图形/图表引擎（按约定去名化，仅以类别描述）。
 > 约定：本文**不点名任何竞品**，一律以类别/通行做法描述。
 > 目的：回答「对这样一款引擎，**应该做而没做**的是什么」，用于排优先级。**本文是评估记录，不是实现计划**；每项落地应另走 superpowers 闭环（spec → plan → TDD）。
+>
+> **阅读须知（2026-09-11 起）**：本文是**滚动更新**的文档 —— **§1 结论速览**每行都带「评估时 vs 当前」双列对照，
+> **§8 进展表**是逐条落地记录与验证证据。§2 / §3 / §4 的正文**保留评估当天的原始描述与代码证据（含行号）**，
+> 它回答的是「当时凭什么这样判断」，**不代表现在仍是缺口**；判断当前状态请以 §1 + §8 为准。
+> 已修的条目在其小节顶部都加了「状态」行。
 
 ## 0. 范围与边界（先读）
 
@@ -19,28 +24,34 @@
 
 ## 1. 结论速览
 
-| # | 缺口 | 等级 | 现状 |
-|---|---|---|---|
-| 1 | 输入层只有 mouse + keyboard，**无 pointer / touch / wheel / 手势** | **P0** | 完全没做 |
-| 2 | **无框选，无多选**（`selectionList` 恒为单值） | **P0** | 完全没做 |
-| 3 | 命中检测**每次全量 flattenTree + sort + 逐组件判定**，无空间索引、无视口裁剪 | **P0** | 完全没做 |
-| 4 | dirty-rect 遇文本/点集/半透明**整场景回退全量**，真实场景基本失效 | **P0** | 已做但用不上 |
-| 5 | 主画布**无 devicePixelRatio / HiDPI** 处理 | **P0** | 完全没做 |
-| 6 | 文本**无自动换行 / 省略**，超宽时横向压缩字形 | P1 | 完全没做 |
-| 7 | 文本含 **HTML 注入**；非 DOM 环境量不出尺寸 | P1 | 缺陷 |
-| 8 | **无 SVG / PDF 导出，无 SVG 导入**（仅 toDataURL/toBlob） | P1 | 部分 |
-| 9 | **无障碍零实现**（无 ARIA / DOM 镜像 / 键盘焦点） | P1 | 完全没做 |
-| 10 | **无插件 / 扩展点**（仅 `registerType` 解决反序列化） | P1 | 完全没做 |
-| 11 | 序列化以 **`constructor.name`** 为类型键；`COMPONENT_TYPE_MAPPING` 漏项 | P1 | 隐患 |
-| 12 | 发行契约缺失：无 `exports` / `sideEffects` / CHANGELOG / 迁移指南；**CI 不跑可视化回归** | P1 | 部分 |
-| 13 | 动画无 delay / 序列 / spring，且 `Math.floor` 掉精度 | P2 | 部分 |
-| 14 | 布局**不随增删子组件自动重排**；容器 setState 递归置脏全部后代 | P2 | 部分 |
-| 15 | 主题为模块级**全局单例**，多实例互相污染 | P2 | 部分 |
-| 16 | 内部脆弱点若干（事件监听累积、销毁不彻底、死代码等） | P2 | 见 §4 |
+> **这是一张会随进展更新的表**：左三列是 2026-09-10 评估时的判断，最后一列是 2026-09-11 的复核结果。
+> 历史版本把 §1 当成不可变的「评估快照」，导致已完成的大项（输入层、HiDPI、插件、无障碍、文本排版……）
+> 长期显示「完全没做」，极易造成重复投入 —— 因此改为双列对照。逐条进展与证据见 §8。
+
+| # | 缺口 | 等级 | 评估时现状（2026-09-10） | **当前状态（2026-09-11 复核）** |
+|---|---|---|---|---|
+| 1 | 输入层只有 mouse + keyboard，无 pointer / touch / wheel / 手势 | **P0** | 完全没做 | ✅ **已做**：`pointer*` / `touch*` / `wheel` 三通道，按运行时能力自动选择。多指手势按 §5 边界归应用层 |
+| 2 | 无框选、无多选（`selectionList` 恒为单值） | **P0** | 完全没做 | ➖ **引擎侧原语已给**（`setSelection(components)` 支持多选）；框选 UX 归应用层（§5） |
+| 3 | 命中检测每次全量 flattenTree + sort + 逐组件判定 | **P0** | 完全没做 | ⚠️ **部分**：已做视口裁剪 + O(1) 包围盒预筛（实测 1.89x）。**空间索引（四叉树 / R-tree）仍未做** |
+| 4 | dirty-rect 遇文本 / 点集 / 半透明整场景回退全量 | **P0** | 已做但用不上 | ✅ **已修**：门控放宽到「相交级」，富场景局部重绘 0 → 2 次，10 步逐像素仍一致 |
+| 5 | 主画布无 devicePixelRatio / HiDPI 处理 | **P0** | 完全没做 | ✅ **已做**：`ICE.init(el, { dpr })`（默认 1，零行为变化） |
+| 6 | 文本无自动换行 / 省略，超宽时横向压缩字形 | P1 | 完全没做 | ✅ **已做**（`wrap` / `maxLines` / `ellipsis` / grapheme 分段，默认关闭）。仍缺 `letterSpacing` / RTL / 富文本 / CJK 避头尾 |
+| 7 | 文本含 HTML 注入；非 DOM 环境量不出尺寸 | P1 | 缺陷 | ✅ **已修**：改用 `textContent`；量测改为 canvas 优先 + DOM 降级 |
+| 8 | 无 SVG / PDF 导出，无 SVG 导入 | P1 | 部分 | ❌ **未做**（§6 已标注待定：需独立 exporter + 有诚实边界） |
+| 9 | 无障碍零实现（无 ARIA / DOM 镜像 / 键盘焦点） | P1 | 完全没做 | ✅ **已给原语**：`getAccessibilityTree()` / `setFocusedComponent()`（方案 B：DOM 镜像交应用层，见 [14](14-accessibility.md)） |
+| 10 | 无插件 / 扩展点（仅 `registerType`） | P1 | 完全没做 | ✅ **已做**：`ICE.use()` 三层注册点。仍缺「自定义命中判定」注册协议（见 [09 路线图](09-roadmap.md)） |
+| 11 | 序列化以 `constructor.name` 为类型键；映射漏项 | P1 | 隐患 | ✅ **已修**：`getTypeId()` 反查 + 补 `ICERose` + 反序列化容错 + 迁移表。⚠️ 该缺陷**随后在下游应用层复现过一次**（引擎修了、应用层漏改），见 §8 末条 |
+| 12 | 发行契约缺失；CI 不跑可视化回归 | P1 | 部分 | ✅ **已做**：`exports` / `sideEffects` / CHANGELOG / `publint`+`attw` / 覆盖率门槛 / CI 接可视化回归。⚠️ **但 CI 目前没有真正在跑的 runner**：主仓 Gitee 无 CI 配置，GitHub 只是落后多个提交的镜像 |
+| 13 | 动画无 delay / 序列 / spring，且 `Math.floor` 掉精度 | P2 | 部分 | ✅ **已做**（另加关键帧时间轴、数组字段补间，结束判定改按时间） |
+| 14 | 布局不随增删自动重排；容器 setState 递归置脏全部后代 | P2 | 部分 | ✅ **已做**（自动重排 + 排布前 measure + `dirty`/`paramsDirty` 拆级） |
+| 15 | 主题为模块级全局单例，多实例互相污染 | P2 | 部分 | ✅ **已修**（主题改为实例级，含 preset 与 motion token） |
+| 16 | 内部脆弱点若干（事件监听累积、销毁不彻底、死代码等） | P2 | 见 §4 | ✅ **已修**（§4.3–4.5）；§4.6 三条待复核项已全部核实（两条确认无问题、一条已修） |
 
 ## 2. P0 · 决定「是否算交互图形引擎」
 
 ### P0-1 输入模型只有鼠标 + 键盘
+
+> **状态（2026-09-11）：✅ 已完成** —— `pointer*` / `touch*` / `wheel` 三通道按运行时能力自动选择，拖拽不再依赖 `evt.movementX`。下方为评估时的原始记录。
 
 **证据**：`src/consts/DOM_EVENT_MAPPING_CONSTS.ts:13-30` 仅注册 `mousedown / mouseup / mousemove / click / dblclick / contextmenu` + `keydown / keyup`。全仓库检索 `wheel | pointer | touch | gesture | pinch` **零命中**。
 
@@ -53,11 +64,15 @@
 
 ### P0-2 无框选、无多选
 
+> **状态（2026-09-11）：➖ 引擎侧原语已给，交互 UX 归应用层** —— `setSelection(components)` 支持多选；marquee 框选按 §5 边界由应用层实现。
+
 **证据**：`ICE.ts:52` 声明 `selectionList`，注释写「支持 Ctrl 键同时选中多个组件」；但全仓库唯一赋值点是 `control-panel/ICEControlPanelManager.ts:92` → `this.ice.selectionList = [component]`，**长度恒为 1**。无 marquee（框选矩形）、无 Ctrl/Shift 多选、无批量变换。
 
-**附带问题**：`README.md` 的核心特性写「完整事件系统……支持拖拽、框选、多选」——**与实现不符**，应修正措辞或补齐实现。
+**附带问题（已处理）**：README 的核心特性曾写「完整事件系统……支持拖拽、框选、多选」——与实现不符。现措辞已改为「支持拖拽与方向键微调」，不再声称框选/多选。
 
 ### P0-3 命中检测无空间索引、无视口裁剪
+
+> **状态（2026-09-11）：⚠️ 部分完成** —— 视口裁剪 + O(1) 包围盒预筛已落地（实测 N=6000、屏外 50% 提速 1.89x）；**空间索引（四叉树 / R-tree）仍未做**，理由见 §7。下方为评估时的原始记录。
 
 **证据**：
 - `event/DOMEventDispatcher.ts:86-91`：**每次** mousedown / mouseup / click 都 `flattenTree` 整棵树 → `sort` → 对**每个**组件调 `containsPoint`（点集路径还走 O(顶点数) 射线法，`graphic/ICEDotPath.ts:65-80`）。
@@ -84,6 +99,8 @@
 且 10 步逐像素比对仍 100% 一致。编辑器里控制面板长期存在，旧门控因此几乎永久失效，这是关键收益点。
 
 ### P0-5 主画布无 HiDPI 处理
+
+> **状态（2026-09-11）：✅ 已完成** —— `ICE.init(el, { dpr })`，并把坐标换算与命中统一改走内容盒语义。下方为评估时的原始记录。
 
 **证据**：`ICE.ts:128-131` 直接读 `canvasEl.width/height`，未按 `devicePixelRatio` 缩放 canvas 尺寸，也未 `ctx.scale(dpr, dpr)`。`devicePixelRatio` 仅在离屏缓存路径使用（`renderer/ObjectCache.ts:254-256`）与 `cross-platform/root.ts:57-70` 定义。
 
@@ -274,14 +291,37 @@
 - ✅ `ICEComponent.destroy()` 作为 `destory()` 的拼写修正别名（历史拼写已发布，不能直接改名）。
 - ✅ `ICELinkSlot.updatePosition` 位置未变时不再 `setState` —— 旧实现挂在宿主 `AFTER_RENDER` 上无条件置脏，导致「只要有 linkable 组件画面就永不空闲」。
 - ✅ **`getMinBoundingBox(refresh=true)` 的取值顺序 bug**：旧实现**先读** `state.localOrigin` **再** `composeMatrix()`，而 `localOrigin` 是 `composeMatrix()` 内部才派生的 → 首次刷新读到初始 `(0,0)`，盒子**偏一个原点**。这正是连线插槽要靠「每帧重算」掩盖首次错误的根因。已改为先 compose 再读。
-- ⚠️ **`findComponent` 只搜顶层**（未改，附原因）：改成递归后「连线连接嵌套子组件」会真正生效，但实测会激活「连线端点推导 vs 局部重绘」的既有像素不稳定（`dirty-rect-pixel` 富场景 step1 约 900 px 差异：full 画布为抗锯齿混合色、dirty-rect 画布为饱和纯色）。**修复顺序：先把连线端点改为渲染期自推导（不依赖宿主事件），再放开递归查找。** 顺带已移除 `createLink` 里对宿主 `AFTER_RENDER` 的依赖（局部帧的 render 事件只对脏区域内的组件触发，用它驱动几何会引入渲染模式相关的不一致）。回归用例见 `tests/consistency/consistency.test.ts`。
+- ✅ **`findComponent` 递归查找**（2026-09-11 已完成，详见 §4.4）：本条目此前写成「未改，附原因」，与 §4.4 自相矛盾，已更正。保留一条记录是因为它的排错过程有参考价值——当时把像素差异归因为「连线端点推导 vs 局部重绘」，做完那一步后差异只从 900px 降到 489px，说明方向错了；真根因是**折线包围盒退化**（两条算盒路径不一致）。教训：出现像素差异时，先验证「包围盒 / 上屏快照是否可信」，再怀疑渲染策略。
 
-### 4.6 待复核项（未做行为验证）
-以下为阅读代码时的疑点，**未经运行时验证**，落地前应先写复现用例：
-- `TransformControlPanel.resizeEvtHandler`（`:238-288`）在中心原点约定下同时改 `width += 2*Δ` 与 `left -= Δ`，缩放时组件中心会移动，手感/几何是否与预期一致需核对。
-- `ICEPolyLine.drawLabel`（`graphic/link/ICEPolyLine.ts:772-801`）先 `ctx.measureText(label)` 再设置 `ctx.font`（`:784` 早于 `:791`）→ 标签背景框可能按**上一次遗留字体**测量。
-- `ICEDotPath.calcLocalOrigin`（`graphic/ICEDotPath.ts:87-98`）**原地平移 `state.dots`**；任何在 `dirty=false` 时触发 `composeMatrix()` 的调用（如 `getMaxBoundingBox(true)`、`getRotateAngle(true)`、`getLocalLeftTop(true)`）都可能让 dots 累积漂移。目前靠「先 dirty 渲染再读」与 ObjectCache 的显式 `calcComponentParams()` 规避（见 `renderer/ObjectCache.ts:179-185`），**属高危脆弱点**。
+### 4.6 待复核项（**2026-09-11 已全部核实**）
+> **2026-09-11 全部核实完毕**：两条确认代码本来就对（并各补了回归测试），一条是真缺陷（已修）。
+> 修订前这三条以「未经运行时验证的疑点」口吻记着，容易被误读成「已知有三个 bug」。
 
+**4.6.1 缩放手柄的几何（结论：正确，已补回归测试）**
+
+`TransformControlPanel.resizeEvtHandler` 在中心原点约定下同时改 `width += 2Δ` 与 `left -= Δ`。
+静态推导：`left' + width'/2 = (left − Δ) + (width + 2Δ)/2 = left + width/2` —— **中心恰好守恒，这正是想要的**
+（组件 transform 原点在本地中心，若不守恒则每拖一次都会「跑位」）。已为 8 个象限各加一条断言
+（`tests/control-panel/transform-control.test.ts`），实测中心全部保持不动。
+
+- **未处理的边界（实测确认）**：把某个手柄拖过**对边**（使宽/高变负）时，代码用 `Math.abs(newWidth)` 兜底而不做 clamp，
+  中心会跳变（实测 `quadrant 1`、width 200 拖 -150：得到 `width 100 / left 250`，中心由 200 跳到 300）。
+  属小体感问题，未改；若要修，应在 `resizeEvtHandler` 里对最小尺寸做 clamp，并在越界时一并钳住 `left/top`。
+
+**4.6.2 连线标签的背景框量宽时机（结论：真缺陷，已修）**
+
+`ICEPolyLine.drawLabel()` 原先**先** `ctx.measureText(label)`、**后**设 `ctx.font`。canvas 的 `font` 是跨调用遗留状态，
+因此量到的宽度来自「上一次绘制留下的字体」，背景框与实际字形不符（框过宽或过窄）。
+已把 `ctx.font` 提到 `measureText` 之前；`tests/link/link-label.test.ts` 用「宽度随 font 变化」的 ctx 桩把顺序钉死
+（改回旧顺序该用例立即转红）。
+
+**4.6.3 `ICEDotPath.calcLocalOrigin` 的累积漂移（结论：已修）**
+
+原实现**原地平移 `state.dots`**，任何在 `dirty=false` 时触发 `composeMatrix()` 的调用都会让点集累积偏移
+（实测连续三次 compose，`dots` 依次偏 1/2/3 个原点）。已改为「记录已应用平移量、只补差额」，
+`composeMatrix()` 对 dots **幂等**，`calcDots()`（子类实现 `__calcDots()`）成为重建点集的唯一入口。
+详见 §4.2。这条不变量也顺带消除了 ObjectCache / `__freshBox` / `getMinBoundingBox(true)` 之间
+「必须严格配对调用」的隐式约束。
 ## 5. 明确不做（范围外）
 
 | 事项 | 理由 |
@@ -304,17 +344,24 @@
    ② 文本量测改为 **canvas 优先 + DOM 降级**，只要能拿到 canvas 2d ctx 就能量出尺寸。
    因此「接 `node-canvas` / `skia-canvas` 做 headless 出图」在引擎侧不再有硬阻塞（导出器本身仍未做，见 §8）。
 
-## 7. 建议落地顺序（收益 / 成本比排序）
+## 7. 落地顺序回顾（原「建议落地顺序」，2026-09-11 复核）
+> 原为 2026-09-10 拟定的「建议落地顺序（收益/成本比）」。**2026-09-11 复核：8 项里 6 项已落地、1 项部分、1 项划归应用层。**
+> 因此本节改为「回顾 + 剩余」，不再当作待办列表读。
 
-1. **输入层改用 Pointer Events**（`pointerdown/move/up` + `wheel` + `touch`），一次拿到触控、笔、滚轮；破坏面集中在 `DOM_EVENT_MAPPING_CONSTS.ts` + `DOMEventInterceptor` + `ICEGroup` 拖拽路径。
-2. **空间索引 + 视口裁剪**：节点增删移时维护四叉树，渲染与命中检测都走索引。
-3. **主画布 HiDPI**：`init` 内按 dpr 设 canvas 尺寸并 `ctx.scale`，命中检测统一走 `screenToWorld`。
-4. **框选 + 多选原语**：让 `selectionList` 支持多值 + marquee。
-5. **文本**：自动换行 / 省略号、去掉 `innerHTML` 注入、非 DOM 环境量测可用、`Intl.Segmenter` 断字。
-6. **序列化改显式 typeId 注册表**：补 `ICERose` 等漏项 + 反序列化容错 + 迁移。
-7. **发行与门禁**：`exports` / `sideEffects`、attw + publint 入 CI、`test:visual` 入 CI + 覆盖率门槛、CHANGELOG + 迁移指南。
-8. **dirty-rect 门控细化**：从「整场景」放宽到「相交级」，让含文本场景真正用上局部重绘。
+| 原序 | 事项 | 结果 |
+|---|---|---|
+| 1 | 输入层改用 Pointer Events（`pointerdown/move/up` + `wheel` + `touch`） | ✅ 已做。破坏面确实集中在小范围：`DOM_EVENT_MAPPING_CONSTS` + `DOMEventInterceptor` + `ICEGroup` 拖拽路径 |
+| 2 | 空间索引 + 视口裁剪 | ⚠️ **只做了一半**：视口裁剪与 O(1) 包围盒预筛已落地（1.89x）；**四叉树 / R-tree 仍未做**，理由见下 |
+| 3 | 主画布 HiDPI | ✅ 已做（`init(el, { dpr })` + 内容盒坐标语义） |
+| 4 | 框选 + 多选原语 | ➖ 引擎侧给了 `setSelection(components)` 多选原语；**marquee 框选交互按 §5 边界归应用层** |
+| 5 | 文本：自动换行 / 省略号、去掉 `innerHTML`、非 DOM 量测、`Intl.Segmenter` 断字 | ✅ 已做（`wrap` / `maxLines` / `ellipsis` / grapheme，默认关闭；量测 canvas 优先 + DOM 降级） |
+| 6 | 序列化改显式 typeId 注册表 | ✅ 已做（`getTypeId` 反查 + 补 `ICERose` + 容错 + 迁移表） |
+| 7 | 发行与门禁：`exports`/`sideEffects`、attw + publint、`test:visual` 入 CI、覆盖率门槛、CHANGELOG | ✅ 已做。⚠️ 唯一未完成的是**让 CI 真的跑起来**（需要 runner；当前 Gitee 主仓无 CI 配置，GitHub 是落后镜像） |
+| 8 | dirty-rect 门控由「整场景」放宽到「相交级」 | ✅ 已做（富场景局部重绘 0 → 2 次，像素仍一致） |
 
+**为什么第 2 项只做了一半**：视口裁剪 + 包围盒预筛已把「屏外大量节点」的场景处理掉，而四叉树 / R-tree 的收益要到
+「上万节点且**大部分在屏内**」才显著 —— 这属于需要实测数据驱动的优化，不适合在没有目标场景前先做。
+如果将来要接的路由 / 流程图场景会到那个规模，再按实测决定是否引入索引（并应同时决定索引维护在 `addChild/removeChild/setState` 哪一层）。
 ## 附录 A · 业界通行做法要点（去名化，可作 PRD 参考）
 
 按引擎类型归纳「最值得借鉴的一点」，不点名具体产品：
@@ -331,28 +378,35 @@
 | 矢量几何优先的脚本引擎 | 向量几何为一等公民；SVG 导入导出 |
 
 ## 附录 B · 证据速查（代码）
+> 复核日期 **2026-09-11**。原表是 2026-09-10 评估时的行号定位，其中多数条目已在后续提交中**被修掉或搬走**，
+> 继续保留会误导（例如「打包字段缺失」「CI 未跑 e2e」早已不成立）。现按「仍未做的项」+「已建成的关键机制」重写。
+
+**A. 仍未做 / 部分做的项在哪**
 
 | 主题 | 位置 |
 |---|---|
-| 事件注册表（唯一输入源） | `src/consts/DOM_EVENT_MAPPING_CONSTS.ts:13-30` |
-| 命中检测全量扫描 | `src/event/DOMEventDispatcher.ts:79-109`、`src/ICE.ts:408-420` |
-| 事件无冒泡（自认） | `src/event/DOMEventDispatcher.ts:75`；`src/event/ICEEvent.ts:51-58` |
-| dirty-rect 场景门控 | `src/renderer/CanvasRenderer.ts:250-253,314-329` |
-| 不透明判定 | `src/renderer/dirty-rect-util.ts:113-123` |
-| 主画布读尺寸（无 dpr） | `src/ICE.ts:122-135` |
-| 文本绘制 / 量测 / innerHTML | `src/graphic/text/ICEText.ts:379-428,406,440-465` |
-| 序列化类型键 | `src/persistence/Serializer.ts:70`；`src/consts/COMPONENT_TYPE_MAPPING.ts:27-39` |
-| 反序列化无容错 | `src/persistence/Deserializer.ts:54-58` |
-| 类型注册唯一扩展点 | `src/ICE.ts:343-354` |
-| 动画 floor / interactive 覆盖 | `src/animation/AnimationManager.ts:56-58,102` |
-| 容器递归置脏 / 不重排 | `src/graphic/container/ICEGroup.ts:122-143,186-204` |
-| 主题全局单例 | `src/theme/ICETheme.ts:130-131` |
-| 连线只搜顶层 | `src/ICE.ts:322-324` |
-| 插槽 AFTER_RENDER 内 setState | `src/graphic/link/ICELinkSlot.ts:91,97` |
-| 监听器累积 | `src/control-panel/transform-controls/TransformControlPanel.ts:374-382`、`src/graphic/link/ICELinkSlot.ts:98-108` |
-| CI 未跑 e2e | `.github/workflows/ci.yml` |
-| 打包字段缺失 | `package.json` |
+| 缺空间索引（命中/渲染仍为全量或预筛） | `src/event/DOMEventDispatcher.ts`（`flattenTree` 后逐组件判定）、`src/ICE.ts` 的 `hitTest()` |
+| 缺 SVG / PDF 导出、SVG 导入（仅有位图导出） | `src/ICE.ts` 的 `toDataURL` / `toBlob` / `getImageData` |
+| 缺自定义命中判定注册协议 | `src/graphic/ICEComponent.ts` 的 `containsPoint` / `containsLocalPoint`（protected，只能靠继承覆盖） |
+| 缺错切（skew）手柄 | `src/control-panel/transform-controls/TransformControlPanel.ts`（`TODO:添加斜切手柄？`） |
+| 控制面板抽象待重构 | `src/control-panel/ICEControlPanelManager.ts`（FIXME：按组件类型展现不同工具） |
+| CI 无 runner | `.github/workflows/ci.yml` 存在且内容完整，但主仓在 Gitee（无对应 CI 配置），GitHub 为落后镜像 |
 
+**B. 已建成的关键机制在哪（供二次开发定位）**
+
+| 主题 | 位置 |
+|---|---|
+| 输入通道选择与坐标换算 | `src/consts/DOM_EVENT_MAPPING_CONSTS.ts`、`src/event/DOMEventInterceptor.ts`、`src/event/DOMEventDispatcher.ts` |
+| 视口（世界↔屏幕） | `src/ICE.ts` 的 `setViewport` / `zoomAt` / `screenToWorld`，`src/renderer/CanvasRenderer.ts` 的 CTM 组合 |
+| 精确命中判定 | `ICEEllipse.containsLocalPoint`（椭圆方程）、`ICEDotPath.containsLocalPoint`（射线法）、`ICEPolyLine.containsLocalPoint`（点-线段距离） |
+| 脏矩形门控与快照 | `src/renderer/CanvasRenderer.ts`、`src/renderer/dirty-rect-util.ts` |
+| 本地盒唯一来源 | `src/graphic/ICEComponent.ts` 的 `__localBox()`（`getMinBoundingBox()` 与 `__paintWorldBox()` 都消费它） |
+| 两级脏标记 | `src/graphic/ICEComponent.ts` 的 `dirty` / `paramsDirty` + `refreshParams()` |
+| 序列化类型反查 | `src/ICE.ts` 的 `registerType` / `getTypeId`；`src/persistence/Serializer.ts`、`Deserializer.ts`、`SERIALIZATION_MIGRATIONS` |
+| 插件注册点 | `src/plugin/PluginHost.ts` + `src/ICE.ts` 的 `use` / `unuse` / `setSelection` |
+| 无障碍原语 | `src/ICE.ts` 的 `getAccessibilityTree` / `setFocusedComponent` |
+| 动画（关键帧 / 弹簧 / 数组） | `src/animation/AnimationManager.ts`、`src/animation/Easing.ts`（`EasingProgress` 与 `Easing` 两层） |
+| 跨平台适配层 | `src/cross-platform/root.ts`（`requestFrame` 兜底 / `createPath2D` / `loadFont` / `createOffscreenCanvas` / `devicePixelRatio`） |
 ## 附录 C · 证据速查（外部，仅中立标准与工具）
 
 - MDN canvas 无障碍：<https://developer.mozilla.org/en-US/docs/Web/HTML/Element/canvas>
@@ -393,6 +447,10 @@
 | 2026-09-11 | §7-7 余项：`attw` + `publint` 入 CI、jest 覆盖率门槛 | ✅ 已完成（`npm run pkg:check`；覆盖率门槛按实测基线设棘轮。**首跑即发现真实打包缺陷**：ESM 入口被声明为 CJS → 已修，见下条） |
 | 2026-09-11 | 打包契约：ESM/CJS 入口被声明为 CJS（类型解析错误） | ✅ 已修（`dist/index.js`→`index.mjs`、`index.cjs.js`→`index.cjs`；import 条件用 `.d.mts`；`rollup.config.js`→`.mjs`。**深链旧文件名的用法会断**，见 CHANGELOG「需要注意」） |
 | — | P0-2 的 marquee 框选交互、P0-1 的多指手势 | ➖ **不做**（§5 明确划归应用层 UX；引擎侧原语已给：`setSelection(components)` 多选、`zoomAt` 锚点缩放。客观上是「未实现」，但按边界不算引擎欠账） |
+| 2026-09-11 | 连线标签背景框按「上一次遗留字体」量宽（§4.6.2） | ✅ 已修（`drawLabel` 先设 `ctx.font` 再 `measureText`；新增 `tests/link/link-label.test.ts`，用「宽度随 font 变化」的 ctx 桩把顺序钉死） |
+| 2026-09-11 | §4.6 三条「待复核项」全部核实结案 | ✅ 4.6.1 缩放手柄中心守恒（补 8 象限回归）、4.6.3 dots 幂等（此前已修）；4.6.2 是真缺陷已修。另记录一条未处理边界：拖过对边致宽高为负时 `Math.abs` 会让中心跳变 |
+| 2026-09-11 | §1 结论速览由「不可变评估快照」改为「含当前状态的双列对照」 | ✅ 文档自身的可维护性修复：§1 长期显示「完全没做」，是本次评估中最容易误导排期的一处 |
+| 2026-09-11 | **同一类缺陷在下游应用层复现**：`ice-entity-designer` 仍有 10 处 `constructor.name === 'Entity'` 判类型 | ✅ 已修（改用 `static typeId` 稳定标识 + `component_type_util.ts` 统一判型 + ESLint 门禁 + 显式模拟改名的回归测试）。**教训**：引擎在 P1-6 修掉「类型键依赖类名」后，只在引擎侧加了防线；下游打包器 mangle 类名会让应用层同类判断**静默失效**（`entities` 恒空、update/remove 变 no-op，页面零报错），而包自身构建配了 `keep_classnames`，包内测试永远发现不了 |
 
 > **说明**：上表只记录「决定要做的项」的进展。因此**表内全绿 ≠ 报告里的缺口全部清零** ——
 > 未建的项（空间索引、导出与互操作、attw/publint/覆盖率门槛）与明确划归应用层的项

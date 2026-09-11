@@ -8,10 +8,11 @@
 
 ```javascript
 {
+  version,                         // 序列化格式版本（用于迁移）
   createTime, lastModifyTime,
   childNodes: [
     {
-      type: 'ICEGroup',            // 组件类名（constructor.name）
+      type: 'ICEGroup',            // 类型标识：已注册类型写**注册名**，未注册才回退 constructor.name
       state: { ... },              // 组件的 state（运行时状态）
       childNodes: [ ... ]          // 递归子节点
     }
@@ -20,7 +21,9 @@
 ```
 
 - **编码时用 `state`**（而非 `props`）——`state` 是经过动画/交互后的"当前真相"。
-- **`type` 用类名字符串**（`constructor.name`），反序列化时靠它找回构造函数。
+- **`type` 用稳定标识而非类名**：写出前用 `ice.getTypeId(ctor)` 由构造函数**反查注册名**
+  （与类的 JS 名解耦，terser 压缩改名不会破坏已存数据）；只有**未注册**的自定义类型才回退 `constructor.name`。
+  旧数据（`type` 写类名、无 `version`）仍可加载。
 
 ## 序列化器与反序列化器
 
@@ -34,6 +37,8 @@ graph LR
 
 - `Serializer.toJSONObject()/toJSONString()`：递归遍历 `ice.childNodes`，产出 `{ type, state, childNodes }` 结构。
 - `Deserializer.fromJSONObject()/fromJSONString()`：递归地 `getType(type)` → `new Clazz(state)` → `addChild` 重建树。
+  **遇到未注册的类型不会整份数据打不开**：跳过该节点（含子树）并记入 `deserializer.unknownTypes`，
+  便于提示用户 `registerType()` 后重载。
 
 ## 类型映射（关键）
 
@@ -44,13 +49,20 @@ graph LR
   ICEImage, ICEGroup, ICEVisioLink, ICEPolyLine, ... }
 ```
 
-- 该映射在 `ICE.init()` 时拷贝到 `ice.typeMapping`。
-- **自定义组件**必须 `ice.registerType(className, Clazz)` 注册后才能被反序列化，否则 `getType` 拿不到构造函数。
+- 该映射在 `ICE.init()` 时拷贝到 `ice.typeMapping`；`ICE.registerType()` 会使其反查表失效、下次序列化时重建。
+- **自定义组件**必须 `ice.registerType(className, Clazz)` 注册后才能被反序列化，否则 `getType` 拿不到构造函数（序列化时会回退写 `constructor.name`，两者不一致会导致自己写的数据读不回来）。
 
 ## 序列化边界
 
 - 只序列化 `ice.childNodes`，**不含 `toolNodes`**（工具组件如变换手柄、连接插槽是运行时临时对象，不参与持久化）。
 - 容器组件负责序列化自己的子节点（递归）。
 - 序列化发生在未渲染时，`state` 里的矩阵字段还是空数组 `[]`，是干净的纯数据；即便渲染过，矩阵是普通数组/可 JSON 化的值，也能正常往返。
+
+### 版本与迁移
+
+- 序列化产物带 `version` 字段；`SERIALIZATION_MIGRATIONS` 是可扩展的迁移表，按目标版本**升序逐级执行**。
+- 读到的版本**高于**当前引擎支持的版本时明确抛错（而不是用旧代码硬解新格式）。
+- 运行时缓存值（`linearMatrix` / `composedMatrix` / `localOrigin` / `absoluteOrigin` / `dots` / 文本量测结果）
+  不参与序列化。
 
 回归用例见 `tests/persistence/serialization.test.ts`。

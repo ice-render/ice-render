@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/ice-render"><img src="https://img.shields.io/npm/v/ice-render" alt="npm version"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"></a>
-  <a href="https://github.com/ice-render/ice-render/actions/workflows/ci.yml"><img src="https://github.com/ice-render/ice-render/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://gitee.com/ice-render/ice-render"><img src="https://img.shields.io/badge/repo-gitee-c71d23.svg" alt="gitee repository"></a>
   <img src="https://img.shields.io/badge/TypeScript-100%25-3178c6.svg" alt="TypeScript">
 </p>
 
@@ -53,16 +53,24 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 
 - **完整仿射变换** —— 平移 / 缩放 / 旋转 / 错切（skew），基于 `gl-matrix` 的列向量 `mat2d` 约定。
 - **嵌套坐标系** —— 子组件自动复合祖先变换，`localToGlobal` / `globalToLocal` 双向换算；支持在嵌套场景下做全局位移与旋转。
+- **HiDPI** —— `ICE.init(el, { dpr })` 把 backing store 放大到内容盒尺寸 × dpr（默认 1，行为与旧版一致）。
 
 **交互与连接线**
 
-- **鼠标 + 键盘事件** —— 完整事件系统（`on/off/once/trigger` 及 W3C 别名），支持拖拽与方向键微调。
+- **统一输入层** —— 鼠标 / 触控 / 触控笔 / 滚轮收敛到 Pointer 事件族（无 `PointerEvent` 的运行时自动回退 `mouse* + touch*`）；完整事件系统（`on/off/once/trigger` 及 W3C 别名），支持拖拽与方向键微调。
 - **变换控制面板** —— 选中组件后出现旋转 / 缩放手柄。
 - **Visio 风格连接线** —— 端点插槽吸附（上 / 右 / 下 / 左 / 中心五个方向），建立组件间的连线关系。
+- **视口缩放 / 平移** —— `setViewport()` 与锚点缩放 `zoomAt(screenX, screenY, factor)`；「视图缩放」与「图元缩放」严格分离。
+- **对齐吸附** —— 边缘 / 中心 / 等间距吸附与提示线，默认关闭、按需 `enable()`（零开销）。
+
+**扩展与可访问性**
+
+- **插件机制** —— `ICE.use(plugin)` 开放三层注册点：自定义图元类型（自动获得 typeId 反查，因此可序列化）、每帧渲染回调、自定义交互工具。
+- **无障碍原语** —— `getAccessibilityTree()` 产出可访问节点快照（角色 / 可读名称 / 屏幕坐标盒 / tab 顺序），`setFocusedComponent()` 让键盘事件派发给焦点组件。**引擎不自建 DOM 镜像层**：镜像结构、ARIA 与文案由应用层决定（参考实现见 `examples/a11y/`）。
 
 **序列化与动画**
 
-- **整图序列化** —— 组件树可序列化为 JSON 字符串并无损反序列化；自定义组件通过 `registerType()` 注册即可持久化。
+- **整图序列化** —— 组件树可序列化为 JSON 字符串并无损反序列化；类型键用**稳定 typeId**（由构造函数反查注册名，与类的 JS 名解耦，压缩改名不影响已存数据），带 `version` 字段与可扩展迁移表；未注册类型跳过并记录而不是整份数据打不开。自定义组件通过 `registerType()` 注册即可持久化。
 - **关键帧动画** —— 动画配置类似 CSS `keyframes`：单段 `{ from, to, duration }` 或
   多段 `{ keyframes: [{ offset, value, easing? }], duration }`（`easing` 写在段起始帧上，只作用于该段；
   `offset` 缺省按顺序均分、超界夹紧）。内置线性 / 缓入 / 缓出等缓动函数与**弹簧类缓动**
@@ -72,7 +80,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 **性能与工程质量**
 
 - **高性能** —— 脏标记 + **脏矩形局部重绘**（默认，不满足局部条件时自动回退全量），配合组件级离屏缓存、渲染队列缓存与矩阵零分配，`bench/render.cjs` 实测 **5000 图元静态重绘约 0.8ms/帧（引擎 JS 逻辑开销，不含光栅化）**。
-- **完整工程化** —— 64 个测试文件 / 498 个用例、Playwright 可视化回归（golden-image）、eslint、GitHub Actions CI、架构设计文档。
+- **完整工程化** —— **68 个测试文件 / 531 个用例**（jest，带「只许上调」的覆盖率门槛）、Playwright 可视化回归（golden-image + 脏矩形像素一致性 + 视口/对齐/交互）、发布包完整性门禁（`publint` + `attw`）、eslint、架构设计文档。
 
 ## 🚀 快速开始
 
@@ -110,7 +118,7 @@ ice.addChild(new ICERect({ width: 100, height: 50 }));
 ## 📚 文档
 
 - **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容。
-- **示例** —— [`examples/`](./examples/index.html) 目录提供 87 个可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、性能基准等）。
+- **示例** —— [`examples/`](./examples/index.html) 目录提供 **86 个**可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、文本、视口、对齐、插件、无障碍、性能基准等）。
 
 ## 🧪 工程化
 
@@ -122,9 +130,13 @@ ice.addChild(new ICERect({ width: 100, height: 50 }));
 | `npm run types:check` | TypeScript 类型检查 |
 | `npm run bench` | 场景基准（stub ctx，`bench/render.cjs`，改 `src/` 后先 `npm run build`） |
 | `npm run bench:micro` | 微基准（mitata，`bench/micro/`，逐个测矩阵/渲染/命中/状态热函数，防 DCE，需先 `npm run build`） |
+| `npm run pkg:check` | 发布包完整性门禁：`publint`（exports/types/files 契约）+ `attw`（各解析模式下的类型是否正确） |
+| `npm run test:visual:ci` | CI 用的可视化回归子集（示例冒烟 + 交互 + 像素一致性），刻意不含跨平台会漂移的 golden 比对 |
 | `npm run build` | 构建（类型声明 + rollup） |
 
-提交前会自动执行 lint-staged（husky）；推送后 CI（GitHub Actions）跑 lint + 类型检查 + 单测 + 构建。
+提交前会自动执行 lint-staged（husky）；CI 配置在 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)，依次跑 lint + 类型检查 + 单测（含覆盖率门槛）+ 构建 + 包完整性 + 可视化回归。
+
+> **主仓在 Gitee**（`https://gitee.com/ice-render/ice-render`，`package.json` 的 `repository` 字段亦然），GitHub 是镜像。徽章不再声称 CI 状态——真正运行 CI 需要有对应的 runner。
 
 ## 🔧 二次开发
 
@@ -160,15 +172,40 @@ export default class Relation extends ICEVisioLink {
 
 ## 📸 截图
 
-<img src="./examples/assets/11.png">
-<img src="./examples/assets/1.png">
-<img src="./examples/assets/2.png">
-<img src="./examples/assets/3.png">
-<img src="./examples/assets/4.png">
-<img src="./examples/assets/5.png">
-<img src="./examples/assets/6.png">
-<img src="./examples/assets/10.png">
-<img src="./examples/assets/7.png">
+> 截图由 `examples/` 下的示例页直接采集（Playwright、2× 像素比、**按内容包围盒裁切**，不含浏览器外壳与页面留白）。
+> 全部 86 个示例都可以在 [`examples/index.html`](./examples/index.html) 里点开运行。
+
+**图元与样式** —— 形状库、渐变、阴影、虚线等（`examples/shapes/shapes-basic.html`）
+
+<img src="./examples/assets/shot-shapes-basic.png" alt="图元与样式">
+
+**卡片 / 网格布局** —— 容器嵌套 + 布局引擎（`examples/layout/dashboard.html`）
+
+<img src="./examples/assets/shot-layout-dashboard.png" alt="卡片与网格布局">
+
+**Visio 风格连线** —— 端点插槽吸附 + 连线标签（`examples/line-and-link/link-label.html`）
+
+<img src="./examples/assets/shot-visio-link-label.png" alt="Visio 风格连线与标签">
+
+**嵌套容器** —— `ICEGroup` 任意层级嵌套与坐标复合（`examples/group/group-basic.html`）
+
+<img src="./examples/assets/shot-container-nesting.jpg" alt="嵌套容器">
+
+**视口缩放 / 平移** —— 视图缩放与图元缩放分离（`examples/viewport/viewport-zoom.html`）
+
+<img src="./examples/assets/shot-viewport-zoom.png" alt="视口缩放与平移">
+
+**实例级主题** —— 同一页面两套主题互不污染（`examples/theme/theme-multi-instance.html`）
+
+<img src="./examples/assets/shot-theme-isolation.png" alt="实例级主题隔离">
+
+**插件机制** —— `ICE.use()` 三层注册点（`examples/plugin/plugin-basic.html`）
+
+<img src="./examples/assets/shot-plugin.png" alt="插件三层注册点">
+
+**极端规模** —— 密集小图元铺满画布；100 万图元构建约 6s、稳态整帧约 1.2s（`examples/performance/max-elements.html`）
+
+<img src="./examples/assets/shot-max-elements.jpg" alt="极端规模下的图元密度">
 
 ## 📄 License
 

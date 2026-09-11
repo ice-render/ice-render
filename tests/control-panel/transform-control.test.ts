@@ -86,3 +86,34 @@ describe('变换手柄坐标计算（回归：连续变换后手柄脱离图元�
     expect(dragged.state.quadrant).toBe(2);
   });
 });
+
+/**
+ * 缩放手柄几何：**中心守恒**回归。
+ *
+ * 组件的 transform 原点默认在本地中心，因此 resize 必须围绕中心对称增减宽高
+ * （`left -= Δ` 与 `width += 2Δ` 成对），否则每拖一次组件都会「跑位」。
+ * 早期这只是一条「读代码时的疑点、未经运行时验证」，这里补上断言把它钉死。
+ * 象限 5/6 只改纵向、7/8 只改横向，是 8 个手柄里最容易被改错的两类。
+ */
+describe('缩放手柄几何（回归：resize 不应移动组件中心）', () => {
+  function makeTarget() {
+    const target: any = new ICERect({ left: 100, top: 80, width: 200, height: 100 });
+    const panel: any = new TransformControlPanel({ width: 100, height: 100, transform: { rotate: 0 } });
+    panel.targetComponent = target; // 触发 updatePanel
+    return { target, panel };
+  }
+  const center = (c: any) => [c.state.left + c.state.width / 2, c.state.top + c.state.height / 2];
+
+  for (const quadrant of [1, 2, 3, 4, 5, 6, 7, 8]) {
+    it(`象限 ${quadrant}：拖动后中心保持不动`, () => {
+      const { target, panel } = makeTarget();
+      const before = center(target);
+      panel.resizeEvtHandler({ quadrant, movementX: 12, movementY: -7 });
+      const after = center(target);
+      expect(after[0]).toBeCloseTo(before[0], 6);
+      expect(after[1]).toBeCloseTo(before[1], 6);
+      // 尺寸确实变了（避免断言因为「什么都没发生」而假通过）
+      expect(target.state.width === 200 && target.state.height === 100).toBe(false);
+    });
+  }
+});

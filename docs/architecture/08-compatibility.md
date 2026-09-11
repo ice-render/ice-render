@@ -7,22 +7,22 @@
 - 运行时依赖**仅 `gl-matrix`**（`lodash` 已用 `src/util/lang.ts` 自研工具替代），无其它依赖。
 - 这保证了引擎可以在任何能跑 JS、能提供 Canvas Context 的环境中使用，而不被 npm 生态的浏览器假设拖累。
 
-## 跨平台根对象 `cross-platform/root.js`
+## 跨平台根对象 `cross-platform/root.ts`
 
-所有对全局对象与 rAF 的访问，都收敛到一个适配层：
+所有对全局对象、rAF 与平台专有能力的访问，都收敛到这一个适配层：
 
-```javascript
-let root = window || global || {};          // 浏览器=window，Node=global
-root.requestFrame =
-  root.requestAnimationFrame ||
-  root.webkitRequestAnimationFrame ||
-  root.mozRequestAnimationFrame ||
-  root.oRequestAnimationFrame ||
-  root.msRequestAnimationFrame;
-```
+| 能力 | 浏览器 | 小程序 / 其它 |
+|---|---|---|
+| `requestFrame` | `requestAnimationFrame` 一族 | 平台自身的帧回调；**全都没有时退化为定时器**（约 16ms） |
+| `createPath2D()` | 原生 `new Path2D()` | `PolyfillPath2D`（记录路径命令、渲染时重放，逐像素一致） |
+| `loadFont()` | `FontFace` + `document.fonts` | `wx.loadFont` |
+| `createImage()` | `new Image()` | `wx.createImage` |
+| `createOffscreenCanvas()` | `document.createElement('canvas')` | `wx.createOffscreenCanvas({ type: '2d' })` |
+| `devicePixelRatio` | `window.devicePixelRatio` | 小程序系统信息 |
 
-- 引擎内部统一用 `root` 访问全局、用 `root.requestFrame` 请求动画帧，**不直接写 `window`**。
-- 小程序环境只要提供一个带 `requestAnimationFrame` 的全局对象，就能驱动 `FrameManager`。
+- 引擎内部统一用 `root` 访问全局与上述能力，**不直接写 `window`**。
+- **`requestFrame` 的定时器兜底很关键**：Node / headless（无 rAF）与部分小程序低版本基础库此前会在
+  `FrameManager.start()` 处直接抛错，连启动都做不到；现在这类环境也能跑（headless 出图的两个阻塞点之一）。
 
 ## rAF 的封装：FrameManager
 
@@ -40,9 +40,13 @@ root.requestFrame =
 
 | 点 | 现状 | 小程序适配提示 |
 |---|---|---|
-| `Path2D` | 图元大量使用（`new Path2D()` 构造路径） | 小程序 Canvas 不一定有 `Path2D`，需 polyfill 或改用路径命令 |
-| `requestAnimationFrame` | 经 `root.requestFrame` 抽象 | 小程序用其自身的渲染帧回调桥接 |
-| `document`/`window` | 仅在"字符串 id 初始化"路径用到 | 直接传 `ctx` 即可绕开 DOM |
-| `devicePixelRatio` | 拖拽逻辑中有注释掉的引用 | 若需高清屏适配，应移到初始化参数 |
+| `Path2D` | ✅ 已抽象为 `root.createPath2D()`（原生 `Path2D` / `PolyfillPath2D` 降级，逐像素一致） | 无需改动；真机一致性仍需微信开发者工具/真机确认 |
+| `requestAnimationFrame` | ✅ 经 `root.requestFrame` 抽象，且**无 rAF 时有定时器兜底** | 小程序用其自身的渲染帧回调桥接 |
+| `document` / `window` | 仅在"字符串 id 初始化"路径与文本内联编辑的 IME 输入框用到 | 直接传 `ctx` 即可绕开 DOM；无 `document` 时 IME 输入降级为 canvas keydown |
+| `devicePixelRatio` | ✅ 已实现：`ICE.init(el, { dpr })`，backing store = 内容盒 × dpr | 小程序按系统信息提供 dpr |
+| 字体 / 图片 / 离屏画布 | ✅ 均经 `root` 抽象（见上表） | 需平台提供对应能力；缺失时报错信息应指向该适配点 |
 
-> 说明：当前引擎已做到"逻辑层无 DOM 依赖、rAF 经适配层"，但 `Path2D` 的使用是接入小程序时的最大待办——这是兼容性路线上的已知工作项，尚未做跨端实测。
+> **说明（2026-09-11 更新）**：`Path2D` 已不再是待办（已抽象为 `root.createPath2D()` + `PolyfillPath2D`），
+> 无 rAF 的运行时的启动阻塞也已解除。当前**唯一未闭环的是真机验证**：`PolyfillPath2D`、离屏 canvas、
+> 字体加载在低版本基础库上的逐像素一致性与可用性，需要微信开发者工具或真机确认 —— 自动化测试（Playwright/Chromium）
+> 覆盖不到这一层，因此这是兼容性路线上仅剩的已知工作项。
