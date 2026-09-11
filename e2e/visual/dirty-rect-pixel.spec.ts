@@ -31,7 +31,7 @@ async function runSteps(page: any, url: string, requirePartial: boolean) {
     expect(stats.collectOk, '全不透明场景应真正执行过至少一次局部重绘').toBeGreaterThan(0);
   }
   expect(pageErrors, '页面不应有未捕获异常').toEqual([]);
-  return { stepResults, collectOk: stats.collectOk };
+  return { stepResults, collectOk: stats.collectOk, perStep: stats.perStep as number[] };
 }
 
 /**
@@ -138,4 +138,22 @@ test('分散脏区（多块裁剪）：局部重绘执行且逐像素一致', as
   );
   console.log(`[dirty-rect-pixel:multi] 10 步全部一致；局部重绘执行=${collectOk} 次`);
   console.log(`  ${stepResults.join('  ')}`);
+});
+
+/**
+ * 拖动「内含文本的分组」：子文本只被标 `dirty`（`paramsDirty` 仍为 false）且已命中离屏缓存，
+ * 属于「仅位置变化」—— 主画布只是把位图平移贴回，clip 只作用整像素采样。
+ * 这条路径此前被「刚变脏的 risky 组件一律回退」拦住，现在放开，必须仍然逐像素一致。
+ */
+test('拖动内含文本的分组（仅位置变化的已缓存 risky 组件）：局部重绘执行且逐像素一致', async ({ page }) => {
+  const { stepResults, collectOk, perStep } = await runSteps(
+    page,
+    '/e2e/visual/fixtures/dirty-rect-compare.html?opaque=1&grouptext=1',
+    true
+  );
+  console.log(`[dirty-rect-pixel:grouptext] 10 步全部一致；局部重绘执行=${collectOk} 次`);
+  console.log(`  每步局部帧数=${JSON.stringify(perStep)}`);
+  // 第 3 步是「拖动整个 Group」，分组内的文本只被标 dirty（paramsDirty 仍 false）且已缓存 →
+  // 必须能走局部重绘。这条断言有区分度：去掉放宽逻辑后该步为 0。
+  expect(perStep[3], '拖动含文本的分组必须走局部重绘').toBeGreaterThan(0);
 });
