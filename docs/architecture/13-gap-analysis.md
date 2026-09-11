@@ -140,6 +140,10 @@
 
 **对标**：Node 官方就双包危害给出明确警告，业界用 **Are The Types Wrong (attw)** + **publint** 在 CI 自动检出 12 类产物问题；Playwright 官方要求 golden image 必须在**同一环境**生成基线（跨 OS/字体/DPR 会漂移）；成熟库普遍为每个大版本写独立升级指南，CHANGELOG 逐条记录行为变更。
 
+**补充证据（2026-09-10 实测发现，两条都是「门禁实际失效」）：**
+- **`.husky/pre-commit` 缺少可执行权限** → git 直接跳过该钩子，`lint-staged` 与 commitlint **本地从未真正运行**（提交时会打印 `The '.husky/pre-commit' hook was ignored because it's not set as executable`）。
+- **`eslint` 在 `master` 上就是红的**：`npx eslint src tests e2e --ext .ts,.js` 报 194 个 error（prettier 格式 + `no-var-requires`），**全部集中在既有测试文件**。也就是说 CI 的 lint 步骤实际处于失败状态，门禁形同虚设。
+
 ## 4. P2 · 一致性与内部脆弱点
 
 ### 4.1 动画
@@ -251,3 +255,11 @@
 - publint：<https://publint.dev/>
 
 > 说明：竞品相关的官方文档与仓库链接按约定不在本文列出。需要对着具体实现核对时，可在内部调研记录中查阅。
+
+## 8. 进展（滚动更新）
+
+| 日期 | 条目 | 状态 |
+|---|---|---|
+| 2026-09-10 | P0-1 输入层：pointer / touch / wheel 通道 + 坐标换算与 canvas 矩形刷新修正 | ✅ 已完成（单测 + Playwright 交互/像素回归全绿） |
+| 2026-09-10 | P0-1 剩余：多指手势（pinch 缩放 / 双指旋转） | ⏳ 待做 |
+| 2026-09-10 | 视口原语：`ICE.zoomAt(screenX, screenY, factor)` 锚点缩放（wheel 接滚轮一行可用） | ✅ 已完成 |
