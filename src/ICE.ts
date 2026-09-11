@@ -421,6 +421,49 @@ class ICE {
   }
 
   /**
+   * 以屏幕点为锚点缩放视口（滚轮缩放 / 双指缩放可用的引擎原语）。
+   *
+   * 保持锚点下的世界坐标在缩放前后落在同一屏幕位置：先取锚点对应的世界坐标，
+   * 换算新 scale 后反解 translate。只改视口状态，**不修改任何组件的 state**
+   * （与 setViewport 同一约束）。
+   *
+   * 用法（应用层接滚轮，一行即可）：
+   * ```js
+   * ice.evtBus.on('wheel', (e) => {
+   *   ice.zoomAt(e.offsetX, e.offsetY, e.deltaY < 0 ? 1.1 : 1 / 1.1);
+   * });
+   * ```
+   *
+   * @param screenX 锚点屏幕 x（canvas 像素，通常是鼠标 / 触摸位置）
+   * @param screenY 锚点屏幕 y
+   * @param factor  缩放倍数，>1 放大、<1 缩小；非正数或非有限值直接忽略
+   * @param minScale 最小 scale（默认 0.05）
+   * @param maxScale 最大 scale（默认 20）
+   */
+  public zoomAt(
+    screenX: number,
+    screenY: number,
+    factor: number,
+    minScale: number = 0.05,
+    maxScale: number = 20
+  ): this {
+    const f = Number(factor);
+    if (!isFinite(f) || f <= 0) {
+      return this;
+    }
+    const [wx, wy] = this.screenToWorld(screenX, screenY);
+    const current = this.viewport.scale;
+    const lo = Math.min(minScale, maxScale);
+    const hi = Math.max(minScale, maxScale);
+    const next = Math.min(hi, Math.max(lo, current * f));
+    if (next === current) {
+      return this;
+    }
+    // 反解平移：让世界点 (wx, wy) 缩放后仍映射到 (screenX, screenY)
+    return this.setViewport(next, screenX - wx * next, screenY - wy * next);
+  }
+
+  /**
    * 命中检测：屏幕坐标（canvas 像素）→ 命中的最上层可交互组件；无命中返回 null。
    * 供应用层做「空白处拖拽平移 / 点击命中」等视口交互。
    */
