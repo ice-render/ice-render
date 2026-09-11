@@ -212,10 +212,11 @@
 - ✅ 一帧只取一次时间戳，同一帧内各属性时间一致。
 - ⚠️ **仍缺**：keyframe 时间轴（多段序列）、spring/elastic/bounce 缓动、数组型字段的补间（需逐元素插值）。
 
-### 4.2 布局
-- `graphic/container/ICEGroup.ts:122-143` 的 `addChild` **不调用 `doLayout()`** → 向已设布局的容器加子组件，布局不重排。
-- 布局依赖 `child.state.width/height`，但这些值在首次渲染前常为 `0` / 文本的 `10` 哨兵值——缺 measure 阶段。
-- `ICEGroup.ts:186-204` 的 `setState` **递归把全部后代置脏**；移动一个大组即全量重绘。
+### 4.2 布局（**2026-09-10 已修主要项**）
+- ✅ `addChild` / `removeChild` 现在**立即重排**（旧实现只在 `setLayout()` 时排一次，之后增删都不重排 → 加进去的子组件位置全错、删掉后留下空位）。`addChildren` / `removeChildren` 批量操作只在结束后排一次，避免逐个重排的 O(n²)。
+- ✅ **新增 measure 阶段**：`ICEGroup.doLayout()` 排布前先对每个子组件调 `measure()`（`calcComponentParams()`），使文本字形量测、点集路径 `calcDots` 在布局前完成 —— 旧实现读到的全是 `0` / 文本的 `10` 哨兵值。
+- ✅ **新增的容器型子组件继承父层布局**（与 `setLayout()` 的传播规则一致），否则它内部的子组件不会被排布。
+- ⚠️ **仍有成本**：`ICEGroup.setState` 递归把全部后代置脏 —— 移动一个大组会让所有后代重跑 `calcComponentParams`（文本会重新量测字形）。语义上后代确实需要重绘（父矩阵变了），但要避免「重绘」连带「重量测」，需要把 dirty 拆成 `dirty` + `paramsDirty` 两级。属后续优化，不在本轮范围。
 
 ### 4.3 主题
 - `theme/ICETheme.ts:130-131` 的 `currentTheme` 是**模块级变量**（全局单例）→ 同页面两个 ICE 实例 / 两套品牌主题互相污染。
@@ -339,3 +340,5 @@
 | 2026-09-10 | P2 `findComponent` 递归查找 | ⏸ 已定位并给出修复顺序（需先改连线端点为渲染期自推导），当前保留保守行为 |
 | 2026-09-10 | P2 动画：点路径 / delay / 取整策略 / 拒绝 NaN / interactive 保留 / 销毁摘除 | ✅ 已完成 |
 | 2026-09-10 | P2 动画剩余：keyframe 时间轴、spring 类缓动、数组字段补间 | ⏳ 待做 |
+| 2026-09-10 | P2 布局：增删自动重排、排布前测量、新容器继承布局 | ✅ 已完成 |
+| 2026-09-10 | P2 布局剩余：dirty 拆成 dirty/paramsDirty 以省掉后代重量测 | ⏳ 待做 |

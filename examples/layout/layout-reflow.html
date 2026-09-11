@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render 布局重排与测量</title>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">布局：随增删自动重排 + 排布前测量</h2>
+    <p style="color:#555; margin: 0 0 10px; max-width: 1100px;">
+      点下面的按钮增删子组件：布局会**立即重排**（旧实现只在 <code>setLayout()</code> 时排一次，
+      之后 add/remove 都不重排 —— 加进去的位置全错、删掉后留下空位）。<br />
+      另外排布前会先**测量**子组件：布局读的是 <code>child.state.width/height</code>，
+      而它们要等首次渲染才算出来（<strong>文本更要量测字形</strong>）—— 第一个盒子是文本，
+      它的宽度决定了后面盒子的起始位置。
+    </p>
+    <p>
+      <button id="add">+ 添加</button>
+      <button id="remove">− 移除最后一个</button>
+      <button id="add-nested">+ 添加嵌套容器</button>
+      <span id="status" style="margin-left:8px; color:#555;"></span>
+    </p>
+    <canvas id="canvas-1" width="1020" height="420" style="background:#fff; border:1px solid #ddd;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+      const ice = new ICE.ICE().init('canvas-1');
+      window.__ice = ice;
+
+      // 横向流式容器（BoxLayout），宽度 980
+      const row = new ICE.ICEGroup({
+        left: 20, top: 60, width: 980, height: 90,
+        style: { fillStyle: '#F8FAFC', strokeStyle: '#CBD5E1', lineWidth: 1 },
+      });
+      ice.addChild(row);
+      row.setLayout(new ICE.ICEBoxLayout({ axis: 'x', gap: 10 }));
+
+      const colors = ['#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EF4444', '#14B8A6'];
+
+      // 第一个是文本：它的量测宽度决定后续起始位置
+      const firstText = new ICE.ICEText({
+        text: '量测宽度',
+        stroke: false,
+        zIndex: 1,
+        style: { fontSize: 20, fontFamily: 'Arial', fillStyle: '#111827' },
+      });
+      row.addChild(firstText);
+
+      let count = 0;
+      function addBox() {
+        const box = new ICE.ICERect({
+          width: 70 + ((count * 13) % 50),
+          height: 60,
+          radius: 8,
+          zIndex: 10 + count,
+          style: { fillStyle: colors[count % colors.length], strokeStyle: '#111827', lineWidth: 2 },
+        });
+        row.addChild(box);
+        count++;
+        updateStatus();
+      }
+
+      // 嵌套容器：继承父层布局，其内部子组件也会被排布
+      function addNested() {
+        const inner = new ICE.ICEGroup({
+          width: 220, height: 70,
+          style: { fillStyle: '#EFF6FF', strokeStyle: '#3B82F6', lineWidth: 2 },
+        });
+        inner.addChildren([
+          new ICE.ICERect({ width: 60, height: 40, left: 0, top: 15, style: { fillStyle: '#93C5FD', strokeStyle: '#1E40AF', lineWidth: 1 } }),
+          new ICE.ICERect({ width: 60, height: 40, left: 0, top: 15, style: { fillStyle: '#BFDBFE', strokeStyle: '#1E40AF', lineWidth: 1 } }),
+        ]);
+        row.addChild(inner);
+        updateStatus();
+      }
+
+      function updateStatus() {
+        const children = row.childNodes;
+        const xs = children.map((c) => Math.round(c.state.left));
+        document.getElementById('status').textContent =
+          'row.childNodes = ' + children.length + '，left = [' + xs.join(', ') + ']';
+      }
+
+      document.getElementById('add').addEventListener('click', addBox);
+      document.getElementById('remove').addEventListener('click', () => {
+        if (row.childNodes.length > 1) {
+          row.removeChild(row.childNodes[row.childNodes.length - 1]);
+          updateStatus();
+        }
+      });
+      document.getElementById('add-nested').addEventListener('click', addNested);
+
+      // 初始场景
+      addBox();
+      addBox();
+      addBox();
+      updateStatus();
+      ice.dirty = true;
+    })();
+  </script>
+</html>

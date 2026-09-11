@@ -77,12 +77,27 @@ class ICEGroup extends ICERect {
   }
 
   /**
-   * 执行布局：调用布局策略的 layoutContainer(this)。
+   * 批量挂载/删除期间抑制逐次布局（避免 O(n²)），结束后统一排一次。
+   */
+  private __inBatch = false;
+
+  /**
+   * 执行布局：先测量子组件，再交给布局策略排布。
+   *
+   * 测量这一步是必要的：布局策略读的是 `child.state.width/height`，而它们要等首次渲染
+   * 才算出来（文本更是要量测字形）。旧实现不做测量，于是「首次布局拿到的全是 0/哨兵值」。
    */
   public doLayout(): void {
-    if (this.layoutManager) {
-      this.layoutManager.layoutContainer(this);
+    if (!this.layoutManager) {
+      return;
     }
+    for (let i = 0; i < this.childNodes.length; i++) {
+      const child: any = this.childNodes[i];
+      if (typeof child.measure === 'function') {
+        child.measure();
+      }
+    }
+    this.layoutManager.layoutContainer(this);
   }
 
   protected initEvents(): void {
@@ -140,17 +155,35 @@ class ICEGroup extends ICERect {
       this.ice.dirty = markDirty;
       if (this.ice.renderer) this.ice.renderer.markQueueDirty();
     }
+    // 布局接管：新加入的子组件必须立即参与重排。
+    // 旧实现只在 setLayout() 时排一次，之后 addChild 不重排 → 加进去的子组件位置全错。
+    if (this.layoutManager) {
+      // 新增的容器型子组件若没有显式布局，继承父层布局（与 setLayout 的传播规则一致），
+      // 否则它内部的子组件不会被排布。
+      if (child instanceof ICEGroup && !child.__layoutExplicit) {
+        child.layoutManager = this.layoutManager;
+      }
+      if (!this.__inBatch) {
+        this.doLayout();
+      }
+    }
   }
 
   public addChildren(arr: Array<ICEComponent>): void {
-    for (let i = 0; i < arr.length; i++) {
-      const child = arr[i];
-      this.addChild(child, false);
+    this.__inBatch = true;
+    try {
+      for (let i = 0; i < arr.length; i++) {
+        this.addChild(arr[i], false);
+      }
+    } finally {
+      this.__inBatch = false;
     }
     this.dirty = true;
     if (this.ice) {
       this.ice.dirty = true;
     }
+    // 批量结束后统一排一次（避免逐个 addChild 触发 O(n²) 重排）
+    this.doLayout();
   }
 
   public removeChild(child: ICEComponent, markDirty: boolean = true) {
@@ -167,17 +200,26 @@ class ICEGroup extends ICERect {
       if (this.ice.renderer) this.ice.renderer.markQueueDirty();
     }
     child.destory();
+    // 删除后同样需要重排，否则会留下空位
+    if (this.layoutManager && !this.__inBatch) {
+      this.doLayout();
+    }
   }
 
   public removeChildren(arr: Array<ICEComponent>): void {
-    for (let i = 0; i < arr.length; i++) {
-      const child = arr[i];
-      this.removeChild(child, false);
+    this.__inBatch = true;
+    try {
+      for (let i = 0; i < arr.length; i++) {
+        this.removeChild(arr[i], false);
+      }
+    } finally {
+      this.__inBatch = false;
     }
     this.dirty = true;
     if (this.ice) {
       this.ice.dirty = true;
     }
+    this.doLayout();
   }
 
   /**
