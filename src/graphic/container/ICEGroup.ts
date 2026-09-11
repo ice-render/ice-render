@@ -230,9 +230,15 @@ class ICEGroup extends ICERect {
    */
   public setState(newState: any) {
     merge(this.state, newState);
+    // 容器**自身**的 state 变了 → 自身派生参数可能变（尺寸等），两个标志都置
+    this.paramsDirty = true;
     this.dirty = true;
 
-    //容器型组件自身的状态发生变化时，需要把所有层级上的子节点都标记为 dirty
+    // 容器型组件自身的状态发生变化时，需要把所有层级上的子节点都标记为 dirty。
+    //
+    // 注意：这里**只置 `dirty`（要重绘），不置 `paramsDirty`**。
+    // 后代的绝对矩阵确实变了（父矩阵变了）→ 必须重绘；但后代的派生参数（点集 / 文本量测）
+    // 只取决于自身 state，与祖先变换无关 → 不应连带重量测。这正是 dirty/paramsDirty 拆分的目的。
     function setRecursively(component) {
       component.dirty = true;
       if (component.childNodes && component.childNodes.length) {

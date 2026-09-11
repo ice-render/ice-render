@@ -316,7 +316,7 @@ class ICEText extends ICEComponent {
    * @returns
    */
   protected calcComponentParams() {
-    if (!this.dirty) {
+    if (!this.paramsDirty) {
       return { width: this.state.width, height: this.state.height };
     }
     return this.measureText();

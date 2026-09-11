@@ -24,7 +24,7 @@ class ICERose extends ICEDotPath {
 
   /**
    * @overwrite
-   * @method calcDots
+   * @method __calcDots
    *
    * 计算路径上的关键点:
    * - 默认的坐标原点是 (0,0) 位置。
@@ -32,7 +32,7 @@ class ICERose extends ICEDotPath {
    *
    * @returns
    */
-  protected calcDots() {
+  protected __calcDots() {
     const radius = this.state.radius;
     const leafNum = this.state.leafNum;
     this.state.dots = [];
@@ -66,7 +66,7 @@ class ICERose extends ICEDotPath {
    * @returns
    */
   protected calcComponentParams() {
-    if (!this.dirty) {
+    if (!this.paramsDirty) {
       return { width: this.state.width, height: this.state.height };
     }
 

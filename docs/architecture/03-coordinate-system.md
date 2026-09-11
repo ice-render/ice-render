@@ -42,7 +42,7 @@ $$
 
 | 方法 | 作用 |
 |---|---|
-| `calcLocalOrigin()` | 计算 `localOrigin` |
+| `calcLocalOrigin()` | 计算 `localOrigin`；`ICEDotPath` 覆盖它并把 `dots` 平移到「以 origin 为原点」（只补差额，**幂等**） |
 | `calcAbsoluteOrigin()` | 计算 `absoluteOrigin`（叠加父层） |
 | `calcLinearMatrix()` | 计算自身线性矩阵（不含平移） |
 | `calcAbsoluteLinearMatrix()` | 复合所有祖先线性矩阵 |

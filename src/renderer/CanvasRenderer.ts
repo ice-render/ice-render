@@ -497,8 +497,8 @@ class CanvasRenderer extends ICEEventTarget {
    */
   private __freshBox(c: any): number[] | null {
     try {
-      if (typeof c.calcComponentParams === 'function') {
-        c.calcComponentParams();
+      if (typeof c.refreshParams === 'function') {
+        c.refreshParams();
       }
       const box = c.getMaxBoundingBox(true);
       const mm = box.getMinAndMaxPoint();

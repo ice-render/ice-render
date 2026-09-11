@@ -61,8 +61,9 @@ graph TD
   最终 CTM = `baseMatrix · composedMatrix`（`baseMatrix` 把世界盒平移到离屏左上角）。`render()` 语义不变。
 - 缓存决策（`ObjectCache.render`）：
   - 未 dirty 且已有 cache → 直接贴图；
-  - dirty → 先刷新派生状态（dot-path 先 `calcComponentParams` 重算 dots，再 `composeMatrix`，
-    避免 `calcLocalOrigin` 连续移动 dots 累积偏移）后比较 `contentKey` 与 `linearKey`（a,b,c,d）；
+  - dirty → 先 `refreshParams()` **按需**刷新派生状态（只有自身派生参数变脏时才重算点集 / 文本量测；
+    祖先移动导致的「只需重绘」不重算），再 `composeMatrix()` 后比较 `contentKey` 与 `linearKey`（a,b,c,d）；
+    （`composeMatrix()` 对 dots 的平移已改为幂等，不再要求每次 compose 前都重算 dots，见 [02](02-component-model.md)）
   - 内容或线性变化 → 重建位图（`renderTo` 到离屏）；
   - 仅平移变化 → 复用位图，刷新贴图位置。
 

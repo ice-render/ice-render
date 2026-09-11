@@ -43,7 +43,7 @@ export default abstract class ICEDotPath extends ICEPath {
    * @returns
    */
   protected calcComponentParams() {
-    if (!this.dirty) {
+    if (!this.paramsDirty) {
       return { width: this.state.width, height: this.state.height };
     }
 
@@ -81,17 +81,30 @@ export default abstract class ICEDotPath extends ICEPath {
 
   /**
    * 点状路径在重新计算本地原点坐标之后，需要移动内部所有点的位置。
+   *
+   * 关键：这里**只补「目标平移量 − 已应用平移量」的差额**。
+   * 旧实现每次都无条件平移 -origin，导致每 compose 一次 dots 就再偏移一个原点
+   * （实测连续三次 compose，dots 依次偏移 1/2/3 个原点），因此调用方必须严格保证
+   * 「compose 之前先重算 dots（calcDots）」——这正是局部重绘 / 包围盒刷新等路径
+   * 必须显式配对调用 `calcComponentParams()` 的原因，也是「跳过重量测」优化无法落地的原因。
+   * 记录已应用量之后，重复 compose 变成幂等操作（差额为 0）。
+   *
    * @overwrite
    * @returns
    */
   protected calcLocalOrigin() {
     const origin = super.calcLocalOrigin();
 
-    for (let i = 0; i < this.state.dots.length; i++) {
-      let dot = this.state.dots[i];
-      //@ts-ignore
-      dot = vec2.transformMat2d([], dot, [1, 0, 0, 1, -origin[0], -origin[1]]);
-      this.state.dots[i] = dot;
+    const dx = -origin[0] - this.__dotsShiftX;
+    const dy = -origin[1] - this.__dotsShiftY;
+    if (dx !== 0 || dy !== 0) {
+      const shift = [1, 0, 0, 1, dx, dy];
+      for (let i = 0; i < this.state.dots.length; i++) {
+        //@ts-ignore
+        this.state.dots[i] = vec2.transformMat2d([], this.state.dots[i], shift);
+      }
+      this.__dotsShiftX = -origin[0];
+      this.__dotsShiftY = -origin[1];
     }
 
     return origin;
@@ -112,13 +125,35 @@ export default abstract class ICEDotPath extends ICEPath {
   }
 
   /**
-   * 计算路径上的关键点:
+   * dots 上已应用的平移量（当前 dots 相对「绝对本地坐标」的偏移），供 calcLocalOrigin() 做幂等补偿。
+   * 见 calcLocalOrigin() 的说明。
+   */
+  protected __dotsShiftX = 0;
+  protected __dotsShiftY = 0;
+
+  /**
+   * dots 重建的**唯一入口**：先把「已应用平移量」归零（__calcDots() 产出的是**绝对**本地坐标），
+   * 再交给子类实现。
+   *
+   * 子类请覆盖 `__calcDots()`，**不要**覆盖本方法——否则幂等补偿会失效。
+   *
+   * 计算路径上的关键点：
    * - 默认的坐标原点是 (0,0) 位置。
    * - 这些点没有经过 transform 矩阵变换。
-   * - this.calcComponentParams() 会依赖此方法来计算位置和尺寸，此时还没有确定原点坐标，所以 calcDots() 方法内部不能依赖原点坐标，只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
+   * - this.calcComponentParams() 会依赖此方法来计算位置和尺寸，此时还没有确定原点坐标，所以 __calcDots() 内部不能依赖原点坐标，只能基于组件本地坐标系的左上角 (0,0) 点进行计算。
    * @returns
    */
   protected calcDots() {
+    this.__dotsShiftX = 0;
+    this.__dotsShiftY = 0;
+    return this.__calcDots();
+  }
+
+  /**
+   * 子类实现：按**绝对**本地坐标（未减去原点）填充 `state.dots`。
+   * @returns
+   */
+  protected __calcDots() {
     this.state.dots = [];
     return this.state.dots;
   }

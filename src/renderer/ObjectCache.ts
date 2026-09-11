@@ -177,10 +177,11 @@ class ObjectCache {
     }
 
     // dirty：先刷新派生状态与合成矩阵，才能区分「纯平移」与「内容/线性变化」。
-    // dot-path 的 calcLocalOrigin 会移动 dots，因此必须先 calcComponentParams 重算 dots，
-    // 否则连续 compose 会让 dots 累积偏移（回归见 tests/renderer/ObjectCache.test.ts）。
+    // 用 refreshParams()（按需重算）：只在「自身派生参数已变脏」时重算点集，
+    // 祖先移动导致的「只需重绘」不会连带重算 dots。
+    // （composeMatrix 对 dots 的平移已改为幂等，不再要求每次 compose 前都重算 dots。）
     if (typeof component.calcDots === 'function') {
-      component.calcComponentParams();
+      component.refreshParams();
     }
     component.composeMatrix();
     const linearKey = this.linearKey(component);
@@ -201,7 +202,7 @@ class ObjectCache {
 
   private build(component: any, contentKey: string, linearKey: string): CachedSurface {
     // 先量测尺寸 + 合成矩阵，得到含 pad 的世界盒，确定离屏画布大小与 base 矩阵。
-    component.calcComponentParams();
+    component.refreshParams();
     component.composeMatrix();
     const box = component.getMaxBoundingBox();
     const mm = box.getMinAndMaxPoint();
