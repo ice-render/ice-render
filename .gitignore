@@ -10,3 +10,5 @@
 # *log* 会误伤 logo 命名的资源（examples/layout/logo.html、golden 快照 logo-*.png），显式放行
 !**/logo*.html
 !**/logo-*.png
+# *log* 同样误伤 CHANGELOG.md（整个仓库因此一直没有变更日志），显式放行
+!CHANGELOG.md
