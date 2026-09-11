@@ -233,7 +233,13 @@ class ObjectCache {
 
   private draw(component: any, cache: CachedSurface): void {
     const ctx = this.ice.ctx;
-    const vp = this.ice.viewport || { scale: 1, tx: 0, ty: 0 };
+    const vp = (this.ice && typeof this.ice.getRenderViewport === 'function'
+      ? this.ice.getRenderViewport()
+      : this.ice.viewport) || {
+      scale: 1,
+      tx: 0,
+      ty: 0,
+    };
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (vp.scale === 1 && vp.tx === 0 && vp.ty === 0) {

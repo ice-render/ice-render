@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ice-render 高分屏（devicePixelRatio）</title>
+  <body style="font: 13px/1.7 sans-serif; margin: 0; padding: 12px; background: #fafafa;">
+    <h2 style="margin: 0 0 6px;">ice-render 高分屏 <code>devicePixelRatio</code></h2>
+    <p style="color:#555; margin: 0 0 10px; max-width: 1200px;">
+      左右两幅是<strong>完全相同的场景</strong>：左侧 <code>dpr = 1</code>（旧行为），右侧
+      <code>ICE.init(el, { dpr: 2 })</code>。右侧把 canvas 的 backing store 放大到 cssSize×2、
+      渲染变换乘以 dpr，因此在高分屏上不发虚；<strong>交互（命中/拖拽）仍使用 CSS 像素语义</strong>，
+      鼠标坐标不会被 dpr 影响。<br />
+      注意：本页两侧都显式指定 dpr，所以在 devicePixelRatio=1 的机器上也能看出差别。
+    </p>
+
+    <div style="display: flex; gap: 16px; align-items: flex-start;">
+      <div>
+        <div style="font-weight:600; margin-bottom:4px;">dpr = 1</div>
+        <canvas id="canvas-1" width="420" height="300" style="background:#fff; border:1px solid #ddd;"></canvas>
+        <div id="badge-1" style="color:#555; font:12px/1.6 ui-monospace, monospace;"></div>
+      </div>
+      <div>
+        <div style="font-weight:600; margin-bottom:4px;">dpr = 2（backing store ×2）</div>
+        <canvas id="canvas-2" width="420" height="300" style="background:#fff; border:1px solid #ddd;"></canvas>
+        <div id="badge-2" style="color:#555; font:12px/1.6 ui-monospace, monospace;"></div>
+      </div>
+    </div>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+
+      // 确定性场景：同一份函数，两侧画同一内容
+      function buildScene(ice) {
+        const card = new ICE.ICERect({
+          left: 30, top: 30, width: 360, height: 110, radius: 10,
+          style: { fillStyle: '#EFF6FF', strokeStyle: '#3B82F6', lineWidth: 2 },
+        });
+        ice.addChild(card);
+
+        // 细线网格：dpr=1 会明显发虚，dpr=2 更锐利
+        for (let i = 1; i < 12; i++) {
+          ice.addChild(
+            new ICE.ICERect({
+              left: 30 + i * 30, top: 150, width: 1, height: 60,
+              fill: true, stroke: false,
+              style: { fillStyle: '#94A3B8' },
+              zIndex: 10 + i,
+            })
+          );
+        }
+
+        ice.addChild(
+          new ICE.ICECircle({ left: 60, top: 175, radius: 26, style: { fillStyle: '#10B981', strokeStyle: '#065F46', lineWidth: 2 }, zIndex: 30 })
+        );
+        ice.addChild(
+          new ICE.ICEStar({ left: 150, top: 175, outerRadius: 30, innerRadius: 13, spikes: 5, style: { fillStyle: '#F59E0B', strokeStyle: '#92400E', lineWidth: 2 }, zIndex: 31 })
+        );
+        ice.addChild(
+          new ICE.ICEText({ left: 250, top: 190, text: 'HiDPI', style: { fontSize: 26, fontWeight: 'bold', fontFamily: 'Arial', fillStyle: '#111827' }, zIndex: 32 })
+        );
+        ice.addChild(
+          new ICE.ICEText({ left: 30, top: 240, text: 'devicePixelRatio 渲染标定', style: { fontSize: 16, fontFamily: 'Arial', fillStyle: '#334155' }, zIndex: 33 })
+        );
+      }
+
+      const ice1 = new ICE.ICE().init('canvas-1');
+      buildScene(ice1);
+
+      const ice2 = new ICE.ICE().init('canvas-2', { dpr: 2 });
+      buildScene(ice2);
+
+      function badge(id, ice, el) {
+        document.getElementById(id).textContent =
+          'backing=' + el.width + 'x' + el.height + '  css=' + ice.canvasWidth / ice.dpr + 'x' + ice.canvasHeight / ice.dpr + '  dpr=' + ice.dpr;
+      }
+      badge('badge-1', ice1, document.getElementById('canvas-1'));
+      badge('badge-2', ice2, document.getElementById('canvas-2'));
+
+      // 供 e2e 断言
+      window.__hidpi = {
+        dpr1: { backingWidth: document.getElementById('canvas-1').width, engineDpr: ice1.dpr },
+        dpr2: { backingWidth: document.getElementById('canvas-2').width, engineDpr: ice2.dpr },
+        screenDpr: window.devicePixelRatio,
+      };
+      window.__ice = ice1;
+      window.__iceDpr2 = ice2; // 供 e2e 验证 dpr=2 下的命中检测
+    })();
+  </script>
+</html>

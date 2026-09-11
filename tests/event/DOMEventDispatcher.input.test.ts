@@ -21,12 +21,18 @@ function makeIce() {
     containsPoint: () => true,
     trigger: jest.fn(),
   };
+  // 与真实 ICE 的契约一致：updateCanvasBoundingRect 刷新缓存，getInputRect 读取该缓存
   const ice: any = {
     evtBus,
     childNodes: [comp],
     toolNodes: [],
     canvasBoundingClientRect: RECT,
-    updateCanvasBoundingRect: jest.fn(() => RECT),
+    updateCanvasBoundingRect: jest.fn(function () {
+      return ice.canvasBoundingClientRect;
+    }),
+    getInputRect: function () {
+      return ice.canvasBoundingClientRect;
+    },
     screenToWorld: (x: number, y: number) => [x, y],
   };
   return { ice, evtBus, comp };
@@ -160,7 +166,14 @@ describe('DOMEventDispatcher 输入归一化与双通道派发', () => {
       childNodes: [comp],
       toolNodes: [],
       canvasBoundingClientRect: rects[0],
-      updateCanvasBoundingRect: jest.fn(() => rects.shift() || { left: 100, top: 20 }),
+      updateCanvasBoundingRect: jest.fn(function () {
+        // 真实 ICE 会刷新自己的 rect 缓存；桩也必须写回，否则后续事件仍读到旧值
+        ice.canvasBoundingClientRect = rects.shift() || { left: 100, top: 20 };
+        return ice.canvasBoundingClientRect;
+      }),
+      getInputRect: function () {
+        return ice.canvasBoundingClientRect;
+      },
       screenToWorld: (x: number, y: number) => [x, y],
     };
     new DOMEventDispatcher(ice).start();

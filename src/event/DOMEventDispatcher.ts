@@ -109,7 +109,11 @@ class DOMEventDispatcher {
     const isMove = nativeEvtName === 'pointermove' || nativeEvtName === 'mousemove' || nativeEvtName === 'touchmove';
     const ice: any = this.ice;
     if (!isMove && ice && typeof ice.updateCanvasBoundingRect === 'function') {
-      return ice.updateCanvasBoundingRect();
+      ice.updateCanvasBoundingRect();
+    }
+    // 用「内容盒左上角」而非 border-box：画布带 border/padding 时坐标不应把边框算进去
+    if (ice && typeof ice.getInputRect === 'function') {
+      return ice.getInputRect();
     }
     return ice ? ice.canvasBoundingClientRect || null : null;
   }
