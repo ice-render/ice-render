@@ -129,6 +129,11 @@ class ICE {
       this.canvasHeight = this.canvasEl.height;
       this.canvasBoundingClientRect = this.canvasEl.getBoundingClientRect();
       this.ctx = this.canvasEl.getContext('2d');
+      // 触摸输入必需：阻止浏览器把手势解释为页面滚动/缩放，否则触摸拖拽会被浏览器抢走。
+      // 应用层若确实需要页面滚动，可自行覆盖该样式。
+      if (this.canvasEl.style) {
+        this.canvasEl.style.touchAction = 'none';
+      }
     } else {
       //裸 context 兜底
       this.ctx = ctx;
@@ -399,6 +404,20 @@ class ICE {
   public worldToScreen(wx: number, wy: number): [number, number] {
     const vp = this.viewport;
     return [wx * vp.scale + vp.tx, wy * vp.scale + vp.ty];
+  }
+
+  /**
+   * 刷新 canvas 的 getBoundingClientRect 缓存并返回。
+   *
+   * 输入事件用它把屏幕坐标换算成 canvas 内坐标；页面滚动 / 布局变化后必须刷新，
+   * 否则命中检测会整体偏移（旧实现只在 init 时取一次，滚动后即失效）。
+   * 高频的移动类事件复用缓存，见 DOMEventDispatcher.__resolveCanvasRect。
+   */
+  public updateCanvasBoundingRect(): any {
+    if (this.canvasEl && typeof this.canvasEl.getBoundingClientRect === 'function') {
+      this.canvasBoundingClientRect = this.canvasEl.getBoundingClientRect();
+    }
+    return this.canvasBoundingClientRect;
   }
 
   /**

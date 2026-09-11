@@ -5,16 +5,21 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { keyboardEvents, mouseEvents } from '../consts/DOM_EVENT_MAPPING_CONSTS';
+import { buildDomEventList } from '../consts/DOM_EVENT_MAPPING_CONSTS';
 import root from '../cross-platform/root';
 
 /**
  * @class DOMEventInterceptor DOM 事件拦截器
  *
- * 拦截所有原生的鼠标和键盘事件，拦截到的事件全部转发到全局事件总线上去， ICE 内部的事件转发器会监听事件总线，把事件派发到 canvas 内部特定的组件上去。
+ * 拦截所有原生的输入事件（指针 / 鼠标 / 触摸 / 滚轮 / 键盘），转发到全局事件总线，
+ * ICE 内部的事件派发器再监听总线，把事件派发给 canvas 内特定的组件。
  *
- * 全局只绑定一套 DOM 监听：事件到来时遍历当前所有事件总线转发。
- * 这样重复 init / 多实例 / React StrictMode 双挂载都不会叠加监听，且 stop() 可以真正解绑。
+ * - 输入通道按运行时能力选择：有 PointerEvent 则只监听 pointer*（统一鼠标/触控笔/触摸），
+ *   否则回退 mouse* + touch*；见 `buildDomEventList()`。
+ * - 全局只绑定一套 DOM 监听：事件到来时遍历当前所有事件总线转发。
+ *   这样重复 init / 多实例 / React StrictMode 双挂载都不会叠加监听，且 stop() 可以真正解绑。
+ * - wheel 以 passive:false 绑定，便于应用层阻止页面滚动；触摸的滚动抑制由 canvas 上的
+ *   `touch-action: none` 声明式完成（见 ICE.init）。
  *
  * @see {DOMEventDispatcher}
  * @author 大漠穷秋<damoqiongqiu@126.com>
@@ -26,6 +31,9 @@ const DOMEventInterceptor = {
   //全局唯一的 DOM 监听句柄：start 时绑定、stop 时解绑；null 表示当前未绑定。
   __handlers: null as null | Array<{ name: string; handler: (evt: any) => void }>,
 
+  /** 当前运行时是否走 PointerEvent 通道（start 时探测并缓存，便于测试断言）。 */
+  __hasPointerEvent: false,
+
   /**
    * @method start 绑定全局 DOM 监听（幂等：重复调用不会重复绑定）
    */
@@ -33,7 +41,9 @@ const DOMEventInterceptor = {
     if (!root || !root.addEventListener || DOMEventInterceptor.__handlers) {
       return;
     }
-    const domEvts = [...mouseEvents, ...keyboardEvents];
+    const hasPointerEvent = typeof root.PointerEvent === 'function';
+    DOMEventInterceptor.__hasPointerEvent = hasPointerEvent;
+    const domEvts = buildDomEventList(hasPointerEvent);
     const handlers: Array<{ name: string; handler: (evt: any) => void }> = [];
     for (let i = 0; i < domEvts.length; i++) {
       const item = domEvts[i];
@@ -43,7 +53,13 @@ const DOMEventInterceptor = {
           DOMEventInterceptor.evtBuses[j].trigger(item[1], domEvt);
         }
       };
-      root.addEventListener(item[0], handler);
+      // wheel 需要能 preventDefault（阻止页面缩放/滚动），因此显式 passive:false
+      const options = item[0] === 'wheel' || item[0] === 'touchmove' ? { passive: false } : undefined;
+      if (options && typeof root.addEventListener === 'function') {
+        root.addEventListener(item[0], handler, options);
+      } else {
+        root.addEventListener(item[0], handler);
+      }
       handlers.push({ name: item[0], handler });
     }
     DOMEventInterceptor.__handlers = handlers;
