@@ -94,3 +94,66 @@ describe('复合组件的引擎序列化', () => {
     expect((ice2.childNodes[0] as any).childNodes[0].state.text).toBe('child');
   });
 });
+
+/**
+ * 「既是复合组件、又是容器」的那类组件（流程图 / BPMN 节点与池）：它自己按 state 派生形状，
+ * 又真的装着子节点（泳道、泳道里的节点）。实现 `getSerializableChildren()` 后，
+ * 引擎只序列化**真实子节点** —— 派生部件仍由构造函数重建，不会重复。
+ *
+ * 回归来源：BPMN 的 `serialize() → load()` 曾把池里的泳道与节点整套丢掉（3 个元素只剩 1 个）。
+ */
+class CardWithSlots extends ICEGroup {
+  public static readonly typeId = 'CardWithSlots';
+
+  private titleComponent: any = null;
+
+  constructor(props: any = {}) {
+    super({ title: 'cardWithSlots', width: 100, height: 40, ...props });
+    this.titleComponent = new ICEText({ text: this.state.title, width: 10, height: 10 });
+    this.addChild(this.titleComponent);
+  }
+
+  public hasDerivedChildren(): boolean {
+    return true;
+  }
+
+  /** 只把「真实子节点」交给序列化：派生部件（构造时建的标题）排除掉 */
+  public getSerializableChildren(): any[] {
+    return this.childNodes.filter((child: any) => child !== this.titleComponent);
+  }
+}
+
+describe('复合组件同时当容器（getSerializableChildren）', () => {
+  it('实现钩子后：真实子节点进文档，往返后既保留又不重复挂载', () => {
+    const ice = makeIce();
+    ice.registerType('CardWithSlots', CardWithSlots as any);
+    ice.registerType('ICEGroup', ICEGroup as any);
+    const host = new CardWithSlots({ title: 'pool' });
+    const slot = new ICEGroup({ width: 20, height: 20 });
+    host.addChild(slot);
+    ice.addChild(host);
+
+    const json: any = new Serializer(ice).toJSONObject();
+    // 文档里只有真实子节点（派生标题不进）
+    expect(json.childNodes[0].childNodes.length).toBe(1);
+    expect(json.childNodes[0].childNodes[0].childNodes).toEqual([]);
+
+    const ice2 = makeIce();
+    ice2.registerType('CardWithSlots', CardWithSlots as any);
+    ice2.registerType('ICEGroup', ICEGroup as any);
+    new Deserializer(ice2).fromJSONObject(JSON.parse(JSON.stringify(json)));
+    const restored: any = ice2.childNodes[0];
+    // 派生标题 1 个 + 真实子节点 1 个 = 2（没有重复挂载派生件）
+    expect(restored.childNodes.length).toBe(2);
+  });
+
+  it('不实现钩子的复合组件：行为与以前完全一致（子节点一律不进文档）', () => {
+    const ice = makeIce();
+    ice.registerType('Card', Card as any);
+    const card = new Card({ title: 'plain' });
+    card.addChild(new ICEGroup({ width: 10, height: 10 }));
+    ice.addChild(card);
+    const json: any = new Serializer(ice).toJSONObject();
+    expect(json.childNodes[0].childNodes).toEqual([]);
+  });
+});
