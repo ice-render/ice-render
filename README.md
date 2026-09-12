@@ -100,7 +100,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 **性能与工程质量**
 
 - **高性能** —— 脏标记 + **脏矩形局部重绘**（默认，不满足局部条件时自动回退全量），配合组件级离屏缓存、渲染队列缓存与矩阵零分配。性能数字以本机 `npm run bench 5000` 为准（2026-09-11 实测约 2.2ms/帧，见上文「性能实测」段）。
-- **完整工程化** —— **80 个测试文件 / 654 个用例**（jest，带「只许上调」的覆盖率门槛）、Playwright 可视化回归（golden-image + 脏矩形像素一致性 + 视口/对齐/交互）、发布包完整性门禁（`publint` + `attw`）、eslint、架构设计文档。
+- **完整工程化** —— **91 个测试文件 / 710 个用例**（jest，带「只许上调」的覆盖率门槛）、Playwright 可视化回归（golden-image + 脏矩形像素一致性 + 视口/对齐/交互）、发布包完整性门禁（`publint` + `attw`）、eslint、架构设计文档。
 
 ## 🚀 快速开始
 
@@ -176,8 +176,8 @@ PNG / PDF 不内置依赖：SVG 是通用中间格式，`resvg`、`sharp`、`rsv
 
 ## 📚 文档
 
-- **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容。
-- **示例** —— [`examples/`](./examples/index.html) 目录提供 **87 个**可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、文本、视口、对齐、插件、无障碍、性能基准等）。
+- **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：共 16 篇 —— 运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容 / 路线图与边界 / Worker 与离屏渲染 / 视口缩放 / 对齐吸附 / 能力缺口分析 / 无障碍 / 应用驱动复盘 / 连线端点（插槽）扩展评估。
+- **示例** —— [`examples/`](./examples/index.html) 目录提供 **88 个**可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、文本、视口、对齐、插件、无障碍、性能基准等）。
 
 ## 🧪 工程化
 
@@ -232,7 +232,7 @@ export default class Relation extends ICEVisioLink {
 ## 📸 截图
 
 > 截图由 `examples/` 下的示例页直接采集（Playwright、2× 像素比、**按内容包围盒裁切**，不含浏览器外壳与页面留白）。
-> 全部 87 个示例都可以在 [`examples/index.html`](./examples/index.html) 里点开运行。
+> 全部 88 个示例都可以在 [`examples/index.html`](./examples/index.html) 里点开运行。
 
 **图元与样式** —— 形状库、渐变、阴影、虚线等（`examples/shapes/shapes-basic.html`）
 
