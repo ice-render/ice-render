@@ -67,6 +67,9 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 
 - **完整仿射变换** —— 平移 / 缩放 / 旋转 / 错切（skew），基于 `gl-matrix` 的列向量 `mat2d` 约定。
 - **嵌套坐标系** —— 子组件自动复合祖先变换，`localToGlobal` / `globalToLocal` 双向换算；支持在嵌套场景下做全局位移与旋转。
+- **容器移动时后代自动跟随** —— `setPosition()` 会向所有后代**递归派发 `AFTER_MOVE`**（只派发事件、
+  不改任何 state）：容器移动后，订阅了宿主事件的组件（如 `ICEPolyLine` 监听两端图元重算折点）
+  会自动跟上，应用层不必手动遍历子树。`BEFORE_MOVE` 仍只给被移动的组件自己。
 - **HiDPI** —— `ICE.init(el, { dpr })` 把 backing store 放大到内容盒尺寸 × dpr（默认 1，行为与旧版一致）。
 
 **交互与连接线**
