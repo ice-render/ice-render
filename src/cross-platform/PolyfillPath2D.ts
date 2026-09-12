@@ -11,7 +11,8 @@
  * Path2D 的极简 polyfill：无全局 Path2D 构造函数的运行时（如小程序低版本基础库、
  * Node 环境）中，用它记录路径命令，渲染时再重放到 ctx 当前路径。
  *
- * 仅实现引擎用到的 moveTo/lineTo/rect/ellipse/closePath，其余标准 Path2D 方法未实现。
+ * 仅实现引擎用到的 moveTo/lineTo/bezierCurveTo/quadraticCurveTo/arcTo/rect/arc/ellipse/closePath，
+ * 其余标准 Path2D 方法未实现。
  */
 export default class PolyfillPath2D {
   /** 标记这是 polyfill，用于 ICEPath.doRender 区分原生 Path2D 与命令重放 */
@@ -39,6 +40,17 @@ export default class PolyfillPath2D {
 
   arcTo(x1: number, y1: number, x2: number, y2: number, radius: number): void {
     this._commands.push(['arcTo', x1, y1, x2, y2, radius]);
+  }
+
+  arc(
+    x: number,
+    y: number,
+    radius: number,
+    startAngle: number,
+    endAngle: number,
+    counterclockwise: boolean = false
+  ): void {
+    this._commands.push(['arc', x, y, radius, startAngle, endAngle, counterclockwise]);
   }
 
   rect(x: number, y: number, width: number, height: number): void {

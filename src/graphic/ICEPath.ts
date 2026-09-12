@@ -40,6 +40,10 @@ abstract class ICEPath extends ICEComponent {
       this.path2D.closePath();
     }
 
+    // 上屏对象：path2D 是 Path2DRecorder 时取它内部的原生 Path2D（无原生则取记录器自身，
+    // 走下面的 replayPath 重放命令）。路径构建与上屏解耦，导出器才能复用同一条命令流。
+    const drawPath = this.path2D.drawable || this.path2D;
+
     const lineDash = this.state.lineDash;
     const hasDash = Array.isArray(lineDash) && lineDash.length > 0;
     const isFlow = this.state.lineDashFlow;
@@ -61,7 +65,7 @@ abstract class ICEPath extends ICEComponent {
         this.replayPath();
         ctx.stroke();
       } else {
-        ctx.stroke(this.path2D);
+        ctx.stroke(drawPath);
       }
       ctx.restore();
     }
@@ -90,10 +94,10 @@ abstract class ICEPath extends ICEComponent {
     } else {
       // 原生 Path2D：直接 fill/stroke 整个路径对象
       if (this.state.fill) {
-        this.ctx.fill(this.path2D);
+        this.ctx.fill(drawPath);
       }
       if (this.state.stroke) {
-        this.ctx.stroke(this.path2D);
+        this.ctx.stroke(drawPath);
       }
     }
 

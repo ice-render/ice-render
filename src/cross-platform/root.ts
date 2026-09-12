@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import PolyfillPath2D from './PolyfillPath2D';
+import Path2DRecorder from './Path2DRecorder';
 
 /**
  * 兼容性封装
@@ -34,13 +34,17 @@ let root: any = null;
       }, 16);
     };
   }
-  // 创建路径对象：优先用运行时自带的 Path2D（浏览器/小程序基础库 2.11.0+），
-  // 否则降级为 PolyfillPath2D（命令记录 + 渲染时重放），兼容小程序低版本 / Node。
+  // 创建路径对象：统一返回 Path2DRecorder —— 一边记录命令流、一边转发给运行时自带的
+  // Path2D（浏览器/小程序基础库 2.11.0+）；运行时没有 Path2D 时它退化为纯记录器，
+  // 由 ICEPath 把命令重放到 ctx（兼容小程序低版本 / Node）。
+  //
+  // 之所以一律走记录器：原生 Path2D 不透明，导出（SVG/服务端出图）、命令重放、以及
+  // 「断言形状生成了哪几条命令」都需要路径的几何描述，而不只是「能画出来」。
   root.createPath2D = () => {
     if (typeof root.Path2D === 'function') {
-      return new root.Path2D();
+      return new Path2DRecorder(new root.Path2D());
     }
-    return new PolyfillPath2D();
+    return new Path2DRecorder();
   };
   // 字体加载：平台适配（浏览器 FontFace API / 小程序 wx.loadFont / 兜底空实现）。
   root.loadFont = (family: string, source: string) => {
