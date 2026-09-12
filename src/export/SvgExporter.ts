@@ -103,6 +103,42 @@ const BASELINE_MAP: Record<string, string> = {
  * `arc` 用 SVG 的弧线命令表达：canvas 的 `arc(x,y,r,a0,a1,ccw)` 等价于从起点画一段椭圆弧，
  * 大弧标志 = 角度差 > π，方向标志 = ccw。
  */
+const TAU = Math.PI * 2;
+
+/**
+ * 把「起始角 → 终止角」换算成**带方向的**角度差（弧度），并尊重 canvas 的 counterclockwise 语义。
+ *
+ * 不能直接算 `a1 - a0`：圆角矩形的最后一个角常常跨过 ±π（例如 a0 = π、a1 = −π/2），
+ * 朴素相减得到 −3π/2，SVG 会按「大弧」去画 → 那个角鼓出一个半圆。
+ * 归一化到方向最短的那一段后，大弧标志与方向标志才都正确。
+ * 起止角相等时按整圆处理（canvas 的 arc(a0, a0) 就是画一整圈）。
+ */
+function directionalDelta(a0: number, a1: number, counterclockwise: boolean): number {
+  let delta = a1 - a0;
+  if (counterclockwise) {
+    while (delta > 1e-12) {
+      delta -= TAU;
+    }
+    while (delta < -TAU) {
+      delta += TAU;
+    }
+    if (Math.abs(delta) < 1e-12) {
+      delta = -TAU;
+    }
+  } else {
+    while (delta < -1e-12) {
+      delta += TAU;
+    }
+    while (delta > TAU) {
+      delta -= TAU;
+    }
+    if (Math.abs(delta) < 1e-12) {
+      delta = TAU;
+    }
+  }
+  return delta;
+}
+
 function commandsToPathData(commands: Array<Array<any>>, closed: boolean, digits: number): string {
   const n = (value: number): string => {
     const rounded = Number(value.toFixed(digits));
@@ -137,14 +173,16 @@ function commandsToPathData(commands: Array<Array<any>>, closed: boolean, digits
       const y0 = y + r * Math.sin(a0);
       const x1 = x + r * Math.cos(a1);
       const y1 = y + r * Math.sin(a1);
-      const delta = Math.abs(a1 - a0);
-      const largeArc = delta > Math.PI ? 1 : 0;
-      const sweep = ccw ? 0 : 1;
+      const delta = directionalDelta(a0, a1, !!ccw);
+      const largeArc = Math.abs(delta) > Math.PI ? 1 : 0;
+      // SVG 的 sweep=1 表示「角度增加方向」（y 轴向下的屏幕坐标里就是顺时针），
+      // 与 canvas 的 counterclockwise 取反。
+      const sweep = delta > 0 ? 1 : 0;
       if (!hasCurrent) {
         parts.push(`M${n(x0)},${n(y0)}`);
       }
       // 整圆（角度差 ≥ 2π）时终点与起点重合，SVG 的弧线会退化 → 拆成两段半圆
-      if (delta >= Math.PI * 2 - 1e-6) {
+      if (Math.abs(delta) >= TAU - 1e-6) {
         const mx = x + r * Math.cos(a0 + Math.PI);
         const my = y + r * Math.sin(a0 + Math.PI);
         parts.push(`A${n(r)},${n(r)} 0 0 ${sweep} ${n(mx)},${n(my)}`);
@@ -161,18 +199,18 @@ function commandsToPathData(commands: Array<Array<any>>, closed: boolean, digits
       hasCurrent = true;
     } else if (name === 'ellipse') {
       // 标准椭圆（引擎只在 ICEEllipse 里用整圆/整椭圆）：用 SVG ellipse 语义等价的两段弧表达
-      const [cx, cy, rx, ry, rotation, a0, a1] = cmd.slice(1);
+      const [cx, cy, rx, ry, rotation, a0, a1, ccw] = cmd.slice(1);
       const x0 = cx + rx * Math.cos(a0) * Math.cos(rotation) - ry * Math.sin(a0) * Math.sin(rotation);
       const y0 = cy + rx * Math.cos(a0) * Math.sin(rotation) + ry * Math.sin(a0) * Math.cos(rotation);
       const x1 = cx + rx * Math.cos(a1) * Math.cos(rotation) - ry * Math.sin(a1) * Math.sin(rotation);
       const y1 = cy + rx * Math.cos(a1) * Math.sin(rotation) + ry * Math.sin(a1) * Math.cos(rotation);
-      const delta = Math.abs(a1 - a0);
-      const largeArc = delta > Math.PI ? 1 : 0;
-      const sweep = a1 >= a0 ? 1 : 0;
+      const delta = directionalDelta(a0, a1, !!ccw);
+      const largeArc = Math.abs(delta) > Math.PI ? 1 : 0;
+      const sweep = delta > 0 ? 1 : 0;
       if (!hasCurrent) {
         parts.push(`M${n(x0)},${n(y0)}`);
       }
-      if (delta >= Math.PI * 2 - 1e-6) {
+      if (Math.abs(delta) >= TAU - 1e-6) {
         const mx =
           cx + rx * Math.cos(a0 + Math.PI) * Math.cos(rotation) - ry * Math.sin(a0 + Math.PI) * Math.sin(rotation);
         const my =
@@ -352,6 +390,12 @@ export function exportSvgResult(target: any, options: SvgExportOptions = {}): Sv
     queue.forEach((component) => {
       if (typeof component.isEffectivelyVisible === 'function' && !component.isEffectivelyVisible()) {
         return;
+      }
+      // 必须先刷新世界矩阵：`__paintWorldBox()` 用的是 state.composedMatrix 缓存，
+      // 对**从未上过屏**的组件（Node 出图、刚构造完就导出）那是空/过期值，
+      // 内容包围盒会算到 (0,0) 附近，导出结果整体偏移。
+      if (typeof component.composeMatrix === 'function') {
+        component.composeMatrix();
       }
       let box: number[] | null = null;
       if (typeof component.__paintWorldBox === 'function') {
