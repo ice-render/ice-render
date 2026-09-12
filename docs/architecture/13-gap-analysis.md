@@ -452,6 +452,7 @@
 | 2026-09-12 | P1-3 导出与互操作 · **SVG 导出**（`ice.toSvg` / `exportSvg`，与画布同一套绘制命令流）+ **路径命令流底座**（`src/graphic/path`，为 SVG / 服务端出图打底） | ✅ 已完成（1.4.2；补丁：`closePath` 按位置进命令流、连线标签进导出、实心端点箭头导出为填充路径） |
 | 2026-09-12 | P1-3 导出与互操作 · **无头实例 `ICE.headless()`**（Node / 服务端建树出图，不依赖 DOM 与 rAF；导出前刷新派生几何）+ `examples/node/export.mjs` | ✅ 已完成（1.4.4） |
 | 2026-09-12 | P1-3 剩余：**PDF 导出、SVG 导入、PNG·JPEG 带背景/切边/多倍图、剪贴板、打印** | ❌ **未做**（PNG 可先走「SVG → resvg / headless Chrome」外部链路；导入类需要独立解析器） |
+| 2026-09-12 | **新发现（下游实测）**：用「首尾重复点」表达闭合的折线（如电缆终端喇叭口 `[[a],[b],[c],[d],[a]]`）会让引擎拿**零尺寸离屏 canvas** 去 `drawImage`，控制台报 `The image argument is a canvas element with a width or height of 0`。开放折线（去掉末尾重复点）正常；`ICEPolyLine` 的闭合成因（`closePath` / 点集退化）待查 | ⚠️ **未修**（下游已规避：改用开放折线；修法方向是缓存前对盒做尺寸兜底） |
 | 2026-09-12 | 事件总线：`trigger` 遍历监听快照，修「同一事件上多个 `once` 监听被跳过」（实测 5 个只触发 0/2/4） | ✅ 已修复（1.4.7，带回归测试） |
 | 2026-09-11 | §7-7 余项：`attw` + `publint` 入 CI、jest 覆盖率门槛 | ✅ 已完成（`npm run pkg:check`；覆盖率门槛按实测基线设棘轮。**首跑即发现真实打包缺陷**：ESM 入口被声明为 CJS → 已修，见下条） |
 | 2026-09-11 | 打包契约：ESM/CJS 入口被声明为 CJS（类型解析错误） | ✅ 已修（`dist/index.js`→`index.mjs`、`index.cjs.js`→`index.cjs`；import 条件用 `.d.mts`；`rollup.config.js`→`.mjs`。**深链旧文件名的用法会断**，见 CHANGELOG「需要注意」） |
