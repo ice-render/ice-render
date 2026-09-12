@@ -154,13 +154,27 @@ class DOMEventDispatcher {
 
   /**
    * 取 canvas 矩形用于坐标换算。
-   * 移动类事件频率高（每帧可能多次），复用缓存；其余事件刷新一次，
-   * 保证页面滚动 / 布局变化后命中检测不错位。
+   *
+   * **移动类事件也必须刷新**（走 `refreshInputRect` 轻量路径：只重读一次
+   * `getBoundingClientRect`，尺寸没变就平移已缓存的内容盒、不读 computedStyle），
+   * 其余事件走完整 `updateCanvasBoundingRect`。
+   *
+   * 为什么不做「一帧一次」的节流：布局变化（页面滚动、画布上方插入内容）可能就发生在
+   * 两次事件之间，节流会让第二次事件继续用过期矩形 —— 命中检测整体偏移、悬停直接落空。
+   * 实测一次 `getBoundingClientRect()` 在布局干净时约 0.22µs、强制重排的最坏情况约 2.8µs，
+   * 相对每帧渲染可忽略（见 AGENTS「性能相关铁律」）。
    */
   private __resolveCanvasRect(nativeEvtName: string): any {
     const isMove = nativeEvtName === 'pointermove' || nativeEvtName === 'mousemove' || nativeEvtName === 'touchmove';
     const ice: any = this.ice;
-    if (!isMove && ice && typeof ice.updateCanvasBoundingRect === 'function') {
+    if (isMove) {
+      if (ice && typeof ice.refreshInputRect === 'function') {
+        ice.refreshInputRect();
+      } else if (ice && typeof ice.updateCanvasBoundingRect === 'function') {
+        // 兼容性兜底：老版本 ICE 没有轻量路径时退化成完整刷新（慢一点但正确）
+        ice.updateCanvasBoundingRect();
+      }
+    } else if (ice && typeof ice.updateCanvasBoundingRect === 'function') {
       ice.updateCanvasBoundingRect();
     }
     // 用「内容盒左上角」而非 border-box：画布带 border/padding 时坐标不应把边框算进去

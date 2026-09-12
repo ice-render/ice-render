@@ -6,7 +6,9 @@
  * - pointer/touch 的 down/move/up 必须同时以 mousedown/mousemove/mouseup 派发（既有组件零改动）
  * - offsetX/offsetY 一律是 canvas 内坐标（修掉全局监听下相对子元素、滚动后 rect 过期的问题）
  * - 触摸没有原生 movement 时，用「与上一次坐标的差」补算，触摸拖拽因此可用
- * - wheel 只发总线、不派发给上次选中的组件；非移动事件刷新 canvas 矩形，移动事件复用缓存
+ * - wheel 只发总线、不派发给上次选中的组件
+ * - **移动事件必须重读 canvas 矩形**：页面滚动 / 上方内容变高都会让缓存过期，
+ *   过期期间命中检测整体偏移（悬停直接落空）。见下方「布局在两次 move 之间变化」用例。
  */
 import EventBus from '../../src/event/EventBus';
 import DOMEventDispatcher from '../../src/event/DOMEventDispatcher';
@@ -28,6 +30,9 @@ function makeIce() {
     toolNodes: [],
     canvasBoundingClientRect: RECT,
     updateCanvasBoundingRect: jest.fn(function () {
+      return ice.canvasBoundingClientRect;
+    }),
+    refreshInputRect: jest.fn(function () {
       return ice.canvasBoundingClientRect;
     }),
     getInputRect: function () {
@@ -104,6 +109,38 @@ describe('DOMEventDispatcher 输入归一化与双通道派发', () => {
     expect(comp.trigger.mock.calls.length).toBe(1);
   });
 
+  /**
+   * 真实缺陷回归：图表创建之后，页面在画布**上方**插入内容（提示条 / 错误信息 / 广告位），
+   * 画布被往下推，而缓存的内容盒只在非移动事件刷新 —— 于是之后每一次 mousemove 的
+   * offsetX/offsetY 都偏移同样的距离，悬停、命中、拖拽全部错位，直到用户点一下或滚一格。
+   */
+  it('布局在两次 move 之间变化：移动事件重读 canvas 矩形，坐标不偏移', () => {
+    const { ice, evtBus } = makeIce();
+    new DOMEventDispatcher(ice).start();
+    const seen: any[] = [];
+    evtBus.on('mousemove', (evt: any) => seen.push(evt));
+
+    evtBus.trigger('ICE_MOUSEMOVE', { type: 'mousemove', clientX: 130, clientY: 90 });
+    expect(seen[0].offsetY).toBe(40); // 90 - 50
+
+    // 画布上方插入内容：真实位置下移 26px。缓存若不复用，offset 会一直偏 26。
+    ice.canvasBoundingClientRect = { left: 100, top: 76 };
+    evtBus.trigger('ICE_MOUSEMOVE', { type: 'mousemove', clientX: 130, clientY: 116 });
+
+    expect(ice.refreshInputRect).toHaveBeenCalled();
+    expect(seen[1].offsetY).toBe(40); // 116 - 76，而不是 116 - 50 = 66
+  });
+
+  it('移动事件每次都刷新矩形（不是「一帧只刷新一次」的节流）', () => {
+    const { ice, evtBus } = makeIce();
+    new DOMEventDispatcher(ice).start();
+
+    evtBus.trigger('ICE_MOUSEMOVE', { type: 'mousemove', clientX: 130, clientY: 90 });
+    evtBus.trigger('ICE_MOUSEMOVE', { type: 'mousemove', clientX: 131, clientY: 91 });
+    // 布局变化可能就发生在两次事件之间；任何节流都会让第二次事件用过期矩形
+    expect((ice.refreshInputRect as jest.Mock).mock.calls.length).toBe(2);
+  });
+
   it('移动事件继承上一次命中结果，不重新做命中检测（高频事件不扫组件树）', () => {
     const { ice, evtBus, comp } = makeIce();
     new DOMEventDispatcher(ice).start();
@@ -133,7 +170,7 @@ describe('DOMEventDispatcher 输入归一化与双通道派发', () => {
     expect(names(comp.trigger.mock.calls, 'wheel').length).toBe(0);
   });
 
-  it('非移动事件刷新 canvas 矩形；移动事件复用缓存（避免每次移动强制布局）', () => {
+  it('非移动事件走完整刷新；移动事件走轻量刷新（只重读 rect，不读 computedStyle）', () => {
     const { ice, evtBus } = makeIce();
     new DOMEventDispatcher(ice).start();
 
@@ -142,7 +179,9 @@ describe('DOMEventDispatcher 输入归一化与双通道派发', () => {
     const before = ice.updateCanvasBoundingRect.mock.calls.length;
 
     evtBus.trigger('ICE_MOUSEMOVE', { type: 'mousemove', clientX: 131, clientY: 91, movementX: 1, movementY: 1 });
+    // 移动事件不走 updateCanvasBoundingRect（那是「重读 rect + 重算边框内边距」的完整路径）
     expect(ice.updateCanvasBoundingRect.mock.calls.length).toBe(before);
+    expect(ice.refreshInputRect).toHaveBeenCalled();
   });
 
   it('scroll 后 rect 变化，命中检测按新 rect 换算（旧实现只在 init 取一次会整体偏移）', () => {
