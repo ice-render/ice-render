@@ -58,6 +58,9 @@ export {
 } from './theme/ICETheme';
 export { default as ICE } from './ICE';
 export { default as CanvasRenderer } from './renderer/CanvasRenderer';
+// SVG 导出：把同一份场景重新生成矢量描述（组件树 + 路径命令流），不依赖 canvas。
+export { exportSvg, exportSvgResult } from './export/SvgExporter';
+export type { SvgExportOptions, SvgExportResult } from './export/SvgExporter';
 export { default as PluginHost } from './plugin/PluginHost';
 export type { ICEPlugin, ICEPluginTool, ICERenderHook, ICERenderFrame } from './plugin/PluginHost';
 // 序列化机制随包导出：应用层需要在自己的（可能尚未 init 的）ICE 实例上复用同一套读写，

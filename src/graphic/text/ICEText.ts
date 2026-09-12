@@ -557,14 +557,14 @@ class ICEText extends ICEComponent {
   }
 
   /**
-   * @method doRender
-   * @overwrite
-   * 文本是基于 baseline 绘制的，文本是从 y 坐标向屏幕上方绘制的，48 是文本高度，这里需要补偿文本高度。
-   * 同时把移动坐标轴原点的偏移量计算进去。
+   * 文本的**渲染行布局**：每一行的内容与基线坐标（组件本地坐标）。
+   *
+   * 画布渲染与 SVG 导出共用这一份口径 —— 两处各算一遍必然漂移（改了对齐公式忘了另一处，
+   * 表现为「导出的文字整体偏移」）。返回的 `x` 是**文字左边缘**（左/居中/右对齐都按画布公式算好），
+   * `y` 是 baseline 位置。
    */
-  protected doRender() {
-    this.dirty && this.measureText();
-    const { paddingTop, paddingBottom, paddingLeft, paddingRight, textAlign, textBaseline } = this.state.style;
+  public getRenderLines(): Array<{ text: string; x: number; y: number }> {
+    const { paddingTop, paddingLeft, paddingRight, textAlign, textBaseline } = this.state.style;
     // 多行文本：优先用换行结果（state.lines），否则按 \n 拆分；
     // 行高用实测的文本总高均分，保证单行与旧基线一致。
     const lines: string[] = this.state.lines || String(this.state.text ?? '').split('\n');
@@ -573,15 +573,7 @@ class ICEText extends ICEComponent {
     // 水平居右 / 居中必须按各行真实文字宽度计算起点；左对齐沿用 box 左内边距，免逐行 measureText。
     const needHAlign = textAlign === 'center' || textAlign === 'right' || textAlign === 'end';
     const measure = needHAlign ? this.__measureFn() : null;
-    if (needHAlign) {
-      // 下面的 x 是「文字起点（左边缘）」语义，靠手工计算实现对齐。
-      // 而 applyStyleToCtx() 已经把 style.textAlign 写进了 ctx —— 若不复位，canvas 会按
-      // ctx.textAlign 再对齐一次，文字整体再左偏半个（center）或一个（right）文字宽度。
-      // 实测（admin 示例）：按钮 "New Order" x=-35.51 + ctx.textAlign='center'，文字中心左偏 35.5px；
-      // 头像字母因此偏出圆形。复位成 left 后与下方公式一致。
-      this.ctx.textAlign = 'left';
-    }
-
+    const result: Array<{ text: string; x: number; y: number }> = [];
     for (let i = 0; i < lines.length; i++) {
       // x 按 textAlign（默认左对齐，与旧行为一致）
       let x = 0 - this.state.localOrigin[0] + paddingLeft;
@@ -601,12 +593,37 @@ class ICEText extends ICEComponent {
         // 文字垂直中心对齐 localOrigin 中心；多行整体居中
         baselineY = (i - (lines.length - 1) / 2) * lineHeight;
       }
+      result.push({ text: lines[i], x, y: baselineY });
+    }
+    return result;
+  }
 
+  /**
+   * @method doRender
+   * @overwrite
+   * 文本是基于 baseline 绘制的，文本是从 y 坐标向屏幕上方绘制的，48 是文本高度，这里需要补偿文本高度。
+   * 同时把移动坐标轴原点的偏移量计算进去。
+   */
+  protected doRender() {
+    this.dirty && this.measureText();
+    const { textAlign } = this.state.style;
+    const lines = this.getRenderLines();
+    const needHAlign = textAlign === 'center' || textAlign === 'right' || textAlign === 'end';
+    if (needHAlign) {
+      // 下面的 x 是「文字起点（左边缘）」语义，靠手工计算实现对齐。
+      // 而 applyStyleToCtx() 已经把 style.textAlign 写进了 ctx —— 若不复位，canvas 会按
+      // ctx.textAlign 再对齐一次，文字整体再左偏半个（center）或一个（right）文字宽度。
+      // 实测（admin 示例）：按钮 "New Order" x=-35.51 + ctx.textAlign='center'，文字中心左偏 35.5px；
+      // 头像字母因此偏出圆形。复位成 left 后与下方公式一致。
+      this.ctx.textAlign = 'left';
+    }
+
+    for (let i = 0; i < lines.length; i++) {
       if (this.state.stroke) {
-        this.ctx.strokeText(lines[i], x, baselineY, this.state.width);
+        this.ctx.strokeText(lines[i].text, lines[i].x, lines[i].y, this.state.width);
       }
       if (this.state.fill) {
-        this.ctx.fillText(lines[i], x, baselineY, this.state.width);
+        this.ctx.fillText(lines[i].text, lines[i].x, lines[i].y, this.state.width);
       }
     }
 

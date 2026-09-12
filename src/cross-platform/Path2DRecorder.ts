@@ -37,6 +37,10 @@ export default class Path2DRecorder {
   public _closed = false;
   /** 原生 Path2D（有则上屏直接用它，命令流仍然记录）；无则为 null */
   public readonly native: any = null;
+  /** 当前点（画布 arcTo / 圆弧的语义依赖它），[x, y]；空表示没有当前子路径 */
+  private __current: [number, number] | null = null;
+  /** 当前子路径的起点（closePath 后当前点回到这里） */
+  private __subpathStart: [number, number] | null = null;
 
   constructor(native: any = null) {
     this.native = native || null;
@@ -50,6 +54,8 @@ export default class Path2DRecorder {
 
   public moveTo(x: number, y: number): void {
     this._commands.push(['moveTo', x, y]);
+    this.__current = [x, y];
+    this.__subpathStart = [x, y];
     if (this.native) {
       this.native.moveTo(x, y);
     }
@@ -57,6 +63,7 @@ export default class Path2DRecorder {
 
   public lineTo(x: number, y: number): void {
     this._commands.push(['lineTo', x, y]);
+    this.__current = [x, y];
     if (this.native) {
       this.native.lineTo(x, y);
     }
@@ -64,6 +71,7 @@ export default class Path2DRecorder {
 
   public bezierCurveTo(cp1x: number, cp1y: number, cp2x: number, cp2y: number, x: number, y: number): void {
     this._commands.push(['bezierCurveTo', cp1x, cp1y, cp2x, cp2y, x, y]);
+    this.__current = [x, y];
     if (this.native) {
       this.native.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y);
     }
@@ -71,20 +79,78 @@ export default class Path2DRecorder {
 
   public quadraticCurveTo(cpx: number, cpy: number, x: number, y: number): void {
     this._commands.push(['quadraticCurveTo', cpx, cpy, x, y]);
+    this.__current = [x, y];
     if (this.native) {
       this.native.quadraticCurveTo(cpx, cpy, x, y);
     }
   }
 
+  /**
+   * 圆角/切线圆弧。
+   *
+   * canvas 的 `arcTo` 依赖「当前点 + 控制点 + 半径」的切线关系，**SVG 没有对应命令**。
+   * 这里在记录阶段就把它**还原成 `lineTo(切点) + arc(圆心, 半径, 起止角)`**：
+   *
+   * - 出口是标准命令流，SVG 导出（以及任何重放到 ctx 的运行时）都不需要再懂 arcTo；
+   * - 原生 Path2D 收到的是等价的 lineTo/arc，渲染结果与直接 arcTo 一致；
+   * - 圆角矩形（ICERect 的 radius）就是靠它才能导出成真正的圆角，否则导出会变成切角。
+   *
+   * 数学：设 P0 = 当前点、P1 = 控制点、P2 = 终点，u = 单位(P0−P1)、v = 单位(P2−P1)，
+   * 夹角 θ = ∠(u,v)，切点到 P1 的距离 t = r / tan(θ/2)，圆心在角平分线上距 P1 为 r / sin(θ/2)。
+   */
   public arcTo(x1: number, y1: number, x2: number, y2: number, radius: number): void {
-    this._commands.push(['arcTo', x1, y1, x2, y2, radius]);
-    if (this.native) {
-      this.native.arcTo(x1, y1, x2, y2, radius);
+    const r = Math.abs(Number(radius) || 0);
+    const from = this.__current;
+    if (!from || r === 0) {
+      // 与 canvas 一致：半径非法时退化为「直线到控制点」
+      this.lineTo(x1, y1);
+      return;
     }
+    const ux0 = from[0] - x1;
+    const uy0 = from[1] - y1;
+    const vx0 = x2 - x1;
+    const vy0 = y2 - y1;
+    const len0 = Math.sqrt(ux0 * ux0 + uy0 * uy0);
+    const len1 = Math.sqrt(vx0 * vx0 + vy0 * vy0);
+    if (len0 === 0 || len1 === 0) {
+      this.lineTo(x1, y1);
+      return;
+    }
+    const ux = ux0 / len0;
+    const uy = uy0 / len0;
+    const vx = vx0 / len1;
+    const vy = vy0 / len1;
+    const cross = ux * vy - uy * vx;
+    const dot = Math.max(-1, Math.min(1, ux * vx + uy * vy));
+    if (Math.abs(cross) < 1e-9 || Math.abs(dot) >= 1 - 1e-9) {
+      // 共线（继续直行或掉头）：canvas 同样退化为直线
+      this.lineTo(x1, y1);
+      return;
+    }
+    const angle = Math.acos(dot);
+    const tangentLength = r / Math.tan(angle / 2);
+    const t1x = x1 + ux * tangentLength;
+    const t1y = y1 + uy * tangentLength;
+    const t2x = x1 + vx * tangentLength;
+    const t2y = y1 + vy * tangentLength;
+    const bx = ux + vx;
+    const by = uy + vy;
+    const blen = Math.sqrt(bx * bx + by * by) || 1;
+    const centerDistance = r / Math.sin(angle / 2);
+    const cx = x1 + (bx / blen) * centerDistance;
+    const cy = y1 + (by / blen) * centerDistance;
+    const startAngle = Math.atan2(t1y - cy, t1x - cx);
+    const endAngle = Math.atan2(t2y - cy, t2x - cx);
+    this.lineTo(t1x, t1y);
+    // 屏幕上（y 轴向下）叉积为负表示顺时针方向，与 canvas 的 counterclockwise 取反
+    this.arc(cx, cy, r, startAngle, endAngle, cross > 0);
   }
 
   public rect(x: number, y: number, width: number, height: number): void {
     this._commands.push(['rect', x, y, width, height]);
+    // canvas：rect() 开新子路径，当前点回到矩形起点
+    this.__current = [x, y];
+    this.__subpathStart = [x, y];
     if (this.native) {
       this.native.rect(x, y, width, height);
     }
@@ -104,6 +170,7 @@ export default class Path2DRecorder {
     counterclockwise: boolean = false
   ): void {
     this._commands.push(['arc', x, y, radius, startAngle, endAngle, counterclockwise]);
+    this.__current = [x + radius * Math.cos(endAngle), y + radius * Math.sin(endAngle)];
     if (this.native) {
       this.native.arc(x, y, radius, startAngle, endAngle, counterclockwise);
     }
@@ -120,6 +187,10 @@ export default class Path2DRecorder {
     counterclockwise: boolean
   ): void {
     this._commands.push(['ellipse', x, y, radiusX, radiusY, rotation, startAngle, endAngle, counterclockwise]);
+    this.__current = [
+      x + radiusX * Math.cos(endAngle) * Math.cos(rotation) - radiusY * Math.sin(endAngle) * Math.sin(rotation),
+      y + radiusX * Math.cos(endAngle) * Math.sin(rotation) + radiusY * Math.sin(endAngle) * Math.cos(rotation),
+    ];
     if (this.native) {
       this.native.ellipse(x, y, radiusX, radiusY, rotation, startAngle, endAngle, counterclockwise);
     }
@@ -127,8 +198,15 @@ export default class Path2DRecorder {
 
   public closePath(): void {
     this._closed = true;
+    // 与 canvas 一致：闭合后当前点回到子路径起点
+    this.__current = this.__subpathStart ? [this.__subpathStart[0], this.__subpathStart[1]] : null;
     if (this.native) {
       this.native.closePath();
     }
+  }
+
+  /** 当前点（只读；调试与测试用） */
+  public get currentPoint(): [number, number] | null {
+    return this.__current;
   }
 }

@@ -23,6 +23,8 @@ import Serializer from './persistence/Serializer';
 import PluginHost, { ICEPlugin } from './plugin/PluginHost';
 import { buildAccessibilityTree, ICEAccessibleNode, ICEAccessibilityOptions } from './a11y/accessibility';
 import CanvasRenderer from './renderer/CanvasRenderer';
+import { exportSvg, exportSvgResult } from './export/SvgExporter';
+import type { SvgExportOptions, SvgExportResult } from './export/SvgExporter';
 import ImageCache from './util/ImageCache';
 import { resolveTheme, getTheme, registerTheme, ICETheme, ICESemanticTheme } from './theme/ICETheme';
 import { flattenAllComponents, hitTestComponents } from './util/data-util';
@@ -883,6 +885,31 @@ class ICE {
    */
   public toBlob(callback: (blob: Blob | null) => void, type?: string, quality?: number): void {
     this.canvasEl.toBlob(callback, type, quality);
+  }
+
+  /**
+   * 把当前场景导出为 **SVG 矢量图**。
+   *
+   * 与 `toDataURL()` / `toBlob()` 的区别：那是画布的**光栅快照**（分辨率写死、缩放后糊），
+   * 这是从组件树 + 路径命令流重新生成的**矢量描述** —— 可以任意放大、丢进 Illustrator/Figma、
+   * 直接进打印/PDF 流程，也能在 Node 里生成（不需要 canvas）。
+   *
+   * 口径与画布渲染一致（顺序、矩阵、样式合并、有效透明度、祖先裁剪），细节与限制见
+   * `export/SvgExporter.ts` 的文件头。
+   *
+   * ```js
+   * const svg = ice.toSvg();                                  // 内容自适应、透明背景
+   * const svg = ice.toSvg({ background: '#fff', padding: 16 }); // 白底 + 留白
+   * const svg = ice.toSvg({ area: 'viewport' });               // 当前视口所见即所得
+   * ```
+   */
+  public toSvg(options: SvgExportOptions = {}): string {
+    return exportSvg(this, options);
+  }
+
+  /** 同 `toSvg()`，但额外返回计算出的画布尺寸（写文件 / 布局预览要用的宽高） */
+  public toSvgResult(options: SvgExportOptions = {}): SvgExportResult {
+    return exportSvgResult(this, options);
   }
 
   /**
