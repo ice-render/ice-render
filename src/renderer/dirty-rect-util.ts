@@ -281,6 +281,8 @@ const ALPHA_COLOR_PATTERN = /(rgba|hsla)\(|transparent|#[0-9a-fA-F]{8}|opacity/i
  */
 export function isOpaqueDrawing(state: any): boolean {
   const style = (state && state.style) || {};
+  // 子树不透明度（opacity）≠ 1 时整棵子树都可能半透明
+  if (state && state.opacity !== undefined && state.opacity !== 1) return false;
   if (style.globalAlpha !== undefined && style.globalAlpha !== 1) return false;
   if (style.globalCompositeOperation && style.globalCompositeOperation !== 'source-over') return false;
   if (style.shadow || (Number(style.shadowBlur) || 0) > 0) return false;
