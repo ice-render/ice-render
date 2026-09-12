@@ -54,6 +54,20 @@ describe('SVG 导出', () => {
     expect(svg).not.toContain(' stroke=');
   });
 
+  it('圆角矩形：四个角都是小弧（SVG 的大弧标志必须为 0，方向一致）', () => {
+    const rect = new ICERect({ width: 260, height: 120, radius: 12, fill: true, stroke: true });
+    const svg = exportSvg(rect);
+    const d = (svg.match(/<path d="([^"]+)"/) || [])[1] || '';
+
+    // 每个角一条弧，共 4 条；都应是「小弧 + 同一方向」，
+    // 不能出现 `0 1 1`（大弧）—— 那是跨 ±π 未归一化的典型症状（角上鼓出半圆）
+    const arcs = d.match(/A[^A]+/g) || [];
+    expect(arcs).toHaveLength(4);
+    arcs.forEach((arc) => {
+      expect(arc).toContain(' 0 0 1 ');
+    });
+  });
+
   it('虚线、透明度都进 SVG', () => {
     const rect = new ICERect({
       width: 40,
@@ -139,6 +153,27 @@ describe('SVG 导出', () => {
     expect(Math.round(result.width)).toBe(220);
     expect(Math.round(result.height)).toBe(220);
     expect(result.svg).toContain('viewBox="0 0 220 220"');
+  });
+
+  it('内容模式尊重组件坐标（未渲染过的组件也要先刷新世界矩阵）', () => {
+    // 回归：__paintWorldBox() 读的是 state.composedMatrix 缓存，从未上过屏的组件那是空值，
+    // 不先 composeMatrix() 就会把内容包围盒算到 (0,0)，导出整体偏移。
+    const rect = new ICERect({
+      left: 500,
+      top: 300,
+      width: 100,
+      height: 50,
+      fill: true,
+      stroke: false,
+      style: { fillStyle: '#ff0000' },
+    });
+
+    const result = exportSvgResult(rect);
+
+    expect(Math.round(result.width)).toBe(100);
+    expect(Math.round(result.height)).toBe(50);
+    // 世界 (500,300) → 视图 (0,0)
+    expect(result.svg).toContain('matrix(1 0 0 1 -500 -300)');
   });
 
   it('隐藏组件不进导出（display:false 是整棵子树的语义）', () => {
