@@ -98,6 +98,14 @@ const DEFAULT_PROPS = {
    * 默认 false —— 与旧行为一致，零成本（热路径上只是一次布尔读）。
    */
   clipChildren: false,
+  /**
+   * 子树不透明度（0~1，默认 1）：作用于**本组件及其所有后代**。
+   *
+   * 与 `style.globalAlpha` 的区别：后者只影响组件自身的绘制（组件是逐个独立渲染的，
+   * 祖先的 ctx 状态不会自动继承给后代），所以淡入淡出整棵子树（Modal / Drawer / Message）
+   * 要用 opacity。
+   */
+  opacity: 1,
   localOrigin: Object.freeze([0, 0]),
   absoluteOrigin: Object.freeze([0, 0]),
   display: true,
@@ -179,6 +187,8 @@ abstract class ICEComponent extends ICEEventTarget {
   /** 可见性缓存（代际号 + 值）：见 `isEffectivelyVisible` 的说明。 */
   private __visEpoch = -1;
   private __visValue = true;
+  /** 本帧是否因为子树不透明度过 ctx.globalAlpha（见 __renderCore / __resetLeakyCtxState）。 */
+  private __opacityApplied = false;
   /** 声明式渐变缓存：按描述对象引用判定，`refreshParams()` 里失效（setState 必然触发它）。 */
   private __gradCache: { fill?: { src: any; grad: any }; stroke?: { src: any; grad: any } } = {};
 
@@ -474,6 +484,14 @@ abstract class ICEComponent extends ICEEventTarget {
 
     this.refreshParams();
     this.applyStyleToCtx();
+    // 子树不透明度：祖先的 opacity 不会自动继承（组件是逐个独立绘制的），这里相乘后叠到
+    // ctx.globalAlpha 上。默认全为 1 时只是一次字段读，热路径无开销。
+    const subtreeOpacity = this.__effectiveOpacity();
+    if (subtreeOpacity !== 1) {
+      this.__applyStyleProp('globalAlpha', (Number(this.ctx.globalAlpha) || 1) * subtreeOpacity);
+      // 记一笔：这个 alpha 不在 style 键里，__resetLeakyCtxState 的扫描发现不了它
+      this.__opacityApplied = true;
+    }
     this.applyTransformToCtx(baseMatrix, applyViewport);
     // 祖先开了 clipChildren 时，先在本组件绘制前建立裁剪区（设备空间），绘制完再还原
     const clipped = this.__applyAncestorClips();
@@ -957,6 +975,28 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   /**
+   * 有效不透明度 = 自身 `state.opacity` × 所有祖先的 `state.opacity`（默认 1）。
+   *
+   * 顶层组件直接返回（绝大多数组件没有祖先，热路径上不做遍历）；非法值按 1 处理。
+   */
+  private __effectiveOpacity(): number {
+    const own = this.state.opacity;
+    let alpha = own === undefined ? 1 : Number(own);
+    if (!(alpha >= 0)) {
+      alpha = 1;
+    }
+    let node = this.parentNode;
+    while (node && node.state) {
+      const parentAlpha = node.state.opacity === undefined ? 1 : Number(node.state.opacity);
+      if (parentAlpha >= 0 && parentAlpha !== 1) {
+        alpha *= parentAlpha;
+      }
+      node = node.parentNode;
+    }
+    return alpha;
+  }
+
+  /**
    * 世界坐标点是否落在某个「裁剪祖先」的盒子之外。
    *
    * 命中检测用它实现「滚出可视区的子组件点不到」—— 与渲染时的裁剪语义保持一致。
@@ -1378,6 +1418,11 @@ abstract class ICEComponent extends ICEEventTarget {
     };
     scan(this.props.style);
     scan(this.state.style);
+    // 子树不透明度叠写的是 globalAlpha，但它不在 style 键里（上面两轮扫描发现不了）
+    if (this.__opacityApplied) {
+      touched |= 1 << this.__leakyIndex('globalAlpha');
+      this.__opacityApplied = false;
+    }
     // 折线/蚂蚁线等内部直接写的虚线状态
     if (this.state.lineDash && this.state.lineDash.length) touched |= 1 << 11;
     if (this.state.lineDashFlow || this.state.lineDashOffset) touched |= 1 << 11;
