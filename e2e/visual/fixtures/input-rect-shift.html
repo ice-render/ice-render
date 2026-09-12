@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>input-rect-shift</title>
+  <style>html, body { margin: 0; padding: 0; }</style>
+</head>
+<body>
+  <canvas id="canvas-1" width="600" height="400"></canvas>
+  <script src="../../../dist/index.umd.js"></script>
+  <script>
+    const ice = new ICE.ICE().init('canvas-1');
+    const rect = new ICE.ICERect({
+      left: 200, top: 150, width: 200, height: 100,
+      style: { strokeStyle: '#0d6efd', fillStyle: '#cfe2ff', lineWidth: 1 },
+    });
+    ice.addChild(rect);
+
+    // 记录总线收到的 canvas 内坐标。
+    // 注意：移动事件只派发给「上次命中过的组件」（没有点击就没有目标），
+    // 所以观测点取 evtBus —— 这也是 hover（不点击）这类交互的真实入口。
+    window.__moves = [];
+    ice.evtBus.on('mousemove', (evt) => window.__moves.push([Math.round(evt.offsetX), Math.round(evt.offsetY)]));
+
+    /** 复现「图表创建后，页面在画布上方插入内容」：画布整体下移 76px。 */
+    window.__insertBanner = function () {
+      const banner = document.createElement('div');
+      banner.id = 'late-banner';
+      banner.style.cssText = 'height:64px;margin-bottom:12px;background:#fff3cd';
+      document.body.insertBefore(banner, document.body.firstChild);
+    };
+    window.__canvasRect = () => document.getElementById('canvas-1').getBoundingClientRect();
+    window.__ice = ice;
+  </script>
+</body>
+</html>

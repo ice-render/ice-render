@@ -5,7 +5,17 @@
 
 ## [Unreleased]
 
-> 暂无（下一个版本发布前在这里累积）。
+### 修复
+
+- **移动事件的输入矩形不再缓存**（2026-09-12）：图表创建之后，页面在画布**上方**插入内容
+  （提示条 / 错误信息 / 广告位）会把画布往下推，而 `DOMEventDispatcher` 只在非移动事件刷新矩形 ——
+  之后每一次 `mousemove` 的 canvas 内坐标都偏移同样的距离，**命中 / 悬停 / 拖拽整体错位**，
+  直到用户点一下或滚一格。现在移动事件走 `ICE.refreshInputRect()`：只重读一次
+  `getBoundingClientRect()`（实测 0.22µs，强制重排最坏 2.8µs），尺寸没变时平移已缓存的内容盒，
+  连 `getComputedStyle` 都不用读；尺寸变化时退回完整刷新。
+  另外修掉一个自己踩的坑：做位移增量不能用上一次的 rect 对象引用做差（桩/小程序返回同一个可变对象，
+  增量恒为 0）。回归：`tests/ICE.input-rect.test.ts`、`tests/event/DOMEventDispatcher.input.test.ts`、
+  `e2e/visual/input-rect-shift.spec.ts`（回退修复即变红）。
 
 ## [1.3.0] - 2026-09-12
 

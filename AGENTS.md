@@ -17,6 +17,18 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 - **变换手柄坐标铁律（2026-09-08 修复手柄脱离图元 bug 后确立）**：`TransformControlPanel.resizeEvtHandler`、`ResizeControl.moveGlobalPosition/resizeEvtHandler`、`RotateControl.rotateEvtHandler` 在把全局位移换算到本地时，必须调用 `calcAbsoluteLinearMatrix()` / `calcAbsoluteOrigin()` **实时重算**，严禁读取 `state.absoluteLinearMatrix` / `state.absoluteOrigin` 缓存（这些值在两次渲染之间会过期，连续拖动/缩放/旋转会导致手柄脱离宿主组件）。此外，**面板的 `left/top/width/height` 必须始终从目标组件重新推导**：`resizeEvtHandler`/`rotateEvtHandler` 改变目标后必须调用 `updatePanel()` 重新同步（面板宽高是目标旋转后包围盒的尺寸，随旋转变化，不能独立计算）。回归用例见 `tests/control-panel/transform-control.test.ts`。
 - **变换手柄象限唯一性铁律（2026-09-08 修复手柄消失后确立）**：`toggleControlQuadrant(control, oldQuadrant, newQuadrant)` 必须把「原占据 newQuadrant 的手柄」顶替到 `oldQuadrant`（即 old↔new 互换），严禁用固定的「对角映射」(1↔3/2↔4)。此前当手柄跨到**相邻**象限（如 1→2）时会产出重复象限、两个手柄重叠、看起来消失一个。8 个 resize 手柄的象限必须始终保持唯一（`Set(quadrants).size === 8`）。回归用例见 `tests/control-panel/transform-control.test.ts` 与 `e2e/visual/interaction.spec.ts`。
 - **命中检测铁律（2026-09-08 修复 N 层嵌套下点不中子组件后确立）**：`DOMEventDispatcher.findTargetComponent()` 必须跳过 `isControlPanel` 的控制面板本体（它是覆盖在目标上的工具层、zIndex 最高），否则面板会遮挡被选组件及其子组件，导致嵌套场景下点不中子组件。面板的子手柄（`ResizeControl`/`RotateControl`）不是 `isControlPanel`，仍需参与命中以保证缩放/旋转可用。回归用例见 `tests/event/DOMEventDispatcher.test.ts`。
+- **输入矩形每帧重读铁律（2026-09-12 修复悬停整体错位后确立）**：`DOMEventDispatcher.__resolveCanvasRect`
+  对**移动类事件**必须走 `ICE.refreshInputRect()`（只重读一次 `getBoundingClientRect()`；
+  尺寸没变时平移已缓存的内容盒、不读 computedStyle），**不得缓存 rect，也不得做「一帧一次」的节流**。
+  原因：页面滚动、画布**上方插入内容**（提示条 / 错误信息 / 广告位）都会让缓存整体过期，
+  而移动事件是唯一高频入口 —— 不刷新就没人来纠正它，过期期间 `clientX - rect.left` 恒定偏移，
+  命中检测 / 悬停 / 拖拽全部错位，直到用户点一下或滚一格（ice-chart 的示例页真实撞到过：
+  图表创建后插入状态行把画布下推 26px，悬停直接落空）。实测一次 rect 读 **0.22µs**
+  （每次读之前改样式、强制重排的最坏情况 **2.8µs**），相对每帧渲染可忽略。
+  另一个坑：**做位移增量必须用「值快照」，不能拿上一次的 rect 对象引用做差** ——
+  某些运行时（测试桩 / 小程序）返回同一个可变对象，增量恒为 0，内容盒再也不跟着走。
+  回归用例见 `tests/ICE.input-rect.test.ts`、`tests/event/DOMEventDispatcher.input.test.ts`、
+  `e2e/visual/input-rect-shift.spec.ts`。
 - 序列化：`Serializer`/`Deserializer` + `COMPONENT_TYPE_MAPPING` 做「注册名 ↔ 构造函数」双向映射；写出时用 `ice.getTypeId(ctor)` **反查注册名**（与类的 JS 名解耦，压缩改名不破坏已存数据），未注册类型才回退 `constructor.name`。格式带 `version` 与 `SERIALIZATION_MIGRATIONS`；未注册类型反序列化时跳过该节点并记入 `deserializer.unknownTypes`，不再整份数据打不开。自定义组件需 `ice.registerType()` 后才能反序列化。
 - **渲染队列缓存铁律（2026-09-08 性能优化确立）**：任何改变组件树结构的入口——`ICE.addChild/addChildren/removeChild/removeChildren/clearAll/addTool/removeTool`、`ICEGroup.addChild/addChildren/removeChild/removeChildren`——都必须经 `renderer.markQueueDirty()` 通知渲染器重建队列；否则稳态帧会沿用过期队列，导致新增/删除的组件不被渲染或绘制顺序错乱。`zIndex` 变更（经 `setState`）无需手动标记，渲染器在稳态帧通过 O(n) 比对自动重排序。仓库内所有结构性入口已挂接该调用。回归用例见 `tests/renderer/CanvasRenderer.queue.test.ts`。
 - **挂载去重性能铁律（2026-09-10 确立）**：`ICE.addChild/addTool`、`ICEGroup.addChild` 的重复检测必须用 `WeakSet`（O(1)），严禁 `childNodes.indexOf()`（O(n)）。批量挂载 N 个组件时 indexOf 累计是 O(n²)，压测中 10 万→100 万构建时间因此被放大到数十倍；改 WeakSet 后 100 万构建从 ~41s 降到 ~6s。删除路径（`removeChild/removeTool`）须同步 `WeakSet.delete`，否则组件删除后无法重新挂载。回归用例见 `tests/ICE.add-child.test.ts`。

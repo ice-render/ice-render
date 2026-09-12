@@ -96,6 +96,8 @@ class ICE {
    * backing store 尺寸也会被边框撑大。这里在刷新 rect 时一并读取 computedStyle 补偿。
    */
   private __contentBox: any = null;
+  /** 上次用于「位移增量」的矩形快照（不持有 DOMRect 引用，见 __rememberInputRect）。 */
+  private __inputRectSnapshot: { left: number; top: number; width: number; height: number } | null = null;
   public selectionList: Array<any> = []; //当前选中的组件列表，支持 Ctrl 键同时选中多个组件。
   /** 插件宿主：组件 / 渲染 / 交互工具三层注册点，见 `src/plugin/PluginHost.ts`。 */
   public plugins: PluginHost = new PluginHost(this);
@@ -196,6 +198,7 @@ class ICE {
       this.canvasWidth = this.canvasEl.width;
       this.canvasHeight = this.canvasEl.height;
       this.canvasBoundingClientRect = this.canvasEl.getBoundingClientRect();
+      this.__rememberInputRect(this.canvasBoundingClientRect);
       this.__contentBox = this.__readContentBox(this.canvasBoundingClientRect);
       this.ctx = this.canvasEl.getContext('2d');
       // 触摸输入必需：阻止浏览器把手势解释为页面滚动/缩放，否则触摸拖拽会被浏览器抢走。
@@ -290,6 +293,7 @@ class ICE {
     this.dpr = 1;
     this.__renderVp = null;
     this.__contentBox = null;
+    this.__inputRectSnapshot = null;
 
     this.__initialized = false;
   }
@@ -706,9 +710,62 @@ class ICE {
   public updateCanvasBoundingRect(): any {
     if (this.canvasEl && typeof this.canvasEl.getBoundingClientRect === 'function') {
       this.canvasBoundingClientRect = this.canvasEl.getBoundingClientRect();
+      this.__rememberInputRect(this.canvasBoundingClientRect);
       this.__contentBox = this.__readContentBox(this.canvasBoundingClientRect);
     }
     return this.canvasBoundingClientRect;
+  }
+
+  /** 记下上次用于「位移增量」的矩形快照。
+   *
+   * 不能直接复用 `canvasBoundingClientRect` 做差：某些运行时（桩 / 小程序）返回的是
+   * **同一个可变对象**，此时 `rect === prev`，增量恒为 0，内容盒就再也不会跟着走。
+   */
+  private __rememberInputRect(rect: any): void {
+    if (!rect) return;
+    const snapshot = this.__inputRectSnapshot || (this.__inputRectSnapshot = { left: 0, top: 0, width: 0, height: 0 });
+    snapshot.left = rect.left || 0;
+    snapshot.top = rect.top || 0;
+    snapshot.width = rect.width || 0;
+    snapshot.height = rect.height || 0;
+  }
+
+  /**
+   * 输入路径的**轻量**刷新：只重读一次 `getBoundingClientRect()`，尺寸没变时把已缓存的
+   * 内容盒按位移平移，跳过一次 `getComputedStyle`（border/padding 不会每帧变）。
+   *
+   * 为什么移动事件必须每帧重读：页面滚动、画布上方插入内容（提示条 / 错误信息 / 广告位）
+   * 都会让缓存整体过期，过期期间 `clientX - rect.left` 恒定偏移 —— 命中检测、悬停、
+   * 拖拽全部错位，而移动事件恰恰是唯一高频入口，不刷新就没人来纠正它。
+   *
+   * 尺寸变化（窗口缩放、布局改动导致画布变大变小）时退回完整刷新，保证 border/padding 补偿正确。
+   */
+  public refreshInputRect(): any {
+    const el: any = this.canvasEl;
+    if (!el || typeof el.getBoundingClientRect !== 'function') {
+      return this.canvasBoundingClientRect;
+    }
+    const rect = el.getBoundingClientRect();
+    const prev = this.__inputRectSnapshot;
+    // 先取值再覆盖快照：快照对象是原地复用的，直接拿引用做差会得到 0（自己踩过）
+    const hadPrev = !!prev;
+    const prevLeft = hadPrev ? prev.left : 0;
+    const prevTop = hadPrev ? prev.top : 0;
+    const prevWidth = hadPrev ? prev.width : 0;
+    const prevHeight = hadPrev ? prev.height : 0;
+    this.canvasBoundingClientRect = rect;
+    this.__rememberInputRect(rect);
+    const box = this.__contentBox;
+    const sameSize =
+      hadPrev && !!box && Math.abs(rect.width - prevWidth) < 0.01 && Math.abs(rect.height - prevHeight) < 0.01;
+    if (sameSize) {
+      // 只挪了位置：内容盒跟着平移（width/height 不变），省掉 computedStyle 读取
+      box.left += rect.left - prevLeft;
+      box.top += rect.top - prevTop;
+    } else {
+      this.__contentBox = this.__readContentBox(rect);
+    }
+    return rect;
   }
 
   /**
