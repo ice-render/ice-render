@@ -415,12 +415,12 @@
 | 跨平台适配层 | `src/cross-platform/root.ts`（`requestFrame` 兜底 / `createPath2D` / `loadFont` / `createOffscreenCanvas` / `devicePixelRatio`） |
 ## 附录 C · 证据速查（外部，仅中立标准与工具）
 
-- MDN canvas 无障碍：<https://developer.mozilla.org/en-US/docs/Web/HTML/Element/canvas>
-- W3C Canvas 无障碍用例：<https://www.w3.org/WAI/PF/HTML/wiki/Canvas_Accessibility_Use_Cases>
-- Playwright 快照测试：<https://playwright.dev/docs/test-snapshots>
-- Node 包 `exports` / 双包危害：<https://nodejs.org/api/packages.html>
-- Are The Types Wrong：<https://arethetypeswrong.github.io/>
-- publint：<https://publint.dev/>
+- MDN canvas 无障碍：[https://developer.mozilla.org/en-US/docs/Web/HTML/Element/canvas](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/canvas)
+- W3C Canvas 无障碍用例：[https://www.w3.org/WAI/PF/HTML/wiki/Canvas_Accessibility_Use_Cases](https://www.w3.org/WAI/PF/HTML/wiki/Canvas_Accessibility_Use_Cases)
+- Playwright 快照测试：[https://playwright.dev/docs/test-snapshots](https://playwright.dev/docs/test-snapshots)
+- Node 包 `exports` / 双包危害：[https://nodejs.org/api/packages.html](https://nodejs.org/api/packages.html)
+- Are The Types Wrong：[https://arethetypeswrong.github.io/](https://arethetypeswrong.github.io/)
+- publint：[https://publint.dev/](https://publint.dev/)
 
 > 说明：竞品相关的官方文档与仓库链接按约定不在本文列出。需要对着具体实现核对时，可在内部调研记录中查阅。
 
