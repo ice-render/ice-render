@@ -152,6 +152,15 @@ abstract class ICEComponent extends ICEEventTarget {
 
   protected __dirty: boolean = true;
 
+  /**
+   * 本组件是否**已经真正绘制过一次**（`__renderCore` 走完了 doRender 才会置真）。
+   *
+   * 存在的意义：`dirty` 同时承担两个语义 —— 「本帧要重绘」和「几何缓存（`ICEPath.createPathObject`）
+   * 是否有效」。后者只在 doRender 里以 `if (this.dirty)` 的形式被消费，因此**从未渲染过的组件
+   * 一旦被置干净，它的路径缓存就永远不会被建立**，首次上屏是空的（见 `__applyDirty`）。
+   */
+  protected __everRendered: boolean = false;
+
   // __localBox() 的复用缓冲（避免每帧为每个组件的包围盒分配数组）
   private __localBoxScratch: number[] = [0, 0, 0, 0];
 
@@ -462,6 +471,7 @@ abstract class ICEComponent extends ICEEventTarget {
     this.__resetLeakyCtxState();
 
     this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER);
+    this.__everRendered = true;
     this.dirty = false;
   }
 
@@ -1093,6 +1103,20 @@ abstract class ICEComponent extends ICEEventTarget {
 
   public get dirty() {
     return this.__dirty;
+  }
+
+  /**
+   * 按 `markDirty` 语义更新脏标记。
+   *
+   * `markDirty = false` 的含义是「这次操作**不要**主动把组件标记为要重绘」（批量挂载时的性能优化），
+   * 而**不是**「把它强制置干净」：对从未绘制过的组件置干净会让几何缓存永不建立，首次上屏画不出
+   * 自身的路径（`ICEPath.doRender` 只在 dirty 时调用 `createPathObject`）。
+   *
+   * 例：`UIButton` 构造函数里 `addChild(this.label, false)` 会把自己置干净，导致按钮的圆角矩形
+   * 背景/边框在首帧是空路径 —— 页面上表现为「白底白字、完全看不见的按钮」。
+   */
+  protected __applyDirty(markDirty: boolean): void {
+    this.dirty = markDirty || !this.__everRendered;
   }
 
   public set paramsDirty(flag: boolean) {
