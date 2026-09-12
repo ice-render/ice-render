@@ -553,14 +553,21 @@ class ICEText extends ICEComponent {
     const lines: string[] = this.state.lines || String(this.state.text ?? '').split('\n');
     const textHeight = this.state.textHeight || this.state.style.fontSize;
     const lineHeight = textHeight / lines.length;
+    // 水平居右 / 居中必须按各行真实文字宽度计算起点；左对齐沿用 box 左内边距，免逐行 measureText。
+    const needHAlign = textAlign === 'center' || textAlign === 'right' || textAlign === 'end';
+    const measure = needHAlign ? this.__measureFn() : null;
 
     for (let i = 0; i < lines.length; i++) {
       // x 按 textAlign（默认左对齐，与旧行为一致）
       let x = 0 - this.state.localOrigin[0] + paddingLeft;
-      if (textAlign === 'center') {
-        x = 0; // 文字水平中心对齐 localOrigin 中心
-      } else if (textAlign === 'right' || textAlign === 'end') {
-        x = this.state.localOrigin[0] - paddingRight;
+      if (needHAlign) {
+        const lineWidth = measure ? measure(lines[i]) || 0 : 0;
+        if (textAlign === 'center') {
+          x = -lineWidth / 2; // 文字水平中心对齐 localOrigin 中心
+        } else {
+          // 文字右边缘对齐 box 右内边距处（flush-right）；旧实现把起点放在 box 右缘，导致文字向右溢出
+          x = this.state.localOrigin[0] - paddingRight - lineWidth;
+        }
       }
 
       // baselineY 按 textBaseline（默认 bottom，与旧行为一致）
