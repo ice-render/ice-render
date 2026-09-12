@@ -51,6 +51,9 @@ const LEAKY_CTX_PROPS: Array<[string, any]> = [
   ['textAlign', 'start'],
   ['textBaseline', 'alphabetic'],
 ];
+
+/** 单位矩阵（gl-matrix mat2d 布局）；`__activeWorldMatrix` 为空时代表世界→设备是恒等变换。 */
+const IDENTITY_MATRIX = Object.freeze([1, 0, 0, 1, 0, 0]) as unknown as number[];
 import { skew } from '../util/gl-matrix-skew';
 import { uuid } from '../util/uuid';
 
@@ -90,6 +93,11 @@ const DEFAULT_PROPS = {
   origin: 'localCenter',
   originX: 0,
   originY: 0,
+  /**
+   * 是否把**所有后代**裁到自己的盒子里（滚动容器 / 可裁剪视口用）。
+   * 默认 false —— 与旧行为一致，零成本（热路径上只是一次布尔读）。
+   */
+  clipChildren: false,
   localOrigin: Object.freeze([0, 0]),
   absoluteOrigin: Object.freeze([0, 0]),
   display: true,
@@ -467,7 +475,12 @@ abstract class ICEComponent extends ICEEventTarget {
     this.refreshParams();
     this.applyStyleToCtx();
     this.applyTransformToCtx(baseMatrix, applyViewport);
+    // 祖先开了 clipChildren 时，先在本组件绘制前建立裁剪区（设备空间），绘制完再还原
+    const clipped = this.__applyAncestorClips();
     this.doRender();
+    if (clipped) {
+      this.ctx.restore();
+    }
     this.__resetLeakyCtxState();
 
     this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_RENDER);
@@ -926,6 +939,102 @@ abstract class ICEComponent extends ICEEventTarget {
       return;
     }
     this.ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+  }
+
+  /**
+   * 是否存在开启 `clipChildren` 的祖先（热路径用，命中检测与离屏缓存的门控都要问它）。
+   * 顶层组件直接 O(1) 返回。
+   */
+  public hasClippingAncestor(): boolean {
+    let node = this.parentNode;
+    while (node && node.state) {
+      if (node.state.clipChildren) {
+        return true;
+      }
+      node = node.parentNode;
+    }
+    return false;
+  }
+
+  /**
+   * 世界坐标点是否落在某个「裁剪祖先」的盒子之外。
+   *
+   * 命中检测用它实现「滚出可视区的子组件点不到」—— 与渲染时的裁剪语义保持一致。
+   */
+  public isPointClippedOut(wx: number, wy: number): boolean {
+    let node = this.parentNode;
+    while (node && node.state) {
+      if (node.state.clipChildren) {
+        const box = node.__paintWorldBox();
+        if (wx < box[0] || wx > box[2] || wy < box[1] || wy > box[3]) {
+          return true;
+        }
+      }
+      node = node.parentNode;
+    }
+    return false;
+  }
+
+  /**
+   * 把「裁剪祖先」的盒子作为裁剪区应用到 ctx —— 在**设备空间**建立。
+   *
+   * 做法与脏矩形路径一致（见 CanvasRenderer 的局部重绘分支）：
+   * `setTransform(单位矩阵) → rect → clip → 复原本组件 CTM`。clip 记录在 ctx 的裁剪状态里，
+   * 之后组件自己 `setTransform` 不会清掉它；`restore()` 才移除。
+   *
+   * 祖先有旋转/缩放时按其世界 AABB 裁剪（保守，宁可多裁不可漏裁）。
+   *
+   * @returns 是否建立过裁剪（true 时调用方必须 `ctx.restore()`）
+   */
+  private __applyAncestorClips(): boolean {
+    const parent = this.parentNode;
+    if (!parent || !parent.state) {
+      return false;
+    }
+    const ctx = this.ctx;
+    if (!ctx || typeof ctx.clip !== 'function' || typeof ctx.rect !== 'function') {
+      return false;
+    }
+
+    // 先收集（内 → 外），确认真的存在裁剪祖先再动 ctx
+    let ancestors: any[] | null = null;
+    let node = parent;
+    while (node && node.state) {
+      if (node.state.clipChildren) {
+        (ancestors || (ancestors = [])).push(node);
+      }
+      node = node.parentNode;
+    }
+    if (!ancestors) {
+      return false;
+    }
+
+    // 世界 → 设备：主画布通道是视口矩阵，离屏通道是位图 base 矩阵；都没有则是单位矩阵
+    const m = this.__activeWorldMatrix || IDENTITY_MATRIX;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    for (let i = ancestors.length - 1; i >= 0; i--) {
+      const box = ancestors[i].__paintWorldBox();
+      // 四个角分别变换后取 AABB（旋转/斜切时保守裁剪）
+      const ax = m[0] * box[0] + m[2] * box[1] + m[4];
+      const ay = m[1] * box[0] + m[3] * box[1] + m[5];
+      const bx = m[0] * box[2] + m[2] * box[1] + m[4];
+      const by = m[1] * box[2] + m[3] * box[1] + m[5];
+      const cx = m[0] * box[0] + m[2] * box[3] + m[4];
+      const cy = m[1] * box[0] + m[3] * box[3] + m[5];
+      const dx = m[0] * box[2] + m[2] * box[3] + m[4];
+      const dy = m[1] * box[2] + m[3] * box[3] + m[5];
+      const minX = Math.min(ax, bx, cx, dx);
+      const minY = Math.min(ay, by, cy, dy);
+      const maxX = Math.max(ax, bx, cx, dx);
+      const maxY = Math.max(ay, by, cy, dy);
+      ctx.beginPath();
+      ctx.rect(minX, minY, maxX - minX, maxY - minY);
+      ctx.clip();
+    }
+    // 裁剪已建立，把 CTM 换回本组件自己的（clip 不受影响）
+    this.applyActiveTransform();
+    return true;
   }
 
   /**
