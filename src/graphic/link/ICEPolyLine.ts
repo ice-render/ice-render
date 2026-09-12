@@ -934,6 +934,37 @@ class ICEPolyLine extends ICEDotPath {
     return { x: pos[0], y: pos[1], halfW: textWidth / 2 + padding, halfH: fontSize / 2 + padding };
   }
 
+  /**
+   * 连线标签的**渲染信息**（公开口径）：位置、尺寸、字体与配色。
+   *
+   * 与 `drawLabel()` / `__labelMetrics()` 同源 —— 画布怎么画，导出（SVG）就怎么描述。
+   * 连线标签是画布 `fillText` 出来的，不像节点标题那样是独立的 ICEText 子组件，
+   * 所以导出器必须显式问它，否则「是/否」「条件」这类标签会在导出里凭空消失。
+   */
+  public getLabelRenderInfo(): {
+    text: string;
+    x: number;
+    y: number;
+    halfW: number;
+    halfH: number;
+    fontSize: number;
+    fillStyle: string;
+    backgroundColor: string;
+  } | null {
+    const metrics = this.__labelMetrics();
+    if (!metrics) {
+      return null;
+    }
+    const style: any = this.state.labelStyle || {};
+    return {
+      text: String(this.state.label),
+      ...metrics,
+      fontSize: style.fontSize || 14,
+      fillStyle: style.fillStyle || '#000000',
+      backgroundColor: style.backgroundColor || '#ffffff',
+    };
+  }
+
   /** `__localBox()` 专用包装：算完把 `ctx.font` 恢复 —— 盒子计算不该改变渲染状态。 */
   private __measureLabelBoxForBounds(): { x: number; y: number; halfW: number; halfH: number } | null {
     const ctx: any = this.ctx;

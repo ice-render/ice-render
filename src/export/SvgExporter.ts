@@ -586,6 +586,24 @@ export function exportSvgResult(target: any, options: SvgExportOptions = {}): Sv
           pathAttrs.push(`stroke-linecap="${state.lineCap}"`);
         }
         element = `<path d="${d}" ${pathAttrs.join(' ')}/>`;
+
+        // 连线标签：画布上是 PolyLine.drawLabel() 用 fillText 直接画的（不是独立子组件），
+        // 导出器必须显式问它，否则流程图的「是/否」、BPMN 的条件/默认流标签会整批丢失。
+        const labelInfo =
+          typeof (component as any).getLabelRenderInfo === 'function' ? (component as any).getLabelRenderInfo() : null;
+        if (labelInfo) {
+          const rectX = Number((labelInfo.x - labelInfo.halfW).toFixed(digits));
+          const rectY = Number((labelInfo.y - labelInfo.halfH).toFixed(digits));
+          const rectW = Number((labelInfo.halfW * 2).toFixed(digits));
+          const rectH = Number((labelInfo.halfH * 2).toFixed(digits));
+          element +=
+            `<rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="${escapeXml(
+              labelInfo.backgroundColor
+            )}"/>` +
+            `<text x="${Number(labelInfo.x.toFixed(digits))}" y="${Number(labelInfo.y.toFixed(digits))}" ` +
+            `font-family="Arial" font-size="${Number(labelInfo.fontSize)}" fill="${escapeXml(labelInfo.fillStyle)}" ` +
+            `text-anchor="middle" dominant-baseline="central">${escapeXml(labelInfo.text)}</text>`;
+        }
       }
     } else if (component instanceof ICEText) {
       const lines =

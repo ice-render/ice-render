@@ -31,6 +31,9 @@ const PAGES: Array<{ name: string; rel: string; includeTools?: boolean; limit?: 
   { name: 'shapes-style（虚线 / 渐变 / 阴影 / 透明度）', rel: 'examples/shapes/shapes-style-effects.html' },
   { name: 'text-multiline（多行文本）', rel: 'examples/text/text-multiline.html' },
   { name: 'line-visio（连线与标签）', rel: 'examples/line-and-link/line-visio.html' },
+  // 连线标签是 PolyLine.drawLabel() 用 fillText 直接画的（不是独立子组件），
+  // 导出器必须显式问它 —— 这一页专门盯这个（例：流程图「是/否」、BPMN 条件流标签）
+  { name: 'link-label（连线标签）', rel: 'examples/line-and-link/link-label.html' },
   // 这页故意放了工具层演示 includeTools；导出时必须显式带上才与画布一致。
   // 它还带阴影 + 工具层虚线框，边缘 AA 的天然余量更大，单独放宽。
   { name: 'svg-export 示例页（含工具层）', rel: 'examples/export/svg-export.html', includeTools: true, limit: 1.8 },
