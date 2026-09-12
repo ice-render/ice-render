@@ -14,8 +14,13 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 
-export const mod = require(path.resolve(__dirname, '..', '..', 'dist', 'index.cjs.js'));
-export const { ICE, ICEGroup, ICERect, ICECircle, ICEStar, ICEPolyLine, EventBus, CanvasRenderer } = mod;
+// 产物名是 dist/index.cjs（rollup 配置里已改）；此前这里还写着 index.cjs.js，
+// 于是 `npm run bench:micro` 整个套件直接 MODULE_NOT_FOUND —— 微基准等于没在跑。
+export const mod = require(path.resolve(__dirname, '..', '..', 'dist', 'index.cjs'));
+export const { ICE, ICEGroup, ICERect, ICECircle, ICEStar, ICEPolyLine, EventBus, CanvasRenderer, exportSvg } = mod;
+// 引擎加载完就立刻把 Node 缺的运行时桩装上：子套件在**导入期**就会跑首帧（hit-test 的场景准备），
+// 而 ESM 的 import 求值早于任何入口语句 —— 桩留到 index.mjs 里再装就来不及了。
+installRuntimeStubs();
 
 /** no-op ctx 桩：只提供引擎用到的属性和方法。 */
 export function makeCtx() {
@@ -33,6 +38,30 @@ export function makeCtx() {
   ctx.lineWidth = 1;
   ctx.font = '';
   return ctx;
+}
+
+/**
+ * Node 环境下的运行时兜底：引擎的离屏缓存（ObjectCache）会调 `root.createOffscreenCanvas`，
+ * 图像缓存会调 `root.createImage`；Node 里两者都不存在，微基准一渲染就抛
+ * 「当前运行时没有可用的离屏 canvas」。这里装上与 `makeCtx()` 同构的桩 ——
+ * 微基准本来就只测引擎 JS 逻辑层（不含真实光栅化），桩掉正好符合它的口径。
+ *
+ * 注意：引擎的 `root` 在 Node 里就是 `global` 本身（见 cross-platform/root.ts 的取根逻辑）。
+ */
+export function installRuntimeStubs() {
+  // 必须**无条件覆盖**：引擎在加载时就把自己那份 createOffscreenCanvas 挂到了 global 上
+  // （Node 里取根就是 global），那份在无 document/wx 时直接抛错。要跑 Node 微基准，
+  // 就得在引擎加载之后把它换掉 —— 这正是下面 import 顺序安排的原因。
+  global.createOffscreenCanvas = (width, height) => ({
+    canvas: { width, height },
+    ctx: makeCtx(),
+  });
+  if (typeof global.createImage !== 'function') {
+    global.createImage = () => ({ width: 0, height: 0 });
+  }
+  if (typeof global.requestFrame !== 'function') {
+    global.requestFrame = (cb) => setTimeout(() => cb(Date.now()), 16);
+  }
 }
 
 export function walk(node, fn) {
