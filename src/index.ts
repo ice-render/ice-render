@@ -60,5 +60,9 @@ export { default as ICE } from './ICE';
 export { default as CanvasRenderer } from './renderer/CanvasRenderer';
 export { default as PluginHost } from './plugin/PluginHost';
 export type { ICEPlugin, ICEPluginTool, ICERenderHook, ICERenderFrame } from './plugin/PluginHost';
+// 序列化机制随包导出：应用层需要在自己的（可能尚未 init 的）ICE 实例上复用同一套读写，
+// 而不是再发明一份（ICE.init() 会把同样两个实例挂到 ice.serializer / ice.deserializer）。
+export { default as Serializer, SERIALIZATION_VERSION } from './persistence/Serializer';
+export { default as Deserializer, SERIALIZATION_MIGRATIONS } from './persistence/Deserializer';
 export { buildAccessibilityTree } from './a11y/accessibility';
 export type { ICEAccessibleNode, ICEAccessibleRole, ICEAccessibilityOptions } from './a11y/accessibility';

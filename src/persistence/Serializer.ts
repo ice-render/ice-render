@@ -84,7 +84,10 @@ export default class Serializer {
 
     parentData.childNodes.push(currentData);
 
-    if (component.childNodes && component.childNodes.length) {
+    // 复合组件的内部子组件是派生的（构造函数会按 state 重建），不写入文档：
+    // 否则反序列化时会「构造函数建一份 + Deserializer 再挂一份」导致重复。
+    const derived = typeof component.hasDerivedChildren === 'function' && component.hasDerivedChildren();
+    if (!derived && component.childNodes && component.childNodes.length) {
       for (let i = 0; i < component.childNodes.length; i++) {
         this.encodeRecursively(component.childNodes[i], currentData);
       }
