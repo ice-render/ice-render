@@ -37,8 +37,23 @@ export function round(value: number, precision: number = 0): number {
   return Number(`${m2}e${(e2 ? parseInt(e2, 10) : 0) - precision}`);
 }
 
+/**
+ * 「可深合并的普通对象」判定 —— 与 lodash `isPlainObject` 同口径：原型必须是 `Object.prototype`
+ * 或 `null`。
+ *
+ * 曾经只判「非 null 的非数组对象」，于是**类实例**（典型：`ctx.createLinearGradient()` 返回的
+ * `CanvasGradient`、Image、自定义类）也会被当成普通对象深合并/深拷贝 —— 结果是被剥成
+ * `{ addColorStop }` 这样的残壳：原型与身份全丢。画布上表现为「这次的 fillStyle 赋值无效、
+ * 沿用上一个组件的颜色」，导出时表现为渐变变成 `[object Object]`。
+ *
+ * 类实例一律**按引用覆盖**（lodash merge 同样不深合并类实例）。
+ */
 function isPlainObject(value: any): boolean {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
 }
 
 type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;

@@ -70,4 +70,28 @@ describe('lang 基础工具', () => {
     expect(isEmpty([1])).toBe(false);
     expect(isEmpty(undefined)).toBe(true);
   });
+
+  it('类实例不被深合并/深拷贝（按引用覆盖）—— CanvasGradient 这类对象不能被剥成残壳', () => {
+    class FakeGradient {
+      public stops: any[] = [];
+      addColorStop(offset: number, color: string) {
+        this.stops.push([offset, color]);
+      }
+    }
+    const gradient = new FakeGradient();
+    gradient.addColorStop(0, '#f00');
+
+    const target: any = { style: { fillStyle: '#000' } };
+    merge(target, { style: { fillStyle: gradient } });
+
+    // 旧实现（isPlainObject 只判「非数组对象」）会把它合并成 { addColorStop }——
+    // 原型与身份全丢：画布上 fillStyle 赋值静默失效（沿用上一个组件的颜色），导出时变成 [object Object]。
+    expect(target.style.fillStyle).toBe(gradient);
+    expect(target.style.fillStyle).toBeInstanceOf(FakeGradient);
+
+    // 普通对象/数组的老行为不变
+    const nested: any = { transform: { rotate: 0 } };
+    merge(nested, { transform: { scale: [2, 2] } });
+    expect(nested.transform).toEqual({ rotate: 0, scale: [2, 2] });
+  });
 });
