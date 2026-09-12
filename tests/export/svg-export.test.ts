@@ -20,6 +20,7 @@ import ICEGroup from '../../src/graphic/container/ICEGroup';
 import ICERect from '../../src/graphic/shape/ICERect';
 import ICECircle from '../../src/graphic/shape/ICECircle';
 import ICEText from '../../src/graphic/text/ICEText';
+import ICEPolyLine from '../../src/graphic/link/ICEPolyLine';
 import { exportSvg, exportSvgResult } from '../../src/export/SvgExporter';
 
 describe('SVG 导出', () => {
@@ -95,6 +96,35 @@ describe('SVG 导出', () => {
     arcs.forEach((arc) => {
       expect(arc).toContain(' 0 0 1 ');
     });
+  });
+
+  it('实心端点箭头导出为填充路径（回归：此前只有描边，箭头在 SVG 里变空心）', () => {
+    // 画布的实心箭头是 drawArrowFills() 用 fill() 补的，不在路径描边里；
+    // 导出器必须显式补一块填充路径，否则 BPMN 消息流 / UML 依赖 / 流程图箭头全部变空心。
+    const line = new ICEPolyLine({
+      points: [
+        [0, 0],
+        [100, 0],
+      ],
+      arrow: 'end',
+      arrowStyle: 'filled',
+      style: { strokeStyle: '#ef4444', lineWidth: 2 },
+    });
+    const svg = exportSvg(line);
+    // 折线本身 fill=none，但箭头面另有一条 fill=线色 的闭合路径
+    expect(svg).toMatch(/<path d="M[^"]*Z" fill="#ef4444" stroke="none"\/>/);
+
+    // 空心箭头不该多出填充块
+    const hollow = new ICEPolyLine({
+      points: [
+        [0, 0],
+        [100, 0],
+      ],
+      arrow: 'end',
+      arrowStyle: 'hollow',
+      style: { strokeStyle: '#ef4444' },
+    });
+    expect(exportSvg(hollow)).not.toContain('stroke="none"');
   });
 
   it('虚线、透明度都进 SVG', () => {
