@@ -162,8 +162,10 @@ class ICE {
     if (this.canvasEl) {
       //禁用 canvas 元素上的原生右键菜单
       this.canvasEl.oncontextmenu = function (e) {
+        // 注意：**不能 stopPropagation** —— 事件必须继续冒泡到 window，
+        // DOMEventInterceptor 才能把它转发给组件（否则 canvas 上的右键
+        // 永远收不到 contextmenu，右键菜单/插旗这类交互直接失效）。
         e.preventDefault();
-        e.stopPropagation();
       };
       this.canvasWidth = this.canvasEl.width;
       this.canvasHeight = this.canvasEl.height;
