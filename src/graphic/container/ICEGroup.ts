@@ -234,6 +234,51 @@ class ICEGroup extends ICERect {
     this.doLayout();
   }
 
+  /**
+   * 把某个组件迁移到本容器下（**不销毁**它）。
+   *
+   * 为什么需要单独的 API：`removeChild()` 末尾会调用 `child.destory()`（清事件、清子节点），
+   * 所以「先 removeChild 再 addChild」式的重父级会把组件连同内部子树一起毁掉
+   * （BPMN 池/泳道里嵌节点时就踩到这个坑：标题、角标全没了）。
+   * 本方法只从旧父级的 childNodes / 去重集合里摘除，再挂到本容器，组件本体与子树保持完好。
+   * **坐标不换算**：调用方若要保持世界位置，请自行换算 left/top。
+   */
+  public adoptChild(child: ICEComponent, markDirty: boolean = true): void {
+    if (!child || child === this) {
+      return;
+    }
+    const oldParent: any = child.parentNode;
+    if (oldParent && oldParent !== this && oldParent.childNodes) {
+      const index = oldParent.childNodes.indexOf(child);
+      if (index !== -1) {
+        oldParent.childNodes.splice(index, 1);
+      }
+      if (oldParent.__childSet && typeof oldParent.__childSet.delete === 'function') {
+        oldParent.__childSet.delete(child);
+      }
+      child.parentNode = null;
+      if (oldParent.ice && oldParent.ice.renderer && typeof oldParent.ice.renderer.markQueueDirty === 'function') {
+        oldParent.ice.renderer.markQueueDirty();
+      }
+    } else if (!oldParent) {
+      // 根级组件（ICE.addChild 会把 parentNode 置为 null）：从 ice 的 childNodes 上摘除
+      const ice: any = this.ice || child.ice;
+      if (ice && Array.isArray(ice.childNodes)) {
+        const rootIndex = ice.childNodes.indexOf(child);
+        if (rootIndex !== -1) {
+          ice.childNodes.splice(rootIndex, 1);
+        }
+        if (ice.__childSet && typeof ice.__childSet.delete === 'function') {
+          ice.__childSet.delete(child);
+        }
+        if (ice.renderer && typeof ice.renderer.markQueueDirty === 'function') {
+          ice.renderer.markQueueDirty();
+        }
+      }
+    }
+    this.addChild(child, markDirty);
+  }
+
   public removeChild(child: ICEComponent, markDirty: boolean = true) {
     if (!this.__childSet.has(child)) return;
     child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE);
