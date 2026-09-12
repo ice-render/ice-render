@@ -32,6 +32,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**（MIT 协议，作者
 | [12 · 对齐吸附](12-alignment-guide.md) | 拖拽对齐/磁吸 + 提示线：边缘/中心/等间距，可配置、默认禁用 |
 | [13 · 能力缺口分析](13-gap-analysis.md) | 对标主流引擎的「应该做而没做」清单：P0/P1/P2 分级 + 代码/外链证据索引 + 范围边界。**滚动更新**：§1 带「评估时 vs 当前」双列对照，§8 为逐条进展 |
 | [14 · 无障碍原语](14-accessibility.md) | a11y 边界（引擎给原语、应用层做 DOM 镜像）、`getAccessibilityTree` / `setFocusedComponent` 契约 |
+| [15 · 应用驱动的评估](15-app-driven-review.md) | 用两个真实案例（六页后台 + 全屏 Windows XP 桌面）反推：引擎扛住了什么、在哪里把人卡住、每条短板的归属与优先级 |
 
 ## 运行时全景（一图概览）
 
