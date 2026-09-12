@@ -135,6 +135,14 @@ class ObjectCache {
     // 视口变化帧一律不缓存：位图栅格与设备栅格已错位，重建代价又和直接落墨同阶。
     // 见 `beginFrame()`。（只是一次字段读 —— 本方法在热路径上每个组件每帧都会被调用。）
     if (this.__vpChanged) return false;
+    // 有效不透明度 ≠ 1（自身或**任一祖先**）时不缓存。
+    //
+    // 位图是 `build() → renderTo()` 用「当时」的 effectiveOpacity 烤出来的，而贴图路径 `draw()`
+    // 只做 `drawImage`（不叠 alpha）。于是「先建位图、后改不透明度」会把组件永久定格在那一刻：
+    // 淡入的模态 / 抽屉 / 消息里的文字永远半透明；淡入起点 opacity=0 的更狠 —— 底板出来了、
+    // 文字整条不见（arcade 掌机的「已暂停」提示就是这么消失的）。
+    // 祖先链必须在这里一并看：子组件自己的 state.opacity 是 1，变化发生在祖先身上。
+    if (!this.__isOpaque(component)) return false;
     // 祖先开了 clipChildren 时，位图里没有那层裁剪（位图是单独渲染的），
     // 贴回去会画到裁剪区外 —— 这类组件一律走直接落墨。
     if (typeof component.hasClippingAncestor === 'function' && component.hasClippingAncestor()) {
@@ -276,7 +284,12 @@ class ObjectCache {
    * @returns true = 已由缓存处理；false = 组件不可缓存，调用方应回退到 component.render()。
    */
   render(component: any): boolean {
-    if (!this.isCachable(component)) return false;
+    if (!this.isCachable(component)) {
+      // 曾经缓存过、现在不可缓存了：若原因是「不透明变成了半透明」（自身或祖先），必须把位图丢掉，
+      // 否则等它重新变回不透明时，`!component.dirty` 的静态命中会把**烤进旧 alpha 的位图**贴回来。
+      if (this.map.has(component) && !this.__isOpaque(component)) this.invalidate(component);
+      return false;
+    }
     const vp = this.__rvp();
     const rs = vp.scale;
     const ox = vp.tx;
@@ -321,6 +334,18 @@ class ObjectCache {
     this.draw(cache as CachedSurface);
     component.dirty = false;
     return true;
+  }
+
+  /**
+   * 是否「完全不透明」：自身 `state.opacity` × 祖先链，语义与 `ICEComponent.getEffectiveOpacity()`
+   * 一致。组件没提供该方法时（测试替身 / 宿主对象）退化成只看自身 `state.opacity`。
+   */
+  private __isOpaque(component: any): boolean {
+    if (component && typeof component.getEffectiveOpacity === 'function') {
+      return component.getEffectiveOpacity() === 1;
+    }
+    const opacity = component && component.state ? component.state.opacity : undefined;
+    return opacity === undefined || opacity === 1;
   }
 
   /** 组件的「真实落墨盒」（世界坐标）：几何盒 + paint pad。 */
