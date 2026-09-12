@@ -78,6 +78,57 @@ function paint(value: any): string | null {
   return String(value);
 }
 
+/**
+ * 取渐变的**可序列化描述**。两条来源：
+ * - 声明式：`style.fillGradient` / `style.strokeGradient`（纯对象）；
+ * - 命令式：`ice.createLinearGradient()` 之类返回的原生 `CanvasGradient`，由 ICE 旁挂
+ *   `__iceGradient` 描述（见 ICE.tagGradient）。原生 CanvasGradient 本身是不透明的，
+ *   没有这份描述就没法导出成矢量。
+ */
+function gradientDesc(value: any): any {
+  if (!value || typeof value === 'object') {
+    if (value && value.__iceGradient) {
+      return value.__iceGradient;
+    }
+    if (value && (value.type === 'linear' || value.type === 'radial' || value.type === 'conic') && value.stops) {
+      return value;
+    }
+  }
+  return null;
+}
+
+/** 渐变类型的 SVG 映射；锥形渐变 SVG 1.1 没有对应元素，回退线性 */
+function gradientKind(desc: any): 'linear' | 'radial' {
+  return desc && desc.type === 'radial' ? 'radial' : 'linear';
+}
+
+/** 渐变描述 → `<defs>` 里的渐变定义；返回引用 id 或 null（无可用停靠点时） */
+function gradientDef(id: string, desc: any): string {
+  const stops: Array<[number, string]> = [];
+  const raw = desc && desc.stops;
+  if (Array.isArray(raw)) {
+    raw.forEach((stop: any) => {
+      if (Array.isArray(stop)) {
+        stops.push([Number(stop[0]) || 0, String(stop[1])]);
+      }
+    });
+  }
+  if (!stops.length) {
+    return '';
+  }
+  const stopTags = stops
+    .map(([offset, color]) => `<stop offset="${escapeXml(String(offset))}" stop-color="${escapeXml(color)}"/>`)
+    .join('');
+  if (gradientKind(desc) === 'radial') {
+    const center = Array.isArray(desc.center) ? desc.center : [0, 0];
+    const radius = Number(desc.radius) || 0.5;
+    return `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${center[0]}" cy="${center[1]}" r="${radius}">${stopTags}</radialGradient>`;
+  }
+  const from = Array.isArray(desc.from) ? desc.from : [0, 0];
+  const to = Array.isArray(desc.to) ? desc.to : [0, 1];
+  return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${from[0]}" y1="${from[1]}" x2="${to[0]}" y2="${to[1]}">${stopTags}</linearGradient>`;
+}
+
 function escapeXml(text: string): string {
   return String(text)
     .replace(/&/g, '&amp;')
@@ -227,33 +278,6 @@ function commandsToPathData(commands: Array<Array<any>>, closed: boolean, digits
     parts.push('Z');
   }
   return parts.join(' ');
-}
-
-/** 渐变描述 → `<defs>` 里的渐变定义；返回引用 id 或 null（不支持时回退纯色） */
-function gradientDef(id: string, kind: 'linear' | 'radial', desc: any): string {
-  const stops: Array<[number, string]> = [];
-  const raw = desc && desc.stops;
-  if (Array.isArray(raw)) {
-    raw.forEach((stop: any) => {
-      if (Array.isArray(stop)) {
-        stops.push([Number(stop[0]) || 0, String(stop[1])]);
-      }
-    });
-  }
-  if (!stops.length) {
-    return '';
-  }
-  const stopTags = stops
-    .map(([offset, color]) => `<stop offset="${escapeXml(String(offset))}" stop-color="${escapeXml(color)}"/>`)
-    .join('');
-  if (kind === 'linear') {
-    const from = Array.isArray(desc.from) ? desc.from : [0, 0];
-    const to = Array.isArray(desc.to) ? desc.to : [0, 1];
-    return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${from[0]}" y1="${from[1]}" x2="${to[0]}" y2="${to[1]}">${stopTags}</linearGradient>`;
-  }
-  const center = Array.isArray(desc.center) ? desc.center : [0, 0];
-  const radius = Number(desc.radius) || 0.5;
-  return `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${center[0]}" cy="${center[1]}" r="${radius}">${stopTags}</radialGradient>`;
 }
 
 function matrixAttr(m: number[], digits: number): string {
@@ -472,7 +496,13 @@ export function exportSvgResult(target: any, options: SvgExportOptions = {}): Sv
       );
       groupAttr.push(`clip-path="url(#${clipId})"`);
     }
-    const opacity = typeof component.getEffectiveOpacity === 'function' ? component.getEffectiveOpacity() : 1;
+    // 不透明度有两个来源，画布上是相乘生效的（祖先/自身的 state.opacity × style.globalAlpha）：
+    //   - state.opacity 及祖先链 → getEffectiveOpacity()
+    //   - style.globalAlpha      → ctx.globalAlpha（画布直接按组件设置）
+    // 只取其中一个，导出就会比画布亮/暗一截。
+    const subtreeOpacity = typeof component.getEffectiveOpacity === 'function' ? component.getEffectiveOpacity() : 1;
+    const alpha = style.globalAlpha === undefined ? 1 : Number(style.globalAlpha);
+    const opacity = subtreeOpacity * (alpha >= 0 ? alpha : 1);
     if (opacity !== 1) {
       groupAttr.push(`opacity="${Number(opacity.toFixed(3))}"`);
     }
@@ -494,33 +524,35 @@ export function exportSvgResult(target: any, options: SvgExportOptions = {}): Sv
       }
       const recorder = component.path2D;
       const commands: Array<Array<any>> = (recorder && recorder._commands) || [];
-      const paintsFill = state.fill !== false && (!!style.fillStyle || !!style.fillGradient);
-      const paintsStroke = state.stroke !== false && (!!style.strokeStyle || !!style.strokeGradient);
+      // 渐变有两个来源：声明式 style.fillGradient，或命令式创建的原生 CanvasGradient
+      // （由 ICE 旁挂 __iceGradient 描述）。后者不识别的话，画布上好好的渐变在导出里会凭空消失。
+      const fillGradDesc = style.fillGradient || gradientDesc(style.fillStyle);
+      const strokeGradDesc = style.strokeGradient || gradientDesc(style.strokeStyle);
+      const paintsFill = state.fill !== false && (!!style.fillStyle || !!fillGradDesc);
+      const paintsStroke = state.stroke !== false && (!!style.strokeStyle || !!strokeGradDesc);
       if (commands.length && (paintsFill || paintsStroke)) {
         const d = commandsToPathData(commands, !!(recorder && recorder._closed) || state.closePath !== false, digits);
-        const fill =
-          state.fill !== false ? paint(style.fillStyle !== undefined ? style.fillStyle : state.fillStyle) : null;
-        const stroke = state.stroke !== false ? paint(style.strokeStyle) : null;
+        // 渐变对象本身不能直接当颜色字符串（会变成 "[object CanvasGradient]"），有渐变时走 url(#id)
+        const fill = state.fill !== false && !fillGradDesc ? paint(style.fillStyle) : null;
+        const stroke = state.stroke !== false && !strokeGradDesc ? paint(style.strokeStyle) : null;
         const pathAttrs: string[] = [];
-        if (style.fillGradient && state.fill !== false) {
+        if (fillGradDesc && state.fill !== false) {
           const id = `ice-grad-${defSeq++}`;
-          const def = gradientDef(id, style.fillGradient.type === 'radial' ? 'radial' : 'linear', style.fillGradient);
+          const def = gradientDef(id, fillGradDesc);
           if (def) {
             defs.push(def);
             pathAttrs.push(`fill="url(#${id})"`);
           } else if (fill) {
             pathAttrs.push(`fill="${escapeXml(fill)}"`);
+          } else {
+            pathAttrs.push('fill="none"');
           }
         } else {
           pathAttrs.push(`fill="${fill ? escapeXml(fill) : 'none'}"`);
         }
-        if (style.strokeGradient && state.stroke !== false) {
+        if (strokeGradDesc && state.stroke !== false) {
           const id = `ice-grad-${defSeq++}`;
-          const def = gradientDef(
-            id,
-            style.strokeGradient.type === 'radial' ? 'radial' : 'linear',
-            style.strokeGradient
-          );
+          const def = gradientDef(id, strokeGradDesc);
           if (def) {
             defs.push(def);
             pathAttrs.push(`stroke="url(#${id})"`);

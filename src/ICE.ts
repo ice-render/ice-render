@@ -27,6 +27,30 @@ import { exportSvg, exportSvgResult } from './export/SvgExporter';
 import type { SvgExportOptions, SvgExportResult } from './export/SvgExporter';
 import ImageCache from './util/ImageCache';
 import { resolveTheme, getTheme, registerTheme, ICETheme, ICESemanticTheme } from './theme/ICETheme';
+
+/**
+ * 给 `ctx.createXxxGradient()` 的产物挂一份**可序列化的描述**。
+ *
+ * 原生 `CanvasGradient` 是不透明的（拿不到颜色停靠点），于是「命令式创建的渐变」没法进快照、
+ * 也没法导出 SVG —— 而声明式的 `style.fillGradient` 可以。这里在保留原生对象（画布照常用）
+ * 的前提下，旁挂一份描述（`__iceGradient`，**不可枚举**，不影响 `state.style` 的遍历与序列化），
+ * 并把 `addColorStop` 包一层，把停靠点同时记进描述里。
+ *
+ * 这样应用层怎么写渐变都能被导出/复用：`fillStyle: g`（命令式）与 `fillGradient: {...}`（声明式）
+ * 在导出器眼里是同一件事。
+ */
+function tagGradient(native: any, desc: any): any {
+  if (!native || typeof native.addColorStop !== 'function') {
+    return native;
+  }
+  Object.defineProperty(native, '__iceGradient', { value: desc, enumerable: false, configurable: true });
+  const addColorStop = native.addColorStop.bind(native);
+  native.addColorStop = (offset: number, color: string) => {
+    desc.stops.push([offset, color]);
+    addColorStop(offset, color);
+  };
+  return native;
+}
 import { flattenAllComponents, hitTestComponents } from './util/data-util';
 import { HIT_BOX_TOLERANCE } from './renderer/dirty-rect-util';
 
@@ -826,14 +850,24 @@ class ICE {
    *       new ICERect({ style: { fillStyle: g } })
    */
   public createLinearGradient(x0: number, y0: number, x1: number, y1: number): any {
-    return this.ctx.createLinearGradient(x0, y0, x1, y1);
+    return tagGradient(this.ctx.createLinearGradient(x0, y0, x1, y1), {
+      type: 'linear',
+      from: [x0, y0],
+      to: [x1, y1],
+      stops: [],
+    });
   }
 
   /**
    * 创建径向（圆形）渐变对象。
    */
   public createRadialGradient(x0: number, y0: number, r0: number, x1: number, y1: number, r1: number): any {
-    return this.ctx.createRadialGradient(x0, y0, r0, x1, y1, r1);
+    return tagGradient(this.ctx.createRadialGradient(x0, y0, r0, x1, y1, r1), {
+      type: 'radial',
+      center: [x1, y1],
+      radius: r1,
+      stops: [],
+    });
   }
 
   /**
@@ -841,7 +875,12 @@ class ICE {
    */
   public createConicGradient(startAngle: number, x: number, y: number): any {
     if (typeof this.ctx.createConicGradient === 'function') {
-      return this.ctx.createConicGradient(startAngle, x, y);
+      return tagGradient(this.ctx.createConicGradient(startAngle, x, y), {
+        type: 'conic',
+        startAngle,
+        center: [x, y],
+        stops: [],
+      });
     }
     return null;
   }
