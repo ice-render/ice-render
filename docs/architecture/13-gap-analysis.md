@@ -41,11 +41,11 @@
 | 5 | 主画布无 devicePixelRatio / HiDPI 处理 | **P0** | 完全没做 | ✅ **已做**：`ICE.init(el, { dpr })`（默认 1，零行为变化）；且 `dpr>1` 下**不再牺牲局部重绘** |
 | 6 | 文本无自动换行 / 省略，超宽时横向压缩字形 | P1 | 完全没做 | ✅ **已做**（`wrap` / `maxLines` / `ellipsis` / grapheme 分段，默认关闭）。仍缺 `letterSpacing` / RTL / 富文本 / CJK 避头尾 |
 | 7 | 文本含 HTML 注入；非 DOM 环境量不出尺寸 | P1 | 缺陷 | ✅ **已修**：改用 `textContent`；量测改为 canvas 优先 + DOM 降级 |
-| 8 | 无 SVG / PDF 导出，无 SVG 导入 | P1 | 部分 | ❌ **未做**（§6 已标注待定：需独立 exporter + 有诚实边界） |
+| 8 | 无 SVG / PDF 导出，无 SVG 导入 | P1 | 部分 | ✅ **SVG 导出 + 无头出图已做**（`ice.toSvg()` / `exportSvg()` 与画布共用命令流；`ICE.headless()` 让 Node 建树出图不依赖 DOM / rAF；`examples/node/export.mjs` 落盘 SVG、可选转 PNG）。**仍未做**：PDF 导出、SVG 导入、剪贴板 / 打印（见 §6 与 §8） |
 | 9 | 无障碍零实现（无 ARIA / DOM 镜像 / 键盘焦点） | P1 | 完全没做 | ✅ **已给原语**：`getAccessibilityTree()` / `setFocusedComponent()`（方案 B：DOM 镜像交应用层，见 [14](14-accessibility.md)） |
 | 10 | 无插件 / 扩展点（仅 `registerType`） | P1 | 完全没做 | ✅ **已做**：`ICE.use()` 三层注册点。仍缺「自定义命中判定」注册协议（见 [09 路线图](09-roadmap.md)） |
 | 11 | 序列化以 `constructor.name` 为类型键；映射漏项 | P1 | 隐患 | ✅ **已修**：`getTypeId()` 反查 + 补 `ICERose` + 反序列化容错 + 迁移表。⚠️ 该缺陷**随后在下游应用层复现过一次**（引擎修了、应用层漏改），见 §8 末条 |
-| 12 | 发行契约缺失；CI 不跑可视化回归 | P1 | 部分 | ✅ **已做**：`exports` / `sideEffects` / CHANGELOG / `publint`+`attw` / 覆盖率门槛 / CI 接可视化回归。⚠️ **但 CI 目前没有真正在跑的 runner**：主仓 Gitee 无 CI 配置，GitHub 只是落后多个提交的镜像 |
+| 12 | 发行契约缺失；CI 不跑可视化回归 | P1 | 部分 | ✅ **已做**：`exports` / `sideEffects` / CHANGELOG / `publint`+`attw` / 覆盖率门槛 / CI 接可视化回归。**2026-09-12 复核**：GitHub Actions 上的 `ci.yml` 是真在跑的（累计 121 次运行，dev / master 最近全绿），镜像也已是同步状态；⚠️ **下游两仓（ice-entity-designer / ice-entity-designer-dsl）尚无 CI**，各自的门禁目前只靠本地 `npm run` 系列 |
 | 13 | 动画无 delay / 序列 / spring，且 `Math.floor` 掉精度 | P2 | 部分 | ✅ **已做**（另加关键帧时间轴、数组字段补间，结束判定改按时间） |
 | 14 | 布局不随增删自动重排；容器 setState 递归置脏全部后代 | P2 | 部分 | ✅ **已做**（自动重排 + 排布前 measure + `dirty`/`paramsDirty` 拆级） |
 | 15 | 主题为模块级全局单例，多实例互相污染 | P2 | 部分 | ✅ **已修**（主题改为实例级，含 preset 与 motion token） |
@@ -343,17 +343,12 @@
 
 ## 6. 待定（取决于产品定位）
 
-这两项**不需要**渲染层抽象，但需要独立模块；是否做由产品决定：
+这两项**不需要**渲染层抽象；**2026-09-12 复核：第 1、2 项已落地**，本节保留剩余边界：
 
-1. **SVG 导出**：独立 exporter，遍历组件树、复用图元几何参数生成 SVG 标签。**诚实边界**：阴影、虚线流动、`measureText` 字形、Path2D 命令是 canvas 特有，导出只能近似，做不到像素级一致。
-2. **Node / SSR / headless 出图**：同样无需抽象层——`ICE.init(ctx)` 已支持直接传 `CanvasRenderingContext2D`（`ICE.ts:133-135`），接 `node-canvas` / `skia-canvas` 即可。真正的阻塞是两件独立的事：
+1. ~~**SVG 导出**~~ ✅ **已落地**（`ice.toSvg()` / `exportSvg()`，2026-09-12 发 1.4.2–1.4.6）：遍历组件树、复用与画布同一套绘制命令流生成 SVG（渐变、虚线、阴影、子树透明度、裁剪、连线标签、实心箭头都在内）。**诚实边界**：虚线流动、`measureText` 字形的次像素差异仍是近似的，做不到逐像素一致。剩余：PDF 导出、SVG 导入、剪贴板 / 打印。
+2. ~~**Node / SSR / headless 出图**~~ ✅ **硬阻塞已全部解除**：`ICE.headless()` 不需要 canvas 元素即可建树，`root.requestFrame` 有定时器兜底，文本量测 canvas 优先 + DOM 降级；`examples/node/export.mjs` 是可直接跑的样板（SVG 落盘，装了 `@resvg/resvg-js` 时再出 2× PNG）。历史阻塞记录如下：
    - `cross-platform/root.ts:20-25`：`root.requestFrame` 在 Node 为 `undefined` → `FrameManager.start()`（`FrameManager.ts:39-42`）直接抛错；
    - 文本量测在无 DOM 环境退化（见 P1-2）。
-
-   ⚠️ 即使**不做** Node 出图，这两点（尤其是文本量测退化）也建议修——它们同时影响小程序低版本基础库。
-   **2026-09-11 更新**：两个阻塞点都已解除 —— ① `root.requestFrame` 加了定时器兜底（无 rAF 也能跑）；
-   ② 文本量测改为 **canvas 优先 + DOM 降级**，只要能拿到 canvas 2d ctx 就能量出尺寸。
-   因此「接 `node-canvas` / `skia-canvas` 做 headless 出图」在引擎侧不再有硬阻塞（导出器本身仍未做，见 §8）。
 
 ## 7. 落地顺序回顾（原「建议落地顺序」，2026-09-11 复核）
 > 原为 2026-09-10 拟定的「建议落地顺序（收益/成本比）」。**2026-09-11 复核：8 项里 6 项已落地、1 项部分、1 项划归应用层。**
@@ -454,7 +449,10 @@
 | 2026-09-10 | P2 主题实例级隔离（多画布/多品牌互不污染，含 preset 与 motion token） | ✅ 已完成 |
 | 2026-09-11 | §6 阻塞点：无 rAF 运行时（Node / headless / 小程序低版本）启动即抛错 | ✅ 已修（`root.requestFrame` 加定时器兜底；另一阻塞点「文本量测依赖 DOM」此前已由 canvas 优先量测解决） |
 | — | §7-2 的**空间索引**（四叉树 / R-tree） | ❌ **未做**（只做了「视口裁剪 + 命中检测 O(1) 包围盒预筛」，见 P0-3 行。全屏内的大规模场景命中仍是 O(n)；索引收益要到「上万节点且大部分在屏内」才显著） |
-| — | P1-3 导出与互操作（SVG 导出 / SVG 导入 / PNG·JPEG 带背景·切边·多倍图 / 剪贴板 / 打印） | ❌ **未做**（§6 已标注「待定，取决于产品定位 + 需独立 exporter + 有诚实边界：阴影/虚线/字形/Path2D 无法像素级还原」） |
+| 2026-09-12 | P1-3 导出与互操作 · **SVG 导出**（`ice.toSvg` / `exportSvg`，与画布同一套绘制命令流）+ **路径命令流底座**（`src/graphic/path`，为 SVG / 服务端出图打底） | ✅ 已完成（1.4.2；补丁：`closePath` 按位置进命令流、连线标签进导出、实心端点箭头导出为填充路径） |
+| 2026-09-12 | P1-3 导出与互操作 · **无头实例 `ICE.headless()`**（Node / 服务端建树出图，不依赖 DOM 与 rAF；导出前刷新派生几何）+ `examples/node/export.mjs` | ✅ 已完成（1.4.4） |
+| 2026-09-12 | P1-3 剩余：**PDF 导出、SVG 导入、PNG·JPEG 带背景/切边/多倍图、剪贴板、打印** | ❌ **未做**（PNG 可先走「SVG → resvg / headless Chrome」外部链路；导入类需要独立解析器） |
+| 2026-09-12 | 事件总线：`trigger` 遍历监听快照，修「同一事件上多个 `once` 监听被跳过」（实测 5 个只触发 0/2/4） | ✅ 已修复（1.4.7，带回归测试） |
 | 2026-09-11 | §7-7 余项：`attw` + `publint` 入 CI、jest 覆盖率门槛 | ✅ 已完成（`npm run pkg:check`；覆盖率门槛按实测基线设棘轮。**首跑即发现真实打包缺陷**：ESM 入口被声明为 CJS → 已修，见下条） |
 | 2026-09-11 | 打包契约：ESM/CJS 入口被声明为 CJS（类型解析错误） | ✅ 已修（`dist/index.js`→`index.mjs`、`index.cjs.js`→`index.cjs`；import 条件用 `.d.mts`；`rollup.config.js`→`.mjs`。**深链旧文件名的用法会断**，见 CHANGELOG「需要注意」） |
 | — | P0-2 的 marquee 框选交互、P0-1 的多指手势 | ➖ **不做**（§5 明确划归应用层 UX；引擎侧原语已给：`setSelection(components)` 多选、`zoomAt` 锚点缩放。客观上是「未实现」，但按边界不算引擎欠账） |
