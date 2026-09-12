@@ -13,6 +13,7 @@ import './matrix.bench.mjs';
 import './render.bench.mjs';
 import './hit-test.bench.mjs';
 import './util.bench.mjs';
+import './path-recorder.bench.mjs';
 
 const filter = process.argv.indexOf('--filter');
 const opts = filter !== -1 && process.argv[filter + 1] ? { filter: new RegExp(process.argv[filter + 1]) } : {};
