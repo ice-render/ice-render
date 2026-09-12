@@ -5,9 +5,40 @@
 
 ## [Unreleased]
 
-> 拟定下一个版本号为 **1.1.0**（新增能力向后兼容，但含几处「修正类」行为变化，见下方「需要注意」）。
+> 暂无（下一个版本发布前在这里累积）。
+
+## [1.1.0] - 2026-09-12
+
+> 相对 1.0.7：新增能力向后兼容，但含几处「修正类」行为变化，见下方「需要注意」。
 
 ### 修复
+
+- **居中/右对齐的文字整体偏移半个到一个字宽 —— `ctx.textAlign` 被 canvas 二次应用**（2026-09-12）：
+  `ICEText.doRender` 的水平对齐一直是**手工算 x**（「文字起点」语义），但 `applyStyleToCtx()`
+  会把 `style.textAlign` 写进 ctx，canvas 于是又按其对齐一次：`center` 再左偏半个文字宽度、
+  `right` 再左偏一个文字宽度（传了 `maxWidth` 时还会连带压缩字形）。
+  实测（组件示例页抓到的真实 `fillText` 参数）：按钮 `x=-35.51` + `ctx.textAlign='center'` →
+  文字中心左偏 **35.5px**；头像首字母因此**偏出圆形之外**；统计卡图标、复选框对勾、tab 标签同理。
+  现在在居中/右对齐分支把 `ctx.textAlign` 复位为 `left`，与下方公式一致。`textBaseline` 不受影响：
+  纵向本来就依赖 ctx（`middle` 分支算的是中线、其余分支算的是盒底），横向则完全由本方法接管。
+
+- **`textAlign: 'center' / 'right'` 的起点公式把文字放到了盒边缘**（2026-09-12）：
+  旧实现 `center` 时 `x = 0`、`right` 时 `x = localOrigin[0] - paddingRight` —— 等于把文字**起点**
+  放到盒中心/右缘，`right` 会直接溢出到相邻列。现在按**逐行实测宽度**算起点：
+  `center → x = -lineWidth / 2`，`right → x = localOrigin[0] - paddingRight - lineWidth`（flush-right，
+  不溢出）。左对齐保持原逻辑，避免逐行 `measureText` 的开销。
+
+- **`addChild(child, false)` 会吞掉「从未渲染过」的组件的脏标记**（2026-09-12）：
+  `dirty` 在引擎里同时承担「本帧要重绘」与「几何缓存是否有效」两个语义，后者只在
+  `ICEPath.doRender` 里以 `if (this.dirty) createPathObject()` 的形式被消费；而
+  `ICEGroup.addChild(child, false)` 会执行 `this.dirty = markDirty`，把容器**自己**强制置干净 ——
+  对从未绘制过的组件来说，几何缓存就永远不会建立，首帧自身画出来是**空路径**。
+  线上表现：`UIButton` 构造函数里 `addChild(this.label, false)` 把自己置干净，按钮的圆角背景/边框
+  全都不画，只剩白底白字的标签（`ice-web-components` 的 gallery 示例里 Primary / Danger / Small /
+  Large 完全看不见）。凡「构造期用 `markDirty=false` 挂子组件、又没有被 `addChildren` 补一次置脏」
+  的组件都会中招。现在新增 `__everRendered` 与 `__applyDirty()`：`markDirty=false` 只表示
+  「这次操作不要主动置脏」，**不再**把从未渲染过的组件强制置干净；已上屏过的组件仍保留原有
+  批量挂载的优化语义。回归测试 `tests/graphic/ICEGroup.add-child-dirty.test.ts`（3 项，改前 2 项红）。
 
 - **离屏缓存（`ObjectCache`）与直接落墨逐像素不一致 —— 缓存一直在悄悄降画质**（2026-09-11）：
   位图的**光栅化缩放**取的是 `root.devicePixelRatio`，而主画布的实际设备比例是 `ice.dpr`（默认 1）；
