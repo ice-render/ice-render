@@ -17,6 +17,22 @@ abstract class ICEPath extends ICEComponent {
   public path2D: any = root.createPath2D();
 
   /**
+   * 确保路径命令流是最新的。
+   *
+   * 画布通道里由 `doRender()` 在 dirty 时重建；但**导出 / 服务端出图没有渲染循环**
+   * （Node 里连 canvas 都没有），此时必须显式建一次，否则命令流是空的、导出出来一片空白。
+   */
+  public ensurePathBuilt(): void {
+    const commands = this.path2D && this.path2D._commands;
+    if (!commands || commands.length === 0 || this.dirty) {
+      this.createPathObject();
+      if (this.state.closePath) {
+        this.path2D.closePath();
+      }
+    }
+  }
+
+  /**
    * @cfg
    * {
    *   dots:[]  //可选参数，路径上的点。

@@ -23,7 +23,7 @@ import { STYLE_PRESETS, getTheme } from '../theme/ICETheme';
  * 阴影简写预设：style.shadow: 'sm' | 'md' | 'lg' 一行搞定浮起效果，
  * 对应展开为 shadowColor / shadowBlur / shadowOffsetX / shadowOffsetY。
  */
-const SHADOW_PRESETS = {
+export const SHADOW_PRESETS = {
   sm: { shadowColor: 'rgba(0,0,0,0.12)', shadowBlur: 4, shadowOffsetX: 0, shadowOffsetY: 1 },
   md: { shadowColor: 'rgba(0,0,0,0.18)', shadowBlur: 10, shadowOffsetX: 0, shadowOffsetY: 3 },
   lg: { shadowColor: 'rgba(0,0,0,0.25)', shadowBlur: 20, shadowOffsetX: 0, shadowOffsetY: 6 },
@@ -499,7 +499,7 @@ abstract class ICEComponent extends ICEEventTarget {
     this.applyStyleToCtx();
     // 子树不透明度：祖先的 opacity 不会自动继承（组件是逐个独立绘制的），这里相乘后叠到
     // ctx.globalAlpha 上。默认全为 1 时只是一次字段读，热路径无开销。
-    const subtreeOpacity = this.__effectiveOpacity();
+    const subtreeOpacity = this.getEffectiveOpacity();
     if (subtreeOpacity !== 1) {
       this.__applyStyleProp('globalAlpha', (Number(this.ctx.globalAlpha) || 1) * subtreeOpacity);
       // 记一笔：这个 alpha 不在 style 键里，__resetLeakyCtxState 的扫描发现不了它
@@ -992,7 +992,13 @@ abstract class ICEComponent extends ICEEventTarget {
    *
    * 顶层组件直接返回（绝大多数组件没有祖先，热路径上不做遍历）；非法值按 1 处理。
    */
-  private __effectiveOpacity(): number {
+  /**
+   * 有效不透明度 = 自身 `state.opacity` × 所有祖先的 `state.opacity`（默认 1）。
+   *
+   * 渲染把相乘的结果叠到 `ctx.globalAlpha` 上（祖先的 opacity 不会自动继承，组件是逐个绘制的）。
+   * 公开出来是因为**离屏与 SVG 导出必须用同一口径**，否则导出的图会比画布亮/暗一截。
+   */
+  public getEffectiveOpacity(): number {
     const own = this.state.opacity;
     let alpha = own === undefined ? 1 : Number(own);
     if (!(alpha >= 0)) {

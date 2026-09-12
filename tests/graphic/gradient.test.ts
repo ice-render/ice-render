@@ -42,6 +42,8 @@ function makeCtx(opts: { conic?: boolean } = {}) {
     lineTo: () => {},
     rect: () => {},
     arcTo: () => {},
+    // 圆角矩形的命令流里出现的是 arc（Path2DRecorder 在记录期把 arcTo 展开成 lineTo + arc）
+    arc: () => {},
     fill: () => {},
     stroke: () => {},
     setTransform: () => {},

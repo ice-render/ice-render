@@ -135,6 +135,30 @@ ice.addChild(new ICERect({ width: 100, height: 50 }));
 
 发布包提供 **ESM（`dist/index.mjs`）/ CJS（`dist/index.cjs`）/ UMD（`dist/index.umd.js`）** 三种格式。
 
+### 导出 SVG（矢量，不依赖 canvas）
+
+画布的 `toDataURL()` / `toBlob()` 是**光栅快照**（分辨率写死、放大就糊）。引擎的路径对象是
+`Path2DRecorder`：一边把命令写给原生 Path2D 上屏、一边留下**命令流**，所以同一份场景可以再生成
+一份**矢量描述**——任意放大、进 Illustrator/Figma、走打印/PDF 流程，或者在 Node 里出图（不需要 canvas）。
+
+```javascript
+const svg = ice.toSvg();                                    // 内容自适应 + 透明背景
+const svg = ice.toSvg({ background: '#ffffff', padding: 16 }); // 白底 + 留白
+const svg = ice.toSvg({ area: 'viewport' });                 // 当前视口所见即所得
+const { svg, width, height } = ice.toSvgResult({ scale: 2 }); // 需要宽高（写文件/排版预览）
+
+// 不在浏览器里也能用：Node 侧同样导出（路径命令流不依赖 canvas）
+const svg = exportSvg(ice);   // 或 exportSvg(任意组件) 导出子树
+```
+
+导出**镜像渲染口径**而不是另起一套：绘制顺序（z 序稳定排序、工具层默认排除）、每个组件的
+`composeMatrix()` 世界矩阵、`props.style`/`state.style` 的合并顺序、有效透明度（自身 × 祖先）、
+祖先 `clipChildren` 裁剪、阴影预设（`sm`/`md`/`lg`）、线性/径向渐变、虚线都按同一份口径落到 SVG。
+
+限制（都会明确写进 JSDoc）：阴影用 `feDropShadow` 近似（`stdDeviation = shadowBlur / 2`，模糊观感
+与 canvas 不会逐像素一致）；雪碧图切图（`sx/sy/sw/sh`）暂不支持；文本导出的是**静态瞬间**，
+且 SVG 与 canvas 的字形度量/基线定义不同，因此导出的文字位置是「对齐口径一致、逐像素允许微差」。
+
 ## 📚 文档
 
 - **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容。
