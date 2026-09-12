@@ -4,10 +4,11 @@
 > 13 是「对标主流引擎，哪些该做而没做」；本文是「两个真实应用跑下来，引擎在哪些地方**真的**
 > 扛住了、在哪些地方**真的**把人卡住了」。前者靠对比清单，后者靠实践证据。
 >
-> 证据来源：`ice-web-components` 的两个完整案例
-> （六页后台 `examples/admin.html`、全屏桌面 `examples/windows-xp.html`，含 7 个子应用），
-> 以及它们配套的 4 套浏览器回归（116 项断言）与 523 条组件库单测。
-> 复盘的引擎版本：**1.4.1**；文档写于 2026-09-12。
+> 证据来源：`ice-web-components` 的案例
+> （六页后台 `examples/admin.html`、全屏桌面 `examples/windows-xp.html` 含 8 个子应用、
+> 掌机 `examples/arcade.html` 两块卡带），以及它们配套的 5 套浏览器回归（170 项断言）
+> 与 582 条组件库单测。
+> 复盘的引擎版本：**1.4.1**；文档写于 2026-09-12（当天补了 §2.1 的游戏场景对照组）。
 
 ## 0. 两个案例是什么量级
 
@@ -49,6 +50,35 @@
 **结论**：需要一层「组件库该用引擎哪些能力」的对照清单（或示例），否则能力存在也不会被用。
 `ice-web-components` 已在 `docs/guides/` 里补了主题、表单、浮层、布局等专题，但**文本编辑态与渐变
 这两个明确的能力应当写进最显眼的位置**（建议进 `01-runtime` 或组件库的 quick start）。
+
+### 2.1 追加：游戏场景的对照组（2026-09-12 实测）
+
+上面是「静态页面」的复盘。同一天又拿**游戏场景**做了一次对照 —— 一台小游戏掌机
+（`ice-web-components/examples/arcade.html`：俄罗斯方块 + 贪吃蛇，后来还塞进 XP 桌面当第八个
+应用）。结果把「能力发现」问题暴露得更彻底：**第一版游戏的引擎能力利用率接近于零。**
+
+| 引擎能力 | 游戏第一版 | 补课之后 |
+|---|---|---|
+| 绘制原语 / 路径 / 渐变 | **0 次**（棋盘 = 200~400 个 `ICEWidget` 拼格子） | 新增 `ICETileMap`：整块棋盘 **1 个节点**，在 `doRender()` 里用 ctx 自绘（含数字标签层） |
+| 动画（`tween` / `fadeIn` / `scaleIn`） | **0 次**（手搓 flash 衰减、手搓 accumulator） | 消行 / 吃食物 `pulse`（内部 tween）、换卡带 `fadeIn`、GAME OVER `scaleIn` |
+| 主题 token（`registerTheme`） | 面板用 token、**游戏美术写死 hex** | `ICE_ARCADE_THEME` + `ICE_ARCADE_PALETTE`，方块 / 蛇 / 食物全部进 token |
+| 浮层体系（`ICEOverlayManager`） | **0 次**（暂停 / 结束提示是手搓半透明块） | 排行榜 = `ICEModal` + `ICETable` + `ICEScrollPane` |
+| 组合能力（`ICEWindow`） | 页面孤岛 | XP 桌面里开一个 `ICEWindow` 跑同一台掌机（复用同一套模型与 `ICETileMap`） |
+| 组件使用面 | 6 个组件 | +4 个（`ICETileMap` / `ICEModal` / `ICETable` / `ICEScrollPane`） |
+| 质量证据 | 23 项浏览器断言 | 170 项（`qa:arcade` 39 + `qa:xp` 40 + 其余三套） |
+
+**这次暴露的不是「引擎缺能力」，而是「引擎的能力没有在合适的场景被想起来」**：游戏是最吃
+「自绘 + 动画」的场景，却恰恰最容易写成「堆组件」。
+
+顺带记一个**引擎侧的真实坑**（属于「文档该写清楚」，不是功能缺失）：`ICEComponent.doRender()`
+会把 CTM 换成「世界 → 设备」去画调试包围盒，所以子类在 `super.doRender()` **之后**自绘时，
+坐标空间已经不是组件局部了 —— 内容会跑到画布左上角、看着像被缩放。引擎留了
+`applyActiveTransform()` 专门取回本渲染通道的完整变换，组件库已按它修好（`ICETileMap`），
+并用假 ctx 的单测把坐标约定守住。
+
+> **给引擎的建议**：与其让人记住「super 之后要 `applyActiveTransform()`」，不如提供一个
+> `protected renderContent()` 模板方法 —— 由基类在**正确的局部 CTM** 下调用它，子类只写内容、
+> 永远踩不到这个坑（`ICEImage` 现在用的是「根本不调 super」的变通写法，可读性差）。
 
 ## 3. 真实卡住过我们的短板（按影响排序）
 
