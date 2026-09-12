@@ -86,10 +86,16 @@ export default class Serializer {
 
     // 复合组件的内部子组件是派生的（构造函数会按 state 重建），不写入文档：
     // 否则反序列化时会「构造函数建一份 + Deserializer 再挂一份」导致重复。
+    // 复合组件默认只写自己的 state（子节点是派生结果）；**同时又是容器**的组件
+    // （流程图 / BPMN 节点与池）可以实现 getSerializableChildren() 返回真实子节点，
+    // 否则泳道、泳道里的节点会在快照往返时整套丢失。
     const derived = typeof component.hasDerivedChildren === 'function' && component.hasDerivedChildren();
-    if (!derived && component.childNodes && component.childNodes.length) {
-      for (let i = 0; i < component.childNodes.length; i++) {
-        this.encodeRecursively(component.childNodes[i], currentData);
+    const customChildren =
+      typeof component.getSerializableChildren === 'function' ? component.getSerializableChildren() : null;
+    const children = customChildren || (derived ? [] : component.childNodes);
+    if (children && children.length) {
+      for (let i = 0; i < children.length; i++) {
+        this.encodeRecursively(children[i], currentData);
       }
     }
   }
