@@ -394,6 +394,12 @@ export function exportSvgResult(target: any, options: SvgExportOptions = {}): Sv
       // 必须先刷新世界矩阵：`__paintWorldBox()` 用的是 state.composedMatrix 缓存，
       // 对**从未上过屏**的组件（Node 出图、刚构造完就导出）那是空/过期值，
       // 内容包围盒会算到 (0,0) 附近，导出结果整体偏移。
+      //
+      // 派生几何（折线的点、文本的换行行）由 refreshParams() 负责：画布通道是渲染时刷的，
+      // 无头场景没有帧循环，必须在这里补一次，否则折线仍是空点集、包围盒也跟着错。
+      if (typeof component.refreshParams === 'function') {
+        component.refreshParams();
+      }
       if (typeof component.composeMatrix === 'function') {
         component.composeMatrix();
       }

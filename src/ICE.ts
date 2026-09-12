@@ -907,6 +907,30 @@ class ICE {
     return exportSvg(this, options);
   }
 
+  /**
+   * 创建一个**不依赖 canvas 的 ICE 实例**：服务端出图 / 无头批处理的入口。
+   *
+   * 它和 `init()` 出来的实例共用同一套组件树、矩阵、样式与导出逻辑，只是没有渲染器、
+   * 没有输入派发、也没有 rAF 帧循环 —— 因此能在 Node 里 `new` 完就 `addChild` + `toSvg()`。
+   *
+   * ```js
+   * const ice = ICE.headless();
+   * ice.addChild(new ICERect({ width: 100, height: 50, style: { fillStyle: '#4f46e5' } }));
+   * const svg = ice.toSvg();
+   * ```
+   *
+   * 注意：没有渲染循环，意味着**派生几何**（折线的点、文本的换行行）由导出器在导出时刷新
+   * （见 SvgExporter 里的 refreshParams/ensurePathBuilt），而不是靠帧循环。
+   */
+  public static headless(): ICE {
+    const ice = new ICE();
+    ice.childNodes = [];
+    ice.toolNodes = [];
+    ice.evtBus = new EventBus();
+    ice.dirty = true;
+    return ice;
+  }
+
   /** 同 `toSvg()`，但额外返回计算出的画布尺寸（写文件 / 布局预览要用的宽高） */
   public toSvgResult(options: SvgExportOptions = {}): SvgExportResult {
     return exportSvgResult(this, options);
