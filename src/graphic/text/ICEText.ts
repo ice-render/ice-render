@@ -323,6 +323,16 @@ class ICEText extends ICEComponent {
   }
 
   /**
+   * 多行文本的行距系数。
+   *
+   * 为什么不能直接用 `actualBoundingBoxAscent + Descent`（字形墨迹高度）当行距：
+   * 墨迹只覆盖「有笔画的部分」，拉丁字母的 cap-height 比 em 小得多 —— 14px Tahoma 的
+   * 墨迹高 ≈ 12px，拿它当行距时中文（墨迹接近满 em）会**上下叠在一起**，看起来像文字被压扁。
+   * 按字号 × 1.35 取行距更接近系统的自然行高，同时保证 ≥ 墨迹高度（不会挤）。
+   */
+  private static readonly LINE_HEIGHT_RATIO = 1.35;
+
+  /**
    * @method measureText
    *
    * - Canvas 中没有提供原生的计算文本高度的有效方法，文本宽高的计算需要使用特殊的方法，这里使用的方法来自 https://longviewcoder.com/2021/02/11/html5-canvas-text-line-height-measurement/
@@ -467,7 +477,14 @@ class ICEText extends ICEComponent {
       maxDescent = Math.max(maxDescent, d);
     }
     const lineHeight = maxAscent + maxDescent;
-    return { textWidth, textHeight: lineHeight * lines.length };
+    // 单行：保持「盒子贴合字形墨迹」的既有行为（全库的居中/对齐都按它调过）。
+    // 多行：行距取 max(墨迹高, 字号 × 1.35) × 行数 —— 否则行与行会重叠。
+    if (lines.length <= 1) {
+      return { textWidth, textHeight: lineHeight };
+    }
+    const fontSize = Number(this.state.style.fontSize) || lineHeight || 12;
+    const advance = Math.max(lineHeight, fontSize * ICEText.LINE_HEIGHT_RATIO);
+    return { textWidth, textHeight: advance * lines.length };
   }
 
   private __applyMeasuredSize(s: { textWidth: number; textHeight: number }): void {

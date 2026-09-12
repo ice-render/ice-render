@@ -42,7 +42,10 @@ describe('ICEText 自动换行', () => {
 
     expect(t.state.lines).toEqual(['abcde', 'fgh']);
     expect(t.state.width).toBe(50); // 用户给的宽度不被覆盖
-    expect(r.height).toBe(20); // 2 行 × 10
+    // 多行按「行距 × 行数」算盒子：行距取 max(字形墨迹高, 字号 × 1.35)，
+    // 不用墨迹高（那样中文行会叠字，见 tests/ICE.text-lines.test.ts）
+    expect(r.height).toBeGreaterThanOrEqual(2 * 10 * 1.35 - 0.01);
+    expect(r.height / 2).toBeGreaterThanOrEqual(10);
   });
 
   it('wrap 关闭时即使给了窄宽度也不换行', () => {

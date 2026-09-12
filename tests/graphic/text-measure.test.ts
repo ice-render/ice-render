@@ -54,7 +54,7 @@ describe('ICEText.measureText 尺寸计算', () => {
     expect(text.state.textHeight).toBe(11);
   });
 
-  it('Canvas 分支多行高度 = 单行字形高度 * 行数', () => {
+  it('Canvas 分支多行高度 = 行距 * 行数（行距不小于字号 × 1.35）', () => {
     const text = new ICEText({ text: 'a\nb', style: { fontSize: 20 } });
     text.ctx = {
       font: '',
@@ -63,7 +63,8 @@ describe('ICEText.measureText 尺寸计算', () => {
 
     (text as any).measureText();
 
-    expect(text.state.textHeight).toBe(18);
-    expect(text.state.height).toBe(18);
+    // 字形墨迹高 9，但字号 20 → 行距取 27，两行盒子 54
+    expect(text.state.textHeight).toBeCloseTo(2 * 20 * 1.35, 4);
+    expect(text.state.height).toBeCloseTo(2 * 20 * 1.35, 4);
   });
 });
