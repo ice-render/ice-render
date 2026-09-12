@@ -369,6 +369,56 @@ describe('ObjectCache 组件级离屏缓存', () => {
     expect(cache.isCachable(opaque)).toBe(false);
   });
 
+  /**
+   * 祖先不透明度（子树淡入淡出）必须挡住离屏缓存。
+   *
+   * 背景（arcade 掌机实测）：位图是 `build() → renderTo()` 用**当时**的 effectiveOpacity 烤出来的，
+   * 而贴图路径 `draw()` 只做 `drawImage`（不叠 alpha）。于是「面板先建位图、再淡入」会让子组件
+   * 永远停在那一刻的透明度 —— 表现为「暂停提示的底板出来了，'已暂停'三个字却整条不见」。
+   */
+  it('祖先半透明时不进离屏缓存（位图会把当时的 alpha 烤死）', () => {
+    const { cache } = makeHarness();
+    const c: any = new FakeComponent();
+    c.getEffectiveOpacity = () => 1;
+    expect(cache.isCachable(c)).toBe(true);
+
+    c.getEffectiveOpacity = () => 0.5;
+    expect(cache.isCachable(c)).toBe(false);
+    expect(cache.render(c)).toBe(false);
+
+    c.getEffectiveOpacity = () => 0;
+    expect(cache.render(c)).toBe(false);
+  });
+
+  it('组件自身 opacity ≠ 1 同样不缓存', () => {
+    const { cache } = makeHarness();
+    const c: any = new FakeComponent();
+    c.state.opacity = 1;
+    expect(cache.isCachable(c)).toBe(true);
+
+    c.state.opacity = 0.25;
+    expect(cache.isCachable(c)).toBe(false);
+  });
+
+  it('缓存过的组件变半透明 → 旧位图被丢弃，恢复不透明后重建（而不是贴回旧图）', () => {
+    const { cache } = makeHarness();
+    const c: any = new FakeComponent();
+    let alpha = 1;
+    c.getEffectiveOpacity = () => alpha;
+
+    expect(cache.render(c)).toBe(true);
+    expect(c.renderToCount).toBe(1);
+
+    alpha = 0.4; // 祖先开始淡入淡出
+    expect(cache.render(c)).toBe(false);
+    expect(cache.has(c)).toBe(false); // 烤过旧 alpha 的位图必须丢掉
+
+    alpha = 1; // 恢复不透明
+    c.dirty = true;
+    expect(cache.render(c)).toBe(true);
+    expect(c.renderToCount).toBe(2); // 重新光栅化，而不是复用旧位图
+  });
+
   it('半透明 shape 纯平移复用位图', () => {
     const { cache } = makeHarness();
     const c: any = new FakeTranslucentShape();
