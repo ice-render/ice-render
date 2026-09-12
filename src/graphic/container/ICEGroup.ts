@@ -194,7 +194,9 @@ class ICEGroup extends ICERect {
       this.__disableTransformRecursively(child);
     }
 
-    this.dirty = markDirty;
+    // 注意：markDirty=false 只表示「不要主动置脏」，不能把从未渲染过的容器强制置干净，
+    // 否则它自身的路径缓存永远不会建立（详见 ICEComponent.__applyDirty）。
+    this.__applyDirty(markDirty);
     //如果 this.ice 不为空，说明当前的 Group 已经被添加到了 ICE 中
     if (this.ice) {
       this.syncChildEvents(child);
@@ -242,7 +244,7 @@ class ICEGroup extends ICERect {
     bumpVisibilityEpoch();
     // AFTER_REMOVE 必须在 destory() 之前触发（destory 会 purgeEvents）
     child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_REMOVE);
-    this.dirty = markDirty;
+    this.__applyDirty(markDirty);
     if (this.ice) {
       this.ice.dirty = markDirty;
       if (this.ice.renderer) this.ice.renderer.markQueueDirty();
