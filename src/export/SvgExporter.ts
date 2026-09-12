@@ -587,6 +587,25 @@ export function exportSvgResult(target: any, options: SvgExportOptions = {}): Sv
         }
         element = `<path d="${d}" ${pathAttrs.join(' ')}/>`;
 
+        // 实心端点箭头：画布上是 `drawArrowFills()` 用 fill() 补的（不在路径描边里），
+        // 导出器必须显式补一块填充路径，否则所有实心箭头在 SVG 里都会变成空心
+        // （BPMN 消息流、UML 依赖、流程图箭头全部受影响）。面顶点与画布共用 getArrowFaces()。
+        if (state.arrowStyle !== 'hollow' && typeof (component as any).getArrowFaces === 'function') {
+          const faces: number[][][] = (component as any).getArrowFaces();
+          const arrowColor = stroke || (style.strokeStyle ? String(style.strokeStyle) : '#000000');
+          if (faces.length && state.stroke !== false) {
+            const facePath = faces
+              .map(
+                (face) =>
+                  `M${Number(face[0][0].toFixed(digits))},${Number(face[0][1].toFixed(digits))}` +
+                  `L${Number(face[1][0].toFixed(digits))},${Number(face[1][1].toFixed(digits))}` +
+                  `L${Number(face[2][0].toFixed(digits))},${Number(face[2][1].toFixed(digits))}Z`
+              )
+              .join(' ');
+            element += `<path d="${facePath}" fill="${escapeXml(arrowColor)}" stroke="none"/>`;
+          }
+        }
+
         // 连线标签：画布上是 PolyLine.drawLabel() 用 fillText 直接画的（不是独立子组件），
         // 导出器必须显式问它，否则流程图的「是/否」、BPMN 的条件/默认流标签会整批丢失。
         const labelInfo =

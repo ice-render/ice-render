@@ -869,6 +869,36 @@ class ICEPolyLine extends ICEDotPath {
   /**
    * 用「线色」把端点箭头三角形填实（`arrowStyle: 'filled'`，默认）。
    *
+   * 面顶点由 `getArrowFaces()` 提供 —— 与 SVG 导出共用同一份口径（导出器也读它），
+   * 避免「画布填了、导出没填」（实心箭头在导出里变空心）。
+   */
+  public getArrowFaces(): number[][][] {
+    const idxs = this.__arrowFaceIndexes;
+    const dots = this.state.dots;
+    const faces: number[][][] = [];
+    if (!dots || idxs.length === 0) {
+      return faces;
+    }
+    for (let i = 0; i < idxs.length; i++) {
+      const start = idxs[i];
+      const a = dots[start];
+      const b = dots[start + 1];
+      const c = dots[start + 2];
+      // 防御：addDot / rmDot 会 splice dots，下标可能失效
+      if (a && b && c) {
+        faces.push([
+          [a[0], a[1]],
+          [b[0], b[1]],
+          [c[0], c[1]],
+        ]);
+      }
+    }
+    return faces;
+  }
+
+  /**
+   * 用「线色」把端点箭头三角形填实（`arrowStyle: 'filled'`，默认）。
+   *
    * 箭头三角形是通过在 `state.dots` 里插入顶点来构造的，它只被**描边**（折线强制 fill:false），
    * 所以默认看起来是空心的。这里在描边之后单独把三角面填充一次。
    *
@@ -876,9 +906,8 @@ class ICEPolyLine extends ICEDotPath {
    * 与 `drawLabel()` 同一坐标系。
    */
   private drawArrowFills(lineColor: string): void {
-    const idxs = this.__arrowFaceIndexes;
-    const dots = this.state.dots;
-    if (!dots || idxs.length === 0) {
+    const faces = this.getArrowFaces();
+    if (!faces.length) {
       return;
     }
     const ctx = this.ctx;
@@ -886,15 +915,8 @@ class ICEPolyLine extends ICEDotPath {
     // 必须 beginPath：PolyfillPath2D 运行时 ICEPath 的 replayPath() 会把整条折线留在
     // ctx 的当前路径上，不重开路径会把开放的折线一并填满。
     ctx.beginPath();
-    for (let i = 0; i < idxs.length; i++) {
-      const start = idxs[i];
-      const a = dots[start];
-      const b = dots[start + 1];
-      const c = dots[start + 2];
-      // 防御：addDot / rmDot 会 splice dots，下标可能失效
-      if (!a || !b || !c) {
-        continue;
-      }
+    for (let i = 0; i < faces.length; i++) {
+      const [a, b, c] = faces[i];
       ctx.moveTo(a[0], a[1]);
       ctx.lineTo(b[0], b[1]);
       ctx.lineTo(c[0], c[1]);
