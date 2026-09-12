@@ -26,7 +26,7 @@ jest.mock('../../src/cross-platform/root', () => ({
  */
 describe('ICEText 水平对齐 (textAlign)', () => {
   function renderCaptureX(align: string): number {
-    const calls: Array<{ x: number; y: number }> = [];
+    const calls: Array<{ x: number; y: number; ctxAlign: string }> = [];
     const text = new ICEText({
       text: 'hello',
       width: 200,
@@ -39,10 +39,15 @@ describe('ICEText 水平对齐 (textAlign)', () => {
     // localOrigin = [width/2, height/2] = [100, 20]
     (text.state as any).localOrigin = [100, 20];
     // mock ctx：捕获 fillText 起点，并提供 __measureFn 所需的 measureText
-    (text as any).ctx = {
+    const ctx: any = {
+      // 真实 canvas 会被 applyStyleToCtx 写进 style.textAlign；这里先按「已被写成 style 值」
+      // 预置，用来复现「canvas 二次对齐」的场景。
+      textAlign: align,
       font: '',
       measureText: (s: string) => ({ width: 50 }),
-      fillText: (t: string, x: number, y: number) => calls.push({ x, y }),
+      fillText: function (t: string, x: number, y: number) {
+        calls.push({ x, y, ctxAlign: this.textAlign });
+      },
       strokeText: () => {},
       // 下方为 super.doRender / applyWorldTransform 所需的无副作用占位
       save() {},
@@ -69,8 +74,11 @@ describe('ICEText 水平对齐 (textAlign)', () => {
       createLinearGradient: () => ({ addColorStop() {} }),
       createRadialGradient: () => ({ addColorStop() {} }),
     };
+    (text as any).ctx = ctx;
     (text as any).doRender();
     expect(calls.length).toBeGreaterThan(0);
+    // 手工计算 x 的前提是 ctx 按「文字左边缘」锚定；否则 canvas 会再对齐一次
+    expect(calls[0].ctxAlign).toBe('left');
     return calls[0].x;
   }
 

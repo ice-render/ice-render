@@ -556,6 +556,14 @@ class ICEText extends ICEComponent {
     // 水平居右 / 居中必须按各行真实文字宽度计算起点；左对齐沿用 box 左内边距，免逐行 measureText。
     const needHAlign = textAlign === 'center' || textAlign === 'right' || textAlign === 'end';
     const measure = needHAlign ? this.__measureFn() : null;
+    if (needHAlign) {
+      // 下面的 x 是「文字起点（左边缘）」语义，靠手工计算实现对齐。
+      // 而 applyStyleToCtx() 已经把 style.textAlign 写进了 ctx —— 若不复位，canvas 会按
+      // ctx.textAlign 再对齐一次，文字整体再左偏半个（center）或一个（right）文字宽度。
+      // 实测（admin 示例）：按钮 "New Order" x=-35.51 + ctx.textAlign='center'，文字中心左偏 35.5px；
+      // 头像字母因此偏出圆形。复位成 left 后与下方公式一致。
+      this.ctx.textAlign = 'left';
+    }
 
     for (let i = 0; i < lines.length; i++) {
       // x 按 textAlign（默认左对齐，与旧行为一致）
