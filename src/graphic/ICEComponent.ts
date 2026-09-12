@@ -151,6 +151,19 @@ function normalizeGradientStops(stops: any): Array<[number, string]> {
  * @abstract
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
+/**
+ * 递归给后代派发 AFTER_MOVE（父容器移动 → 后代世界坐标变化）。
+ * 只派发事件、不改状态：订阅者（连线 followComponent、对齐标尺等）自行按新位置重算。
+ */
+function triggerSubtreeMove(component: any, payload: any): void {
+  const children = (component && component.childNodes) || [];
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, payload);
+    triggerSubtreeMove(child, payload);
+  }
+}
+
 abstract class ICEComponent extends ICEEventTarget {
   //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
   public ice: ICE;
@@ -1301,6 +1314,10 @@ abstract class ICEComponent extends ICEEventTarget {
     this.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_MOVE, { ...evt, left, top });
     this.setState({ left, top });
     this.trigger(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, { ...evt, left, top });
+    // 容器移动时，后代的**世界坐标同样变化**：递归派发 AFTER_MOVE，
+    // 让订阅宿主事件的连线（ICEPolyLine 监听 AFTER_MOVE 做 followComponent）重新路由，
+    // 否则拖动池/泳道时里面的图元走了、挂在它们上面的连线却停在原地。
+    triggerSubtreeMove(this, { ...evt, left, top });
   }
 
   /**
