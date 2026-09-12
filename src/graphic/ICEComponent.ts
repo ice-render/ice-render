@@ -1157,6 +1157,21 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   /**
+   * 内部子组件是否为「由自身 state 派生」的。
+   *
+   * 复合组件（构造时按 state 建立内部子组件的组件，如「卡片 = 底框 + 标题」）应当返回 true：
+   * 这些子组件在反序列化时会被构造函数重建，序列化它们只会造成**重复挂载**
+   * （先由构造函数建一份、再由 Deserializer 挂一份）、并且子组件的自动 zIndex 每次都会变，
+   * 让同一份数据的两次序列化结果不稳定。返回 true 后，Serializer / Deserializer 都会跳过
+   * 该组件的 childNodes —— 只持久化它自己的 state（真相源），子组件视为派生结果。
+   *
+   * 默认为 false（普通容器/叶子组件的子节点是「真数据」，必须序列化）。
+   */
+  public hasDerivedChildren(): boolean {
+    return false;
+  }
+
+  /**
    * 获取组件的最小包围盒，此盒子的变换矩阵与组件自身完全相同。
    * 此方法需要在 render() 之后调用，组件没有渲染时无法计算最小包围盒。
    * @returns

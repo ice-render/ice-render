@@ -101,6 +101,12 @@ export default class Deserializer {
     const instance = new Clazz(nodeData.state);
     parentNode.addChild(instance);
 
+    // 复合组件的子节点由构造函数按 state 重建；即使旧文档里带了 childNodes 也不能再挂一遍
+    // （否则重复）。这类组件通过 hasDerivedChildren() 声明自己，见 ICEComponent 的注释。
+    if (typeof instance.hasDerivedChildren === 'function' && instance.hasDerivedChildren()) {
+      return instance;
+    }
+
     const childNodes = nodeData.childNodes;
     if (childNodes && childNodes.length) {
       for (let i = 0; i < childNodes.length; i++) {
