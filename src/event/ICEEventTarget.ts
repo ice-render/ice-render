@@ -121,9 +121,16 @@ abstract class ICEEventTarget {
       });
     }
 
-    const arr = this.listeners[eventName];
+    // 遍历**快照**，并在调用前确认监听仍在线：
+    // `once` 的回调会先把自己 off 掉（splice 原数组），如果直接 `for (i...) arr[i]`，
+    // 数组缩短会让紧随其后的监听被整体跳过 —— 同一个事件上挂的 once 越多漏得越多。
+    // 快照 + 在线校验既修掉「漏触发」，又保留「派发期间被 off 掉的监听不再触发」的语义。
+    const arr = [...this.listeners[eventName]];
     for (let i = 0; i < arr.length; i++) {
       const item = arr[i];
+      if (this.listeners[eventName].indexOf(item) === -1) {
+        continue;
+      }
       item.callback.call(item.scope, iceEvent);
     }
     return true;

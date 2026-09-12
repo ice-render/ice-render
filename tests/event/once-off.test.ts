@@ -65,4 +65,29 @@ describe('once() / off() 契约', () => {
 
     expect(handler).toHaveBeenCalledTimes(2);
   });
+
+  /**
+   * 回归：`trigger` **边遍历边摘除** `once` 监听会跳过后面的监听。
+   *
+   * 旧的 `trigger` 直接 `for (i...) arr[i]`，而 `once` 触发的第一件事就是
+   * `off()` → `splice()` 把数组缩短一位，于是紧随其后的那个监听被跳过（i 已经 +1）。
+   * 只要同一个事件上挂的 once 监听够多，就会「每隔一个漏一个」。
+   *
+   * 真实案例：甘特示例页里标尺（GanttRuler）会为每条刻度线建一个 ICEPolyLine，
+   * 每个 ICEPolyLine 都在总线挂一条 `once(ROUND_FINISH)` 去建连接关系；
+   * 标尺多画一条分隔线，就足以让依赖线的那条 `once(ROUND_FINISH)` 被跳过 ——
+   * 表现为「拖任务后依赖线不跟随」。
+   */
+  it('同一次 trigger 里的多个 once 监听必须全部触发（不能在遍历中被跳过）', () => {
+    const target: any = new ICERect({ width: 10, height: 10 });
+    const calls: number[] = [];
+    const scopes = [0, 1, 2, 3, 4].map(() => ({}));
+
+    scopes.forEach((scope, index) => {
+      target.once(EVT, () => calls.push(index), scope);
+    });
+    target.trigger(EVT);
+
+    expect(calls).toEqual([0, 1, 2, 3, 4]);
+  });
 });
