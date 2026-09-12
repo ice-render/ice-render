@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-svg-export</title>
+  <style>
+    body {
+      margin: 0;
+      font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+    .bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+    }
+    .bar label {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      color: #475569;
+    }
+    button {
+      padding: 6px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+    .stage {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 0 12px 12px;
+    }
+    .stage h3 {
+      margin: 0 0 6px;
+      font-size: 13px;
+      color: #64748b;
+      font-weight: 600;
+    }
+    canvas,
+    .svg-host {
+      display: block;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #ffffff;
+    }
+    .svg-host {
+      min-height: 300px;
+      padding: 8px;
+      overflow: auto;
+    }
+    .meta {
+      padding: 0 12px 16px;
+      color: #64748b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+  </style>
+  <body>
+    <div class="bar">
+      <button id="btn-export">导出 SVG</button>
+      <button id="btn-download">下载 .svg</button>
+      <label>模式
+        <select id="sel-area">
+          <option value="content">内容自适应</option>
+          <option value="viewport">当前视口</option>
+        </select>
+      </label>
+      <label>留白 <input id="in-padding" type="number" value="8" min="0" max="80" style="width: 64px" /></label>
+      <label>倍数 <input id="in-scale" type="number" value="1" min="0.25" max="4" step="0.25" style="width: 64px" /></label>
+      <label>背景 <input id="in-bg" type="color" value="#ffffff" /></label>
+      <label><input id="chk-tools" type="checkbox" /> 含工具层</label>
+      <span style="color: #64748b">左边是画布（光栅），右边是导出的 SVG（矢量）——同一份场景、同一套口径。</span>
+    </div>
+    <div class="stage">
+      <div>
+        <h3>canvas</h3>
+        <canvas id="canvas-1" width="640" height="420" style="background-color: #f8fafc"></canvas>
+      </div>
+      <div>
+        <h3>SVG（由 ice.toSvg() 生成，可直接放大/丢进设计工具）</h3>
+        <div class="svg-host" id="svg-host"></div>
+      </div>
+    </div>
+    <div class="meta" id="meta"></div>
+
+    <script src="../../dist/index.umd.js"></script>
+    <script type="text/javascript">
+      const ice = new ICE.ICE().init('canvas-1');
+
+      // ---- 场景：容器嵌套 + 圆角 + 渐变 + 虚线 + 文本 + 图片 ----
+      const card = new ICE.ICEGroup({ left: 40, top: 40, width: 240, height: 140, radius: 12, fill: true, stroke: true, style: { fillStyle: '#ffffff', strokeStyle: '#cbd5e1', lineWidth: 1, shadow: 'md' } });
+      ice.addChild(card);
+      card.addChild(new ICE.ICERect({ left: 0, top: 0, width: 240, height: 6, radius: 3, style: { fillStyle: '#4f46e5', strokeStyle: '#4f46e5', lineWidth: 1 } }));
+      card.addChild(new ICE.ICEText({ left: 0, top: 40, width: 240, height: 40, text: '矢量导出', stroke: false, style: { fontSize: 26, fillStyle: '#0f172a', textAlign: 'center', textBaseline: 'middle', fontWeight: 'bold' } }));
+      card.addChild(new ICE.ICEText({ left: 0, top: 84, width: 240, height: 24, text: 'canvas 与 SVG 同一口径', stroke: false, style: { fontSize: 13, fillStyle: '#64748b', textAlign: 'center', textBaseline: 'middle' } }));
+
+      const gradientRect = new ICE.ICERect({ left: 320, top: 40, width: 240, height: 140, radius: 12, fill: true, stroke: true, style: { fillGradient: { type: 'linear', from: [0, 0], to: [0, 140], stops: [[0, '#38bdf8'], [1, '#1d4ed8']] }, strokeStyle: '#0f172a', lineWidth: 1, shadow: 'sm' } });
+      ice.addChild(gradientRect);
+      // ICERect 是图元不是容器：浮在上面的文字作为同级组件叠上去（图元按 zIndex 顺序绘制）
+      ice.addChild(new ICE.ICEText({ left: 320, top: 90, width: 240, height: 40, text: '渐变 + 阴影', stroke: false, style: { fontSize: 18, fillStyle: '#ffffff', textAlign: 'center', textBaseline: 'middle', fontWeight: 'bold' } }));
+
+      const circle = new ICE.ICECircle({ left: 120, top: 260, radius: 46, fill: true, stroke: true, style: { fillStyle: '#f59e0b', strokeStyle: '#b45309', lineWidth: 2 } });
+      ice.addChild(circle);
+      const dashed = new ICE.ICEPolyLine({ dots: [[166, 260], [300, 260], [360, 200], [440, 200]], stroke: true, fill: false, style: { strokeStyle: '#ef4444', lineWidth: 2 }, lineDash: [8, 6] });
+      ice.addChild(dashed);
+      ice.addChild(new ICE.ICEText({ left: 300, top: 300, width: 300, height: 30, text: '虚线 / 折线 / 圆角 / 文本 全部走命令流', stroke: false, style: { fontSize: 13, fillStyle: '#475569', textBaseline: 'middle' } }));
+
+      // 工具层：默认不导出，勾选后才进 SVG（对齐辅助线、控制面板属于交互装饰）
+      const tool = new ICE.ICERect({ left: 500, top: 60, width: 90, height: 90, fill: true, stroke: true, style: { fillStyle: 'rgba(236,72,153,0.25)', strokeStyle: '#db2777', lineWidth: 2 }, lineDash: [6, 4] });
+      ice.addTool(tool);
+
+      // ---- 导出 ----
+      const host = document.getElementById('svg-host');
+      const meta = document.getElementById('meta');
+      let currentSvg = '';
+
+      function exportOptions() {
+        return {
+          area: document.getElementById('sel-area').value,
+          padding: Number(document.getElementById('in-padding').value) || 0,
+          scale: Number(document.getElementById('in-scale').value) || 1,
+          background: document.getElementById('in-bg').value,
+          includeTools: document.getElementById('chk-tools').checked,
+        };
+      }
+
+      function doExport() {
+        const result = ice.toSvgResult(exportOptions());
+        currentSvg = result.svg;
+        host.innerHTML = currentSvg;
+        meta.textContent = [
+          '宽高：' + Math.round(result.width) + ' × ' + Math.round(result.height),
+          '字节：' + currentSvg.length,
+          'path：' + (currentSvg.match(/<path/g) || []).length + '  text：' + (currentSvg.match(/<text/g) || []).length + '  filter：' + (currentSvg.match(/<filter/g) || []).length,
+        ].join('\n');
+        console.log('[svg-export] ' + host.innerHTML.length + ' bytes');
+      }
+
+      document.getElementById('btn-export').addEventListener('click', doExport);
+      document.getElementById('sel-area').addEventListener('change', doExport);
+      document.getElementById('in-padding').addEventListener('input', doExport);
+      document.getElementById('in-scale').addEventListener('input', doExport);
+      document.getElementById('in-bg').addEventListener('input', doExport);
+      document.getElementById('chk-tools').addEventListener('change', doExport);
+      document.getElementById('btn-download').addEventListener('click', () => {
+        const blob = new Blob([currentSvg || ice.toSvg(exportOptions())], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ice-render-scene.svg';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+
+      doExport();
+      // 供冒烟/回归断言用：导出产物存在且非空
+      window.__svgExport = { get svg() { return currentSvg; } };
+    </script>
+  </body>
+</html>
