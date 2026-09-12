@@ -159,6 +159,21 @@ const svg = exportSvg(ice);   // 或 exportSvg(任意组件) 导出子树
 与 canvas 不会逐像素一致）；雪碧图切图（`sx/sy/sw/sh`）暂不支持；文本导出的是**静态瞬间**，
 且 SVG 与 canvas 的字形度量/基线定义不同，因此导出的文字位置是「对齐口径一致、逐像素允许微差」。
 
+可运行示例：`examples/export/svg-export.html`（画布与 SVG 并排对比，可调背景/留白/倍数、勾选是否
+包含工具层），以及 `examples/node/export.mjs`（**服务端出图**：`ICE.headless()` 建树 → `toSvg()`
+落盘，装了 `@resvg/resvg-js` 时再转一张 2× PNG）。
+
+```js
+// 服务端（Node，没有 document / canvas）
+const { ICE, ICERect } = require('ice-render');
+const ice = ICE.headless();
+ice.addChild(new ICERect({ width: 240, height: 120, radius: 12, style: { fillStyle: '#4f46e5' } }));
+const svg = ice.toSvg({ padding: 16, background: '#ffffff' });
+```
+
+PNG / PDF 不内置依赖：SVG 是通用中间格式，`resvg`、`sharp`、`rsvg-convert`、headless Chrome
+打印都能接着走 —— 引擎保持零运行时依赖。
+
 ## 📚 文档
 
 - **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容。
