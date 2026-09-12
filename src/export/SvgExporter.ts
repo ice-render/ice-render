@@ -272,9 +272,19 @@ function commandsToPathData(commands: Array<Array<any>>, closed: boolean, digits
         parts.push(`A${n(rx)},${n(ry)} 0 ${largeArc} ${sweep} ${n(x1)},${n(y1)}`);
       }
       hasCurrent = true;
+    } else if (name === 'closePath') {
+      // 闭合按**命令流里的位置**输出：多段子路径（池 = 闭合矩形 + 名称带分隔线）必须各闭各的，
+      // 只在整个 d 末尾补一个 Z 会把最后一段收到起点去（画出一条多余的斜线）。
+      // 矩形命令自带 z（已经闭合），此时不重复输出。
+      if (parts.length && !/z$/i.test(parts[parts.length - 1])) {
+        parts.push('Z');
+      }
+      hasCurrent = false;
     }
   }
-  if (closed && !/z\s*$/i.test(parts.join(' '))) {
+  // 兼容历史命令流（没有 closePath 命令、只有末尾标志的那种）
+  const hasCloseCommand = commands.some((cmd) => cmd[0] === 'closePath');
+  if (closed && !hasCloseCommand && !/z\s*$/i.test(parts.join(' '))) {
     parts.push('Z');
   }
   return parts.join(' ');

@@ -198,6 +198,14 @@ export default class Path2DRecorder {
 
   public closePath(): void {
     this._closed = true;
+    // 闭合必须**记在当前这个位置**，不能只留个末尾标志：路径里可能有多段子路径
+    // （典型：池/泳道 = 闭合矩形 + 一条名称带分隔线），只记末尾标志的话，导出时
+    // 那条分隔线会被闭合到起点 —— 表现为「矩形缺一条边、还多出一条对角斜线」。
+    // 幂等：`ICEPath.doRender()` 每帧都会调 closePath()，同一位置只记一次，避免命令流无限增长。
+    const last = this._commands[this._commands.length - 1];
+    if (!last || last[0] !== 'closePath') {
+      this._commands.push(['closePath']);
+    }
     // 与 canvas 一致：闭合后当前点回到子路径起点
     this.__current = this.__subpathStart ? [this.__subpathStart[0], this.__subpathStart[1]] : null;
     if (this.native) {
