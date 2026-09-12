@@ -61,9 +61,27 @@ describe('Path2DRecorder', () => {
       ['moveTo', 1, 2],
       ['lineTo', 3, 4],
       ['rect', 0, 0, 10, 10],
+      // 闭合按位置入队（多子路径形状必须各闭各的），不再只是末尾标志
+      ['closePath'],
     ]);
     expect(native.calls).toEqual([['moveTo', 1, 2], ['lineTo', 3, 4], ['rect', 0, 0, 10, 10], ['closePath']]);
     expect(path._closed).toBe(true);
+  });
+
+  it('closePath 幂等：同一位置重复调用只记一次（doRender 每帧都会调）', () => {
+    const path = new Path2DRecorder();
+    path.moveTo(0, 0);
+    path.lineTo(10, 0);
+    path.closePath();
+    path.closePath();
+    path.closePath();
+    expect(path._commands).toEqual([['moveTo', 0, 0], ['lineTo', 10, 0], ['closePath']]);
+
+    // 新开一段子路径后，再闭合才是新的一次
+    path.moveTo(5, 5);
+    path.lineTo(5, 9);
+    path.closePath();
+    expect(path._commands.filter((c) => c[0] === 'closePath')).toHaveLength(2);
   });
 
   it('没有原生 Path2D：退化为纯记录器，drawable 是自身（ICEPath 据此重放命令）', () => {
@@ -119,10 +137,8 @@ describe('Path2DRecorder', () => {
       const cmd = commands[i];
       ctx[cmd[0]](...cmd.slice(1));
     }
-    if (path._closed) {
-      ctx.closePath();
-    }
 
+    // 闭合命令已在流里（不再于末尾补一次），重放路径与 ICEPath.replayPath() 一致
     expect(ctx.calls.map((c) => c[0])).toEqual(['beginPath', 'moveTo', 'lineTo', 'arc', 'closePath']);
   });
 });

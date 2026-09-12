@@ -14,6 +14,8 @@ jest.mock('../../src/cross-platform/root', () => {
   return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
 });
 
+import root from '../../src/cross-platform/root';
+import ICEPath from '../../src/graphic/ICEPath';
 import ICEGroup from '../../src/graphic/container/ICEGroup';
 import ICERect from '../../src/graphic/shape/ICERect';
 import ICECircle from '../../src/graphic/shape/ICECircle';
@@ -44,6 +46,33 @@ describe('SVG 导出', () => {
     expect(svg).toContain('stroke-width="3"');
     // 组件的平移进 transform 矩阵，而不是写进 d 的坐标
     expect(svg).toContain('transform="matrix(1 0 0 1 60 45)"');
+  });
+
+  it('多段子路径各闭各的：闭合矩形 + 名称带分隔线不会被收成一条斜线', () => {
+    // 复刻池/泳道的画法：先画一个闭合矩形，再单独画一条带线。
+    // 回归：曾经的 closePath 只记「末尾标志」，导出时把带线收到了矩形起点 ——
+    // 表现为池缺一条边 + 多一条对角斜线。
+    class BandShape extends ICEPath {
+      protected createPathObject(): any {
+        this.path2D = (this.constructor as any).__recorder();
+        this.path2D.moveTo(0, 0);
+        this.path2D.lineTo(100, 0);
+        this.path2D.lineTo(100, 50);
+        this.path2D.lineTo(0, 50);
+        this.path2D.closePath();
+        this.path2D.moveTo(20, 0);
+        this.path2D.lineTo(20, 50);
+        this.path2D.closePath();
+        return this.path2D;
+      }
+    }
+    (BandShape as any).__recorder = () => root.createPath2D();
+
+    const shape = new BandShape({ width: 100, height: 50, fill: true, stroke: true });
+    const svg = exportSvg(shape);
+    const d = (svg.match(/<path d="([^"]+)"/) || [])[1] || '';
+
+    expect(d).toBe('M0,0 L100,0 L100,50 L0,50 Z M20,0 L20,50 Z');
   });
 
   it('整圆拆成两段 A 命令，未显式描边时不输出 stroke', () => {

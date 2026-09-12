@@ -156,9 +156,8 @@ abstract class ICEPath extends ICEComponent {
       const cmd = commands[i];
       ctx[cmd[0]](...cmd.slice(1));
     }
-    if (this.path2D._closed) {
-      ctx.closePath();
-    }
+    // 不再补一次 closePath()：闭合命令已经按它**当时的位置**记在命令流里了
+    // （路径可能由多段子路径组成，补在末尾会把最后一段也闭合，与画布不一致）。
   }
 
   /**
