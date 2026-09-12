@@ -135,6 +135,11 @@ class ObjectCache {
     // 视口变化帧一律不缓存：位图栅格与设备栅格已错位，重建代价又和直接落墨同阶。
     // 见 `beginFrame()`。（只是一次字段读 —— 本方法在热路径上每个组件每帧都会被调用。）
     if (this.__vpChanged) return false;
+    // 祖先开了 clipChildren 时，位图里没有那层裁剪（位图是单独渲染的），
+    // 贴回去会画到裁剪区外 —— 这类组件一律走直接落墨。
+    if (typeof component.hasClippingAncestor === 'function' && component.hasClippingAncestor()) {
+      return false;
+    }
     if (typeof component.measureText === 'function') {
       return !component.state.editing && isEffectivelyVisible(component);
     }

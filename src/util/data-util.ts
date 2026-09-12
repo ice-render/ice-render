@@ -100,6 +100,10 @@ export function hitTestComponents(ice: any, wx: number, wy: number, tolerance: n
       }
     }
     if (component.containsPoint(wx, wy)) {
+      // 被祖先裁剪掉的部分不该命中（例如滚动容器里滚出可视区的子组件）
+      if (typeof component.isPointClippedOut === 'function' && component.isPointClippedOut(wx, wy)) {
+        continue;
+      }
       found = component;
     }
   }
