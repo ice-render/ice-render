@@ -117,6 +117,7 @@ try {
 | 引擎断行策略 | ✅ `wordBreak: 'normal' \| 'break-all'` + CJK 禁则 + 无空格脚本（泰/老/高棉/缅甸）词典分词（2026-09-13） |
 | 引擎文字方向 | ✅ `direction` + `textAlign: 'start' \| 'end'`（2026-09-13，含 SVG 口径） |
 | 输入法 | ✅ 透明 `<input>` + `compositionend` |
+| 字体加载后的量测前提 | ✅ 自定义字体（CJK 子集按需加载）完成后 `ice.loadFont()` 自动重测已挂载文本；`ICEText.remeasureText()` 手动标脏（2026-09-13） |
 | 错误码 | ✅ `ICE_*` 稳定码（2026-09-13） |
 | 引擎中立性 | ✅ 无规范化 / 无 locale 格式化 / 文本原样往返 |
 | 组件库 locale 作用域 | ✅ `props.locale` / `options.locale` 按实例生效（`tFor(locale)`）；`setICELocale()` 只是**应用级默认**，优先级「实例 > 全局」有测试钉住 |
