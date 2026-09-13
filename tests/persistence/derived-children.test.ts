@@ -92,7 +92,7 @@ describe('复合组件的引擎序列化', () => {
   it('未声明派生的普通容器：子节点照常序列化并往返', () => {
     const ice = makeIce();
     const group = new ICEGroup({ width: 100, height: 80 });
-    group.addChild(new ICEText({ text: 'child', width: 10, height: 10 }));
+    group.addChild(new ICEText({ text: 'child' }));
     ice.addChild(group);
 
     const json: any = new Serializer(ice).toJSONObject();
@@ -119,7 +119,7 @@ class CardWithSlots extends ICEGroup {
 
   constructor(props: any = {}) {
     super({ title: 'cardWithSlots', width: 100, height: 40, ...props });
-    this.titleComponent = new ICEText({ text: this.state.title, width: 10, height: 10 });
+    this.titleComponent = new ICEText({ text: this.state.title });
     this.addChild(this.titleComponent);
   }
 

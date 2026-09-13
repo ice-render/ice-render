@@ -294,7 +294,7 @@ describe('dirty-rect 相交级门控', () => {
     for (let i = 0; i < 24; i++) {
       ice.addChild(opaque(20 + (i % 12) * 40, 20 + Math.floor(i / 12) * 30, i));
     }
-    const label: any = new ICEText({ left: 300, top: 300, width: 10, height: 10, text: 'hi' });
+    const label: any = new ICEText({ left: 300, top: 300, text: 'hi' });
     ice.addChild(label);
     prime(renderer, ice);
 
@@ -345,7 +345,7 @@ describe('dirty-rect 相交级门控', () => {
       height: 80,
       style: { fillStyle: '#ffffff', strokeStyle: '#111827', lineWidth: 1 },
     });
-    const label: any = new ICEText({ left: 10, top: 10, width: 10, height: 10, text: 'hi' });
+    const label: any = new ICEText({ left: 10, top: 10, text: 'hi' });
     box.addChild(label);
     ice.addChild(box);
 

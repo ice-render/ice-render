@@ -50,7 +50,24 @@ const LEAKY_CTX_PROPS: Array<[string, any]> = [
   ['miterLimit', 10],
   ['textAlign', 'start'],
   ['textBaseline', 'alphabetic'],
+  // 文本/图形的其它 ctx 状态：`style` 是**透传**到 ctx 的（`__applyStyleProp` 末行 `ctx[prop] = value`），
+  // 只要用户写了一个我们没列入本表的键，它就会漏给同一帧后面绘制的组件 —— 破坏「组件渲染自包含」，
+  // 也就是脏矩形局部重绘 / 离屏缓存的像素契约。这里把标准状态补齐（不支持该属性的运行时上，
+  // 赋值无害；读取一律走本表，不去 `ctx[prop]` 取值，避免触碰小程序 Canvas 2D 子集之外的成员）。
+  ['direction', 'inherit'],
+  ['letterSpacing', '0px'],
+  ['wordSpacing', '0px'],
+  ['fontKerning', 'auto'],
+  ['fontStretch', 'normal'],
+  ['fontVariantCaps', 'normal'],
+  ['textRendering', 'auto'],
+  ['filter', 'none'],
+  ['imageSmoothingEnabled', true],
+  ['imageSmoothingQuality', 'low'],
 ];
+
+/** `lineDash` 不进 `LEAKY_CTX_PROPS`（它要调用 `setLineDash`），单独占一个位。 */
+const LEAKY_LINE_DASH_BIT = 1 << LEAKY_CTX_PROPS.length;
 
 /** 单位矩阵（gl-matrix mat2d 布局）；`__activeWorldMatrix` 为空时代表世界→设备是恒等变换。 */
 const IDENTITY_MATRIX = Object.freeze([1, 0, 0, 1, 0, 0]) as unknown as number[];
@@ -1481,8 +1498,8 @@ abstract class ICEComponent extends ICEEventTarget {
       this.__opacityApplied = false;
     }
     // 折线/蚂蚁线等内部直接写的虚线状态
-    if (this.state.lineDash && this.state.lineDash.length) touched |= 1 << 11;
-    if (this.state.lineDashFlow || this.state.lineDashOffset) touched |= 1 << 11;
+    if (this.state.lineDash && this.state.lineDash.length) touched |= LEAKY_LINE_DASH_BIT;
+    if (this.state.lineDashFlow || this.state.lineDashOffset) touched |= LEAKY_LINE_DASH_BIT;
     if (!touched) return;
 
     const ctx = this.ctx;
@@ -1491,7 +1508,7 @@ abstract class ICEComponent extends ICEEventTarget {
         ctx[LEAKY_CTX_PROPS[i][0]] = LEAKY_CTX_PROPS[i][1];
       }
     }
-    if (touched & (1 << 11) && typeof ctx.setLineDash === 'function') {
+    if (touched & LEAKY_LINE_DASH_BIT && typeof ctx.setLineDash === 'function') {
       ctx.setLineDash([]);
       ctx.lineDashOffset = 0;
     }
@@ -1521,6 +1538,26 @@ abstract class ICEComponent extends ICEEventTarget {
         return 9;
       case 'textBaseline':
         return 10;
+      case 'direction':
+        return 11;
+      case 'letterSpacing':
+        return 12;
+      case 'wordSpacing':
+        return 13;
+      case 'fontKerning':
+        return 14;
+      case 'fontStretch':
+        return 15;
+      case 'fontVariantCaps':
+        return 16;
+      case 'textRendering':
+        return 17;
+      case 'filter':
+        return 18;
+      case 'imageSmoothingEnabled':
+        return 19;
+      case 'imageSmoothingQuality':
+        return 20;
       default:
         return -1;
     }

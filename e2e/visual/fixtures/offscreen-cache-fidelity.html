@@ -46,7 +46,7 @@
         }
 
         const text = new ICE.ICEText({
-          left: 30, top: 20, width: 10, height: 10,
+          left: 30, top: 20,
           text: 'ICERender 缓存保真',
           style: { fontSize: 20, fillStyle: '#1F2937' },
         });
@@ -56,7 +56,7 @@
         // 默认放在 text 下方留足间距（multi-line 后也不重叠）；?overlap=1 时叠到 text 上，
         // 专门覆盖「两段半透明抗锯齿内容重叠」这个 8bit 量化最吃亏的场景。
         const subText = new ICE.ICEText({
-          left: 30.35, top: OVERLAP ? 44.7 : 96.7, width: 10, height: 10,
+          left: 30.35, top: OVERLAP ? 44.7 : 96.7,
           text: 'sub-pixel 亚像素',
           style: { fontSize: 15, fillStyle: '#0F766E' },
         });
@@ -117,14 +117,14 @@
         });
         ice.addChild(group);
         const groupText = new ICE.ICEText({
-          left: 12, top: 20, width: 10, height: 10,
+          left: 12, top: 20,
           text: '分组内文本',
           style: { fontSize: 14, fillStyle: '#1F2937' },
         });
         group.addChild(groupText);
 
         const rotated = new ICE.ICEText({
-          left: 430, top: 296, width: 10, height: 10,
+          left: 430, top: 296,
           text: 'rotated',
           style: { fontSize: 16, fillStyle: '#7C3AED' },
           transform: { rotate: 20 },

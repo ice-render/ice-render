@@ -42,8 +42,18 @@ class ICEText extends ICEComponent {
   constructor(props: any = {}) {
     const param = ICEText.arrangeParam(props);
     super(param);
+    // 原始 props 在这里捕捉：`arrangeParam` 会把默认 width/height（10）合并进来，
+    // 之后的 `this.__userProps` 已经分不清「用户显式给了 10」与「用了默认值」。
+    // 自动尺寸语义以**用户是否显式传**为准（见 __applyMeasuredSize）。
+    this.__autoWidth = props == null || props.width === undefined;
+    this.__autoHeight = props == null || props.height === undefined;
     this.measureText();
   }
+
+  /** 用户没显式给 width → 宽度按量测自适应 */
+  private __autoWidth = true;
+  /** 用户没显式给 height → 高度按量测自适应 */
+  private __autoHeight = true;
 
   protected static arrangeParam(props) {
     const param = merge(
@@ -232,6 +242,32 @@ class ICEText extends ICEComponent {
   }
 
   /**
+   * 度量前提变了（自定义字体加载完成、主题换字号…）时调用：只标脏，
+   * 真正的重算交给下一次 render（`paramsDirty → calcComponentParams → measureText`）。
+   * 见 `ICE.remeasureTexts()` 与 `ICE.loadFont()`。
+   */
+  public remeasureText(): this {
+    this.__paramsDirty = true;
+    this.dirty = true;
+    return this;
+  }
+
+  /**
+   * 外部**显式**设置 width/height（应用代码，或布局管理器按容器分配尺寸）时，关掉对应方向的
+   * 自动量测 —— 否则下一帧 `measureText → __applyMeasuredSize` 会把刚设的尺寸又改回去，
+   * 表现为「setState({width}) 不生效」。
+   *
+   * 与构造函数里「用户是否显式传 width/height」是同一套语义（见 __autoWidth/__autoHeight）。
+   */
+  protected __beforeStateMerge(newState: any): boolean {
+    if (newState) {
+      if (newState.width !== undefined) this.__autoWidth = false;
+      if (newState.height !== undefined) this.__autoHeight = false;
+    }
+    return super.__beforeStateMerge(newState);
+  }
+
+  /**
    * @overwrite
    * 编辑态下接管键盘输入：字符插入 / Backspace / Delete / 方向键移动光标 / Enter 提交。
    */
@@ -255,22 +291,25 @@ class ICEText extends ICEComponent {
     }
     if (key === 'Backspace') {
       if (caret > 0) {
-        this.setState({ text: text.slice(0, caret - 1) + text.slice(caret), caretIndex: caret - 1 });
+        // 按 **grapheme** 退格：`a👍b` 里删的是整个 emoji，而不是半个代理对（旧实现会留下坏字符）
+        const prev = this.__prevGraphemeBoundary(text, caret);
+        this.setState({ text: text.slice(0, prev) + text.slice(caret), caretIndex: prev });
       }
       return;
     }
     if (key === 'Delete') {
       if (caret < text.length) {
-        this.setState({ text: text.slice(0, caret) + text.slice(caret + 1) });
+        const next = this.__nextGraphemeBoundary(text, caret);
+        this.setState({ text: text.slice(0, caret) + text.slice(next) });
       }
       return;
     }
     if (key === 'ArrowLeft') {
-      this.setState({ caretIndex: Math.max(0, caret - 1) });
+      this.setState({ caretIndex: this.__prevGraphemeBoundary(text, caret) });
       return;
     }
     if (key === 'ArrowRight') {
-      this.setState({ caretIndex: Math.min(text.length, caret + 1) });
+      this.setState({ caretIndex: this.__nextGraphemeBoundary(text, caret) });
       return;
     }
     if (key === 'Home') {
@@ -288,21 +327,83 @@ class ICEText extends ICEComponent {
     }
   }
 
+  /** caret 之前最近的一个 grapheme 边界（无 DOM 时按 grapheme 移动/退格；DOM 由浏览器负责）。 */
+  private __prevGraphemeBoundary(text: string, caret: number): number {
+    if (caret <= 0) return 0;
+    const gs = this.__graphemes(text.slice(0, caret));
+    if (!gs.length) return 0;
+    return caret - gs[gs.length - 1].length;
+  }
+
+  /** caret 之后最近的一个 grapheme 边界。 */
+  private __nextGraphemeBoundary(text: string, caret: number): number {
+    if (caret >= text.length) return text.length;
+    const gs = this.__graphemes(text.slice(caret));
+    if (!gs.length) return text.length;
+    return caret + gs[0].length;
+  }
+
   /**
-   * 在编辑态下渲染光标（垂直竖线），位置由 caretIndex + ctx.measureText 计算。
+   * 在编辑态下渲染光标（垂直竖线）。
+   *
+   * 无 DOM 的运行时（小程序 / Node）没有浏览器 caret 可用，这里自己算位置，三条规则：
+   * - **多行**：`caretIndex` 先按 `\n` 折成「第几行 + 行内偏移」，光标画在对应行（旧实现把整段前缀
+   *   都量在一个位置上，多行文本里光标会跑到第一行）；
+   * - **方向**：RTL 行的阅读起点在右，光标 x 要从右边缘往左量（`rightEdge - measure(前缀)`）；
+   * - **对齐**：与 `getRenderLines()` 同一套（left / center / right，start/end 已按方向解析）。
+   *
+   * DOM 编辑态直接返回 —— 那时光标由 HTML input 的 `caretColor` 接管（浏览器处理 grapheme / IME 更准）。
    */
   private renderCaret(): void {
     if (this.__editInput) {
       return; // input 编辑态：光标由 HTML input 的可见 caretColor 接管
     }
-    const { paddingTop, paddingBottom, paddingLeft } = this.state.style;
-    const textBefore = this.state.text.slice(0, this.state.caretIndex);
-    let caretX = 0 - this.state.localOrigin[0] + paddingLeft;
-    if (typeof this.ctx.measureText === 'function') {
-      caretX += this.ctx.measureText(textBefore).width;
+    const { paddingTop, paddingBottom, paddingLeft, paddingRight, textBaseline } = this.state.style;
+    const text = String(this.state.text ?? '');
+    const caret = Math.max(0, Math.min(this.state.caretIndex, text.length));
+
+    // 折成行 + 行内偏移
+    const lines = text.split('\n');
+    let lineIndex = 0;
+    let offsetInLine = caret;
+    for (let i = 0; i < lines.length; i++) {
+      if (offsetInLine <= lines[i].length) {
+        lineIndex = i;
+        break;
+      }
+      offsetInLine -= lines[i].length + 1; // +1：跳过分隔符 \n
+      lineIndex = i;
     }
-    const caretTop = 0 - this.state.localOrigin[1] + paddingTop;
-    const caretBottom = 0 - this.state.localOrigin[1] + this.state.height - paddingBottom;
+    const lineText = lines[lineIndex] || '';
+    const prefix = lineText.slice(0, Math.max(0, Math.min(offsetInLine, lineText.length)));
+
+    const direction = resolveTextDirection(lineText, this.state.direction);
+    const align = resolveTextAlign(this.state.style.textAlign, direction);
+    const measure = this.__measureFn();
+    const prefixWidth = measure(prefix);
+    const lineWidth = align === 'left' ? 0 : measure(lineText);
+
+    let caretX: number;
+    if (align === 'center') {
+      const start = -lineWidth / 2;
+      caretX = direction === 'rtl' ? start + lineWidth - prefixWidth : start + prefixWidth;
+    } else if (align === 'right') {
+      const rightEdge = this.state.localOrigin[0] - paddingRight;
+      caretX = direction === 'rtl' ? rightEdge - prefixWidth : rightEdge - lineWidth + prefixWidth;
+    } else {
+      const leftEdge = 0 - this.state.localOrigin[0] + paddingLeft;
+      caretX = direction === 'rtl' ? leftEdge + lineWidth - prefixWidth : leftEdge + prefixWidth;
+    }
+
+    // 行盒（与 getRenderLines 共用同一套行高推导）
+    const textHeight = this.state.textHeight || this.state.style.fontSize;
+    const lineHeight = textHeight / Math.max(1, lines.length);
+    let caretTop = 0 - this.state.localOrigin[1] + paddingTop + lineIndex * lineHeight;
+    if (textBaseline === 'middle') {
+      const firstTop = ((lines.length - 1) / 2) * lineHeight;
+      caretTop = -firstTop + lineIndex * lineHeight;
+    }
+    const caretBottom = caretTop + lineHeight;
 
     this.ctx.save();
     this.ctx.strokeStyle = this.state.style.fillStyle || '#000000';
@@ -489,10 +590,12 @@ class ICEText extends ICEComponent {
     const { paddingTop, paddingBottom, paddingLeft, paddingRight } = this.state.style;
     const width = s.textWidth + paddingLeft + paddingRight;
     const height = s.textHeight + paddingTop + paddingBottom;
-    if (this.props.width === 10) {
+    // 「自动尺寸」以**用户是否显式传了 width/height** 判断（`arrangeParam` 的默认值恰好也是 10，
+    // 拿 10 当哨兵会让「我就要一个 10×10 的文本框」被引擎悄悄改大）。
+    if (this.__autoWidth) {
       this.state.width = width;
     }
-    if (this.props.height === 10) {
+    if (this.__autoHeight) {
       this.state.height = height;
     }
     this.state.textHeight = s.textHeight;
@@ -543,13 +646,13 @@ class ICEText extends ICEComponent {
         width: div.offsetWidth + paddingLeft + paddingRight,
         height: div.offsetHeight + paddingTop + paddingBottom,
       };
-      // 重要：只覆盖"用户没显式传"的 width/height（默认 10/10 作 sentinel），保留用户值。
+      // 重要：只覆盖「用户没显式传」的 width/height，保留用户值。
       // 否则 textAlign center 等文字居中逻辑会因为 localOrigin = width/2 被 div 实际宽度覆盖而错位。
-      // 只写 state，不改 props（props 是不可变构造入参，后续帧仍需依赖 sentinel 判断）。
-      if (this.props.width === 10) {
+      // 只写 state，不改 props（props 是不可变构造入参）。
+      if (this.__autoWidth) {
         this.state.width = cssSize.width;
       }
-      if (this.props.height === 10) {
+      if (this.__autoHeight) {
         this.state.height = cssSize.height;
       }
       this.state.textHeight = div.offsetHeight; // 纯文本高度（不含 padding），供多行 baseline 计算

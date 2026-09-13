@@ -72,11 +72,22 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 
 - **i18n 边界铁律（2026-09-13 确立）**：**引擎不做 i18n**（没有词条表、没有 locale 状态、不做语言切换；同页两个应用不能各用各的语言，这类全局状态一旦进内核就退不出去）。边界是：**应用层**管词条 / 复数 / 日期数字货币格式化（`Intl`/ICU），把最终字符串交给引擎；**组件库**可以有自己的内置文案但要「可配置 + 不持全局状态」；**引擎**只负责让这些字符串显示正确 —— ① 断行策略（`wordBreak: 'normal'` 拉丁词不硬拆、CJK 逐字断 + 禁则；`'break-all'` 保留旧的逐 grapheme 贪心）；② 文字方向（`ICEText.direction` + `textAlign: 'start' | 'end'`，写 `ctx.direction` 时**特性检测**、渲染完归位 `inherit`；SVG 导出口径一致）；③ 输入法（透明 `<input>` + `compositionend`）；④ **稳定错误码**（`ICE_ERROR_CODES` / `getICEErrorCode(err)`，错误常被应用直接展示，只有中文 message 会迫使应用匹配字符串）；⑤ 中立性（不规范化、不做 locale 格式化、文本逐字节往返）。完整契约与缺口清单见 `docs/architecture/17-i18n-boundary.md`，回归见 `tests/graphic/text-wrap.test.ts`、`tests/graphic/text-direction.test.ts`、`tests/graphic/text-i18n.test.ts`、`tests/util/errors.test.ts`。
 
+- **文本渲染自包含与自动尺寸铁律（2026-09-13 确立，A 组修复）**：① `style` 会**透传**到 ctx
+  （`__applyStyleProp` 末行 `ctx[prop] = value`），因此**任何新增的 style→ctx 键都必须同时在
+  `ICEComponent.LEAKY_CTX_PROPS` 登记**，`__leakyIndex()` 的 case 号必须与数组下标一致，虚线位一律用
+  `LEAKY_LINE_DASH_BIT`（由数组长度推导）——漏登就会把状态漏给同帧后面的组件，破坏「组件渲染自包含」与
+  脏矩形 / 离屏缓存的像素契约。② `ICEText` 的自动尺寸以「**调用方是否显式给尺寸**」判断
+  （构造参数 → `__autoWidth`/`__autoHeight`；`setState({width/height})` 也会关掉对应方向的自动量测），
+  **不再把构造参数里的默认值 `10` 当哨兵**。③ 自定义字体加载完成（`ICE.loadFont()`）后引擎会自动
+  `remeasureTexts()` 标脏重测（`ICEText.remeasureText()` 只标脏，重算在下一帧）。④ 无 DOM 运行时的
+  光标 / 编辑按 **grapheme** 移动，`renderCaret()` 对多行、RTL、`textAlign: start/end` 都要正确。
+  回归用例见 `tests/graphic/text-bugfixes.test.ts`、`e2e/visual/offscreen-cache-fidelity.spec.ts`。
+
 ## 已知技术债（严重度）
 
 > 复核日期 **2026-09-11**。此前本节长期停留在「8 suite / 36 用例」等早期口径，与仓库实际严重脱节，已按实测重写。
 
-- ~~P0：零单元测试~~ → **已偿还**：jest 单测 **96 个 suite / 759 个用例**（2026-09-13 实测），`jest.config.js` 配了「只许上调」的覆盖率门槛（语句 65 / 分支 58 / 函数 72 / 行 65），CI 用 `npm test -- --coverage` 跑。可视化/交互/像素一致性另有 Playwright（`e2e/`，`npm run test:visual`）。
+- ~~P0：零单元测试~~ → **已偿还**：jest 单测 **101 个 suite / 788 个用例**（2026-09-13 实测），`jest.config.js` 配了「只许上调」的覆盖率门槛（语句 65 / 分支 58 / 函数 72 / 行 65），CI 用 `npm test -- --coverage` 跑。可视化/交互/像素一致性另有 Playwright（`e2e/`，`npm run test:visual`，**75 条**）。
 - ~~P2：`tests/` 里 49 个 HTML 全是无断言的手测 demo~~ → **已收敛**：重命名为 `examples/`，由 `examples/generate-index.cjs` 生成导航页（88 个示例），自动化单测统一放顶层 `tests/`（镜像 `src/` 结构）。
   生成器跳过 `assets` / `node_modules` / 点开头目录（2026-09-13 修：此前会误收 `examples/mini-program/node_modules/**` 里第三方自带的示例 html，导航页从 88 条变 95 条）；`tests/tooling/examples-index.test.ts` 会静态校验「导航页 ↔ 磁盘示例文件」双向一致，所以新增示例后忘了重新生成也会红。
 - ~~P1：`ice-flow` 的 `ice-render` 版本声明写错~~ → **已修复**（改为 `^1.0.4`；下游 `.npmrc` 配 `legacy-peer-deps` 解 `rollup-plugin-uglify` 的 ERESOLVE）。

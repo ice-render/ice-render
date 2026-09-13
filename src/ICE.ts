@@ -701,11 +701,39 @@ class ICE {
   /**
    * 加载自定义字体（平台适配）：浏览器走 FontFace API，小程序走 wx.loadFont。
    * 加载后，在 ICEText 的 style.fontFamily 里引用该字体名即可。
+   *
+   * **字体就绪后会重新量测已挂载的文本**（`remeasureTexts()`）：首帧通常还没拿到自定义字体，
+   * 用回退字体量出的宽高与换行会残留 —— 这是 i18n 场景（中文字体按需加载）最容易踩的坑。
    * @param family 字体族名（如 'MyFont'）
    * @param source 字体源（浏览器为 url/二进制，小程序为本地文件路径）
    */
   public loadFont(family: string, source: string): Promise<any> {
-    return root.loadFont(family, source);
+    return Promise.resolve(root.loadFont(family, source)).then((result: any) => {
+      this.remeasureTexts();
+      return result;
+    });
+  }
+
+  /**
+   * 把所有已挂载的文本组件标记为「需要重新量测」（字体加载完成、主题换字号等度量前提变化时用）。
+   *
+   * 只标脏、不立即量测：真正的重算发生在各自的 render 里（`paramsDirty → calcComponentParams → measureText`），
+   * 因此零副作用、任何时候都能调（组件还没挂到画布上也安全）。
+   */
+  public remeasureTexts(): this {
+    const all = flattenAllComponents(this);
+    let touched = false;
+    for (let i = 0; i < all.length; i++) {
+      const component: any = all[i];
+      if (component && typeof component.remeasureText === 'function') {
+        component.remeasureText();
+        touched = true;
+      }
+    }
+    if (touched) {
+      this.dirty = true;
+    }
+    return this;
   }
 
   /**
