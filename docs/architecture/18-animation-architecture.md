@@ -41,6 +41,7 @@
 | `ICE.linkViewport(a, b)` / `ice.followViewport(source)` | 两层视口双向/单向同步（`setViewport` / `zoomAt` 都覆盖；`destroy()` 自动解绑；内部防回环，链式与双向连接都能收敛） |
 | `ice.setInputPassthrough(true)` | 覆盖层 canvas 置 `pointer-events: none`（关闭时还原为**空**而不是 `auto`，不覆盖应用样式）。**不加这条，上层会吃掉整屏指针事件，下层交互直接失效** |
 | 事件归属过滤（`DOMEventDispatcher` 内置） | 同页多实例由全局拦截器广播事件，因此"按下/滚轮"事件必须按**目标 canvas** 归属：目标是别人的 canvas → 本实例忽略。移动/抬起**不过滤**，避免拖拽途中指针划过另一张画布时丢事件 |
+| `ice.moveComponentTo(component, targetIce, targetParent?)` | 跨实例迁移组件（连同子树）：**保持世界坐标**（按矩阵换算，不照抄 left/top）、**不销毁**（监听/子树/动画配置都留着）、`ice/ctx/evtBus` 递归重绑、动画注册与选中态由目标实例接管。配套 `ice.detachChild()`（摘除不销毁）与 `rebindComponentTree()`（显式子树重绑——`ICEGroup` 的 AFTER_ADD 同步钩子是 `once`，迁移时不会自己触发） |
 
 **配方**（应用侧）：
 
@@ -48,7 +49,10 @@
 2. 静态层建好内容后渲染一次，之后**只在内容变化时**置 `dirty`；
 3. 动画元素放上层；上层默认 `setInputPassthrough(true)`（需要交互时才关掉）；
 4. 两层 `ICE.linkViewport`；滚轮/拖拽平移在任一层触发都会同步；
-5. 层数 ≤2~3；每层内存 ≈ `宽 × 高 × 4B × dpr²`（1600×1000 在 dpr=1 约 6.4MB、dpr=2 约 25.6MB）。
+5. 层数 ≤2~3；每层内存 ≈ `宽 × 高 × 4B × dpr²`（1600×1000 在 dpr=1 约 6.4MB、dpr=2 约 25.6MB）；
+6. **拖拽期间把元素提升到动画层、松手放回**（Konva drag-layer 模式）用
+   `sourceIce.moveComponentTo(component, animIce)` / 反向迁移 —— 位置与选中态自动保持；
+   放回前记得清掉临时动画并 `animationManager.remove()`（示例见 `examples/animation/layered-canvas.html`）。
 
 **实测**（`npm run bench:layers`；10000 静态元素 —— 2000 文本 + 1000 折线 + 7000 方块 —— + 200 个动画标记）：
 
@@ -59,7 +63,7 @@
 
 收益随"动画元素数量"增长而收敛（动画层自己变成全量重绘），但分层不会更差 —— 它只是拿内存换"静态层一帧都不用重画"。
 
-**仍未做**：②-2 跨层迁移原语（拖拽期间把元素提升到动画层）、②-3 多层导出合成。
+**仍未做**：②-3 多层导出合成（`exportSvg` / 截图按层合成）。
 
 ### 3.2 写值与重绘解耦（动画专属写值通道）
 

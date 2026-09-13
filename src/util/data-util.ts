@@ -123,3 +123,32 @@ export function flattenTree(result: any[] = [], childNodes: any[] = [], level: n
   }
   return result;
 }
+
+/**
+ * 把组件**连同整棵子树**重新绑定到指定 `ICE` 实例（`ice/ctx/evtBus/root`）。
+ *
+ * 为什么需要单独一个工具：`ICEGroup` 的子树同步钩子是 `once(AFTER_ADD, afterAddHandler)` ——
+ * 只在**首次挂载**时同步一次；跨实例迁移 / 嵌套重父级（`moveComponentTo` / `adoptChild`）时，
+ * 已经添加过的容器不会再触发它，后代就会把事件发到旧实例上（表现为"搬过去之后点不动/动画不动"）。
+ *
+ * 迭代实现（不用递归，深树也不会爆栈）；幂等，可安全重复调用。
+ */
+export function rebindComponentTree(component: any, ice: any): void {
+  if (!component || !ice) {
+    return;
+  }
+  const stack: any[] = [component];
+  while (stack.length) {
+    const node = stack.pop();
+    node.ice = ice;
+    node.ctx = ice.ctx;
+    node.evtBus = ice.evtBus;
+    node.root = ice.root;
+    const children = node.childNodes;
+    if (children && children.length) {
+      for (let i = 0; i < children.length; i++) {
+        stack.push(children[i]);
+      }
+    }
+  }
+}

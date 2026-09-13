@@ -104,6 +104,63 @@ test('静音/继续整层动画不影响另一层', async ({ page }) => {
   await page.evaluate(() => (window as any).__animIce.animationManager.resume());
 });
 
+test('跨层迁移：把静态图元提升到动画层再放回，世界坐标不变且监听不丢', async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const staticIce = (window as any).__staticIce;
+    const animIce = (window as any).__animIce;
+    const target = staticIce.childNodes.find((c: any) => c.state.text === '静态标签 5');
+    staticIce.setSelection([target]);
+
+    const worldBefore = target.getMinBoundingBox(true).centerPoint.slice();
+    const fired = [];
+    target.on('after-move', () => fired.push('after-move'));
+
+    // 提升到动画层
+    document.getElementById('btn-migrate').click();
+    // 让动画层把这一帧画出来（迁移后的重绑/动画注册都要在这一帧生效）
+    animIce.dirty = true;
+    animIce.renderer.frameEvtHandler();
+
+    const afterPromote = {
+      inAnimLayer: animIce.childNodes.indexOf(target) !== -1,
+      inStaticLayer: staticIce.childNodes.indexOf(target) !== -1,
+      ice: target.ice === animIce,
+      evtBus: target.evtBus === animIce.evtBus,
+      animated: !!(target.props.animations && target.props.animations['transform.translate']),
+      selectedInAnim: animIce.selectionList.indexOf(target) !== -1,
+      selectedInStatic: staticIce.selectionList.indexOf(target) !== -1,
+      world: target.getMinBoundingBox(true).centerPoint.slice(),
+    };
+
+    // 放回静态层
+    document.getElementById('btn-migrate-back').click();
+    const afterBack = {
+      inStaticLayer: staticIce.childNodes.indexOf(target) !== -1,
+      inAnimLayer: animIce.childNodes.indexOf(target) !== -1,
+      ice: target.ice === staticIce,
+      evtBus: target.evtBus === staticIce.evtBus,
+    };
+    return { worldBefore, afterPromote, afterBack, firedCount: fired.length };
+  });
+
+  // 提升：换层、重绑、动画注册与选中态都跟过去，世界坐标不变（≤1px，量化/取整误差）
+  expect(result.afterPromote.inAnimLayer).toBe(true);
+  expect(result.afterPromote.inStaticLayer).toBe(false);
+  expect(result.afterPromote.ice).toBe(true);
+  expect(result.afterPromote.evtBus).toBe(true);
+  expect(result.afterPromote.animated).toBe(true);
+  expect(result.afterPromote.selectedInAnim).toBe(true);
+  expect(result.afterPromote.selectedInStatic).toBe(false);
+  expect(Math.abs(result.afterPromote.world[0] - result.worldBefore[0])).toBeLessThanOrEqual(1);
+  expect(Math.abs(result.afterPromote.world[1] - result.worldBefore[1])).toBeLessThanOrEqual(1);
+
+  // 放回：回到静态层，引用也换回来
+  expect(result.afterBack.inStaticLayer).toBe(true);
+  expect(result.afterBack.inAnimLayer).toBe(false);
+  expect(result.afterBack.ice).toBe(true);
+  expect(result.afterBack.evtBus).toBe(true);
+});
+
 test('页面无 console / pageerror 报错', async ({ page }) => {
   await page.waitForTimeout(300);
   expect((page as any).__errors).toEqual([]);

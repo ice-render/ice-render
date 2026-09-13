@@ -33,7 +33,19 @@
   配套示例 `examples/animation/layered-canvas.html`（两层 + 视口同步 + 穿透开关）与
   `e2e/visual/layered.spec.ts`（5 条真实浏览器断言：两层都出画、视口始终一致、
   穿透时点得到下层 / 关掉穿透就点不到、暂停整层动画不影响另一层）。
-  **待做**：跨层迁移原语（拖拽提升到动画层）、多层导出合成、脏区面积门。
+- **跨实例迁移原语**（2026-09-13，18 §3.1 的 ②-2 切片）：`ice.moveComponentTo(component, targetIce, targetParent?)`
++  `ice.detachChild(component)` + `rebindComponentTree(component, ice)`：
++  - `moveComponentTo` 把组件（连同整棵子树）搬到另一个 `ICE` 实例，**保持世界坐标**（按矩阵换算，
++    不照抄 left/top）、**不销毁**（组件自身监听/子树/动画配置都保留）、`ice/ctx/evtBus` 递归重绑、
++    动画注册与选中态由目标实例接管；目标父级必须属于目标实例，同实例迁移返回 false（那是 addChild/adoptChild 的活）。
++  - `detachChild` = "摘除但不销毁"（`removeChild` 会 `destory()` 清事件，不能用于迁移）。
++  - `rebindComponentTree`：**显式子树重绑**。修掉一个真实缺口 —— `ICEGroup` 的 AFTER_ADD 子树同步钩子是
++    `once`（只首次挂载触发），对"已经挂过"的容器迁移时不会重绑后代，表现为"搬过去之后后代的事件仍发到旧实例"。
++  - 用途：分层渲染里"拖拽期间把元素提升到动画层、松手放回"（`examples/animation/layered-canvas.html` 已演示）。
++  回归：`tests/ICE.move-component.test.ts`（9 条：世界坐标换算/子树重绑/动画注册迁移/选中态/防御/队列标记）
++  + `e2e/visual/layered.spec.ts` 新增 1 条真实浏览器用例（提升→重绑→动画注册→放回，世界坐标 ≤1px）。
++
++  **待做**：多层导出合成（`exportSvg` 按层合成）、脏区面积门。
 
 ## [2.2.0] - 2026-09-13
 

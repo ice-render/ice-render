@@ -8,7 +8,7 @@
 import { merge } from '../../util/lang';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
 import ICEComponent from '../ICEComponent';
-import { bumpVisibilityEpoch } from '../../util/data-util';
+import { bumpVisibilityEpoch, rebindComponentTree } from '../../util/data-util';
 import ICERect from '../shape/ICERect';
 import type ICELayoutManager from '../../layout/ICELayoutManager';
 
@@ -277,6 +277,11 @@ class ICEGroup extends ICERect {
       }
     }
     this.addChild(child, markDirty);
+    // 嵌套重父级：子树整体切到本容器的实例（addChild 只直接绑 child 本身，
+    // 而 AFTER_ADD 的递归同步是 once —— 对"已经挂过"的容器不会再触发）。
+    if (this.ice) {
+      rebindComponentTree(child, this.ice);
+    }
   }
 
   public removeChild(child: ICEComponent, markDirty: boolean = true) {
