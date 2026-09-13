@@ -7,6 +7,7 @@
  */
 import ICEPath from '../graphic/ICEPath';
 import ICEText from '../graphic/text/ICEText';
+import { resolveTextAlign, resolveTextDirection } from '../graphic/text/text-direction';
 import ICEImage from '../graphic/ICEImage';
 import { SHADOW_PRESETS } from '../graphic/ICEComponent';
 
@@ -639,13 +640,25 @@ export function exportSvgResult(target: any, options: SvgExportOptions = {}): Sv
         // 对齐用锚点表达，而不是把测出来的行宽写死：
         // canvas 里居中/右对齐依赖 measureText 的结果，SVG 用 text-anchor 让渲染方自己量。
         // 居中：画布把文字中心放在本地 x=0；右对齐：右边缘在 `localOrigin[0] - paddingRight`。
+        //
+        // 注意 RTL：SVG 的 `text-anchor="start"` 是「文字方向的起点」，RTL 下等于**右侧**。
+        // 而画布的 `textAlign: 'left'` 是物理左对齐（x 是文字左边缘），因此这里要把物理对齐
+        // 按方向映射成锚点，否则 RTL 文案在 SVG 里会与画布相反。
+        const direction = resolveTextDirection(String(state.text ?? ''), state.direction);
+        const align = resolveTextAlign(style.textAlign, direction);
+        if (direction === 'rtl') {
+          textAttrs.push('direction="rtl"');
+        }
         let anchorX: number | null = null;
-        if (style.textAlign === 'center') {
+        if (align === 'center') {
           textAttrs.push('text-anchor="middle"');
           anchorX = 0;
-        } else if (style.textAlign === 'right' || style.textAlign === 'end') {
-          textAttrs.push('text-anchor="end"');
+        } else if (align === 'right') {
+          textAttrs.push(direction === 'rtl' ? 'text-anchor="start"' : 'text-anchor="end"');
           anchorX = state.localOrigin[0] - (Number(style.paddingRight) || 0);
+        } else {
+          // 物理左对齐：RTL 下对应 SVG 的 end 锚点
+          textAttrs.push(direction === 'rtl' ? 'text-anchor="end"' : 'text-anchor="start"');
         }
         const baseline = BASELINE_MAP[style.textBaseline || 'bottom'];
         if (baseline) {

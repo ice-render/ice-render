@@ -6,6 +6,7 @@
  *
  */
 import Path2DRecorder from './Path2DRecorder';
+import { ICE_ERROR_CODES, iceError } from '../util/errors';
 
 /**
  * 兼容性封装
@@ -67,7 +68,7 @@ let root: any = null;
     if (root.wx && typeof root.wx.createImage === 'function') {
       return root.wx.createImage();
     }
-    throw new Error('当前运行时没有可用的 Image 构造器，无法加载图片。');
+    throw iceError(ICE_ERROR_CODES.IMAGE_CONSTRUCTOR_MISSING, '当前运行时没有可用的 Image 构造器，无法加载图片。');
   };
   // 设备像素比：浏览器 window.devicePixelRatio，小程序 wx.getSystemInfoSync().pixelRatio，兜底 1。
   // 离屏缓存用它把逻辑尺寸换算成物理像素，避免高分屏位图发糊。
@@ -89,7 +90,9 @@ let root: any = null;
     if (root.wx && typeof root.wx.createOffscreenCanvas === 'function') {
       const canvas = root.wx.createOffscreenCanvas({ type: '2d', width, height });
       const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('当前运行时无法创建 2d 离屏上下文。');
+      if (!ctx) {
+        throw iceError(ICE_ERROR_CODES.OFFSCREEN_CONTEXT_UNSUPPORTED, '当前运行时无法创建 2d 离屏上下文。');
+      }
       return { canvas, ctx };
     }
     if (root.document && typeof root.document.createElement === 'function') {
@@ -97,10 +100,12 @@ let root: any = null;
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('当前运行时无法创建 2d 离屏上下文。');
+      if (!ctx) {
+        throw iceError(ICE_ERROR_CODES.OFFSCREEN_CONTEXT_UNSUPPORTED, '当前运行时无法创建 2d 离屏上下文。');
+      }
       return { canvas, ctx };
     }
-    throw new Error('当前运行时没有可用的离屏 canvas。');
+    throw iceError(ICE_ERROR_CODES.OFFSCREEN_CANVAS_UNSUPPORTED, '当前运行时没有可用的离屏 canvas。');
   };
 })();
 export default root;

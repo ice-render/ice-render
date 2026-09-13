@@ -5,7 +5,26 @@
 
 ## [Unreleased]
 
-> 暂无（下一个版本发布前在这里累积）。
+### 新增
+
+- **i18n 边界与引擎侧原语**（2026-09-13）：明确「引擎不做 i18n，但必须让 i18n 显示正确」的契约
+  （见 `docs/architecture/17-i18n-boundary.md` / AGENTS.md「i18n 边界铁律」），并补上三块原语：
+  - **断行策略** `ICEText.wordBreak: 'normal' | 'break-all'`（默认 `'normal'`）：拉丁词不再被硬拆、
+    CJK 逐字断并做禁则（行首禁标点 / 行尾禁开括号），单个词整行放不下时才硬拆；
+    `'break-all'` 保留旧的逐 grapheme 贪心。实现 `src/graphic/text/text-wrap.ts`。
+  - **文字方向** `ICEText.direction: 'ltr' | 'rtl' | 'auto'` + `textAlign: 'start' | 'end'`：
+    `'auto'` 按首个强方向字符判定；渲染时写 `ctx.direction`（**特性检测**，运行时没有该成员就跳过），
+    渲染结束归位 `inherit`（不破坏「组件渲染自包含」与脏矩形/离屏缓存契约）；SVG 导出输出
+    `direction="rtl"` 并按方向映射 `text-anchor`。实现 `src/graphic/text/text-direction.ts`。
+  - **稳定错误码** `ICE_ERROR_CODES` / `iceError()` / `getICEErrorCode()` / `isICEError()`：
+    引擎错误带 `code`（`ICE_*`）与结构化 `details`，应用层据此映射自己的语言包，
+    不必再匹配中文 message。实现 `src/util/errors.ts`。
+- 以上三者随包导出（`toIsoTime`、错误码、`TYPE_ID_PATTERN` 等工具同理）。
+
+### 变更
+
+- **引擎对文本保持中立**（2026-09-13，写进契约）：不做 Unicode 规范化 / 大小写折叠、不做任何
+  locale 相关的默认格式化（时间戳固定 ISO 8601 UTC）、序列化逐字节保留用户文本。
 
 ## [2.1.1] - 2026-09-13
 
