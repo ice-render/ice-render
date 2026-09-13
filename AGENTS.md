@@ -74,8 +74,9 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 
 > 复核日期 **2026-09-11**。此前本节长期停留在「8 suite / 36 用例」等早期口径，与仓库实际严重脱节，已按实测重写。
 
-- ~~P0：零单元测试~~ → **已偿还**：jest 单测 **95 个 suite / 746 个用例**（2026-09-13 实测），`jest.config.js` 配了「只许上调」的覆盖率门槛（语句 65 / 分支 58 / 函数 72 / 行 65），CI 用 `npm test -- --coverage` 跑。可视化/交互/像素一致性另有 Playwright（`e2e/`，`npm run test:visual`）。
-- ~~P2：`tests/` 里 49 个 HTML 全是无断言的手测 demo~~ → **已收敛**：重命名为 `examples/`，由 `examples/generate-index.cjs` 生成导航页（86 个示例），自动化单测统一放顶层 `tests/`（镜像 `src/` 结构）。
+- ~~P0：零单元测试~~ → **已偿还**：jest 单测 **96 个 suite / 759 个用例**（2026-09-13 实测），`jest.config.js` 配了「只许上调」的覆盖率门槛（语句 65 / 分支 58 / 函数 72 / 行 65），CI 用 `npm test -- --coverage` 跑。可视化/交互/像素一致性另有 Playwright（`e2e/`，`npm run test:visual`）。
+- ~~P2：`tests/` 里 49 个 HTML 全是无断言的手测 demo~~ → **已收敛**：重命名为 `examples/`，由 `examples/generate-index.cjs` 生成导航页（88 个示例），自动化单测统一放顶层 `tests/`（镜像 `src/` 结构）。
+  ⚠️ 该生成器目前会**误收 `examples/mini-program/node_modules/**` 里的示例 html**（跑一次会变成 95 条，多出 jimp / min-document / qrcode-reader 的 7 个页面）——重新生成前先给它加 `node_modules` 跳过，或在改完 examples 后人工核对条数。
 - ~~P1：`ice-flow` 的 `ice-render` 版本声明写错~~ → **已修复**（改为 `^1.0.4`；下游 `.npmrc` 配 `legacy-peer-deps` 解 `rollup-plugin-uglify` 的 ERESOLVE）。
 - ~~P1：README 称"纯 TypeScript"但残留 7 个 `.js`~~ → **已偿还**：全部迁移为 `.ts`，`types:check` 与 `build:types` 零错误。
 - ~~P2：`CanvasRenderer.doRender()` 未使用 `startTime` 死代码；`ICE.init()` 留有 `//FIXME:防止 init 方法被调用多次`~~ → **已偿还**（两者均已不存在）。
