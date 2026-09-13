@@ -8,6 +8,7 @@
 import ICEPath from '../graphic/ICEPath';
 import ICEText from '../graphic/text/ICEText';
 import { resolveTextAlign, resolveTextDirection } from '../graphic/text/text-direction';
+import { resolveLetterSpacingPx, resolveTextDecorations } from '../graphic/text/text-style';
 import ICEImage from '../graphic/ICEImage';
 import { SHADOW_PRESETS } from '../graphic/ICEComponent';
 
@@ -636,6 +637,17 @@ export function exportSvgResult(target: any, options: SvgExportOptions = {}): Sv
         if (stroke) {
           textAttrs.push(`stroke="${escapeXml(stroke)}"`);
           textAttrs.push(`stroke-width="${Number(style.lineWidth) || 1}"`);
+        }
+        // 字间距 / 文本装饰线：与画布同口径（画布侧 letterSpacing 进 ctx、装饰线由引擎自绘）。
+        // SVG 让渲染方自己按 `letter-spacing` 排版，锚点与画布一致；装饰线交给 `text-decoration`。
+        const fontSize = Number(style.fontSize) || 12;
+        const letterSpacingPx = resolveLetterSpacingPx(style.letterSpacing, fontSize);
+        if (letterSpacingPx !== 0) {
+          textAttrs.push(`letter-spacing="${Number(letterSpacingPx.toFixed(digits))}"`);
+        }
+        const decorations = resolveTextDecorations(style.textDecoration);
+        if (decorations.length) {
+          textAttrs.push(`text-decoration="${decorations.join(' ')}"`);
         }
         // 对齐用锚点表达，而不是把测出来的行宽写死：
         // canvas 里居中/右对齐依赖 measureText 的结果，SVG 用 text-anchor 让渲染方自己量。

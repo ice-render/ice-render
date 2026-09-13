@@ -21,11 +21,41 @@
     引擎错误带 `code`（`ICE_*`）与结构化 `details`，应用层据此映射自己的语言包，
     不必再匹配中文 message。实现 `src/util/errors.ts`。
 - 以上三者随包导出（`toIsoTime`、错误码、`TYPE_ID_PATTERN` 等工具同理）。
+- **文本排版正式配置**（2026-09-13，B 组第 5 项）：`lineHeight` / `letterSpacing` / `textDecoration`
+  从「随 style 透传给 ctx 的野生键」变成引擎正式支持的排版属性，**量测 / 换行 / 渲染 / SVG 导出四处同一口径**
+  （解析规则集中在 `src/graphic/text/text-style.ts`）：
+  - `style.lineHeight`：数字按 **px**；字符串支持 `'2'`（无单位 = **倍数**）/ `'40px'` / `'1.5em'` / `'150%'`；
+    `0` / 空 / `'normal'` = 引擎默认（`max(字形墨迹高, 字号 × 1.35)`，即既有行为）。显式配置后**单行也按它算盒高**。
+  - `style.letterSpacing`：数字按 px；字符串支持 `'2px'` / `'0.2em'` / `'20%'`。量测前写进 `ctx.letterSpacing`
+    （canvas 的 `measureText` 会把间距算进宽度，含最后一个字符后的间距），因此**盒子宽度 = 浏览器实际排版宽度**，
+    换行 / 省略号也按含间距的宽度断行；SVG 导出输出 `letter-spacing`。
+  - `style.textDecoration`：`'none' | 'underline' | 'line-through' | 'overline'`（可空格组合）。
+    canvas 没有原生支持，由引擎按行自绘（颜色 `textDecorationColor` 留空跟随 `fillStyle`，粗细
+    `textDecorationWidth` 留 0 按 `字号/14`）；SVG 导出输出 `text-decoration`。
+  - 注意：下划线画在基线下 `0.12em`，会**溢出**「贴合字形墨迹」的几何盒 —— 脏矩形 / 离屏缓存的落墨盒
+    已把它算进 `stylePaintPad()`（否则下划线会被裁掉半截）。
+- **多行编辑**（B 组第 6 项）：`ICEText.multiline: true`（文本里已有 `\n` 时也自动按多行处理）——
+  编辑态改挂透明 `<textarea>`（保留换行、不自动折行、不出滚动条），回车插入 `\n` 而不是提交，
+  `Escape` 提交、`Ctrl/Cmd + Enter` 提交；无 DOM 运行时的 keydown 降级路径同步支持。单行编辑行为不变（回车提交）。
+- **选区与按字形命中**（B 组第 7 项）：新增 `selectionStart` / `selectionEnd` 状态与
+  `setSelection(start, end)` / `getSelection()` / `selectAll()` / `clearSelection()`；无 DOM 运行时
+  选区由引擎自绘（`style.selectionColor`，DOM 编辑态交给浏览器的 input/textarea）；
+  新增 `getCaretIndexAt(localX, localY)` —— 按**行带 + grapheme 边界中点**把本地坐标换算成光标下标（RTL 反向量）；
+  编辑态的 `containsLocalPoint` 改为**按文本行**判定（点在 padding / 盒子空白处不算命中），非编辑态仍是盒子语义。
+  行带按 `textBaseline`（top / middle / bottom / alphabetic）与真实字形 / 字体度量推导，
+  `textBaseline: 'top'` 这类非默认基线下的光标与选区不再整体错位。
 
 ### 变更
 
 - **引擎对文本保持中立**（2026-09-13，写进契约）：不做 Unicode 规范化 / 大小写折叠、不做任何
   locale 相关的默认格式化（时间戳固定 ISO 8601 UTC）、序列化逐字节保留用户文本。
+- **`getRenderLines()` 行宽缓存**（B 组第 8 项）：逐行宽度在量测阶段顺手记入缓存（`__lineWidthCache`），
+  居中 / 右对齐、装饰线、光标、选区、SVG 导出共用，不再各自 `measureText()` 一遍；`setState`（置 `paramsDirty`）
+  与 `remeasureText()` 清空缓存，缓存 key 还带「行内容 + 字体 + 字间距」自我纠正。
+- **离屏缓存指纹补齐文本墨迹属性**（同上）：`ObjectCache.contentKey` 的文本分支新增
+  `lineHeight / letterSpacing / textDecoration* / selectionColor / direction / wrap / wordBreak / maxLines /
+  ellipsis / selectionStart / selectionEnd` —— 这些属性只改墨迹、不改合成矩阵，漏进指纹就会出现
+  「属性改了画面不动」（贴回旧位图）的隐蔽 bug。
 
 ### 修复
 

@@ -220,6 +220,23 @@ class ObjectCache {
         st.paddingBottom,
         st.paddingLeft,
         st.paddingRight,
+        // 文本排版属性：它们只改**墨迹**、不改合成矩阵（纯平移复用那条路只看矩阵），
+        // 因此必须进指纹 —— 否则改了字间距 / 行高 / 装饰线 / 选区后，缓存会把旧位图继续贴回来
+        //（这类「属性变了画面不动」的 bug 只在离屏缓存路径上出现，最难查）。
+        st.lineHeight,
+        st.letterSpacing,
+        st.textDecoration,
+        st.textDecorationColor,
+        st.textDecorationWidth,
+        st.selectionColor,
+        s.direction,
+        s.wrap,
+        s.wordBreak,
+        s.maxLines,
+        s.ellipsis,
+        // 选区 / 光标是编辑器状态：不计入就会出现「选中了却看不到高亮（贴的是旧位图）」
+        s.selectionStart,
+        s.selectionEnd,
         s.fill,
         s.stroke,
         JSON.stringify(s.lineDash),
