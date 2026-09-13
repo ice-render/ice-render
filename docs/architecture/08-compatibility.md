@@ -52,7 +52,7 @@
 > **说明（2026-09-13 更新）**：`Path2D` 已不再是待办（已抽象为 `root.createPath2D()` + `PolyfillPath2D`），
 > 无 rAF 的运行时的启动阻塞也已解除。
 >
-> **「小程序形状的运行时」回归已经自动化**：[`tests/mini-program/`](../../tests/mini-program/) 把
+> **「小程序形状的运行时」回归已经自动化**：[`tests/mini-program/`](https://github.com/ice-render/ice-render/tree/master/tests/mini-program) 把
 > `document` / `window` / `Path2D` / `requestAnimationFrame` / `FontFace` / `OffscreenCanvas` 全部摘掉，
 > 只留 `wx.*`，画布对象就是小程序 canvas 节点本来的样子（只有 `width` / `height` / `getContext`），
 > 每次提交都跑：启动、出帧、路径命令重放、离屏缓存走 `wx.createOffscreenCanvas`、
