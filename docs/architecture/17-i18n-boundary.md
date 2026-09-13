@@ -125,6 +125,20 @@ try {
 | 图表包内置文案 | ✅ `option.labels`（`chart/sector/value/ratio/indicator/coordinate/liquid/slice`）可覆盖无障碍表头与默认 tooltip 标签；不传即中文默认值 |
 | DSL 诊断 | ✅ `ice-chart-dsl` 本就是 `{ severity, code, message, path }`；`ice-entity-designer-dsl` 新增 `diagnostics`（26 个 `IED_DSL_*` 码 + `path`），`errors` 原样保留 |
 
+## 明确**不做**的文本能力（2026-09-13 定稿）
+
+下面这些是「有没有必要在内核里做」的判断结论，不是待办：
+
+| 不做 | 为什么 | 谁来做 |
+|---|---|---|
+| 富文本（同一行混排粗体 / 颜色 / 字号 / 上标） | canvas 的 `fillText` 是「一次一种字体」的模型，要支持必须自建行内样式分段 + 逐段定位 + 断行回溯，等于把一个小排版引擎搬进内核；而应用侧用 HTML 覆盖层（或 SVG / 富文本编辑器）成本低得多 | 应用层（HTML 覆盖层 / SVG） |
+| 竖排（`writing-mode: vertical-rl`）、复杂脚本 shaping（阿拉伯连写、印度语系 reordering） | 这两类都要「字体整形引擎 + 双向重排算法」（HarfBuzz / ICU 量级）才能正确；canvas 只给了「把字符串交给浏览器排版」这一层，绕开它自己实现必然在边界场景出错 | 浏览器自身的文本布局（HTML/SVG 元素），或原生侧 |
+| 手写 BiDi 重排（自行切分 RTL/LTR 段并逐段定位） | 引擎已把 `ctx.direction` / `direction: 'rtl'` 与 `textAlign: 'start' \| 'end'` 交给浏览器的 BiDi 实现（见上表「引擎文字方向」），自己重排只会与浏览器结果不一致；光标/选区的下标语义仍是逻辑下标（RTL 下按视觉反向量取 x，见 `getCaretIndexAt`） | 浏览器 BiDi（引擎只做方向与对齐的口径统一） |
+
+代价说明：不做这几项意味着**画布上的文字排版上限 = 浏览器的 canvas 文本能力**。需要超级排版时，
+正确做法是让应用层用 HTML / SVG 承载那段文字，再把结果（位图或矢量）交给画布 —— 而不是让内核
+长出一个不完整的排版引擎。
+
 ## A2UI 场景下为什么这条边界更重要
 
 Catalog 化之后会同时出现三类文案：**Agent 生成的**（自带 locale）、**组件内置的**（需要语言包）、
