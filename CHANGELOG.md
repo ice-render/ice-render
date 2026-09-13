@@ -51,98 +51,104 @@
   `e2e/visual/layered.spec.ts`（5 条真实浏览器断言：两层都出画、视口始终一致、
   穿透时点得到下层 / 关掉穿透就点不到、暂停整层动画不影响另一层）。
 - **跨实例迁移原语**（2026-09-13，18 §3.1 的 ②-2 切片）：`ice.moveComponentTo(component, targetIce, targetParent?)`
-+  `ice.detachChild(component)` + `rebindComponentTree(component, ice)`：
-+  - `moveComponentTo` 把组件（连同整棵子树）搬到另一个 `ICE` 实例，**保持世界坐标**（按矩阵换算，
-+    不照抄 left/top）、**不销毁**（组件自身监听/子树/动画配置都保留）、`ice/ctx/evtBus` 递归重绑、
-+    动画注册与选中态由目标实例接管；目标父级必须属于目标实例，同实例迁移返回 false（那是 addChild/adoptChild 的活）。
-+  - `detachChild` = "摘除但不销毁"（`removeChild` 会 `destory()` 清事件，不能用于迁移）。
-+  - `rebindComponentTree`：**显式子树重绑**。修掉一个真实缺口 —— `ICEGroup` 的 AFTER_ADD 子树同步钩子是
-+    `once`（只首次挂载触发），对"已经挂过"的容器迁移时不会重绑后代，表现为"搬过去之后后代的事件仍发到旧实例"。
-+  - 用途：分层渲染里"拖拽期间把元素提升到动画层、松手放回"（`examples/animation/layered-canvas.html` 已演示）。
-+  回归：`tests/ICE.move-component.test.ts`（9 条：世界坐标换算/子树重绑/动画注册迁移/选中态/防御/队列标记）
-+  + `e2e/visual/layered.spec.ts` 新增 1 条真实浏览器用例（提升→重绑→动画注册→放回，世界坐标 ≤1px）。
-+
-+- **多层导出合成**（2026-09-13，18 §3.1 的 ②-3 切片）：分层渲染是**多张 canvas**，
+  `ice.detachChild(component)` + `rebindComponentTree(component, ice)`：
+  - `moveComponentTo` 把组件（连同整棵子树）搬到另一个 `ICE` 实例，**保持世界坐标**（按矩阵换算，
+    不照抄 left/top）、**不销毁**（组件自身监听/子树/动画配置都保留）、`ice/ctx/evtBus` 递归重绑、
+    动画注册与选中态由目标实例接管；目标父级必须属于目标实例，同实例迁移返回 false（那是 addChild/adoptChild 的活）。
+  - `detachChild` = "摘除但不销毁"（`removeChild` 会 `destory()` 清事件，不能用于迁移）。
+  - `rebindComponentTree`：**显式子树重绑**。修掉一个真实缺口 —— `ICEGroup` 的 AFTER_ADD 子树同步钩子是
+    `once`（只首次挂载触发），对"已经挂过"的容器迁移时不会重绑后代，表现为"搬过去之后后代的事件仍发到旧实例"。
+  - 用途：分层渲染里"拖拽期间把元素提升到动画层、松手放回"（`examples/animation/layered-canvas.html` 已演示）。
+  回归：`tests/ICE.move-component.test.ts`（9 条：世界坐标换算/子树重绑/动画注册迁移/选中态/防御/队列标记）
+  + `e2e/visual/layered.spec.ts` 新增 1 条真实浏览器用例（提升→重绑→动画注册→放回，世界坐标 ≤1px）。
+
+- **多层导出合成**（2026-09-13，18 §3.1 的 ②-3 切片）：分层渲染是**多张 canvas**，
   `ice.toDataURL()` 只拿得到自己那一层，导出"用户看到的整张图"必须按层合成：
-+  - `exportSvg([layerA, layerB], options)` / `exportSvgResult(...)`：**矢量合成**。
-+    数组顺序 = 叠加顺序（第一层在下）；`area: 'content'`（默认）各层共用覆盖全部层的内容包围盒
-+    → 层间按世界坐标对齐；`area: 'viewport'` 取第一层的视口与画布尺寸。**单层传单个 target 时输出与历史逐字节一致**。
-+  - `composeLayersDataURL([layerA, layerB], opts)` / `composeLayersToCanvas(...)`：**位图合成**
-+    （PNG 截图 / 缩略图）。按层序 `drawImage` 叠加，尺寸缺省取各层 canvas 的最大者，可给背景色；
-+    运行时无离屏画布能力时抛稳定错误码 `ICE_OFFSCREEN_CANVAS_UNSUPPORTED`。
-+  - 示例 `examples/animation/layered-canvas.html` 增加"导出 SVG / 导出 PNG（两层合成）"两个按钮。
-+  回归：`tests/export/svg-export.test.ts` 新增 4 条（单层数组=单目标逐字节一致 / 层序 / 世界坐标对齐的并集 /
-+  空数组安全）+ `tests/export/compose-layers.test.ts` 5 条（层序、尺寸取最大与显式尺寸、背景、类型、错误码）
-+  + `e2e/visual/layered.spec.ts` 新增 1 条真实浏览器用例（SVG 含两层内容且 1024×640、PNG 为 1024×640）。
-+
-+- **动画配置的结构化校验与诊断（Agent 侧闭环）**（2026-09-13）：
+  - `exportSvg([layerA, layerB], options)` / `exportSvgResult(...)`：**矢量合成**。
+    数组顺序 = 叠加顺序（第一层在下）；`area: 'content'`（默认）各层共用覆盖全部层的内容包围盒
+    → 层间按世界坐标对齐；`area: 'viewport'` 取第一层的视口与画布尺寸。**单层传单个 target 时输出与历史逐字节一致**。
+  - `composeLayersDataURL([layerA, layerB], opts)` / `composeLayersToCanvas(...)`：**位图合成**
+    （PNG 截图 / 缩略图）。按层序 `drawImage` 叠加，尺寸缺省取各层 canvas 的最大者，可给背景色；
+    运行时无离屏画布能力时抛稳定错误码 `ICE_OFFSCREEN_CANVAS_UNSUPPORTED`。
+  - 示例 `examples/animation/layered-canvas.html` 增加"导出 SVG / 导出 PNG（两层合成）"两个按钮。
+  回归：`tests/export/svg-export.test.ts` 新增 4 条（单层数组=单目标逐字节一致 / 层序 / 世界坐标对齐的并集 /
+  空数组安全）+ `tests/export/compose-layers.test.ts` 5 条（层序、尺寸取最大与显式尺寸、背景、类型、错误码）
+  + `e2e/visual/layered.spec.ts` 新增 1 条真实浏览器用例（SVG 含两层内容且 1024×640、PNG 为 1024×640）。
+
+- **动画配置的结构化校验与诊断（Agent 侧闭环）**（2026-09-13）：
   - 新增 `validateAnimations(animations, options?)`（`src/animation/validate-animations.ts`，**纯函数**：不依赖 ICE 实例、
-+    不改传入对象、不 console）：把"什么算合法动画配置"变成可编程接口，产出
-+    `{ severity, code, message, path }[]`，码为 `ICE_ANIM_*`（`ICE_ANIMATION_DIAGNOSTIC_CODES`）：
-+    `KEY_INVALID` / `DURATION_INVALID` / `DELAY_INVALID` / `ITERATION_INVALID` / `EASING_UNKNOWN` /
-+    `VALUE_NOT_INTERPOLATABLE` / `KEYFRAMES_INVALID` / `INFINITE_LOOP`（warning）/
-+    `KEY_AFFECTS_MEASUREMENT`（warning：动画尺寸/文本这类会每帧重量测的属性）。
-+    传 `isSafeKey` 即可让"是否影响派生参数"与 `ANIMATION_SAFE_KEYS` 白名单同源。
-+  - `AnimationManager.getDiagnostics()` / `clearDiagnostics()`：**运行期**真实发生的拒绝与缓动回退也记同一组码
-+    （按 `code|path` 去重），应用层/Agent 不必再靠 console 文本判断配置被跳过。
-+  - `ICEComponent.isAnimationSafeKeyFor(Ctor, path)`：下游（DSL / Agent 校验）没有实例也能按类型问"这个属性动画安全吗"。
-+  - 顺带修正白名单语义：基类（不量测的图形）放行整条 `style.*`（矩形动画颜色不再被误判成"影响派生参数"）；
-+    `ICEText` 显式列出基类项而**不继承** `style.*`（字号/字间距/行高会改变盒子，仍必须走 `paramsDirty`）。
-+  回归：`tests/animation/validate-animations.test.ts`（10 条）、`tests/animation/animation-diagnostics.test.ts`（5 条）、
-+  `tests/graphic/animation-write-channel.test.ts` 增静态查询与白名单语义断言。
-+
-+### 变更
-+
-+- **帧调度与合规（④）**（2026-09-13）：
-+  - **空闲停帧**：`FrameManager` 从"无条件续帧"改为"按需续帧"——宿主（ICE 实例）用 `needsFrame()` 回答
-+    "这一帧还要吗"（脏 / 动画在推进 / `setContinuousFrames(true)`）；`ice.dirty = true`、`AnimationManager.add()`、
-+    `resume()` 都会 `wake()` 唤醒。真实浏览器实测：静止页面 500ms 内 **0 次帧回调**（改造前约 30 次），
-+    有动画时恢复、暂停与结束后再次归零。`ICE.destroy()` 的顺序随之调整（先清场景再注销总线），
-+    否则清理阶段的置脏会把刚停下的循环又拉起来。
-+  - **次要动画降频**：动画配置新增 `fps`（如 `fps: 30`）——按时间降采样，跳过帧不改变运动曲线，终点仍精确。
-+  - **减少动态效果**：`prefers-reduced-motion: reduce`（或 `ice.setReducedMotion(true)`）下动画**直接落终态**，
-+    并记 `ICE_ANIM_REDUCED_MOTION` 运行期诊断；`AnimationManager.reducedMotion` 构造时读系统偏好。
-+  - 拖拽期间跳过命中检测：确认是**既有行为**（移动类事件本就不做命中检测），本轮补回归钉住。
-+  回归：`tests/FrameManager.idle.test.ts`（6）、`tests/animation/animation-scheduling.test.ts`（6，含 fps 采样、
-+  reduced-motion 折叠、帧需求）、`e2e/visual/animation-scheduling.spec.ts`（4 条真实浏览器：空闲停帧三段态 /
-+  置脏唤醒 / reduced-motion 落终态 / 正常偏好对照组）。
-+
-+- **动画表达力：应用层自定义动画（⑤）**（2026-09-13）：
-+  - **自定义缓动**：`easing` 可直接传函数 `(t) => number`（只对这条动画生效），或 `registerEasing(name, fn)`
-+    注册后按名字用（新增 `easing-registry.ts`：`registerEasing` / `unregisterEasing` / `resolveEasing` /
-+    `easingNames` / `customEasingNames`；内置缓动不可覆盖，重名抛 `ICE_ANIM_EASING_NAME_CONFLICT`）。
-+  - **颜色与带单位数字串插值**（新增 `interpolators.ts`，校验与运行时同源）：支持
-+    `#rgb` / `#rgba` / `#rrggbb` / `#rrggbbaa` / `rgb()` / `rgba()` 与 `'12px'`（单位须一致）；
-+    颜色在 sRGB 空间插值、输出统一 `rgb()` / `rgba()`。此前"颜色动画不支持"的坑填上了
-+    （`ICE_ANIM_VALUE_NOT_INTERPOLATABLE` 不再对颜色报错）。
-+  - **生命周期回调**：`onStart` / `onUpdate` / `onRepeat` / `onComplete`，回调上下文
-+    `{ component, key, value, progress, iteration, animation }`；回调异常只记 `ICE_ANIM_CALLBACK_ERROR`
-+    并忽略，不打断帧循环。
-+  - **往返方向**：`direction: 'normal' | 'reverse' | 'alternate'`（alternate 与 loop/iterationCount
-+    组合即 yoyo，奇数轮反向）；校验器新增 `ICE_ANIM_DIRECTION_INVALID`。
-+  回归：`tests/animation/interpolators-easing-registry.test.ts`（10）、`tests/animation/animation-expressiveness.test.ts`（9）、
-+  `e2e/visual/animation-expressiveness.spec.ts`（2 条真实浏览器：颜色动画真的画上画布 + 自定义缓动 +
-+  回调链 + alternate 往返）。
-+
-+- **编排（时间轴 / 错峰）与运行时控制**（2026-09-13，⑥）：
-+  - `ice.animationManager.timeline()`：`add(component, config, { at })`（绝对毫秒或 `'+=N'` 相对上一条）、
-+    `stagger(components, config, { each, at })`（"卡片依次滑入"）、`play/pause/resume/stop/restart`、
-+    `duration` / `isPlaying()` / `finished`（Promise）。**它是调度器而非新的求值器**：`play()` 把 `at` 折算成
-+    `delay` 写进 `props.animations`，推进仍由 `AnimationManager` 完成 —— 缓动/关键帧/量化/缓存复用/空闲停帧
-+    自动生效。`play()` 每次都从头播放，`restart()` 即"点击重播"。
-+  - 运行时控制：`component.setAnimation(key, cfg)` / `removeAnimation(key)`（免"必须构造时声明"）、
-+    `manager.replay(component)` / `isAnimating(component)`。
-+  - **修掉两个真实缺陷**（都由真实浏览器 e2e 抓出）：① 没在构造时声明 `animations` 的组件，
-+    `props.animations` 继承的是**冻结的共享默认对象**，运行时挂动画会抛
-+    "Cannot add property …: object is not extensible" → `setAnimation` 内部做**写时复制**；
-+    ② 时间轴 `stop()` 后再 `play()` 会沿用上一次的 `startTime`，elapsed 一夜之间变成"已经跑很久"，
-+    编排被压缩/直接跳终点 → `play()` 现在每次都重置运行时状态；顺带把 `finished` 的计数从"轨道"改为"键"
-+    （一条轨道可挂多个属性，否则 Promise 会提前 resolve）。
-+  回归：`tests/animation/animation-timeline.test.ts`（11 条）+ `e2e/visual/animation-timeline.spec.ts`
-+  （2 条真实浏览器：错峰入场各卡片依次开始且最终全部落位；重播/停止冻结/暂停继续）+
-+  示例 `examples/animation/animation-timeline.html`（自定义缓动 + 错峰入场 + 重播按钮，进 examples 冒烟）。
-+
-+  **待做**：脏区面积门（C）；OffscreenCanvas/GPU 后端。
+    不改传入对象、不 console）：把"什么算合法动画配置"变成可编程接口，产出
+    `{ severity, code, message, path }[]`，码为 `ICE_ANIM_*`（`ICE_ANIMATION_DIAGNOSTIC_CODES`）：
+    `KEY_INVALID` / `DURATION_INVALID` / `DELAY_INVALID` / `ITERATION_INVALID` / `EASING_UNKNOWN` /
+    `VALUE_NOT_INTERPOLATABLE` / `KEYFRAMES_INVALID` / `INFINITE_LOOP`（warning）/
+    `KEY_AFFECTS_MEASUREMENT`（warning：动画尺寸/文本这类会每帧重量测的属性）。
+    传 `isSafeKey` 即可让"是否影响派生参数"与 `ANIMATION_SAFE_KEYS` 白名单同源。
+  - `AnimationManager.getDiagnostics()` / `clearDiagnostics()`：**运行期**真实发生的拒绝与缓动回退也记同一组码
+    （按 `code|path` 去重），应用层/Agent 不必再靠 console 文本判断配置被跳过。
+  - `ICEComponent.isAnimationSafeKeyFor(Ctor, path)`：下游（DSL / Agent 校验）没有实例也能按类型问"这个属性动画安全吗"。
+  - 顺带修正白名单语义：基类（不量测的图形）放行整条 `style.*`（矩形动画颜色不再被误判成"影响派生参数"）；
+    `ICEText` 显式列出基类项而**不继承** `style.*`（字号/字间距/行高会改变盒子，仍必须走 `paramsDirty`）。
+  回归：`tests/animation/validate-animations.test.ts`（10 条）、`tests/animation/animation-diagnostics.test.ts`（5 条）、
+  `tests/graphic/animation-write-channel.test.ts` 增静态查询与白名单语义断言。
+
+### 变更
+
+- **帧调度与合规（④）**（2026-09-13）：
+  - **空闲停帧**：`FrameManager` 从"无条件续帧"改为"按需续帧"——宿主（ICE 实例）用 `needsFrame()` 回答
+    "这一帧还要吗"（脏 / 动画在推进 / `setContinuousFrames(true)`）；`ice.dirty = true`、`AnimationManager.add()`、
+    `resume()` 都会 `wake()` 唤醒。真实浏览器实测：静止页面 500ms 内 **0 次帧回调**（改造前约 30 次），
+    有动画时恢复、暂停与结束后再次归零。`ICE.destroy()` 的顺序随之调整（先清场景再注销总线），
+    否则清理阶段的置脏会把刚停下的循环又拉起来。
+    - ⚠️ **应用层迁移（破坏性行为变更）**：若你自己 `evtBus.on('ICE_FRAME_EVENT', …)` 做**逐帧计算**
+      （时钟、令牌仿真、自绘指示器、自定义补间…），必须调 `ice.setContinuousFrames(true)`，
+      否则引擎的空闲停帧会让你的逐帧逻辑**停摆**（"挂了监听"不再等于"帧还会来"）。
+      用完记得归还（`setContinuousFrames(false)`），别把宿主的常驻帧诉求一起关掉。
+      这不是理论风险：`ice-entity-designer` 的 BPMN 令牌仿真就是这样被真实浏览器 e2e 抓出来的
+      （令牌停在第 2 个节点不动），修复见该仓 `src/bpmn/BpmnSimulator.ts` 的 `__acquireContinuousFrames`。
+  - **次要动画降频**：动画配置新增 `fps`（如 `fps: 30`）——按时间降采样，跳过帧不改变运动曲线，终点仍精确。
+  - **减少动态效果**：`prefers-reduced-motion: reduce`（或 `ice.setReducedMotion(true)`）下动画**直接落终态**，
+    并记 `ICE_ANIM_REDUCED_MOTION` 运行期诊断；`AnimationManager.reducedMotion` 构造时读系统偏好。
+  - 拖拽期间跳过命中检测：确认是**既有行为**（移动类事件本就不做命中检测），本轮补回归钉住。
+  回归：`tests/FrameManager.idle.test.ts`（6）、`tests/animation/animation-scheduling.test.ts`（6，含 fps 采样、
+  reduced-motion 折叠、帧需求）、`e2e/visual/animation-scheduling.spec.ts`（4 条真实浏览器：空闲停帧三段态 /
+  置脏唤醒 / reduced-motion 落终态 / 正常偏好对照组）。
+
+- **动画表达力：应用层自定义动画（⑤）**（2026-09-13）：
+  - **自定义缓动**：`easing` 可直接传函数 `(t) => number`（只对这条动画生效），或 `registerEasing(name, fn)`
+    注册后按名字用（新增 `easing-registry.ts`：`registerEasing` / `unregisterEasing` / `resolveEasing` /
+    `easingNames` / `customEasingNames`；内置缓动不可覆盖，重名抛 `ICE_ANIM_EASING_NAME_CONFLICT`）。
+  - **颜色与带单位数字串插值**（新增 `interpolators.ts`，校验与运行时同源）：支持
+    `#rgb` / `#rgba` / `#rrggbb` / `#rrggbbaa` / `rgb()` / `rgba()` 与 `'12px'`（单位须一致）；
+    颜色在 sRGB 空间插值、输出统一 `rgb()` / `rgba()`。此前"颜色动画不支持"的坑填上了
+    （`ICE_ANIM_VALUE_NOT_INTERPOLATABLE` 不再对颜色报错）。
+  - **生命周期回调**：`onStart` / `onUpdate` / `onRepeat` / `onComplete`，回调上下文
+    `{ component, key, value, progress, iteration, animation }`；回调异常只记 `ICE_ANIM_CALLBACK_ERROR`
+    并忽略，不打断帧循环。
+  - **往返方向**：`direction: 'normal' | 'reverse' | 'alternate'`（alternate 与 loop/iterationCount
+    组合即 yoyo，奇数轮反向）；校验器新增 `ICE_ANIM_DIRECTION_INVALID`。
+  回归：`tests/animation/interpolators-easing-registry.test.ts`（10）、`tests/animation/animation-expressiveness.test.ts`（9）、
+  `e2e/visual/animation-expressiveness.spec.ts`（2 条真实浏览器：颜色动画真的画上画布 + 自定义缓动 +
+  回调链 + alternate 往返）。
+
+- **编排（时间轴 / 错峰）与运行时控制**（2026-09-13，⑥）：
+  - `ice.animationManager.timeline()`：`add(component, config, { at })`（绝对毫秒或 `'+=N'` 相对上一条）、
+    `stagger(components, config, { each, at })`（"卡片依次滑入"）、`play/pause/resume/stop/restart`、
+    `duration` / `isPlaying()` / `finished`（Promise）。**它是调度器而非新的求值器**：`play()` 把 `at` 折算成
+    `delay` 写进 `props.animations`，推进仍由 `AnimationManager` 完成 —— 缓动/关键帧/量化/缓存复用/空闲停帧
+    自动生效。`play()` 每次都从头播放，`restart()` 即"点击重播"。
+  - 运行时控制：`component.setAnimation(key, cfg)` / `removeAnimation(key)`（免"必须构造时声明"）、
+    `manager.replay(component)` / `isAnimating(component)`。
+  - **修掉两个真实缺陷**（都由真实浏览器 e2e 抓出）：① 没在构造时声明 `animations` 的组件，
+    `props.animations` 继承的是**冻结的共享默认对象**，运行时挂动画会抛
+    "Cannot add property …: object is not extensible" → `setAnimation` 内部做**写时复制**；
+    ② 时间轴 `stop()` 后再 `play()` 会沿用上一次的 `startTime`，elapsed 一夜之间变成"已经跑很久"，
+    编排被压缩/直接跳终点 → `play()` 现在每次都重置运行时状态；顺带把 `finished` 的计数从"轨道"改为"键"
+    （一条轨道可挂多个属性，否则 Promise 会提前 resolve）。
+  回归：`tests/animation/animation-timeline.test.ts`（11 条）+ `e2e/visual/animation-timeline.spec.ts`
+  （2 条真实浏览器：错峰入场各卡片依次开始且最终全部落位；重播/停止冻结/暂停继续）+
+  示例 `examples/animation/animation-timeline.html`（自定义缓动 + 错峰入场 + 重播按钮，进 examples 冒烟）。
+
+  **待做**：OffscreenCanvas/GPU 后端（脏区门控已于 2026-09-13 定案：维持计数门，见本文"修复/变更"与 18 §3.3）。
 
 ## [2.2.0] - 2026-09-13
 
