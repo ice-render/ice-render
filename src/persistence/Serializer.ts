@@ -83,9 +83,18 @@ export default class Serializer {
     // 需要「同一次编辑导出结果逐字节相同」的场景（如编辑器的去重/签名），由消费方丢弃 `lastModifyTime`
     // 即可（`createTime` 跨保存稳定，不必丢）——ice-entity-designer 的 FlowDesigner 就是这么做的。
     const now = new Date().toISOString();
-    // createTime：优先沿用「这份文档首次被创建的时刻」（由 Deserializer 载入时记在 ice.documentMeta 上），
-    // 没有就取当前时刻。因此「打开 → 再保存」里它稳定不变，只有 lastModifyTime 前进。
-    const createTime = toIsoTime(this.ice && this.ice.documentMeta && this.ice.documentMeta.createTime) || now;
+    // createTime = 「这份文档首次被创建的时刻」：
+    // - 载入别人的数据时由 Deserializer 读回来（记在 ice.documentMeta 上）；
+    // - 全新文档在**首次写出时定下并记住**，因此同一会话里反复序列化结果稳定（不是每次取 now）。
+    // 只有 lastModifyTime 是"这一次写出"的时刻。
+    let createTime = toIsoTime(this.ice && this.ice.documentMeta && this.ice.documentMeta.createTime);
+    if (!createTime) {
+      createTime = now;
+      const meta: any = this.ice && this.ice.documentMeta;
+      if (meta && typeof meta === 'object') {
+        meta.createTime = createTime;
+      }
+    }
     const result = {
       version: SERIALIZATION_VERSION,
       createTime,
