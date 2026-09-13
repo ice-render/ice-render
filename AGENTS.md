@@ -149,6 +149,13 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 ## git 约定
 
 - 核心引擎在 `dev` 分支开发，远程 `origin/dev`（Gitee）+ `github-origin/dev`（GitHub），两处都要推。
+- **分支与发版铁律（2026-09-13 确立）**：开发一律在 `dev`（或从它切出来的临时分支）上做，
+  `master` 只做集成与发版；**发版前必须先把 `dev` 合并进 `master`，再从 `master` 发版**
+  （`git checkout master && git merge --no-ff dev` → 跑门禁 → `npm publish`）。
+  **禁止**直接在 `master` 上写实现，也禁止只更新 `dev` 而让 `master` 停在旧版本 ——
+  本仓 2026-09-13 就踩过：远端默认分支是 `master`，而 2.x 全发在 `dev` 上，
+  仓库首页长期显示 1.4.10 时代的代码（后来才补上快进）。远端默认分支必须指向 `master`，
+  且发版后它与 `dev` 内容一致。
 - 提交信息遵循 `@commitlint/config-conventional`（已在 devDeps）。
 - **破坏性变更写在 CHANGELOG 的「### 变更（破坏性：…）」小节，提交信息不要用 `!` 标记**
   （2026-09-13 确立：本仓历史上从未用过 `!`，破坏性靠 CHANGELOG 小节 + 版本号表达；
