@@ -7,13 +7,11 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/ice-render"><img src="https://img.shields.io/npm/v/ice-render" alt="npm version"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"></a>
-  <a href="https://gitee.com/ice-render/ice-render"><img src="https://img.shields.io/badge/repo-gitee-c71d23.svg" alt="gitee repository"></a>
+  <a href="https://github.com/ice-render/ice-render"><img src="https://img.shields.io/badge/repo-github-181717.svg" alt="github repository"></a>
   <img src="https://img.shields.io/badge/TypeScript-100%25-3178c6.svg" alt="TypeScript">
 </p>
 
 ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流程图 / 拓扑图等图表编辑场景。它借鉴 React 的组件模型与 W3C 的事件模型，提供嵌套坐标系、序列化、动画、Visio 风格连接线等能力，同时以「极简依赖 + 多运行时兼容 + 高性能」为设计约束。
-
-> 概要介绍视频：<https://www.bilibili.com/video/BV1hT4y1v7G5>
 
 ## ⭐ 差异化能力
 
@@ -23,7 +21,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 
 - **默认配置不复制** —— 所有实例原型继承同一份默认 `props` / `state`，只有显式传入的字段才落到实例上；嵌套对象在合并时才做写时复制。
 - **挂载去重为 O(1)** —— 用 `WeakSet`，批量挂载不再有 `indexOf` 的 O(n²) 放大。
-- **实测**：**100 万个最小矩形的堆增量约 0.87GB**（朴素实现约 2.0GB）；**100 万图元构建约 6s**。
+- **实测**（2026-09-10，Apple Silicon 开发机）：**100 万个最小矩形的堆增量约 0.87GB**（朴素实现约 2.0GB）；**100 万图元构建约 6s**。这类数字跨机器会差数倍，别把这里的数值当承诺——以本机跑出来的为准。
 - **回归**：`tests/graphic/ICEComponent.props-sharing.test.ts`、`tests/ICE.add-child.test.ts`；微基准见 `bench/micro/`。
 
 **2. 局部重绘是一条可证明的像素契约**
@@ -93,6 +91,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 **序列化与动画**
 
 - **整图序列化** —— 组件树可序列化为 JSON 字符串并无损反序列化；类型键用**稳定 typeId**（格式为 `namespace:Type`，如 `ice-render:Rect`、`ice-chart:PlotArea`；由构造函数反查得到，与类的 JS 名解耦，压缩改名不影响已存数据），带 `version` 字段与可扩展迁移表；未注册类型跳过并记录而不是整份数据打不开。自定义组件用 `registerType('my-app:Badge', Badge)` 注册后才能持久化与加载 —— **同一个 typeId 注册不同构造函数、或同一个构造函数注册第二个 typeId 都会明确抛错**，不再静默覆盖。
+- **产物自带文档时间戳** —— `createTime` / `lastModifyTime` 是 ISO 8601 UTC（与运行环境的语言、时区无关，可直接排序与解析）；`createTime` 表示「这份文档首次创建的时刻」，载入时读回、`ice.clearAll()` 后重新计，所以「打开 → 编辑 → 保存」里只有 `lastModifyTime` 在变。
 - **关键帧动画** —— 动画配置类似 CSS `keyframes`：单段 `{ from, to, duration }` 或
   多段 `{ keyframes: [{ offset, value, easing? }], duration }`（`easing` 写在段起始帧上，只作用于该段；
   `offset` 缺省按顺序均分、超界夹紧）。内置线性 / 缓入 / 缓出等缓动函数与**弹簧类缓动**
@@ -101,8 +100,8 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 
 **性能与工程质量**
 
-- **高性能** —— 脏标记 + **脏矩形局部重绘**（默认，不满足局部条件时自动回退全量），配合组件级离屏缓存、渲染队列缓存与矩阵零分配。性能数字以本机 `npm run bench 5000` 为准（2026-09-11 实测约 2.2ms/帧，见上文「性能实测」段）。
-- **完整工程化** —— **91 个测试文件 / 710 个用例**（jest，带「只许上调」的覆盖率门槛）、Playwright 可视化回归（golden-image + 脏矩形像素一致性 + 视口/对齐/交互）、发布包完整性门禁（`publint` + `attw`）、eslint、架构设计文档。
+- **高性能** —— 脏标记 + **脏矩形局部重绘**（默认，不满足局部条件时自动回退全量），配合组件级离屏缓存、渲染队列缓存与矩阵零分配。性能数字以**本机** `npm run bench 5000` 为准（2026-09-11 在 Apple Silicon 开发机上实测约 2.2ms/帧，见上文第 2 条「局部重绘」）。
+- **完整工程化** —— **96 个测试文件 / 759 个用例**（jest，带「只许上调」的覆盖率门槛）、Playwright 可视化回归（golden-image + 脏矩形像素一致性 + 视口/对齐/交互）、发布包完整性门禁（`publint` + `attw`）、eslint、架构设计文档。
 
 ## 🚀 快速开始
 
@@ -197,7 +196,7 @@ PNG / PDF 不内置依赖：SVG 是通用中间格式，`resvg`、`sharp`、`rsv
 
 提交前会自动执行 lint-staged（husky）；CI 配置在 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)，依次跑 lint + 类型检查 + 单测（含覆盖率门槛）+ 构建 + 包完整性 + 可视化回归。
 
-> **主仓在 Gitee**（`https://gitee.com/ice-render/ice-render`，`package.json` 的 `repository` 字段亦然），GitHub 是镜像。徽章不再声称 CI 状态——真正运行 CI 需要有对应的 runner。
+> 代码同时托管在 **GitHub**（`https://github.com/ice-render/ice-render`，`package.json` 的 `repository` 指向这里）与 Gitee 镜像；CI 跑在 GitHub 上（Gitee 侧没有 runner），因此徽章不声称 CI 状态。
 
 ## 🔧 二次开发
 
@@ -229,7 +228,7 @@ export default class Relation extends ICEVisioLink {
 }
 ```
 
-> [`ice-entity-designer`](https://gitee.com/ice-render/ice-entity-designer) 是一款基于 ICERender 开发的 ER 图设计器，完整示范了引擎的二次开发方式；它已应用于 [`craft-codeless-designer`](https://github.com/craft-codeless-designer) 低代码项目。
+> [`ice-entity-designer`](https://github.com/ice-render/ice-entity-designer) 是一款基于 ICERender 开发的 ER 图设计器，完整示范了引擎的二次开发方式；它已应用于 [`craft-codeless-designer`](https://github.com/craft-codeless-designer) 低代码项目。
 
 ## 📸 截图
 
@@ -264,7 +263,7 @@ export default class Relation extends ICEVisioLink {
 
 <img src="./examples/assets/shot-plugin.png" alt="插件三层注册点">
 
-**极端规模** —— 密集小图元铺满画布；100 万图元构建约 6s、稳态整帧约 1.2s（`examples/performance/max-elements.html`）
+**极端规模** —— 密集小图元铺满画布；100 万图元构建约 6s、稳态整帧约 1.2s（2026-09-10 实测，`examples/performance/max-elements.html`）
 
 <img src="./examples/assets/shot-max-elements.jpg" alt="极端规模下的图元密度">
 
