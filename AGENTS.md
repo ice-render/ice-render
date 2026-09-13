@@ -176,6 +176,13 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   回归：`tests/event/DOMEventDispatcher.drag-owner.test.ts`。
 - 两者合起来才是完整用户路径：**点连线 → 出端点手柄 → 拖到别的组件上出插槽 → 松手改接**
   （ice-entity-designer 的 `e2e/link-hooks.spec.ts` 钉住整条链路）。
+- **定位铁律（2026-09-13 实测 bpmn-editor 后确立）**：① `LineControlPanel` 自身必须落在原点
+  （两个端点手柄是它的子组件，面板一带偏移手柄就整体偏离端点）；② `ICELinkSlot` 的
+  `hostComponent` setter **必须立刻 `updatePosition()`** —— 只订阅新宿主的 `AFTER_RENDER`
+  会让插槽沿用**上一个宿主**的位置（钩子掠过大泳道再落到小任务上时，插槽留在泳道边上）。
+  回归：`tests/control-panel/line-control-panel.test.ts`、`tests/link/link-slot.test.ts`、
+  ice-entity-designer 的 `e2e/link-hooks-bpmn.spec.ts`。
+
 
 ## 提交前自检
 

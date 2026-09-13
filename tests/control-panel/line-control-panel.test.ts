@@ -7,6 +7,24 @@ jest.mock('../../src/cross-platform/root', () => {
 });
 
 describe('LineControlPanel 端点拖拽', () => {
+  it('端点手柄居中在连线端点上（面板自身的偏移不得带偏手柄）', () => {
+    const panel: any = new LineControlPanel({ left: 0, top: 0, width: 100, height: 100 });
+    const line: any = new ICEPolyLine({
+      points: [
+        [100, 100],
+        [240, 180],
+      ],
+    });
+    panel.targetComponent = line;
+
+    panel.startControl.getMinBoundingBox(true);
+    const start = panel.startControl.getMaxBoundingBox(true).center;
+    const end = panel.endControl.getMaxBoundingBox(true).center;
+
+    expect([Math.round(start[0]), Math.round(start[1])]).toEqual([100, 100]);
+    expect([Math.round(end[0]), Math.round(end[1])]).toEqual([240, 180]);
+  });
+
   it('拖动起点时实时计算目标线性矩阵（不读过期缓存）', () => {
     const panel: any = new LineControlPanel({ left: 0, top: 0, width: 100, height: 100 });
     const line = new ICEPolyLine({
