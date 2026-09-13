@@ -41,10 +41,11 @@ export default class Deserializer {
 
   public fromJSONObject(jsonObj) {
     this._unknownTypes = [];
-    this.__rememberCreateTime(jsonObj);
     // 版本迁移入口：兼容缺失 version 的旧数据（视为版本 1）
     const version = jsonObj && jsonObj.version ? jsonObj.version : 1;
     this.migrate(jsonObj, version);
+    // 迁移通过之后再记 createTime：版本不支持时 migrate 会抛错，此时不该改动实例上的文档元信息
+    this.__rememberCreateTime(jsonObj);
 
     const childNodes = (jsonObj && jsonObj.childNodes) || [];
     for (let i = 0; i < childNodes.length; i++) {

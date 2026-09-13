@@ -80,8 +80,8 @@ export default class Serializer {
     // 不用 epoch 毫秒（`Date.now()`）：这里的字段是**给人看的导出元信息**，JSON 里可读性比省 10 个字节重要。
     // 语义：`createTime` = 这份文档首次创建的时刻（载入时从数据里读回来，见 ICE.documentMeta），
     //       `lastModifyTime` = 这一次写出的时刻。因此「打开 → 编辑 → 保存」只有一个字段在动。
-    // 需要「同一次编辑导出结果逐字节相同」的场景（如编辑器的去重/签名），由消费方按需丢弃这两个字段——
-    // ice-entity-designer 的 FlowDesigner 就是这么做的。
+    // 需要「同一次编辑导出结果逐字节相同」的场景（如编辑器的去重/签名），由消费方丢弃 `lastModifyTime`
+    // 即可（`createTime` 跨保存稳定，不必丢）——ice-entity-designer 的 FlowDesigner 就是这么做的。
     const now = new Date().toISOString();
     // createTime：优先沿用「这份文档首次被创建的时刻」（由 Deserializer 载入时记在 ice.documentMeta 上），
     // 没有就取当前时刻。因此「打开 → 再保存」里它稳定不变，只有 lastModifyTime 前进。

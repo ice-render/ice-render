@@ -29,7 +29,8 @@
   前者与运行环境的语言/时区无关、定长可排序、任何工具都能解析；后者在 zh-CN 机器上写
   `2026/9/13 12:12:33`、在 en-US 机器上写 `9/13/2026, 12:12:33 PM`，同一份数据换个环境就不一样。
   也不用 epoch 毫秒 —— 这两个字段是给人看的，JSON 里可读性比省字节重要。需要「同一次编辑导出逐字节相同」
-  的场景（去重、签名）请自行丢弃这两个字段，参考 `ice-entity-designer` 的 `FlowDesigner.toSnapshot()`。
+  的场景（去重、签名）**丢掉 `lastModifyTime` 就够了**（`createTime` 跨保存稳定，可以留），
+  参考 `ice-entity-designer` 的 `FlowDesigner.toSnapshot()`。
 - **`type` 用稳定标识而非类名**：写出前用 `ice.getTypeId(ctor)` 由构造函数**反查 canonical typeId**
   （与类的 JS 名解耦，terser 压缩改名不会破坏已存数据）；只有**未注册**的自定义类型才回退 `constructor.name`
   （此时 `Serializer.unregisteredTypes` 会记录并告警 —— 回退名在下游打包后可能读不回来）。
