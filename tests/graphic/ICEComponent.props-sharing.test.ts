@@ -58,6 +58,13 @@ describe('ICEComponent 默认 props 原型共享', () => {
     expect(a.props.zIndex).not.toBe(b.props.zIndex);
   });
 
+  it('显式 id 必须原样保留，不能被自动生成的 UUID 覆盖', () => {
+    const explicit = 'a2ui:surface/main/button-1';
+    const r = new ICERect({ id: explicit });
+    expect(r.props.id).toBe(explicit);
+    expect(r.state.id).toBe(explicit);
+  });
+
   it('蚂蚁线写 props.animations 只覆盖实例自身', () => {
     const a = new ICERect({});
     const b = new ICERect({});
