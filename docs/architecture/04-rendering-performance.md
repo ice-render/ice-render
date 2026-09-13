@@ -308,5 +308,8 @@ Canvas 2D 没有合成器通路：CSS/WAAPI 的 `transform` / `opacity` 可以�
    （当前 `FrameManager` 每帧无条件续帧，纯耗电）；
 4. **分层 canvas / OffscreenCanvas**（见 ⑥）。
 
+> 这几条的**目标架构、约束与验收指标**已整理成 [18 · 动画机制](18-animation-architecture.md)
+> （含"不用 CSS 变换做图元动画""不做每动画一个定时器"等决策记录）；本节只保留实测数据。
+>
 > 本轮探针脚本（脏比断崖、文本对照、离屏缓存插桩）是临时脚本，未提交；
 > 需要固化成 `bench/anim/*.mjs` 才能进 CI 做回归——那属于下一步。
