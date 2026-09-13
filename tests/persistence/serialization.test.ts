@@ -155,6 +155,23 @@ describe('序列化 / 反序列化 round-trip', () => {
       expect(savedAgain.lastModifyTime).toBe('2026-09-13T01:00:00.000Z'); // 前进
     });
 
+    it('全新文档：首次写出即定下 createTime，同一会话再写出保持不变', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-09-13T00:00:00.000Z'));
+      const ice = makeIce();
+      ice.addChild(new ICERect({ width: 10, height: 10 }));
+
+      const a: any = new Serializer(ice).toJSONObject();
+      expect(a.createTime).toBe('2026-09-13T00:00:00.000Z');
+
+      // 5 秒后再写一次：此前实现每次取 now，createTime 会跟着变（同一份内容两次导出结果不同）
+      jest.setSystemTime(new Date('2026-09-13T00:00:05.000Z'));
+      const b: any = new Serializer(ice).toJSONObject();
+      expect(b.createTime).toBe('2026-09-13T00:00:00.000Z');
+      expect(b.lastModifyTime).toBe('2026-09-13T00:00:05.000Z');
+      expect((ice as any).documentMeta.createTime).toBe('2026-09-13T00:00:00.000Z');
+    });
+
     it('数据里没有 createTime 时不沿用上一个文档的时间', () => {
       jest.useFakeTimers();
       jest.setSystemTime(new Date('2026-09-13T00:00:00.000Z'));
