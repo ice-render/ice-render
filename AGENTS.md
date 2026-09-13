@@ -70,6 +70,8 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   修法是把只在某个分支才需要的取值**下沉进那个分支**、把能内联的紧循环计算内联。
   加东西前先问：5000 图元 × 60fps 时这段代码每秒要跑多少次？
 
+- **i18n 边界铁律（2026-09-13 确立）**：**引擎不做 i18n**（没有词条表、没有 locale 状态、不做语言切换；同页两个应用不能各用各的语言，这类全局状态一旦进内核就退不出去）。边界是：**应用层**管词条 / 复数 / 日期数字货币格式化（`Intl`/ICU），把最终字符串交给引擎；**组件库**可以有自己的内置文案但要「可配置 + 不持全局状态」；**引擎**只负责让这些字符串显示正确 —— ① 断行策略（`wordBreak: 'normal'` 拉丁词不硬拆、CJK 逐字断 + 禁则；`'break-all'` 保留旧的逐 grapheme 贪心）；② 文字方向（`ICEText.direction` + `textAlign: 'start' | 'end'`，写 `ctx.direction` 时**特性检测**、渲染完归位 `inherit`；SVG 导出口径一致）；③ 输入法（透明 `<input>` + `compositionend`）；④ **稳定错误码**（`ICE_ERROR_CODES` / `getICEErrorCode(err)`，错误常被应用直接展示，只有中文 message 会迫使应用匹配字符串）；⑤ 中立性（不规范化、不做 locale 格式化、文本逐字节往返）。完整契约与缺口清单见 `docs/architecture/17-i18n-boundary.md`，回归见 `tests/graphic/text-wrap.test.ts`、`tests/graphic/text-direction.test.ts`、`tests/graphic/text-i18n.test.ts`、`tests/util/errors.test.ts`。
+
 ## 已知技术债（严重度）
 
 > 复核日期 **2026-09-11**。此前本节长期停留在「8 suite / 36 用例」等早期口径，与仓库实际严重脱节，已按实测重写。

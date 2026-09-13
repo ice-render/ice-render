@@ -19,6 +19,8 @@
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 
+import { ICE_ERROR_CODES, iceError } from '../util/errors';
+
 export interface ICERenderFrame {
   ctx: any;
   /** 当前渲染模式 */
@@ -100,7 +102,7 @@ export default class PluginHost {
   /** 幂等注册：同名插件重复 use 直接返回 false（不重复 setup） */
   public use(plugin: ICEPlugin): boolean {
     if (!plugin || !plugin.name) {
-      throw new Error('ICE.use(plugin)：插件必须提供非空的 name。');
+      throw iceError(ICE_ERROR_CODES.PLUGIN_NAME_REQUIRED, 'ICE.use(plugin)：插件必须提供非空的 name。');
     }
     if (this.has(plugin.name)) {
       return false;
@@ -117,8 +119,10 @@ export default class PluginHost {
           // registerType 会校验 `namespace:Type` 格式，并拒绝重复注册
           this.ice.registerType(typeId, Ctor);
         } catch (err) {
-          throw new Error(
-            `插件 "${plugin.name}" 注册组件类型失败：${err instanceof Error ? err.message : String(err)}`
+          throw iceError(
+            ICE_ERROR_CODES.PLUGIN_COMPONENT_REGISTER_FAILED,
+            `插件 "${plugin.name}" 注册组件类型失败：${err instanceof Error ? err.message : String(err)}`,
+            { pluginName: plugin.name, typeId, cause: err instanceof Error ? err.message : String(err) }
           );
         }
       }

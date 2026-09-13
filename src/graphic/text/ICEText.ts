@@ -7,6 +7,8 @@
  */
 import { merge } from '../../util/lang';
 import ICEEvent from '../../event/ICEEvent';
+import { resolveTextAlign, resolveTextDirection } from './text-direction';
+import { ICEWordBreak, splitGraphemes, wrapParagraph } from './text-wrap';
 import ICEComponent from '../ICEComponent';
 
 const utilDivId = '__ICE_UTILS_TEXT_MEASURE_DIV__';
@@ -54,6 +56,14 @@ class ICEText extends ICEComponent {
         editing: false, //是否处于内联编辑状态
         caretIndex: 0, //编辑光标位置（字符下标）
         wrap: false, //是否按 state.width 自动换行（默认关，保持既有「按 \n 拆行」行为）
+        // 断行策略（仅在 wrap 打开时生效）：
+        //   'normal'    —— 优先在词边界断（拉丁词不被硬拆；CJK 逐字断 + 禁则）；单词整行放不下才硬拆
+        //   'break-all' —— 旧的逐 grapheme 贪心（给代码/艺术字这类需要等宽硬断的场景留出口）
+        wordBreak: 'normal' as ICEWordBreak,
+        // 文字方向：'auto' 按首个强方向字符判定（RTL 文案必须让 canvas 知道基线方向，否则 BiDi 重排会错）。
+        // 放在**顶层 state** 而不是 style：它需要「解析 + 运行时特性检测」两步，不能交给通用的
+        // style→ctx 赋值逻辑（那会把非法值 'auto' 直接写进 ctx）。注意这是**排版**属性，不是 i18n 词条。
+        direction: 'auto' as 'ltr' | 'rtl' | 'auto',
         maxLines: 0, //最大行数（0 = 不限）；超出时末行以 ellipsis 截断
         ellipsis: '…', //截断时追加的省略号
         lines: null, //派生：换行后的行数组（不序列化，随 measureText 重算）
@@ -398,41 +408,29 @@ class ICEText extends ICEComponent {
    * 按 grapheme cluster 切分。
    * 优先 Intl.Segmenter（Baseline 2024），能把 emoji / ZWJ 序列 / 组合字符合成一个单元；
    * 不可用时退化为码点切分（至少不会把代理对拆开）。
+   *
+   * 实现放在 `text-wrap.ts`（断行策略共用同一份切分 + 缓存）。
    */
   private __graphemes(s: string): string[] {
-    const intl: any = this.root && this.root.Intl;
-    if (intl && typeof intl.Segmenter === 'function') {
-      try {
-        const seg = new intl.Segmenter(undefined, { granularity: 'grapheme' });
-        const out: string[] = [];
-        for (const part of seg.segment(s)) {
-          out.push(part.segment);
-        }
-        return out;
-      } catch (err) {
-        // 某些实现不支持 granularity → 退化
-      }
-    }
-    return Array.from(s);
+    return splitGraphemes(s, this.root && this.root.Intl);
   }
 
-  /** 贪心换行：逐 grapheme 累加，超过可用宽度即断行。保留段落自身的 \n。 */
+  /**
+   * 换行：保留段落自身的 `\n`，段内按 `state.wordBreak` 策略断行。
+   *
+   * 断行规则是**排版**职责（见 `text-wrap.ts`）：`'normal'` 下拉丁词不被硬拆、CJK 逐字断并做禁则；
+   * `'break-all'` 保留旧的逐 grapheme 贪心。i18n 词条本身由应用层提供，这里不做任何文本加工。
+   */
   private __wrapText(maxWidth: number, measure: (s: string) => number): string[] {
     const out: string[] = [];
     const paragraphs = String(this.state.text ?? '').split('\n');
+    const strategy: ICEWordBreak = this.state.wordBreak === 'break-all' ? 'break-all' : 'normal';
+    const intl: any = this.root && this.root.Intl;
     for (let p = 0; p < paragraphs.length; p++) {
-      const gs = this.__graphemes(paragraphs[p]);
-      let line = '';
-      for (let i = 0; i < gs.length; i++) {
-        const next = line + gs[i];
-        if (line !== '' && measure(next) > maxWidth) {
-          out.push(line);
-          line = gs[i];
-        } else {
-          line = next;
-        }
+      const lines = wrapParagraph(paragraphs[p], maxWidth, measure, strategy, intl);
+      for (let i = 0; i < lines.length; i++) {
+        out.push(lines[i]);
       }
-      out.push(line);
     }
     return out;
   }
@@ -571,13 +569,16 @@ class ICEText extends ICEComponent {
    */
   public getRenderLines(): Array<{ text: string; x: number; y: number }> {
     const { paddingTop, paddingLeft, paddingRight, textAlign, textBaseline } = this.state.style;
+    // 方向与对齐都要先解析：`direction: 'auto'` → ltr/rtl，`textAlign: 'start' | 'end'` → 物理左右
+    const direction = this.__resolvedDirection();
+    const align = resolveTextAlign(textAlign, direction);
     // 多行文本：优先用换行结果（state.lines），否则按 \n 拆分；
     // 行高用实测的文本总高均分，保证单行与旧基线一致。
     const lines: string[] = this.state.lines || String(this.state.text ?? '').split('\n');
     const textHeight = this.state.textHeight || this.state.style.fontSize;
     const lineHeight = textHeight / lines.length;
     // 水平居右 / 居中必须按各行真实文字宽度计算起点；左对齐沿用 box 左内边距，免逐行 measureText。
-    const needHAlign = textAlign === 'center' || textAlign === 'right' || textAlign === 'end';
+    const needHAlign = align === 'center' || align === 'right';
     const measure = needHAlign ? this.__measureFn() : null;
     const result: Array<{ text: string; x: number; y: number }> = [];
     for (let i = 0; i < lines.length; i++) {
@@ -585,7 +586,7 @@ class ICEText extends ICEComponent {
       let x = 0 - this.state.localOrigin[0] + paddingLeft;
       if (needHAlign) {
         const lineWidth = measure ? measure(lines[i]) || 0 : 0;
-        if (textAlign === 'center') {
+        if (align === 'center') {
           x = -lineWidth / 2; // 文字水平中心对齐 localOrigin 中心
         } else {
           // 文字右边缘对齐 box 右内边距处（flush-right）；旧实现把起点放在 box 右缘，导致文字向右溢出
@@ -612,9 +613,9 @@ class ICEText extends ICEComponent {
    */
   protected doRender() {
     this.dirty && this.measureText();
-    const { textAlign } = this.state.style;
+    const align = resolveTextAlign(this.state.style.textAlign, this.__resolvedDirection());
     const lines = this.getRenderLines();
-    const needHAlign = textAlign === 'center' || textAlign === 'right' || textAlign === 'end';
+    const needHAlign = align === 'center' || align === 'right';
     if (needHAlign) {
       // 下面的 x 是「文字起点（左边缘）」语义，靠手工计算实现对齐。
       // 而 applyStyleToCtx() 已经把 style.textAlign 写进了 ctx —— 若不复位，canvas 会按
@@ -638,6 +639,46 @@ class ICEText extends ICEComponent {
       this.renderCaret();
     }
     super.doRender();
+  }
+
+  /**
+   * `direction: 'auto'` 需要按文本解析成具体的 ltr/rtl —— canvas 只认 `ltr | rtl | inherit`，
+   * 所以这里在通用 style 应用之后覆盖一次（`style.direction` 的原始值 `'auto'` 不会被 canvas 采纳）。
+   *
+   * 特性检测用 `'direction' in ctx`（不读值）：**不支持 `direction` 的运行时**（部分小程序基础库、
+   * 极简测试桩）就跳过，退化为默认 LTR —— 这也是小程序「Canvas 2D 子集」回归能通过的原因。
+   */
+  protected applyStyleToCtx(): void {
+    super.applyStyleToCtx();
+    const ctx: any = this.ctx;
+    if (ctx && 'direction' in ctx) {
+      ctx.direction = this.__resolvedDirection();
+      this.__directionApplied = true;
+    }
+  }
+
+  /** 本帧是否把 `ctx.direction` 写过（用于渲染结束后的归位）。 */
+  private __directionApplied = false;
+
+  /**
+   * @overwrite
+   * 除基类的泄漏属性外，`direction` 也要归位 —— 否则 RTL 文本会把方向"漏"给后面绘制的组件，
+   * 破坏「组件渲染自包含」这条铁律（脏矩形局部重绘与离屏缓存都依赖它）。
+   */
+  public __resetLeakyCtxState(): void {
+    if (this.__directionApplied) {
+      this.__directionApplied = false;
+      const ctx: any = this.ctx;
+      if (ctx && 'direction' in ctx) {
+        ctx.direction = 'inherit';
+      }
+    }
+    super.__resetLeakyCtxState();
+  }
+
+  /** 解析后的文字方向（`'auto'` → 按首个强方向字符判定）。 */
+  private __resolvedDirection(): 'ltr' | 'rtl' {
+    return resolveTextDirection(String(this.state.text ?? ''), this.state.direction);
   }
 }
 

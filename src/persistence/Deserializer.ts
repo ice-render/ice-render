@@ -8,6 +8,7 @@
 import ICE from '../ICE';
 import { SERIALIZATION_VERSION } from './Serializer';
 import { toIsoTime } from './document-time';
+import { ICE_ERROR_CODES, iceError } from '../util/errors';
 
 /**
  * 序列化格式迁移表：`to` 为目标版本，按升序执行。
@@ -86,7 +87,11 @@ export default class Deserializer {
    */
   private migrate(jsonObj, version) {
     if (version > SERIALIZATION_VERSION) {
-      throw new Error(`不支持的反序列化版本：${version}（当前支持到 ${SERIALIZATION_VERSION}）`);
+      throw iceError(
+        ICE_ERROR_CODES.DESERIALIZE_VERSION_UNSUPPORTED,
+        `不支持的反序列化版本：${version}（当前支持到 ${SERIALIZATION_VERSION}）`,
+        { version, supported: SERIALIZATION_VERSION }
+      );
     }
     // 逐级升级：按 to 升序执行所有「目标版本 > 数据版本」的迁移。
     // 下游若 fork 了数据格式，可 push 自己的迁移到 SERIALIZATION_MIGRATIONS。

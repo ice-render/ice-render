@@ -73,5 +73,8 @@ export { toIsoTime } from './persistence/document-time';
 // typeId 格式契约（`namespace:Type`）：下游包注册自己的图元类型时用它校验 / 拼装，
 // 避免各处手写正则与字符串拼接（见 AGENTS.md「类型注册 / 序列化铁律」）。
 export { TYPE_ID_PATTERN, isTypeId, assertTypeId, parseTypeId, makeTypeId } from './util/type-id';
+// 稳定错误码：引擎不做 i18n，但把「可翻译的 id」交给应用层（见 docs/architecture/17-i18n-boundary.md）
+export { ICE_ERROR_CODES, iceError, getICEErrorCode, isICEError } from './util/errors';
+export type { ICEError, ICEErrorCode, ICEErrorDetails } from './util/errors';
 export { buildAccessibilityTree } from './a11y/accessibility';
 export type { ICEAccessibleNode, ICEAccessibleRole, ICEAccessibilityOptions } from './a11y/accessibility';

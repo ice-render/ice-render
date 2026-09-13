@@ -28,6 +28,7 @@ import type { SvgExportOptions, SvgExportResult } from './export/SvgExporter';
 import ImageCache from './util/ImageCache';
 import { resolveTheme, getTheme, registerTheme, ICETheme, ICESemanticTheme } from './theme/ICETheme';
 import { assertTypeId } from './util/type-id';
+import { ICE_ERROR_CODES, iceError } from './util/errors';
 
 /**
  * 给 `ctx.createXxxGradient()` 的产物挂一份**可序列化的描述**。
@@ -200,7 +201,7 @@ class ICE {
    */
   public init(ctx: any, options: { renderMode?: 'full' | 'dirty-rect'; dpr?: number } = {}) {
     if (!ctx) {
-      throw new Error('ICE.init() failed...');
+      throw iceError(ICE_ERROR_CODES.INIT_TARGET_REQUIRED, 'ICE.init() failed...');
     }
 
     const canvasEl = this.__resolveCanvasEl(ctx);
@@ -209,7 +210,10 @@ class ICE {
       if (canvasEl && canvasEl === this.canvasEl) {
         return this;
       }
-      throw new Error('同一个 ICE 实例已经绑定到其它 canvas，如需重新初始化请先调用 destroy()。');
+      throw iceError(
+        ICE_ERROR_CODES.INIT_ALREADY_BOUND,
+        '同一个 ICE 实例已经绑定到其它 canvas，如需重新初始化请先调用 destroy()。'
+      );
     }
 
     // 内置类型已在构造函数中注册；这里不再拷贝映射，避免重复注册。
@@ -531,7 +535,9 @@ class ICE {
   public registerType(typeId: string, Clazz: new (...args: any[]) => any): void {
     assertTypeId(typeId, 'registerType 的 typeId');
     if (typeof Clazz !== 'function') {
-      throw new Error(`registerType("${typeId}") 失败：Clazz 必须是构造函数。`);
+      throw iceError(ICE_ERROR_CODES.TYPE_CTOR_INVALID, `registerType("${typeId}") 失败：Clazz 必须是构造函数。`, {
+        typeId,
+      });
     }
 
     const existing = this.typeMapping[typeId];
@@ -539,15 +545,19 @@ class ICE {
       if (existing === Clazz) {
         return;
       }
-      throw new Error(
-        `typeId "${typeId}" 已注册为 ${existing.name || '匿名构造函数'}，不能再注册 ${Clazz.name || '匿名构造函数'}。`
+      throw iceError(
+        ICE_ERROR_CODES.TYPE_ID_CONFLICT,
+        `typeId "${typeId}" 已注册为 ${existing.name || '匿名构造函数'}，不能再注册 ${Clazz.name || '匿名构造函数'}。`,
+        { typeId, registered: existing.name || 'anonymous', incoming: Clazz.name || 'anonymous' }
       );
     }
 
     const existingTypeId = this.getTypeId(Clazz);
     if (existingTypeId && existingTypeId !== typeId) {
-      throw new Error(
-        `构造函数 ${Clazz.name || '匿名构造函数'} 已注册为 "${existingTypeId}"，不能同时注册为 "${typeId}"（反查会歧义）。`
+      throw iceError(
+        ICE_ERROR_CODES.TYPE_CTOR_CONFLICT,
+        `构造函数 ${Clazz.name || '匿名构造函数'} 已注册为 "${existingTypeId}"，不能同时注册为 "${typeId}"（反查会歧义）。`,
+        { typeId, existingTypeId }
       );
     }
 

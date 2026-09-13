@@ -1,3 +1,5 @@
+import { ICE_ERROR_CODES, iceError } from './errors';
+
 /**
  * 组件类型标识（typeId）的格式契约。
  *
@@ -17,10 +19,12 @@ export function isTypeId(value: unknown): value is string {
 
 export function assertTypeId(value: unknown, label: string = 'typeId'): asserts value is string {
   if (!isTypeId(value)) {
-    throw new Error(
+    throw iceError(
+      ICE_ERROR_CODES.TYPE_ID_INVALID,
       `${label} 必须是 "namespace:Type" 格式（namespace 用小写字母/数字/连字符，Type 用字母/数字/下划线/连字符）：${String(
         value
-      )}`
+      )}`,
+      { label, value: String(value) }
     );
   }
 }
