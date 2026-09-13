@@ -63,6 +63,19 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 - **React 式组件模型** —— `props`（不可变构造入参）/ `state`（可变运行时状态）分离，`render()` 模板方法 + 清晰的类继承体系。
 - **无限嵌套容器** —— `ICEGroup` 可任意嵌套，形成组件树。
 
+**文本与国际化**
+
+- **断行策略** —— `wrap` 开启后按 `wordBreak: 'normal'`（默认）断行：拉丁词不被硬拆、
+  CJK 逐字断并做**禁则**（行首不放闭标点、行尾不放开标点），单个词整行放不下时才硬拆；
+  `'break-all'` 保留逐字贪心（代码 / 艺术字场景）。
+- **文字方向（RTL / BiDi）** —— `direction: 'ltr' | 'rtl' | 'auto'` 与 `textAlign: 'start' | 'end'`：
+  `'auto'` 按首个强方向字符判定，写 `ctx.direction` 前做**特性检测**、渲染完归位；
+  SVG 导出同口径（`direction` + 按方向映射的 `text-anchor`）。
+- **i18n 边界** —— 引擎**不做 i18n**（没有词条表、没有 locale 状态）：词条、复数与 `Intl`
+  格式化归应用层，组件库的内置文案可配置且不持全局状态；引擎只负责断行、方向、输入法，
+  并让错误带**稳定错误码**（`ICE_ERROR_CODES` / `getICEErrorCode(err)`，应用据此映射自己的语言包）。
+  完整契约见 [`docs/architecture/17-i18n-boundary.md`](./docs/architecture/17-i18n-boundary.md)。
+
 **坐标系与变换**
 
 - **完整仿射变换** —— 平移 / 缩放 / 旋转 / 错切（skew），基于 `gl-matrix` 的列向量 `mat2d` 约定。
