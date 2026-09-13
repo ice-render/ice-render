@@ -1,0 +1,13 @@
+{
+  "description": "ice-render 小程序接入示例（游客模式即可打开，无需 AppID）",
+  "miniprogramRoot": "./",
+  "projectname": "ice-render-mini-program",
+  "appid": "touristappid",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": false
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "ice-render-mini-program-example",
+  "private": true,
+  "description": "在微信开发者工具里打开本目录即可运行；ice-render 需要「构建 npm」后从 miniprogram_npm 取用",
+  "dependencies": {
+    "ice-render": "^1.4.9"
+  }
+}

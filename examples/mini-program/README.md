@@ -7,6 +7,7 @@
 
 ```
 examples/mini-program/
+├── app.json / project.config.json / package.json   # 开发者工具可直接打开本目录（游客模式，无需 AppID）
 ├── host-adapter.js              # 宿主适配：取画布位置 + 把 bindtouch* 换算成引擎输入
 └── pages/ice-canvas/            # 可直接拷进小程序项目的页面
     ├── index.js
@@ -14,6 +15,15 @@ examples/mini-program/
     ├── index.wxss
     └── index.json
 ```
+
+## 在微信开发者工具里跑起来
+
+1. 开发者工具 → 导入项目 → 选择本目录（`examples/mini-program/`），AppID 选「游客模式」即可；
+2. 在本目录执行 `npm install`，然后工具菜单 **工具 → 构建 npm**（产物落在 `miniprogram_npm/ice-render`）；
+3. 编译预览：应该看到一个可拖动的方块、一段文字和一条连线；用鼠标/触摸拖一下，方块跟随移动。
+
+> 想接到自己的项目里：把 `pages/ice-canvas/` 与 `host-adapter.js` 拷过去，`package.json` 里加
+> `ice-render` 依赖，同样「构建 npm」后再打开即可。
 
 ## 三步接入
 
