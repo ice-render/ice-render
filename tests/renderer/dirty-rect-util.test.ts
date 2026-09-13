@@ -262,6 +262,40 @@ describe('coalesceRegions', () => {
     ).toEqual([[0, 0, 100, 100]]);
   });
 
+  /**
+   * 聚合预算（2026-09-13）：**脏块很多时，聚合本身不能成为瓶颈。**
+   *
+   * 实测（本仓库 jest，Node 25 / Apple M4）：100 个「划算可并」的盒 108ms、300 个 2.7s、
+   * 600 个 21.9s、1000 个 111s —— 因为「挑代价最小的两块合并」这一步是 O(k²)，而它最多要跑
+   * k 轮（O(k³)）。脏块数量一旦上百，一帧就会被聚合卡住几秒甚至几分钟。
+   *
+   * 契约：聚合块数超过预算时**不再精挑细选**，直接塌缩成一个并集盒 —— 这是保守解：
+   * 并集盒交给面积阈值判定，最多回退全量重绘，绝不会画错。
+   */
+  test('脏块数超过聚合预算 → 直接塌缩成并集盒（不进入 O(k³) 的精挑细选）', () => {
+    const boxes: number[][] = [];
+    for (let i = 0; i < 100; i++) {
+      // 100x100 的盒、间距 1px：每一对合并都「划算」，旧实现会一路精挑细选合并到 6 块
+      boxes.push([i * 101, 0, i * 101 + 100, 100]);
+    }
+    const out = coalesceRegions(boxes, 6);
+    expect(out).toEqual([[0, 0, 100 * 101 - 1, 100]]);
+  });
+
+  test('脏块很多（2000）也要在毫秒级完成（防聚合退化把一帧卡死）', () => {
+    const boxes: number[][] = [];
+    for (let i = 0; i < 2000; i++) {
+      const x = (i % 50) * 20;
+      const y = Math.floor(i / 50) * 20;
+      boxes.push([x, y, x + 6, y + 6]);
+    }
+    const t0 = Date.now();
+    const out = coalesceRegions(boxes, 6);
+    const ms = Date.now() - t0;
+    expect(out.length).toBe(1);
+    expect(ms).toBeLessThan(200);
+  });
+
   test('忽略非法（NaN/Infinity）盒', () => {
     expect(
       coalesceRegions([
