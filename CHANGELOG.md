@@ -20,6 +20,20 @@
     **动画终点值永远精确写入**（`to: 100.5` 落在 100.5），单条动画可 `snapToDevicePixel: false` 关掉。
   - 实测（`npm run bench:anim`）：1,000 个文本的平移动画 **35.1ms → 2.7ms/帧**（位图重建 40000 → 0，
     复用率 100%）；矩形对照不变。门槛已接进 `verify:full`。
+- **分层渲染原语**（2026-09-13，见 [18 · 动画机制 §3.1](docs/architecture/18-animation-architecture.md)）：
+  引擎**不做**自动分层（层的划分有产品语义），而是给三个原语 + 一套配方：
+  - `ICE.linkViewport(a, b)` / `ice.followViewport(source)`：两层视口双向/单向同步（`setViewport` /
+    `zoomAt` 都覆盖、`destroy()` 自动解绑、内部防回环）；
+  - `ice.setInputPassthrough(true)`：覆盖层 canvas 置 `pointer-events: none`（关闭时还原为空，不覆盖应用样式）；
+  - **多实例事件归属**：`DOMEventDispatcher` 现在按**目标 canvas** 过滤"按下/滚轮"事件 ——
+    目标是别人的 canvas 就忽略。此前同页多实例是全局广播，点上层画布会同时驱动下层实例的命中检测，
+    "上层穿透"因此形同虚设（移动/抬起事件仍不过滤，避免拖拽途中丢事件）。
+  实测（`npm run bench:layers`，10000 静态元素 + 200 动画标记）：单画布 26~34ms/帧 → 分层
+  **0.4~0.6ms/帧（≈60×）**，动画期间静态层重绘 **0** 次；门槛已接进 `verify:full`。
+  配套示例 `examples/animation/layered-canvas.html`（两层 + 视口同步 + 穿透开关）与
+  `e2e/visual/layered.spec.ts`（5 条真实浏览器断言：两层都出画、视口始终一致、
+  穿透时点得到下层 / 关掉穿透就点不到、暂停整层动画不影响另一层）。
+  **待做**：跨层迁移原语（拖拽提升到动画层）、多层导出合成、脏区面积门。
 
 ## [2.2.0] - 2026-09-13
 

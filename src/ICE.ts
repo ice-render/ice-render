@@ -340,6 +340,14 @@ class ICE {
     this.__contentBox = null;
     this.__inputRectSnapshot = null;
 
+    //5) 分层渲染的连接：本实例销毁后不再接受同步；同时也断开它作为 source 的跟随者，
+    //   避免别的实例继续往一个已销毁的实例上推视口。
+    this.__inputPassthrough = false;
+    if (this.__viewportFollowers) {
+      this.__viewportFollowers.clear();
+      this.__viewportFollowers = null;
+    }
+
     this.__initialized = false;
   }
 
@@ -760,7 +768,107 @@ class ICE {
     if (this.renderer) {
       this.renderer.markQueueDirty();
     }
+    this.__notifyViewportFollowers();
     return this;
+  }
+
+  // ===================== 分层渲染原语 =====================
+
+  /**
+   * 视口跟随者（分层渲染用）：本实例的 `setViewport` / `zoomAt` 会同步给它们。
+   * 用 Set 存放（同一 follower 只同步一次），`unlink` 时删除。
+   */
+  private __viewportFollowers: Set<ICE> | null = null;
+  /** 正在做视口同步：防止「A→B→A」无限回环（链式/双向连接时必需）。 */
+  private __syncingViewport = false;
+  /** 覆盖层是否处于「输入穿透」状态（`setInputPassthrough`）。 */
+  private __inputPassthrough = false;
+
+  /**
+   * 双向绑定两个实例的视口（分层渲染：静态层 + 动画层必须缩放/平移一致）。
+   *
+   * 任一侧的 `setViewport` / `zoomAt` / 应用层基于视口的交互都会同步到另一侧；
+   * 返回 `unlink()` 解绑（`destroy()` 会自动解绑本实例身上的连接）。
+   *
+   * @returns 解绑函数
+   */
+  public static linkViewport(a: ICE, b: ICE): () => void {
+    if (!a || !b || a === b) {
+      return () => undefined;
+    }
+    const unlinkA = a.followViewport(b);
+    const unlinkB = b.followViewport(a);
+    return () => {
+      unlinkA();
+      unlinkB();
+    };
+  }
+
+  /**
+   * 单向跟随：`this` 的视口跟随 `source`（source 变 → this 跟着变；this 自己变**不**回流）。
+   * 分层场景里通常两层用 {@link ICE.linkViewport} 双向绑定；单向跟随适合「缩略图跟随主视图」这类。
+   *
+   * @returns 解绑函数
+   */
+  public followViewport(source: ICE): () => void {
+    if (!source || source === this) {
+      return () => undefined;
+    }
+    if (!source.__viewportFollowers) {
+      source.__viewportFollowers = new Set<ICE>();
+    }
+    source.__viewportFollowers.add(this);
+    // 立刻对齐一次，避免「先建层、后链接」时两侧从不同视口起步
+    const vp = source.viewport;
+    this.setViewport(vp.scale, vp.tx, vp.ty);
+    return () => {
+      if (source.__viewportFollowers) {
+        source.__viewportFollowers.delete(this);
+      }
+    };
+  }
+
+  /** 把本实例的视口推给所有跟随者（`setViewport` 内部调用；带防回环标记）。 */
+  private __notifyViewportFollowers(): void {
+    const followers = this.__viewportFollowers;
+    if (!followers || followers.size === 0 || this.__syncingViewport) {
+      return;
+    }
+    const vp = this.viewport;
+    this.__syncingViewport = true;
+    try {
+      for (const follower of followers) {
+        // 销毁过的实例已在 destroy() 里把自己从各 source 的 followers 中移除；
+        // 这里只做最小防御（setViewport 本身对 null renderer / 未初始化实例是安全的）。
+        if (follower && typeof follower.setViewport === 'function') {
+          follower.setViewport(vp.scale, vp.tx, vp.ty);
+        }
+      }
+    } finally {
+      this.__syncingViewport = false;
+    }
+  }
+
+  /**
+   * 覆盖层「输入穿透」：把本层 canvas 设为 `pointer-events: none`，指针事件直接落到下层。
+   *
+   * 分层渲染（静态层 + 动画层）里，动画层往往只是展示、不需要交互 —— 若不给它穿透，
+   * 它会吃掉整屏指针事件，下层的选择/拖拽立刻失效。
+   *
+   * 关闭时把内联样式**还原为空**（而不是写 `auto`），避免覆盖应用自己的 CSS。
+   */
+  public setInputPassthrough(enabled: boolean): this {
+    this.__inputPassthrough = !!enabled;
+    const el: any = this.canvasEl;
+    if (el && el.style) {
+      el.style.pointerEvents = this.__inputPassthrough ? 'none' : '';
+    }
+    return this;
+  }
+
+  /** 当前是否处于输入穿透（见 {@link ICE.setInputPassthrough}）。 */
+  public isInputPassthrough(): boolean {
+    return this.__inputPassthrough;
   }
 
   /** 屏幕坐标（canvas 像素）→ 世界坐标（受视口逆变换）。 */
