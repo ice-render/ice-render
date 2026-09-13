@@ -1276,16 +1276,54 @@ abstract class ICEComponent extends ICEEventTarget {
    *
    * @param newState
    */
-  public setState(newState: any) {
+  public setState(newState: any, options?: { paramsDirty?: boolean }) {
     const sizeChanged = this.__beforeStateMerge(newState);
     merge(this.state, newState);
-    // state 变化无法廉价判断「是否影响派生参数」，因此保守地两者都置脏（与旧行为一致）。
-    this.paramsDirty = true;
+    // state 变化无法廉价判断「是否影响派生参数」，因此**默认**保守地两者都置脏（与旧行为一致）。
+    // 高频写值（动画）可以显式传 `{ paramsDirty: false }` 跳过派生参数重算 —— 见
+    // `ANIMATION_SAFE_KEYS` / `isAnimationSafeKey()` 与 AnimationManager 的写值通道。
+    if (!options || options.paramsDirty !== false) {
+      this.paramsDirty = true;
+    }
     this.dirty = true;
     if (this.ice) {
       this.ice.dirty = true;
     }
     this.__afterStateMerge(sizeChanged);
+  }
+
+  /**
+   * 「动画安全键」白名单：写这些 state 键**不会改变派生参数**（尺寸 / 点集 / 文本量测），
+   * 因此动画/高频写值可以跳过 `paramsDirty` —— 省一次重量测，并且保住离屏位图的纯平移复用。
+   *
+   * 判定方向很重要：**未声明的键一律当作"影响派生参数"**（保守）。这样漏判只会少一点优化，
+   * 不会让尺寸/点集停在旧值上；第三方组件不声明就等于维持旧行为（每帧都置脏）。
+   * 子类覆盖时应把基类的键并入（也允许更窄，例如文本把字号/字间距/行高那类量测相关 style 键排除在外）。
+   */
+  public static readonly ANIMATION_SAFE_KEYS: readonly string[] = [
+    'left',
+    'top',
+    'zIndex',
+    'opacity',
+    'display',
+    'transform', // 前缀匹配 transform.rotate / transform.translate / ...
+    'fill',
+    'stroke',
+  ];
+
+  /** 该 state 键路径是否在「动画安全键」白名单里（`transform` 这类前缀按 `transform.xxx` 匹配）。 */
+  public isAnimationSafeKey(path: string): boolean {
+    const keys: readonly string[] = (this.constructor as any).ANIMATION_SAFE_KEYS || [];
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      if (path === key) {
+        return true;
+      }
+      if (path.length > key.length && path.startsWith(key) && path.charAt(key.length) === '.') {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

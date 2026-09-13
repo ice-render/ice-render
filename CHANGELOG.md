@@ -5,7 +5,21 @@
 
 ## [Unreleased]
 
-> 暂无（下一个版本发布前在这里累积）。
+### 变更
+
+- **动画写值通道 + 设备像素量化**（2026-09-13，见 [18 · 动画机制](docs/architecture/18-animation-architecture.md)）：
+  动画此前每帧走 `setState` → 无条件置 `paramsDirty` → **离屏位图每帧重建**（1000 个文本 35.1ms/帧）。
+  现在：
+  - `ICEComponent.setState(patch, options?)` 支持显式 `{ paramsDirty: false }`（省略 = 旧行为）；
+  - `ICEComponent.ANIMATION_SAFE_KEYS` + `isAnimationSafeKey(path)`：子类声明「纯绘制/变换」键白名单
+    （基类：位置/`transform.*`/透明度/显示/zIndex/fill/stroke；`ICEText` 额外放行光标、选区、
+    颜色、装饰线等**不参与量测**的键）。**未知键与未声明的组件一律保守地照旧置脏** —— 第三方组件零风险；
+  - `AnimationManager` 只在"本帧写出的键全是安全键"时跳过派生参数重算；
+  - `AnimationManager.snapToDevicePixel`（默认开）：把**飞行中的纯平移**吸附到设备像素栅格，
+    让位移满足位图纯平移复用要求的"整数设备像素"；只对当前可离屏缓存的组件生效，
+    **动画终点值永远精确写入**（`to: 100.5` 落在 100.5），单条动画可 `snapToDevicePixel: false` 关掉。
+  - 实测（`npm run bench:anim`）：1,000 个文本的平移动画 **35.1ms → 2.7ms/帧**（位图重建 40000 → 0，
+    复用率 100%）；矩形对照不变。门槛已接进 `verify:full`。
 
 ## [2.2.0] - 2026-09-13
 

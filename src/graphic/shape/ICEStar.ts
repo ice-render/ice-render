@@ -95,7 +95,7 @@ class ICEStar extends ICEDotPath {
    * - 如果 setState 时仅仅指定 width 参数，则 radius 会被重新计算，如果仅仅指定了 height 参数，则 radius 会被重新计算。
    * @param newState
    */
-  public setState(newState: any) {
+  public setState(newState: any, options?: { paramsDirty?: boolean }) {
     if (!isNil(newState.outerRadius)) {
       newState.width = 2 * newState.outerRadius;
       newState.height = 2 * newState.outerRadius;
@@ -104,7 +104,7 @@ class ICEStar extends ICEDotPath {
     } else if (!isNil(newState.height)) {
       newState.outerRadius = newState.height / 2;
     }
-    super.setState(newState);
+    super.setState(newState, options);
   }
 }
 

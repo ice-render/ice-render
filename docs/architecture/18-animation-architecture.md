@@ -40,6 +40,13 @@
   **不置 `paramsDirty`**；只有几何/量测相关的键（`width/height`、文本内容、`wrap` 等）才置 `paramsDirty`。
 - 收益（实测口径）：1000 个文本从 34.8ms（每帧重建位图）→ 2.6ms（23000 次位图纯平移复用）；
   实现要点是命中已有的 `ObjectCache.refreshPosition`（整数设备像素位移才复用）。
+- **落地形态（2026-09-13）**：`ICEComponent.setState(patch, { paramsDirty })`（省略 = 旧行为）+
+  `ICEComponent.ANIMATION_SAFE_KEYS` 白名单 + `isAnimationSafeKey()`；`AnimationManager` 只在
+  "本帧写出的键全是安全键"时跳过 `paramsDirty`。白名单**保守方向**：未知键与未声明白名单的组件
+  一律照旧置脏（第三方组件零风险）。
+- **配套：设备像素量化**（`AnimationManager.snapToDevicePixel`，默认开）。位图复用要求位移是
+  **整数设备像素**，而动画每帧位移通常是小数；量化只作用于"飞行中的纯平移 + 当前可离屏缓存的组件"，
+  且**终点值永远精确写入**（`to: 100.5` 就落在 100.5）。单条动画可 `snapToDevicePixel: false` 关掉。
 
 ### 3.3 脏区判定：按**面积**而不是**组件计数**
 
@@ -89,6 +96,10 @@
 ## 6. 分期
 
 1. **性能地基**：动画写值专用通道 + 脏区面积门 + bench 固化（本文 §3.2 / §3.3 / §5）。
+   —— **写值通道与设备像素量化已落地（2026-09-13）**：`setState(patch, { paramsDirty })` +
+   组件的「动画安全键」白名单 + `AnimationManager.snapToDevicePixel`（默认开、可单条关）；
+   实测 1,000 个文本的平移动画 **35.1ms → 2.7ms**（位图复用率 100%），门槛进了
+   `npm run bench:anim -- --check`（已接进 `verify:full`）。**面积门还没做**（见 §3.3 的注意事项）。
 2. **分层渲染**：静态层 / 动画层（§3.1）。
 3. **Agent 侧闭环**：动画 DSL 的校验 + 稳定诊断码（另见 DSL 侧的诊断约定）。
 4. **帧调度与合规**：降频 / 空闲停帧 / 拖拽跳过命中 / 屏外裁剪 / `prefers-reduced-motion`（§3.4）。

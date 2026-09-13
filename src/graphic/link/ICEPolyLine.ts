@@ -32,6 +32,13 @@ import root from '../../cross-platform/root';
  */
 class ICEPolyLine extends ICEDotPath {
   /**
+   * 折线的「动画安全键」**不能**沿用基类那套：`setState({left})` 会就地平移 `points`，
+   * 而折线的 width/height 是从点集推出来的 —— 位置对它来说是**几何**，必须走 `paramsDirty`。
+   * 这里只放行纯绘制/容器语义的键。
+   */
+  public static readonly ANIMATION_SAFE_KEYS: readonly string[] = ['zIndex', 'opacity', 'display', 'fill', 'stroke'];
+
+  /**
    * 类型标识
    * 用来解决 TypeScript 的 instanceof 兼容性问题， https://github.com/microsoft/TypeScript/issues/22585
    * 仅供内部使用，业务代码不可依赖此属性
@@ -698,7 +705,7 @@ class ICEPolyLine extends ICEDotPath {
    * @overwrite
    * @param newState 新的状态
    */
-  public setState(newState: any) {
+  public setState(newState: any, options?: { paramsDirty?: boolean }) {
     //ICEPolyLine 的 width/height 属性总是计算出来的，不能直接修改，不接受 width/height 配置项。
     if (!isNil(newState.width)) {
       delete newState.width;
@@ -750,7 +757,7 @@ class ICEPolyLine extends ICEDotPath {
       this.syncConnections();
     }
 
-    super.setState(newState);
+    super.setState(newState, options);
   }
 
   /**

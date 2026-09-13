@@ -91,7 +91,7 @@ class ICEEllipse extends ICEPath {
    * @overwrite
    * @param newState
    */
-  public setState(newState: any) {
+  public setState(newState: any, options?: { paramsDirty?: boolean }) {
     if (!isNil(newState.radiusX)) {
       newState.width = 2 * newState.radiusX;
     } else if (!isNil(newState.width)) {
@@ -104,7 +104,7 @@ class ICEEllipse extends ICEPath {
       newState.radiusY = newState.height / 2;
     }
 
-    super.setState(newState);
+    super.setState(newState, options);
   }
 }
 export default ICEEllipse;

@@ -86,7 +86,7 @@ class ICERose extends ICEDotPath {
    * - 如果 setState 时仅仅指定 width 参数，则 radius 会被重新计算，如果仅仅指定了 height 参数，则 radius 会被重新计算。
    * @param newState
    */
-  public setState(newState: any) {
+  public setState(newState: any, options?: { paramsDirty?: boolean }) {
     if (!isNil(newState.radius)) {
       newState.width = 2 * newState.radius;
       newState.height = 2 * newState.radius;
@@ -97,7 +97,7 @@ class ICERose extends ICEDotPath {
       newState.radius = newState.height / 2;
       newState.width = newState.height;
     }
-    super.setState(newState);
+    super.setState(newState, options);
   }
 }
 
