@@ -1309,11 +1309,25 @@ abstract class ICEComponent extends ICEEventTarget {
     'transform', // 前缀匹配 transform.rotate / transform.translate / ...
     'fill',
     'stroke',
+    // 基类的派生参数只有尺寸（width/height）—— `style.*` 全是绘制属性，不参与几何推导。
+    // **会量测的组件必须自己重写这张表**（`ICEText` 就不能继承这一条：字号/字间距/行高会改变盒子）。
+    'style',
   ];
 
   /** 该 state 键路径是否在「动画安全键」白名单里（`transform` 这类前缀按 `transform.xxx` 匹配）。 */
   public isAnimationSafeKey(path: string): boolean {
-    const keys: readonly string[] = (this.constructor as any).ANIMATION_SAFE_KEYS || [];
+    return ICEComponent.isAnimationSafeKeyFor(this.constructor, path);
+  }
+
+  /**
+   * 按**类**查询某个 state 键路径是否"动画安全"（不需要实例）。
+   *
+   * 给下游用（DSL / Agent 侧校验）：它们手里只有类型（`ICEText` / `ICERect`…），
+   * 没有也不该造实例 —— 但需要给出"这个属性动画会每帧重量测"这类性能提示。
+   * 判定口径与实例方法完全一致（只查静态白名单）。
+   */
+  public static isAnimationSafeKeyFor(ctor: any, path: string): boolean {
+    const keys: readonly string[] = (ctor && (ctor as any).ANIMATION_SAFE_KEYS) || ICEComponent.ANIMATION_SAFE_KEYS;
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
       if (path === key) {
