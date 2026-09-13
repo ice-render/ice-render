@@ -109,6 +109,26 @@ describe('序列化 / 反序列化 round-trip', () => {
     expect(json.version).toBe(1);
   });
 
+  it('时间戳是 ISO 8601 UTC（与运行环境语言/时区无关，可排序、可解析）', () => {
+    const ice = makeIce();
+    ice.addChild(new ICERect({ width: 10, height: 10 }));
+    const json: any = new Serializer(ice).toJSONObject();
+
+    // 旧实现是 `new Date().toLocaleString()`：zh-CN 下 `2026/9/13 12:12:33`、en-US 下
+    // `9/13/2026, 12:12:33 PM` —— 同一份数据换个语言环境就不一样，且不能直接排序。
+    const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+    expect(json.createTime).toMatch(ISO_UTC);
+    expect(json.lastModifyTime).toMatch(ISO_UTC);
+    expect(json.createTime).not.toMatch(/[/年月]|AM|PM/);
+
+    // 可被标准解析器还原，且往返无损（定长 → 字典序 = 时间序）
+    expect(new Date(json.createTime).toISOString()).toBe(json.createTime);
+    expect(new Date(json.lastModifyTime).getTime()).not.toBeNaN();
+
+    // 同一次写出两个字段取同一时刻
+    expect(json.lastModifyTime).toBe(json.createTime);
+  });
+
   it('序列化排除运行时缓存值（linearMatrix/composedMatrix/localOrigin/absoluteOrigin）', () => {
     const ice = makeIce();
     const rect = new ICERect({ width: 10, height: 10 });

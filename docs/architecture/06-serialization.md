@@ -9,7 +9,7 @@
 ```javascript
 {
   version,                         // 序列化格式版本（用于迁移）
-  createTime, lastModifyTime,
+  createTime, lastModifyTime,      // ISO 8601 UTC，如 '2026-09-13T04:12:33.123Z'（见下方说明）
   childNodes: [
     {
       type: 'ice-render:Group',    // 类型标识：已注册类型写 canonical typeId（namespace:Type），未注册才回退 constructor.name
@@ -21,6 +21,12 @@
 ```
 
 - **编码时用 `state`**（而非 `props`）——`state` 是经过动画/交互后的"当前真相"。
+- **时间戳是 ISO 8601 UTC**：`createTime` / `lastModifyTime` 这对字段**只是导出元信息**
+  （引擎不读、反序列化不依赖，两次写出都取"这一次写出"的时刻）。用 ISO 而非 `toLocaleString()`：
+  前者与运行环境的语言/时区无关、定长可排序、任何工具都能解析；后者在 zh-CN 机器上写
+  `2026/9/13 12:12:33`、在 en-US 机器上写 `9/13/2026, 12:12:33 PM`，同一份数据换个环境就不一样。
+  也不用 epoch 毫秒 —— 这两个字段是给人看的，JSON 里可读性比省字节重要。需要「同一次编辑导出逐字节相同」
+  的场景（去重、签名）请自行丢弃这两个字段，参考 `ice-entity-designer` 的 `FlowDesigner.toSnapshot()`。
 - **`type` 用稳定标识而非类名**：写出前用 `ice.getTypeId(ctor)` 由构造函数**反查 canonical typeId**
   （与类的 JS 名解耦，terser 压缩改名不会破坏已存数据）；只有**未注册**的自定义类型才回退 `constructor.name`
   （此时 `Serializer.unregisteredTypes` 会记录并告警 —— 回退名在下游打包后可能读不回来）。
