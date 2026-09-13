@@ -13,7 +13,12 @@ function walk(dir, rel = '') {
     const full = path.join(dir, name);
     const stat = fs.statSync(full);
     if (stat.isDirectory()) {
-      if (name === 'assets') continue;
+      // 跳过不该当示例收录的目录：
+      // - `assets`：图片等静态资源；
+      // - `node_modules`：`examples/mini-program/node_modules/**` 里有一堆第三方自带的示例 html，
+      //   曾被误收进来（导航页从 88 条变成 95 条，多出 jimp / min-document / qrcode-reader 的页面）；
+      // - 点开头的目录（`.git` / `.cache` 之类）同样不是示例。
+      if (name === 'assets' || name === 'node_modules' || name.startsWith('.')) continue;
       walk(full, rel ? `${rel}/${name}` : name);
     } else if (name.endsWith('.html')) {
       // 跳过导航页自身：否则它会把自己也登记成一个「示例」，页面头部计数与真实示例数差 1
