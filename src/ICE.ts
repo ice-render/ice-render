@@ -6,6 +6,7 @@
  *
  */
 import { isString } from './util/lang';
+import { rebindComponentTree } from './util/data-util';
 import AnimationManager from './animation/AnimationManager';
 import { componentTypeEntries } from './consts/COMPONENT_TYPE_MAPPING';
 import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';
@@ -869,6 +870,111 @@ class ICE {
   /** 当前是否处于输入穿透（见 {@link ICE.setInputPassthrough}）。 */
   public isInputPassthrough(): boolean {
     return this.__inputPassthrough;
+  }
+
+  /**
+   * 把组件从本实例的树上**摘除但不销毁**（迁移 / 暂存专用）。
+   *
+   * 与 `removeChild()` 的唯一区别：**不调用 `destory()`** —— 组件自身的事件监听、内部子树、
+   * 动画配置都保持完好。跨实例迁移（{@link ICE.moveComponentTo}）与"重父级"都需要这个语义，
+   * 用 `removeChild` 会把组件连同子树一起清空（BPMN 池/泳道曾踩过这个坑）。
+   *
+   * @returns 是否真的摘除了（组件不属于本实例时返回 false）
+   */
+  public detachChild(component: any, markDirty: boolean = true): boolean {
+    if (!component || component.ice !== this) {
+      return false;
+    }
+    // 1) 从动画管理器摘除：否则本实例每帧还会 setState 到一个已经不在树里的组件
+    if (this.animationManager) {
+      this.animationManager.remove(component);
+    }
+    // 2) 从旧父链上剪掉（嵌套 → 剪父容器的 childNodes；顶层 → 剪本实例的 childNodes）
+    const parent: any = component.parentNode;
+    if (parent && Array.isArray(parent.childNodes)) {
+      const index = parent.childNodes.indexOf(component);
+      if (index !== -1) {
+        parent.childNodes.splice(index, 1);
+      }
+      if (parent.__childSet && typeof parent.__childSet.delete === 'function') {
+        parent.__childSet.delete(component);
+      }
+    } else {
+      const index = this.childNodes.indexOf(component);
+      if (index !== -1) {
+        this.childNodes.splice(index, 1);
+      }
+      if (this.__childSet && typeof this.__childSet.delete === 'function') {
+        this.__childSet.delete(component);
+      }
+    }
+    component.parentNode = null;
+    if (markDirty) {
+      this.dirty = true;
+      if (this.renderer) {
+        this.renderer.markQueueDirty();
+      }
+    }
+    return true;
+  }
+
+  /**
+   * 把组件（连同整棵子树）迁移到另一个 `ICE` 实例 —— 分层渲染里"拖拽期间把元素提升到动画层、
+   * 松手放回"这类交互的引擎原语（见 18 · 动画机制 §3.1）。
+   *
+   * 契约：
+   * - **保持世界坐标**：迁移前后组件 origin 的绝对坐标不变（两边的祖先矩阵/视口可能不同，
+   *   因此按矩阵换算，而不是照抄 `left/top`）；
+   * - **不销毁**：组件自身的事件监听、内部子树与动画配置都保留（用 `detachChild` 而非 `removeChild`）；
+   * - **子树整体切换**：后代的 `ice/ctx/evtBus` 递归指向目标实例（经 `addChild` 的 AFTER_ADD 链）；
+   * - **目标实例接管**：动画注册迁到目标实例的 AnimationManager；选中态从本实例移除并落到目标实例；
+   * - 两个实例的**视口**是否同步由调用方决定（分层场景用 `ICE.linkViewport`）——
+   *   本方法只保证*世界坐标*不变，与视口无关。
+   *
+   * @param component    要迁移的组件（必须属于本实例）
+   * @param targetIce    目标实例
+   * @param targetParent 目标父级（可选；必须是目标实例树上的容器，缺省挂到目标实例根）
+   * @returns 是否迁移成功（参数非法 / 同实例 / 目标父级不属于目标实例 → false，且不改动任何状态）
+   */
+  public moveComponentTo(component: any, targetIce: ICE, targetParent: any = null): boolean {
+    if (!component || !targetIce || targetIce === this || component.ice !== this) {
+      return false;
+    }
+    if (targetParent && targetParent.ice !== targetIce) {
+      return false;
+    }
+    // 世界坐标快照：`calcAbsoluteOrigin()` 复用自己的 scratch 数组，必须立刻拷走
+    const before = component.calcAbsoluteOrigin();
+    const worldX = before[0];
+    const worldY = before[1];
+
+    if (!this.detachChild(component, true)) {
+      return false;
+    }
+    const parent: any = targetParent || targetIce;
+    parent.addChild(component, true);
+    // 子树整体重绑：`ICEGroup` 的 AFTER_ADD 同步钩子是 once（只首次挂载触发），
+    // 迁移时必须显式把后代切到目标实例，否则它们仍把事件发到旧实例。
+    rebindComponentTree(component, targetIce);
+
+    // 保持世界坐标：用"新旧绝对位置的差"做全局位移（内部会抵消新父链的线性变换）
+    const after = component.calcAbsoluteOrigin();
+    const dx = worldX - after[0];
+    const dy = worldY - after[1];
+    if (dx !== 0 || dy !== 0) {
+      component.moveGlobalPosition(dx, dy);
+    }
+    component.dirty = true;
+
+    // 选中态：旧实例摘掉（避免控制面板指着一个已经不在它树里的组件），目标实例接管
+    if (this.selectionList && this.selectionList.indexOf(component) !== -1) {
+      const rest = this.selectionList.filter((item: any) => item !== component);
+      this.setSelection(rest.length ? rest : null);
+    }
+    if (targetIce.selectionList.indexOf(component) === -1) {
+      targetIce.setSelection([component]);
+    }
+    return true;
   }
 
   /** 屏幕坐标（canvas 像素）→ 世界坐标（受视口逆变换）。 */

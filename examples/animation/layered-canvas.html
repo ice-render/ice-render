@@ -19,10 +19,13 @@
     <button id="btn-reset">复位视口</button>
     <button id="btn-toggle-passthrough">切换动画层输入穿透</button>
     <button id="btn-toggle-anim">暂停/继续动画</button>
+    <button id="btn-migrate">把选中的静态图元提升到动画层</button>
+    <button id="btn-migrate-back">把动画层里的标记放回静态层</button>
   </div>
   <div id="hint">
     两张 canvas 叠放：<b>下层静态层</b>（只画一次：大量文本/折线/方块）+ <b>上层动画层</b>（每帧只重绘几十个标记）。
     动画层默认 <code>pointer-events: none</code>（输入穿透），所以点击/拖拽仍然作用在下层的图元上；点「切换动画层输入穿透」可以观察差异。
+    另外两个按钮演示 <code>moveComponentTo()</code>：把选中的静态图元提升到动画层（拖拽期间只重绘小层），再放回静态层，位置不变。
   </div>
   <div id="stage">
     <canvas id="canvas-static" width="1024" height="640"></canvas>
@@ -125,6 +128,38 @@
       } else {
         animIce.animationManager.pause();
       }
+    };
+
+    // ---- 跨层迁移：拖拽期间把选中的静态图元"提升"到动画层，松手后放回（Konva drag-layer 模式）----
+    // 引擎原语 `moveComponentTo` 保证世界坐标不变、事件监听不丢、动画注册与选中态跟着走。
+    const promoted = [];
+    document.getElementById('btn-migrate').onclick = () => {
+      const selected = staticIce.selectionList.filter((c) => promoted.indexOf(c) === -1);
+      selected.forEach((component) => {
+        const x = component.state.left;
+        const y = component.state.top;
+        if (staticIce.moveComponentTo(component, animIce)) {
+          // 迁移后仍在动画层里可交互：给它挂一个"被拖过"的循环动画，演示"提升后确实由动画层驱动"
+          component.props.animations = {
+            'transform.translate': { from: [0, 0], to: [12, 0], duration: 900, easing: 'linear', loop: true },
+          };
+          animIce.animationManager.add(component);
+          promoted.push({ component, x, y });
+        }
+      });
+    };
+    document.getElementById('btn-migrate-back').onclick = () => {
+      while (promoted.length) {
+        const item = promoted.pop();
+        item.component.props.animations = {};
+        animIce.animationManager.remove(item.component);
+        if (animIce.moveComponentTo(item.component, staticIce)) {
+          // 放回静态层：位置由原语保持，这里顺带复位到迁移前的落点（示例演示用）
+          item.component.setState({ left: item.x, top: item.y });
+        }
+      }
+      staticIce.dirty = true;
+      staticIce.renderer.frameEvtHandler();
     };
 
     // 自检用：e2e 通过这两个句柄观察分层是否生效
