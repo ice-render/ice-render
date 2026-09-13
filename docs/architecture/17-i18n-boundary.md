@@ -119,10 +119,10 @@ try {
 | 输入法 | ✅ 透明 `<input>` + `compositionend` |
 | 错误码 | ✅ `ICE_*` 稳定码（2026-09-13） |
 | 引擎中立性 | ✅ 无规范化 / 无 locale 格式化 / 文本原样往返 |
-| 组件库 locale 作用域 | ⚠️ `ice-web-components` 仍是模块级 `setICELocale()`；已在计划内改为「props 可覆盖 + 无全局状态」 |
-| 组件库内置文案覆盖率 | ⚠️ 日历/日期选择器/分页/表单校验/上传错误仍硬编码（计划内接线） |
-| 图表包内置文案 | ⚠️ a11y 标签与交互提示默认中文，需要可覆盖入口 |
-| DSL 诊断 | ⚠️ 中文字符串，面向 Agent 的诊断同样需要稳定码 |
+| 组件库 locale 作用域 | ✅ `props.locale` / `options.locale` 按实例生效（`tFor(locale)`）；`setICELocale()` 只是**应用级默认**，优先级「实例 > 全局」有测试钉住 |
+| 组件库内置文案覆盖率 | ✅ 分页 / 上传 / 表单校验 / **日历与日期选择器的月份·周标题**都已接线；**一周首日按语言推导**（`Intl.Locale.weekInfo.firstDay`，`en-US` 周日、`zh-CN` 周一），可用 `weekStart: 0..6` 覆盖 |
+| 图表包内置文案 | ✅ `option.labels`（`chart/sector/value/ratio/indicator/coordinate/liquid/slice`）可覆盖无障碍表头与默认 tooltip 标签；不传即中文默认值 |
+| DSL 诊断 | ✅ `ice-chart-dsl` 本就是 `{ severity, code, message, path }`；`ice-entity-designer-dsl` 新增 `diagnostics`（26 个 `IED_DSL_*` 码 + `path`），`errors` 原样保留 |
 
 ## A2UI 场景下为什么这条边界更重要
 
