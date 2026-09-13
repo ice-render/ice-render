@@ -7,6 +7,24 @@
 
 > 暂无（下一个版本发布前在这里累积）。
 
+### 修复
+
+- **连线端点手柄被 `transformable` 连带禁用**（2026-09-13）：`ICEControlPanelManager` 原来用**同一个**
+  `transformable` 决定"要不要给这个组件控制面板"。但线条型组件的面板是 **LineControlPanel（两端
+  ICELinkHook 端点手柄）**，语义是"拖动端点改变连接关系"，与"旋转/缩放手柄"是两回事。
+  于是下游踩坑：应用层为了"记法不可变换"给连线设 `transformable: false`，**端点手柄与连接插槽一起没了**
+  （ice-entity-designer 的 8 个域包全是这个症状：点连线看不到 hook，也没法把线拖到别的组件上）。
+  现在线条组件改用新的 `linkEditable`（默认 `true`）单独控制端点手柄；`transformable` 只管变换手柄，
+  要禁止改连接写 `linkEditable: false`。
+- **拖拽归属：抬起事件必须回到"按下的那个组件"**（2026-09-13）：派发器对抬起事件按当前位置重新命中检测，
+  于是"按下 A → 拖到 B 上松手"时 A 收不到 mouseup。对端点手柄是致命的 —— 它要在 mouseup 时
+  （`HOOK_MOUSEUP` → `ICELinkSlotManager`）把连线改接到落点插槽上，收不到就"拖得动、放不下"。
+  现在派发器记住按下的组件，抬起时先把事件补派给它，再按老规矩派发给命中组件（总线仍只触发一次）。
+  回归：`tests/event/DOMEventDispatcher.drag-owner.test.ts`。
+
+> 两处一起修，ice-entity-designer 才恢复"点连线 → 出现端点手柄 → 拖到另一个实体上 → 连接关系改变"，
+> 该仓新增 e2e `e2e/link-hooks.spec.ts` 钉住整条用户路径。
+
 ## [2.3.0] - 2026-09-13
 
 本轮主题：**动画机制从「能动」走到「可控 + 可控性可验证」**（写值通道 → 分层渲染 → 帧调度 →

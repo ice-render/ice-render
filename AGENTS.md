@@ -163,6 +163,20 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 - **版本号按「对真实消费者是否有影响」判断**：改 API / 数据格式且下游会受影响 → 主/次版本；
   只是内部字段语义或元信息调整、没有消费者依赖 → 修复级（例：`2.0.1` 的 `createTime` 语义调整）。
 
+### 连线端点手柄与拖拽归属（2026-09-13 确立）
+
+- **端点手柄 ≠ 变换手柄**：线条型组件的控制面板是 `LineControlPanel`（两端 `ICELinkHook`），
+  语义是"拖动端点改变连接关系"，由组件 state 的 **`linkEditable`（默认 true）** 单独控制；
+  `transformable` 只管旋转/缩放手柄。**应用层"记法不可变换"只能写 `transformable: false`**，
+  用它去关端点手柄会让 hook / slot 一起消失（ice-entity-designer 8 个域包踩过）；真要禁止改连接写 `linkEditable: false`。
+  回归：`tests/control-panel/control-panel-selection-gate.test.ts`。
+- **拖拽归属**：`DOMEventDispatcher` 在按下时记住 drag owner，抬起时**先补派给它**再按命中结果派发
+  （总线仍只触发一次）。没有这条，"按下 A → 拖到 B 上松手"时 A 收不到 mouseup —— 端点手柄正是靠
+  `mouseup → HOOK_MOUSEUP → ICELinkSlotManager` 才把连线改接到落点插槽，丢了就"拖得动、放不下"。
+  回归：`tests/event/DOMEventDispatcher.drag-owner.test.ts`。
+- 两者合起来才是完整用户路径：**点连线 → 出端点手柄 → 拖到别的组件上出插槽 → 松手改接**
+  （ice-entity-designer 的 `e2e/link-hooks.spec.ts` 钉住整条链路）。
+
 ## 提交前自检
 
 - 一条命令跑完全部门禁：**`npm run verify`**（lint → types:check → build → jest → bench 2000 → pkg:check）；

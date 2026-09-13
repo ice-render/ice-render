@@ -106,6 +106,14 @@ class ICEPolyLine extends ICEDotPath {
         showMinBoundingBox: false,
         showMaxBoundingBox: false,
         links: {},
+        /**
+         * 端点手柄（ICELinkHook）开关：选中连线时是否给出两端手柄，让用户拖动端点改连接关系。
+         *
+         * 与 `transformable` **解耦**：`transformable` 管的是旋转/缩放手柄，应用层为了
+         * 「记法不可变换」把它设成 false 时，端点手柄仍应可用（2026-09-13 起生效）。
+         * 真要禁止改连接，显式写 `linkEditable: false`。
+         */
+        linkEditable: true,
         routeType: 'straight', //连线布线方式：straight=直线，orthogonal=正交（直角折线，仅当两端建立了连接时生效）
         routeOffset: 20, //正交布线时，从端点沿插槽方向延伸的距离（px）
         curveType: 'straight', //连线曲线方式：straight=直线折线，quadratic=二次贝塞尔(points 需 3 点：起/控制/终)，cubic=三次贝塞尔(points 需 4 点：起/控制1/控制2/终)

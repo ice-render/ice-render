@@ -78,7 +78,21 @@ class ICEControlPanelManager {
 
     // `target` 可能为空：点在空白处、或宿主环境里没有 DOM 事件目标（小程序合成的事件对象
     // 就没有 `target`）。浏览器下 `evt.target` 恰好是 canvas 元素，所以这个空值一直没暴露。
-    if (!component || !component.ice || !component.state.interactive || !component.state.transformable) {
+    if (!component || !component.ice || !component.state.interactive) {
+      this.lineControlPanel.disable();
+      this.transformControlPanel.disable();
+      return;
+    }
+
+    // 「变换手柄」（旋转 / 缩放）与「端点手柄」（拖动连线端点改连接）是两件事，门控也分开：
+    //
+    // - 非线条组件：看 `transformable`（原语义不变）；
+    // - 线条型组件：看 `linkEditable`（默认开）。应用层常为了「记法不可变换」把连线设成
+    //   `transformable: false` —— 那是"不要旋转/缩放手柄"，**不该**连带禁掉端点手柄，
+    //   否则用户点连线看不到 hook、也没法把线拖到别的组件上改连接关系
+    //   （ice-entity-designer 的 8 个域包就是这个症状，2026-09-13 修）。
+    const panelEnabled = component.isLine ? component.state.linkEditable !== false : !!component.state.transformable;
+    if (!panelEnabled) {
       this.lineControlPanel.disable();
       this.transformControlPanel.disable();
       return;
