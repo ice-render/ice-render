@@ -62,8 +62,22 @@ class DOMEventDispatcher {
           return;
         }
 
+        const rawEvent: any = (evt as any).originalEvent || evt;
+        const isKeyboardEvt = iceEvtName.indexOf('KEY') !== -1;
+        const isWheelEvt = iceEvtName === 'ICE_WHEEL';
+        const isPressEvt = /DOWN|START/.test(iceEvtName);
+
+        //0) **事件归属**（同页多 ICE 实例 / 分层渲染的前提）：
+        //   全局拦截器把原生事件广播给所有总线，若不做归属过滤，按住上层画布会同时驱动下层实例
+        //   的命中检测（坐标还按各自 rect 算）——分层里"上层 pointer-events:none"就形同虚设。
+        //   只在**按下/滚轮**这两个"决定归属"的事件上过滤；移动/抬起不过滤，避免拖拽途中
+        //   指针划过另一张画布时丢事件（无 PointerCapture 的 mouse 回退路径尤其重要）。
+        if ((isPressEvt || isWheelEvt) && this.__isForeignCanvasTarget(rawEvent)) {
+          return;
+        }
+
         //1) 归一化坐标与位移（pointer/mouse/touch 统一）。键盘等无坐标事件返回 null。
-        const rawEvt: any = (evt as any).originalEvent || evt;
+        const rawEvt: any = rawEvent;
         //0) 指针捕获：拖拽时必须捕获，否则指针移出画布就收不到后续事件
         this.__handlePointerCapture(iceEvtName, rawEvt);
         const input = normalizeInput(rawEvt, this.__resolveCanvasRect(nativeEvtName), this.__lastInput);
@@ -73,10 +87,10 @@ class DOMEventDispatcher {
         }
 
         const isMove = MOVE_ICE_EVENTS.indexOf(iceEvtName) !== -1;
-        const isKeyboard = iceEvtName.indexOf('KEY') !== -1;
+        const isKeyboard = isKeyboardEvt;
         //! 滚轮是高频事件，且语义是「视口操作」而非「作用于某个组件」：只发总线，不做命中检测，
         //! 也不派发给上一次选中的组件（否则会给无关组件投递滚轮事件）。
-        const isWheel = iceEvtName === 'ICE_WHEEL';
+        const isWheel = isWheelEvt;
         //! 移动类事件触发频率极高，不执行 findTargetComponent()；
         //! 键盘事件必须先选中组件再派发才有意义，同样不做命中检测。
         if (!isMove && !isKeyboard && !isWheel) {
@@ -182,6 +196,29 @@ class DOMEventDispatcher {
       return ice.getInputRect();
     }
     return ice ? ice.canvasBoundingClientRect || null : null;
+  }
+
+  /**
+   * 事件目标是否属于「别的 canvas」（同页另一个 ICE 实例的绘制面）。
+   *
+   * - 目标是本实例的 canvas、或本实例 canvas 内的元素 → 不是"外来"事件；
+   * - 目标不是 canvas（body / window / 工具栏按钮等）→ 不是"外来"事件（键盘、合成事件照旧）；
+   * - 目标正是**另一个 canvas 元素** → 外来事件，本实例应忽略。
+   */
+  private __isForeignCanvasTarget(rawEvt: any): boolean {
+    const canvasEl: any = (this.ice as any).canvasEl;
+    const target: any = rawEvt && rawEvt.target;
+    if (!canvasEl || !target) {
+      return false;
+    }
+    if (target === canvasEl) {
+      return false;
+    }
+    if (typeof canvasEl.contains === 'function' && canvasEl.contains(target)) {
+      return false;
+    }
+    const tag = target.tagName ? String(target.tagName).toUpperCase() : '';
+    return tag === 'CANVAS';
   }
 
   public set stopped(flag: boolean) {
