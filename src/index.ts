@@ -67,5 +67,8 @@ export type { ICEPlugin, ICEPluginTool, ICERenderHook, ICERenderFrame } from './
 // 而不是再发明一份（ICE.init() 会把同样两个实例挂到 ice.serializer / ice.deserializer）。
 export { default as Serializer, SERIALIZATION_VERSION } from './persistence/Serializer';
 export { default as Deserializer, SERIALIZATION_MIGRATIONS } from './persistence/Deserializer';
+// typeId 格式契约（`namespace:Type`）：下游包注册自己的图元类型时用它校验 / 拼装，
+// 避免各处手写正则与字符串拼接（见 AGENTS.md「类型注册 / 序列化铁律」）。
+export { TYPE_ID_PATTERN, isTypeId, assertTypeId, parseTypeId, makeTypeId } from './util/type-id';
 export { buildAccessibilityTree } from './a11y/accessibility';
 export type { ICEAccessibleNode, ICEAccessibleRole, ICEAccessibilityOptions } from './a11y/accessibility';

@@ -1,5 +1,9 @@
 # ice-render superpowers 工作流脚手架 实现计划
 
+> **历史快照（2026-09-08）**：本文是当时的实现计划，其中复述的「现状」（如「渲染策略=全量重绘」、
+> 「序列化=类名→构造函数映射」）**不是当前约定**，仅用于还原当时的决策上下文。
+> 当前约定以仓库根 `AGENTS.md` 为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 在核心引擎仓库 `ice-render/` 内落地 superpowers 工作流脚手架——建立 `AGENTS.md`、打通 `npm test`(jest 基线 + 首批纯逻辑单测)、建立 `docs/superpowers/specs/` 与 `plans/` 目录约定。

@@ -7,7 +7,7 @@
  */
 import { isString } from './util/lang';
 import AnimationManager from './animation/AnimationManager';
-import componentTypeMap from './consts/COMPONENT_TYPE_MAPPING';
+import { componentTypeEntries } from './consts/COMPONENT_TYPE_MAPPING';
 import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';
 import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
 import AlignmentGuideManager from './control-panel/AlignmentGuideManager';
@@ -27,6 +27,7 @@ import { exportSvg, exportSvgResult } from './export/SvgExporter';
 import type { SvgExportOptions, SvgExportResult } from './export/SvgExporter';
 import ImageCache from './util/ImageCache';
 import { resolveTheme, getTheme, registerTheme, ICETheme, ICESemanticTheme } from './theme/ICETheme';
+import { assertTypeId } from './util/type-id';
 
 /**
  * 给 `ctx.createXxxGradient()` 的产物挂一份**可序列化的描述**。
@@ -110,7 +111,14 @@ class ICE {
    */
   public theme: ICETheme = getTheme();
 
-  public typeMapping = {}; //类型名称与构造函数之间的映射关系，在序列化和反序列化时需要根据此 mapping 来创建对应的类型的示例。
+  /**
+   * 类型名（canonical typeId，`namespace:Type`）与构造函数之间的映射关系。
+   *
+   * 序列化时由构造函数反查类型名，反序列化时由类型名取出构造函数。
+   * 用**无原型对象**承载：否则 `getType('constructor')` / `getType('toString')`
+   * 这类历史脏数据会命中 `Object.prototype` 上的成员，拿到一个非构造函数的东西。
+   */
+  public typeMapping: Record<string, any> = Object.create(null);
   /** 构造函数 → 类型名 的反查表（序列化用）。惰性构建，registerType/init 后失效重建。 */
   private __typeIdMapping: Map<any, string> | null = null;
 
@@ -126,7 +134,13 @@ class ICE {
 
   private __dirty: boolean = true; //如果此标志位为 true ，所有组件都会全部被重新绘制
 
-  constructor() {}
+  constructor() {
+    // 内置类型在构造时注册，保证任何 ICE 实例从创建起就有完整、稳定的注册表。
+    for (let i = 0; i < componentTypeEntries.length; i++) {
+      const entry = componentTypeEntries[i];
+      this.registerType(entry.typeId, entry.ctor);
+    }
+  }
 
   /** 是否已经完成初始化（用于 init 幂等 / destroy 配对） */
   private __initialized = false;
@@ -187,11 +201,7 @@ class ICE {
       throw new Error('同一个 ICE 实例已经绑定到其它 canvas，如需重新初始化请先调用 destroy()。');
     }
 
-    //把内置的类型映射拷贝到 typeMapping 上
-    for (const p in componentTypeMap) {
-      this.typeMapping[p] = componentTypeMap[p];
-    }
-    this.__typeIdMapping = null;
+    // 内置类型已在构造函数中注册；这里不再拷贝映射，避免重复注册。
 
     this.root = root;
 
@@ -495,23 +505,59 @@ class ICE {
   /**
    * @method registerType 注册组件类型
    *
-   * - 需要在反序列化之前调用，否则无法反序列化。
-   * - ICE 内置的类型已经自动注册，不需要手动注册。
+   * 类型标识必须使用 `namespace:Type` 格式（例：`ice-render:Rect`、`my-app:Badge`）。
    *
-   * @param className
-   * @param Clazz
+   * 冲突策略（全部**明确抛错**，绝不静默覆盖）：
+   * - 同一 typeId + 同一构造函数：幂等，不抛错（多入口 / 热更新会重复调用）；
+   * - 同一 typeId + 不同构造函数：抛错；
+   * - 同一构造函数注册第二个 typeId：抛错（否则 getTypeId 反查歧义，写出哪个名字取决于注册顺序）。
+   *
+   * 类型名**只有 canonical 一种形式**：引擎不做「旧的无 namespace 类名」兼容
+   * （ICE 家族仍在发布初期，用旧的只有自己的示例与测试，直接改名比养一套别名简单）。
    */
-  public registerType(className: string, Clazz: new (...args: any[]) => any) {
-    this.typeMapping[className] = Clazz;
+  public registerType(typeId: string, Clazz: new (...args: any[]) => any): void {
+    assertTypeId(typeId, 'registerType 的 typeId');
+    if (typeof Clazz !== 'function') {
+      throw new Error(`registerType("${typeId}") 失败：Clazz 必须是构造函数。`);
+    }
+
+    const existing = this.typeMapping[typeId];
+    if (existing) {
+      if (existing === Clazz) {
+        return;
+      }
+      throw new Error(
+        `typeId "${typeId}" 已注册为 ${existing.name || '匿名构造函数'}，不能再注册 ${Clazz.name || '匿名构造函数'}。`
+      );
+    }
+
+    const existingTypeId = this.getTypeId(Clazz);
+    if (existingTypeId && existingTypeId !== typeId) {
+      throw new Error(
+        `构造函数 ${Clazz.name || '匿名构造函数'} 已注册为 "${existingTypeId}"，不能同时注册为 "${typeId}"（反查会歧义）。`
+      );
+    }
+
+    this.typeMapping[typeId] = Clazz;
     this.__typeIdMapping = null; // 反查表失效，下次序列化重建
+  }
+
+  /** 是否注册了某个 canonical typeId。 */
+  public hasType(typeId: string): boolean {
+    return typeof typeId === 'string' && !!this.typeMapping[typeId];
+  }
+
+  /** 当前实例的 canonical typeId 列表（快照）。 */
+  public getRegisteredTypeIds(): string[] {
+    return Object.keys(this.typeMapping);
   }
 
   /**
    * 由构造函数反查稳定的类型名（序列化用）。
    *
-   * - 已注册的类型：返回注册名（与类的 JS 名解耦，压缩改名不影响已存数据）
+   * - 已注册的类型：返回 canonical typeId（`namespace:Type`，与类的 JS 名解耦，压缩改名不影响已存数据）
    * - 未注册：返回 undefined，调用方回退到 `constructor.name`（保持既有行为）
-   * - 同一个构造函数注册了多个名字时，**先注册的优先**（内置类型因此不会被别名顶掉）
+   * - 一个构造函数只可能有一个 canonical typeId（重复注册会抛错，见 registerType）
    */
   public getTypeId(Clazz: new (...args: any[]) => any): string | undefined {
     if (!Clazz) {
@@ -612,12 +658,21 @@ class ICE {
   }
 
   /**
+   * 根据类型名取构造函数（反序列化用）。
+   *
+   * 类型名**只有 canonical 一种形式**（`namespace:Type`）：注册表里没有的名字一律返回
+   * undefined（`Deserializer` 会把该节点记入 `unknownTypes` 并跳过）。因此引擎不做
+   * 「旧的无 namespace 类名」兼容 —— 那是另一条迟早要还的技术债。
+   *
    * @method getType 获取组件构造函数
-   * @param className
-   * @returns
+   * @param typeId canonical typeId（`namespace:Type`）
+   * @returns 构造函数；未注册时返回 undefined
    */
-  public getType(className: string) {
-    return this.typeMapping[className];
+  public getType(typeId: string) {
+    if (typeof typeId !== 'string' || !typeId) {
+      return undefined;
+    }
+    return this.typeMapping[typeId];
   }
 
   /**

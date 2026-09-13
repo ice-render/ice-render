@@ -36,6 +36,19 @@ export const SERIALIZATION_VERSION = 1;
 export default class Serializer {
   private ice: ICE;
 
+  /**
+   * 本次序列化中遇到的、未注册的组件类型名（去重）。
+   *
+   * 未注册类型只能回退写出 `constructor.name`，而下游打包器会 mangle 类名——写出去的
+   * 名字**下次不一定读得回来**。这里记录并告警，让应用层有机会提示用户先
+   * `ice.registerType('your-namespace:Type', Type)`。
+   */
+  private _unregisteredTypes: string[] = [];
+
+  public get unregisteredTypes(): string[] {
+    return this._unregisteredTypes;
+  }
+
   constructor(ice) {
     this.ice = ice;
   }
@@ -57,6 +70,7 @@ export default class Serializer {
    * @returns Object
    */
   public toJSONObject(): object {
+    this._unregisteredTypes = [];
     const result = {
       version: SERIALIZATION_VERSION,
       createTime: new Date().toLocaleString(),
@@ -74,8 +88,20 @@ export default class Serializer {
   //递归序列化
   private encodeRecursively(component, parentData) {
     // 优先用注册表反查稳定 typeId（与类名解耦，压缩改名不破坏数据）；
-    // 未注册的自定义类型回退到 constructor.name（保持既有约定）。
-    const typeId = this.ice.getTypeId(component.constructor) || component.constructor.name;
+    // 未注册的自定义类型回退到 constructor.name（保持既有约定），但会记录 + 告警：
+    // 这类数据（尤其是被 mangle 过的类名）下次可能读不回来。
+    const registeredTypeId = this.ice.getTypeId(component.constructor);
+    const typeId = registeredTypeId || component.constructor.name;
+    if (!registeredTypeId) {
+      const fallbackName = String(typeId);
+      if (this._unregisteredTypes.indexOf(fallbackName) === -1) {
+        this._unregisteredTypes.push(fallbackName);
+        console.warn(
+          `[ICE] 序列化遇到未注册的类型：${fallbackName}，已回退写出类名（可能受打包改名影响）。` +
+            `建议先 ice.registerType('your-namespace:Type', Type) 注册。`
+        );
+      }
+    }
     const currentData = {
       state: this.pickSerializableState(component.state),
       type: typeId,

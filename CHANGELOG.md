@@ -7,6 +7,40 @@
 
 > 暂无（下一个版本发布前在这里累积）。
 
+## [2.0.0] - 2026-09-13
+
+### 变更（破坏性：自研 / 第三方自定义类型需要迁移）
+
+- **类型标识统一为 `namespace:Type`**（2026-09-13）：`ICE.registerType()` 的第一个参数从
+  「全局类名」改为 **canonical typeId**，格式 `/^[a-z][a-z0-9-]*:[A-Za-z_][A-Za-z0-9_-]*$/`
+  （工具函数 `src/util/type-id.ts`）。引擎内置改为 `ice-render:*`（`ice-render:Rect`、
+  `ice-render:Group`…），下游各自用自己的包名（`ice-entity-designer:*`、`ice-chart:*`、
+  第三方 `my-app:*`）。**为什么要改**：无 namespace 的类名是一张全局平面表，ICE 家族
+  （引擎 / 实体设计器 / 图表 / 业务方）各自的自定义图元必然撞名，而旧的注册表对该情况
+  **静默覆盖**（ice-chart 甚至专门 `try/catch` 吞掉了重复注册异常）——撞名后已存数据会错乱，
+  且没有任何信号。现在冲突一律显式化。
+- **注册冲突明确抛错**（2026-09-13）：① 同一 typeId 注册**不同**构造函数 → 抛错；
+  ② 同一构造函数注册**第二个** canonical typeId → 抛错（否则 `getTypeId()` 反查歧义，
+  写出哪个名字取决于注册顺序）；③ 同一 typeId + 同一构造函数 → 幂等，不抛错。
+- **不做旧名兼容**（2026-09-13）：家族仍在发布初期（引用者少、无历史包袱），因此引擎不维护
+  「旧的无 namespace 类名 → 新 typeId」的别名表。`ICERect` 之类的旧写法、`ice-chart` 的旧 kebab 名
+  （`ice-plot-area`）、`ice-entity-designer` 的旧领域名（`FlowNode`…）一律不再被识别；
+  旧格式数据里的节点按「未注册类型」处理（跳过 + 记入 `deserializer.unknownTypes`），改数据即可。
+- **注册表改为无原型对象**（2026-09-13）：`ice.typeMapping` 不再是 `{}`，
+  否则 `getType('constructor')` / `getType('toString')` 会命中 `Object.prototype` 上的成员，
+  把脏数据变成 `new Object(state)` 或抛出「别名冲突」的假错误。
+
+### 新增
+
+- **`Serializer.unregisteredTypes`**（2026-09-13）：序列化时未注册的类型仍回退写出
+  `constructor.name`（保持既有约定），但会被去重记录并告警 —— 回退名在下游打包后可能被
+  mangle，静默写出去等于埋雷。应用层可据此提示用户先 `registerType()`。
+  对应地，反序列化侧的未注册类型仍记录在 `deserializer.unknownTypes`。
+- **`ICE.hasType(typeId)` / `ICE.getRegisteredTypeIds()`**（2026-09-13）：查询当前实例的
+  canonical 注册表（便于自检命名空间是否规范）。
+- **插件注册失败的错误信息带上插件名**（2026-09-13）：`ICE.use(plugin)` 的 `components`
+  里出现非法 / 冲突的 typeId 时，报错形如 `插件 "xxx" 注册组件类型失败：...`。
+
 ## [1.4.10] - 2026-09-13
 
 ### 新增

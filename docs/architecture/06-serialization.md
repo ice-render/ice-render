@@ -12,7 +12,7 @@
   createTime, lastModifyTime,
   childNodes: [
     {
-      type: 'ICEGroup',            // 类型标识：已注册类型写**注册名**，未注册才回退 constructor.name
+      type: 'ice-render:Group',    // 类型标识：已注册类型写 canonical typeId（namespace:Type），未注册才回退 constructor.name
       state: { ... },              // 组件的 state（运行时状态）
       childNodes: [ ... ]          // 递归子节点
     }
@@ -21,9 +21,10 @@
 ```
 
 - **编码时用 `state`**（而非 `props`）——`state` 是经过动画/交互后的"当前真相"。
-- **`type` 用稳定标识而非类名**：写出前用 `ice.getTypeId(ctor)` 由构造函数**反查注册名**
-  （与类的 JS 名解耦，terser 压缩改名不会破坏已存数据）；只有**未注册**的自定义类型才回退 `constructor.name`。
-  旧数据（`type` 写类名、无 `version`）仍可加载。
+- **`type` 用稳定标识而非类名**：写出前用 `ice.getTypeId(ctor)` 由构造函数**反查 canonical typeId**
+  （与类的 JS 名解耦，terser 压缩改名不会破坏已存数据）；只有**未注册**的自定义类型才回退 `constructor.name`
+  （此时 `Serializer.unregisteredTypes` 会记录并告警 —— 回退名在下游打包后可能读不回来）。
+  无 namespace 的旧类名（`ICERect`…）**不再被识别**，见下方「类型标识与注册表」。
 
 ## 序列化器与反序列化器
 
@@ -40,17 +41,64 @@ graph LR
   **遇到未注册的类型不会整份数据打不开**：跳过该节点（含子树）并记入 `deserializer.unknownTypes`，
   便于提示用户 `registerType()` 后重载。
 
-## 类型映射（关键）
+## 类型标识与注册表（关键）
 
-反序列化需要"类名字符串 → 构造函数"的映射，即 `COMPONENT_TYPE_MAPPING`：
+### `namespace:Type` 契约
 
-```javascript
-{ ICERect, ICECircle, ICEEllipse, ICEStar, ICEIsogon, ICEText,
-  ICEImage, ICEGroup, ICEVisioLink, ICEPolyLine, ... }
+类型标识（typeId）统一为 **`namespace:Type`**，**只有这一种形式**：
+
+```text
+/^[a-z][a-z0-9-]*:[A-Za-z_][A-Za-z0-9_-]*$/
+
+ice-render:Rect                 引擎内置
+ice-entity-designer:FlowNode    实体设计器（流程图）
+ice-chart:PlotArea              图表
+my-company:Widget               第三方 / 业务方（用自己的小写包名）
 ```
 
-- 该映射在 `ICE.init()` 时拷贝到 `ice.typeMapping`；`ICE.registerType()` 会使其反查表失效、下次序列化时重建。
-- **自定义组件**必须 `ice.registerType(className, Clazz)` 注册后才能被反序列化，否则 `getType` 拿不到构造函数（序列化时会回退写 `constructor.name`，两者不一致会导致自己写的数据读不回来）。
+namespace 小写字母开头（只允许小写字母、数字、连字符），Type 字母或下划线开头。
+工具函数见 `src/util/type-id.ts`，并随包导出（`TYPE_ID_PATTERN` / `isTypeId` / `assertTypeId` /
+`parseTypeId` / `makeTypeId`），下游包注册自己的图元时直接复用，不必各处手写正则。
+**为什么必须带 namespace**：不带 namespace 的全局类名是「一个平面命名空间」，下游（设计器 / 图表 / 业务方）
+各自的 `Badge`、`Title`、`Node` 必然撞车，而注册表的冲突策略只能是「静默覆盖」或「抛错」——
+前者让已存数据错乱，后者让互不相关的插件互相干扰。带 namespace 之后，冲突只可能发生在**同一个
+namespace 内部**（同一个团队 / 同一个包），这才是可以协商、可以修的问题。
+
+### 注册与冲突策略
+
+```javascript
+// 内置类型：由 ICE 构造函数自动注册（src/consts/COMPONENT_TYPE_MAPPING.ts 只提供条目表）
+ice.registerType('my-app:Badge', Badge);
+```
+
+- **同一 typeId + 同一个构造函数**：幂等，重复注册不抛错（便于多入口 / 热更新重复调用）。
+- **同一 typeId + 不同构造函数**：**明确抛错**，绝不静默覆盖。
+- **同一构造函数 + 第二个 canonical typeId**：**明确抛错**（否则 `getTypeId()` 反查会歧义，
+  序列化写出哪个名字取决于注册顺序，属不可复现行为）。
+- **不做旧名兼容**：ICE 家族仍在发布初期（引用者少、没有历史包袱），因此引擎不维护
+  「旧的无 namespace 类名 → 新 typeId」的别名表。旧格式快照里的节点会被当作**未注册类型**
+  跳过并记入 `unknownTypes`，需要的话直接改数据即可。
+- `ice.typeMapping` 是**无原型对象**：`getType('constructor')` 不会命中
+  `Object.prototype.constructor` 而把脏数据变成 `new Object(state)`。
+- 插件在 `ICE.use(plugin)` 的 `components` 里声明类型时同样受这套规则约束，
+  注册失败会把插件名带进错误信息（`插件 "xxx" 注册组件类型失败：...`）。
+
+### 查询接口
+
+| 接口 | 语义 |
+|---|---|
+| `ice.getType(typeId)` | canonical typeId → 构造函数（反序列化用） |
+| `ice.getTypeId(ctor)` | 构造函数 → canonical typeId（序列化用；未注册返回 `undefined`） |
+| `ice.hasType(typeId)` | 是否注册了该 canonical typeId |
+| `ice.getRegisteredTypeIds()` | 当前实例的 canonical typeId 列表（快照） |
+
+回归用例见 `tests/persistence/type-id.test.ts`。
+
+### 未注册类型
+
+- **反序列化**：跳过该节点（含子树）并记入 `deserializer.unknownTypes`，不抛错、不影响其余节点。
+- **序列化**：回退写出 `constructor.name` 并记入 `Serializer.unregisteredTypes`（含告警）——
+  这条路径只在「忘了注册」时才会走到，别指望它产出可复现的数据（类名可能被下游打包器 mangle）。
 
 ## 序列化边界
 

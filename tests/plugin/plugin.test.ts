@@ -127,18 +127,18 @@ describe('第一层：组件注册', () => {
   it('插件声明的类型被注册，并可通过 typeId 反查（可序列化）', () => {
     class CustomWidget extends ICERect {}
     const ice = makeIce();
-    ice.use({ name: 'widgets', components: { CustomWidget } });
+    ice.use({ name: 'widgets', components: { 'test:CustomWidget': CustomWidget } });
 
-    expect(ice.getType('CustomWidget')).toBe(CustomWidget);
-    expect(ice.getTypeId(CustomWidget)).toBe('CustomWidget');
+    expect(ice.getType('test:CustomWidget')).toBe(CustomWidget);
+    expect(ice.getTypeId(CustomWidget)).toBe('test:CustomWidget');
 
     ice.addChild(new CustomWidget({ left: 1, top: 2, width: 10, height: 10 }));
     const json: any = new Serializer(ice).toJSONObject();
-    expect(json.childNodes[0].type).toBe('CustomWidget');
+    expect(json.childNodes[0].type).toBe('test:CustomWidget');
 
     // round-trip：新实例注册同名插件后即可反序列化
     const ice2 = makeIce();
-    ice2.use({ name: 'widgets', components: { CustomWidget } });
+    ice2.use({ name: 'widgets', components: { 'test:CustomWidget': CustomWidget } });
     new Deserializer(ice2).fromJSONObject(json);
     expect(ice2.childNodes[0]).toBeInstanceOf(CustomWidget);
   });
@@ -146,9 +146,25 @@ describe('第一层：组件注册', () => {
   it('unuse 后类型注册保留（已存数据仍可加载）', () => {
     class CustomWidget extends ICERect {}
     const ice = makeIce();
-    ice.use({ name: 'widgets', components: { CustomWidget } });
+    ice.use({ name: 'widgets', components: { 'test:CustomWidget': CustomWidget } });
     ice.unuse('widgets');
-    expect(ice.getType('CustomWidget')).toBe(CustomWidget);
+    expect(ice.getType('test:CustomWidget')).toBe(CustomWidget);
+  });
+
+  it('插件的组件键必须带 namespace，且报错时指明是哪个插件', () => {
+    class PlugBadge extends ICERect {}
+    const ice = makeIce();
+    expect(() => ice.use({ name: 'widgets', components: { PlugBadge } })).toThrow(/widgets/);
+    expect(() => ice.use({ name: 'widgets', components: { PlugBadge } })).toThrow(/namespace:Type/);
+  });
+
+  it('插件之间重复注册同一 typeId 会明确抛错（不再静默覆盖）', () => {
+    class WidgetA extends ICERect {}
+    class WidgetB extends ICERect {}
+    const ice = makeIce();
+    ice.use({ name: 'a', components: { 'test:Widget': WidgetA } });
+    expect(() => ice.use({ name: 'b', components: { 'test:Widget': WidgetB } })).toThrow(/b/);
+    expect(ice.getType('test:Widget')).toBe(WidgetA); // 先注册的仍然有效
   });
 });
 

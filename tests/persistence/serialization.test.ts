@@ -19,7 +19,6 @@ global.Path2D = class {
 
 import ICE from '../../src/ICE';
 import EventBus from '../../src/event/EventBus';
-import componentTypeMap from '../../src/consts/COMPONENT_TYPE_MAPPING';
 import ICEGroup from '../../src/graphic/container/ICEGroup';
 import ICERect from '../../src/graphic/shape/ICERect';
 import ICECircle from '../../src/graphic/shape/ICECircle';
@@ -30,7 +29,6 @@ function makeIce(): ICE {
   const ice = new ICE();
   ice.evtBus = new EventBus();
   ice.childNodes = [];
-  ice.typeMapping = { ...componentTypeMap };
   return ice;
 }
 
@@ -45,11 +43,11 @@ describe('序列化 / 反序列化 round-trip', () => {
     const json: any = new Serializer(ice).toJSONObject();
     expect(json.childNodes.length).toBe(1);
     const g = json.childNodes[0];
-    expect(g.type).toBe('ICEGroup');
+    expect(g.type).toBe('ice-render:Group');
     expect(g.state.left).toBe(10);
     expect(g.state.width).toBe(100);
     expect(g.childNodes.length).toBe(1);
-    expect(g.childNodes[0].type).toBe('ICERect');
+    expect(g.childNodes[0].type).toBe('ice-render:Rect');
     expect(g.childNodes[0].state.width).toBe(20);
   });
 

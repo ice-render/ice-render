@@ -87,12 +87,12 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 
 **扩展与可访问性**
 
-- **插件机制** —— `ICE.use(plugin)` 开放三层注册点：自定义图元类型（自动获得 typeId 反查，因此可序列化）、每帧渲染回调、自定义交互工具。
+- **插件机制** —— `ICE.use(plugin)` 开放三层注册点：自定义图元类型（`components` 的键是 canonical typeId，形如 `'my-app:Badge'`，格式非法或与已注册类型冲突会明确抛错；自动获得 typeId 反查，因此可序列化）、每帧渲染回调、自定义交互工具。
 - **无障碍原语** —— `getAccessibilityTree()` 产出可访问节点快照（角色 / 可读名称 / 屏幕坐标盒 / tab 顺序），`setFocusedComponent()` 让键盘事件派发给焦点组件。**引擎不自建 DOM 镜像层**：镜像结构、ARIA 与文案由应用层决定（参考实现见 `examples/a11y/`）。
 
 **序列化与动画**
 
-- **整图序列化** —— 组件树可序列化为 JSON 字符串并无损反序列化；类型键用**稳定 typeId**（由构造函数反查注册名，与类的 JS 名解耦，压缩改名不影响已存数据），带 `version` 字段与可扩展迁移表；未注册类型跳过并记录而不是整份数据打不开。自定义组件通过 `registerType()` 注册即可持久化。
+- **整图序列化** —— 组件树可序列化为 JSON 字符串并无损反序列化；类型键用**稳定 typeId**（格式为 `namespace:Type`，如 `ice-render:Rect`、`ice-chart:PlotArea`；由构造函数反查得到，与类的 JS 名解耦，压缩改名不影响已存数据），带 `version` 字段与可扩展迁移表；未注册类型跳过并记录而不是整份数据打不开。自定义组件用 `registerType('my-app:Badge', Badge)` 注册后才能持久化与加载 —— **同一个 typeId 注册不同构造函数、或同一个构造函数注册第二个 typeId 都会明确抛错**，不再静默覆盖。
 - **关键帧动画** —— 动画配置类似 CSS `keyframes`：单段 `{ from, to, duration }` 或
   多段 `{ keyframes: [{ offset, value, easing? }], duration }`（`easing` 写在段起始帧上，只作用于该段；
   `offset` 缺省按顺序均分、超界夹紧）。内置线性 / 缓入 / 缓出等缓动函数与**弹簧类缓动**
