@@ -26,7 +26,16 @@ class ICEText extends ICEComponent {
    * （它们都会改变盒子尺寸或换行结果 → 必须走 `paramsDirty`）。
    */
   public static readonly ANIMATION_SAFE_KEYS: readonly string[] = [
-    ...ICEComponent.ANIMATION_SAFE_KEYS,
+    // 注意：这里**不能**直接展开基类的白名单 —— 基类放行了整条 `style.*`（对不量测的图形是对的），
+    // 而文本的字号 / 字间距 / 行高 / 内边距都会改变量测结果，必须逐个显式放行（见下）。
+    'left',
+    'top',
+    'zIndex',
+    'opacity',
+    'display',
+    'transform',
+    'fill',
+    'stroke',
     // 光标 / 选区 / 编辑外形：只影响绘制
     'caretIndex',
     'selectionStart',

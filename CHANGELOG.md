@@ -58,7 +58,23 @@
 +  空数组安全）+ `tests/export/compose-layers.test.ts` 5 条（层序、尺寸取最大与显式尺寸、背景、类型、错误码）
 +  + `e2e/visual/layered.spec.ts` 新增 1 条真实浏览器用例（SVG 含两层内容且 1024×640、PNG 为 1024×640）。
 +
-+  **待做**：脏区面积门（C）；动画侧的 timeline/stagger、Agent 校验与诊断码、帧调度仍是后续分期。
++- **动画配置的结构化校验与诊断（Agent 侧闭环）**（2026-09-13）：
+  - 新增 `validateAnimations(animations, options?)`（`src/animation/validate-animations.ts`，**纯函数**：不依赖 ICE 实例、
++    不改传入对象、不 console）：把"什么算合法动画配置"变成可编程接口，产出
++    `{ severity, code, message, path }[]`，码为 `ICE_ANIM_*`（`ICE_ANIMATION_DIAGNOSTIC_CODES`）：
++    `KEY_INVALID` / `DURATION_INVALID` / `DELAY_INVALID` / `ITERATION_INVALID` / `EASING_UNKNOWN` /
++    `VALUE_NOT_INTERPOLATABLE` / `KEYFRAMES_INVALID` / `INFINITE_LOOP`（warning）/
++    `KEY_AFFECTS_MEASUREMENT`（warning：动画尺寸/文本这类会每帧重量测的属性）。
++    传 `isSafeKey` 即可让"是否影响派生参数"与 `ANIMATION_SAFE_KEYS` 白名单同源。
++  - `AnimationManager.getDiagnostics()` / `clearDiagnostics()`：**运行期**真实发生的拒绝与缓动回退也记同一组码
++    （按 `code|path` 去重），应用层/Agent 不必再靠 console 文本判断配置被跳过。
++  - `ICEComponent.isAnimationSafeKeyFor(Ctor, path)`：下游（DSL / Agent 校验）没有实例也能按类型问"这个属性动画安全吗"。
++  - 顺带修正白名单语义：基类（不量测的图形）放行整条 `style.*`（矩形动画颜色不再被误判成"影响派生参数"）；
++    `ICEText` 显式列出基类项而**不继承** `style.*`（字号/字间距/行高会改变盒子，仍必须走 `paramsDirty`）。
++  回归：`tests/animation/validate-animations.test.ts`（10 条）、`tests/animation/animation-diagnostics.test.ts`（5 条）、
++  `tests/graphic/animation-write-channel.test.ts` 增静态查询与白名单语义断言。
++
++  **待做**：脏区面积门（C）；动画侧的 timeline/stagger 与帧调度仍是后续分期。
 
 ## [2.2.0] - 2026-09-13
 

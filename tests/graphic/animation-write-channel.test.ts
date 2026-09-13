@@ -80,7 +80,17 @@ describe('A · setState 的 paramsDirty 选项', () => {
 describe('A · 动画安全键白名单（保守方向：未声明 = 影响派生参数）', () => {
   it('基类：平移/变换/透明度/显示可见 zIndex 安全，宽高不安全', () => {
     const rect: any = new ICERect({ left: 0, top: 0, width: 10, height: 10 });
-    ['left', 'top', 'transform.rotate', 'transform.translate', 'opacity', 'display', 'zIndex'].forEach((key) => {
+    // 基类（不量测的图形）：`style.*` 全是绘制属性，安全
+    [
+      'left',
+      'top',
+      'transform.rotate',
+      'transform.translate',
+      'opacity',
+      'display',
+      'zIndex',
+      'style.fillStyle',
+    ].forEach((key) => {
       expect([key, rect.isAnimationSafeKey(key)]).toEqual([key, true]);
     });
     ['width', 'height', 'radius'].forEach((key) => {
@@ -120,6 +130,17 @@ describe('A · 动画安全键白名单（保守方向：未声明 = 影响派�
     const text: any = new ICEText({ text: 'hello' });
     expect(text.isAnimationSafeKey('someBrandNewKey')).toBe(false);
     expect(text.isAnimationSafeKey('style.someBrandNewStyle')).toBe(false);
+  });
+
+  it('静态查询（不需要实例）：下游按类问「这个属性动画安全吗」', () => {
+    expect(ICEText.isAnimationSafeKeyFor(ICEText, 'left')).toBe(true);
+    expect(ICEText.isAnimationSafeKeyFor(ICEText, 'style.fontSize')).toBe(false);
+    expect(ICEStar.isAnimationSafeKeyFor(ICEStar, 'outerRadius')).toBe(false);
+    expect(ICEStar.isAnimationSafeKeyFor(ICEStar, 'transform.rotate')).toBe(true);
+    // 没声明白名单的类 → 落到基类白名单（保守：只有位置/变换那批算安全）
+    class Custom extends ICERect {}
+    expect(ICERect.isAnimationSafeKeyFor(Custom, 'left')).toBe(true);
+    expect(ICERect.isAnimationSafeKeyFor(Custom, 'width')).toBe(false);
   });
 });
 

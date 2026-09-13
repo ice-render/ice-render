@@ -12,6 +12,11 @@ import ICEEvent from '../event/ICEEvent';
 import ICEComponent from '../graphic/ICEComponent';
 import ICE from '../ICE';
 import { EasingProgress } from './Easing';
+import {
+  ICE_ANIMATION_DIAGNOSTIC_CODES,
+  ICEAnimationDiagnostic,
+  ICEAnimationDiagnosticCode,
+} from './validate-animations';
 import { getTheme } from '../theme/ICETheme';
 
 /**
@@ -42,6 +47,11 @@ class AnimationManager {
   public snapToDevicePixel = true;
   // 已告警过的动画配置：只提示一次，避免非法配置每帧刷屏（WeakSet，不污染会被序列化的 props）
   private warned = new WeakSet<object>();
+  /** 运行期诊断（见 getDiagnostics）：按 code|path 去重。 */
+  private __diagnostics: ICEAnimationDiagnostic[] = [];
+  private __diagnosticKeys: string[] = [];
+  /** 当前正在处理的属性路径（`__easingFn` 记诊断时要用，避免把 path 一层层传下去）。 */
+  private __currentPath = '';
 
   constructor(ice: ICE) {
     this.ice = ice;
@@ -127,6 +137,7 @@ class AnimationManager {
     let hasActive = false;
 
     for (const key in animations) {
+      this.__currentPath = key;
       const animation = animations[key];
       if (animation.finished) {
         continue;
@@ -147,6 +158,8 @@ class AnimationManager {
         if (!normalized) {
           this.__reject(
             animation,
+            ICE_ANIMATION_DIAGNOSTIC_CODES.KEYFRAMES_INVALID,
+            key,
             `[ICE] 动画属性「${key}」的 keyframes 非法：需要 ≥2 帧、offset 为数字、各帧取值同型（都是数字或等长的数字数组）；已跳过。`
           );
           continue;
@@ -157,6 +170,8 @@ class AnimationManager {
         // NaN 矩阵（静默损坏渲染）。这里明确拒绝并只提示一次。
         this.__reject(
           animation,
+          ICE_ANIMATION_DIAGNOSTIC_CODES.VALUE_NOT_INTERPOLATABLE,
+          key,
           `[ICE] 动画属性「${key}」的取值必须都是数字或等长的数字数组，当前为 ` +
             `${this.__describe(animation.from)} → ${this.__describe(animation.to)}；已跳过。`
         );
@@ -169,6 +184,8 @@ class AnimationManager {
         // 这里明确「立即落到终点并结束」，不再让组件滞留在动画列表里。
         this.__reject(
           animation,
+          ICE_ANIMATION_DIAGNOSTIC_CODES.DURATION_INVALID,
+          key,
           `[ICE] 动画属性「${key}」的 duration 必须是正数，当前为 ${String(animation.duration)}；已直接落到终点。`
         );
         write(key, this.__roundIfNeeded(animation, this.__sampleValue(frames, animation, 1)));
@@ -407,6 +424,8 @@ class AnimationManager {
     if (animation) {
       this.__warnOnce(
         animation,
+        ICE_ANIMATION_DIAGNOSTIC_CODES.EASING_UNKNOWN,
+        this.__currentPath || '',
         `[ICE] 未知的缓动「${String(name)}」，已回退为 linear。可用：${Object.keys(EasingProgress).join(' / ')}`
       );
     }
@@ -429,14 +448,20 @@ class AnimationManager {
     return Array.isArray(value) ? `数组[${value.length}]` : typeof value;
   }
 
-  /** 拒绝一个非法的动画配置：标记结束（不再每帧重试）并只提示一次。 */
-  private __reject(animation: any, message: string): void {
+  /** 拒绝一个非法的动画配置：标记结束（不再每帧重试）、只提示一次，并记一条结构化诊断。 */
+  private __reject(animation: any, code: ICEAnimationDiagnosticCode, path: string, message: string): void {
     animation.finished = true;
-    this.__warnOnce(animation, message);
+    this.__warnOnce(animation, code, path, message);
   }
 
-  /** 同一个动画配置只告警一次，避免非法配置每帧刷屏。 */
-  private __warnOnce(animation: any, message: string): void {
+  /**
+   * 记录一条诊断（`getDiagnostics()` 可读）并只 `console.warn` 一次，避免非法配置每帧刷屏。
+   *
+   * 诊断的 code / severity / path 与 `validateAnimations()` 同源：**运行期才发现被跳过的配置，
+   * 与编译期校验报出的是同一组码**，Agent / 应用层不需要学两套。
+   */
+  private __warnOnce(animation: any, code: ICEAnimationDiagnosticCode, path: string, message: string): void {
+    this.__recordDiagnostic(code, path, message);
     if (!animation || typeof animation !== 'object') {
       console.warn(message);
       return;
@@ -446,6 +471,32 @@ class AnimationManager {
     }
     this.warned.add(animation);
     console.warn(message);
+  }
+
+  /** 记一条结构化诊断（按 `code|path` 去重；只留文本，不含动画对象本身）。 */
+  private __recordDiagnostic(code: ICEAnimationDiagnosticCode, path: string, message: string): void {
+    const key = `${code}|${path}`;
+    if (this.__diagnosticKeys.indexOf(key) !== -1) {
+      return;
+    }
+    this.__diagnosticKeys.push(key);
+    this.__diagnostics.push({ severity: 'error', code, message, path });
+  }
+
+  /**
+   * 运行期累积的动画诊断（非法配置被跳过 / 缓动回退时会记录）。
+   *
+   * 与 `validateAnimations()` 的分工：那个是**运行前**的纯校验（Agent / DSL 用），
+   * 这个是**运行中**真实发生过的拒绝与回退（应用层可上报 / 开发期断言）。
+   */
+  public getDiagnostics(): ICEAnimationDiagnostic[] {
+    return this.__diagnostics.slice();
+  }
+
+  /** 清空运行期诊断（测试 / 重新加载场景时用）。 */
+  public clearDiagnostics(): void {
+    this.__diagnostics.length = 0;
+    this.__diagnosticKeys.length = 0;
   }
 
   /**

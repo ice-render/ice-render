@@ -6,6 +6,17 @@
  *
  */
 export { default as AnimationManager } from './animation/AnimationManager';
+export {
+  validateAnimations,
+  classifyAnimationValue,
+  isInterpolatablePair,
+  ICE_ANIMATION_DIAGNOSTIC_CODES,
+} from './animation/validate-animations';
+export type {
+  ICEAnimationDiagnostic,
+  ICEAnimationDiagnosticCode,
+  ValidateAnimationsOptions,
+} from './animation/validate-animations';
 export { default as ICEControlPanel } from './control-panel/ICEControlPanel';
 export { default as ICEControlPanelManager } from './control-panel/ICEControlPanelManager';
 export { default as AlignmentGuideManager } from './control-panel/AlignmentGuideManager';
