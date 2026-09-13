@@ -291,7 +291,8 @@ abstract class ICEComponent extends ICEEventTarget {
     }
     // 原型继承共享默认 props，用户字段经 merge 写时复制到实例。
     this.props = Object.create(DEFAULT_PROPS);
-    this.props.id = 'ICE_' + uuid();
+    // 显式 id 优先（A2UI / 反序列化 / 业务绑定都依赖稳定 id），没有时才生成 UUID。
+    this.props.id = props && props.id !== undefined ? props.id : 'ICE_' + uuid();
     this.props.zIndex = ICEComponent.instanceCounter++;
     merge(this.props, props);
     this.__initState();

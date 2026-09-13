@@ -1,7 +1,7 @@
 {
   "author": "大漠穷秋",
   "name": "ice-render",
-  "version": "1.4.10",
+  "version": "1.4.11",
   "description": "A canvas engine for interactive graphics.",
   "repository": {
     "type": "git",
@@ -64,7 +64,7 @@
     "@commitlint/config-conventional": "17.8.1",
     "@playwright/test": "^1.40.0",
     "@rollup/plugin-babel": "6.1.0",
-    "@rollup/plugin-commonjs": "25.0.8",
+    "@rollup/plugin-commonjs": "28.0.1",
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "15.3.1",
     "@rollup/plugin-strip": "3.0.4",
@@ -73,6 +73,7 @@
     "@types/node": "18.19.130",
     "@typescript-eslint/eslint-plugin": "6.21.0",
     "@typescript-eslint/parser": "6.21.0",
+    "babel-jest": "29.7.0",
     "eslint": "8.57.1",
     "eslint-config-prettier": "9.1.2",
     "eslint-plugin-jest": "27.9.0",
@@ -108,7 +109,7 @@
     ]
   },
   "engines": {
-    "npm": ">=6.4.1",
+    "npm": ">=9",
     "node": ">=18"
   },
   "license": "MIT",

@@ -23,7 +23,8 @@ function walk(dir: string, rel = ''): string[] {
     const full = path.join(dir, name);
     const st = fs.statSync(full);
     if (st.isDirectory()) {
-      if (name === 'assets') continue;
+      // node_modules 里可能带第三方示例 HTML（如 jimp），它们不属于本项目的 examples 回归范围。
+      if (name === 'assets' || name === 'node_modules') continue;
       out.push(...walk(full, rel ? `${rel}/${name}` : name));
     } else if (name.endsWith('.html') && name !== 'index.html') {
       out.push(rel ? `${rel}/${name}` : name);
