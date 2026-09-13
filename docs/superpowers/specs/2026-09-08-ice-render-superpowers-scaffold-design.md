@@ -1,5 +1,10 @@
 # 为 ice-render 搭建 superpowers 工作流脚手架
 
+> **历史快照（2026-09-08）**：本文记录当时的现状与设计取舍，**不是当前约定**。
+> 其中「渲染策略=全量重绘、无局部重绘」「序列化=类名→构造函数映射」等描述随后已被取代
+> （局部重绘见 AGENTS.md「脏矩形局部重绘铁律」；类型标识已统一为 `namespace:Type`，
+> 见 AGENTS.md「类型注册 / 序列化铁律」与 `docs/architecture/06-serialization.md`）。
+
 - 日期：2026-09-08
 - 状态：已批准（待写入 plans 并落地）
 - 作者：WorkBuddy（基于与用户的 brainstorming 对齐）

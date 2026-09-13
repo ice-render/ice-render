@@ -180,7 +180,7 @@
 
 | 层 | 注册点 | 实现 |
 |---|---|---|
-| ① 组件 | `components: { typeId: Ctor }` | 宿主代为 `registerType`，因此自动获得 typeId 反查 → 自定义图元可序列化 |
+| ① 组件 | `components: { 'my-app:Badge': Ctor }` | 宿主代为 `registerType`（键必须是 canonical `namespace:Type`），因此自动获得 typeId 反查 → 自定义图元可序列化 |
 | ② 渲染 | `render(frame)` | 每帧调用；坐标系为世界坐标（CTM = dpr·viewport，与组件一致）；两条渲染路径都调用，局部帧在 `clip` 之内 |
 | ③ 交互 | `tools: [{ id, match(c), create(), exclusive?, onTargetChange? }]` | 复用既有 `toolNodes`：命中 `addTool`、失配 `removeTool`，实例跨选中复用；`exclusive` 命中时禁用内置变换/连线面板 |
 
@@ -197,14 +197,23 @@
 - `persistence/Deserializer.ts:54-58` 对未知类型直接 `new Clazz(state)`（`Clazz` 为 `undefined`）→ 抛错，无跳过/容错。
 - `consts/COMPONENT_TYPE_MAPPING.ts:27-39` **漏了 `ICERose`**（另有 `ICELinkSlot` / `ICELinkHook`）——这些类型**存得下、读不回**。
 
-**方向（2026-09-10 已落地）**：改为「构造函数 → 注册名」**反查**（`ICE.getTypeId()`），与类的 JS 名解耦：
+**方向（2026-09-10 已落地；2026-09-13 补齐命名空间）**：改为「构造函数 → 注册名」**反查**（`ICE.getTypeId()`），与类的 JS 名解耦：
 - 已注册类型：序列化写出注册名，terser 压缩改名不再破坏已存数据
-- 未注册的自定义类型：仍回退 `constructor.name`（保持既有约定，不破坏下游）
+- 未注册的自定义类型：仍回退 `constructor.name`（保持既有约定，不破坏下游），但**记录进
+  `Serializer.unregisteredTypes` 并告警**——回退名在下游打包后可能读不回来，静默写出去等于埋雷
 - 补齐漏注册的 **`ICERose`**（此前存得下、读不回）
 - 反序列化容错：未注册类型**跳过该节点（含子树）并记录到 `deserializer.unknownTypes`**，
   不再 `new undefined(...)` 抛错导致整份数据打不开
 - 版本迁移改为可扩展的 `SERIALIZATION_MIGRATIONS`（按 `to` 升序逐级执行）；高于当前版本仍明确抛错
-- 旧数据（type 写类名、无 version 字段）继续可加载
+- 无 version 字段的数据继续可加载（但 `type` 必须是 canonical typeId；无 namespace 的旧类名按未注册类型处理）
+
+**命名空间化（2026-09-13）**：反查解决了「改名」，没解决「撞名」——无 namespace 的 typeId 是
+一张全局平面表，ICE 家族（引擎 / 实体设计器 / 图表 / 第三方）各自的自定义类型迟早同名。
+现在统一为 **`namespace:Type`**（`ice-render:*` / `ice-entity-designer:*` / `ice-chart:*` /
+第三方小写包名），并把注册表收敛成一套可解释的契约：同 typeId 注册不同构造函数、同构造函数
+注册第二个 typeId 都**明确抛错**；类型名**只有 canonical 一种形式**——家族仍在发布初期，
+因此不为旧的无 namespace 类名维护别名（旧数据里的节点按未注册类型处理）；注册表本身改用
+无原型对象，`getType('constructor')` 不会命中 `Object.prototype`。详见 [06 · 序列化](06-serialization.md)。
 
 ### P1-7 发行契约与质量门禁
 

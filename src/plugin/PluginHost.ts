@@ -3,7 +3,9 @@
  *
  * 设计取向与 09-roadmap 的边界一致——**只提供原语，不做应用层 UX**：
  * - 组件层：插件声明自定义图元类型，宿主代为 `registerType`（因此自动获得
- *   序列化 typeId 反查能力，见 `ICE.getTypeId`）。
+ *   序列化 typeId 反查能力，见 `ICE.getTypeId`）。声明键必须是 `namespace:Type`
+ *   格式的 canonical typeId；格式非法或与已注册类型冲突时明确抛错，并把插件名
+ *   带上（否则插件作者无从判断是哪个插件注册失败）。
  * - 渲染层：插件拿到每帧的绘制回调，在与组件相同的坐标系（世界坐标）下叠加绘制。
  *   局部重绘帧里回调在 clip 之内执行，语义与组件一致（超出脏区域的旧内容不会被擦除也不会被重画；
  *   若插件内容会随时间变化而没有任何组件变脏，引擎本身会因「无脏组件」回退全量，仍然正确）。
@@ -49,7 +51,9 @@ export interface ICEPluginTool {
 export interface ICEPlugin {
   /** 插件唯一名（幂等注册键） */
   name: string;
-  /** 组件层：typeId → 构造函数 */
+  /**
+   * 组件层：canonical typeId（`namespace:Type`）→ 构造函数。例：`{ 'my-app:Badge': Badge }`。
+   */
   components?: Record<string, new (...args: any[]) => any>;
   /** 渲染层：每帧绘制回调（世界坐标） */
   render?: ICERenderHook;
@@ -106,8 +110,16 @@ export default class PluginHost {
     if (plugin.components) {
       for (const typeId in plugin.components) {
         const Ctor = plugin.components[typeId];
-        if (typeof Ctor === 'function') {
+        if (typeof Ctor !== 'function') {
+          continue;
+        }
+        try {
+          // registerType 会校验 `namespace:Type` 格式，并拒绝重复注册
           this.ice.registerType(typeId, Ctor);
+        } catch (err) {
+          throw new Error(
+            `插件 "${plugin.name}" 注册组件类型失败：${err instanceof Error ? err.message : String(err)}`
+          );
         }
       }
     }

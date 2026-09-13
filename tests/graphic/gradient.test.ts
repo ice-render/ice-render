@@ -11,7 +11,6 @@
 import ICERect from '../../src/graphic/shape/ICERect';
 import ICE from '../../src/ICE';
 import EventBus from '../../src/event/EventBus';
-import componentTypeMap from '../../src/consts/COMPONENT_TYPE_MAPPING';
 import Serializer from '../../src/persistence/Serializer';
 import Deserializer from '../../src/persistence/Deserializer';
 
@@ -242,7 +241,6 @@ describe('声明式渐变', () => {
       ice.evtBus = new EventBus();
       ice.childNodes = [];
       ice.toolNodes = [];
-      ice.typeMapping = { ...componentTypeMap };
       return ice;
     };
     const ice: any = makeIce();

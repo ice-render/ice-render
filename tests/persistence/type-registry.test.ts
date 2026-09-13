@@ -2,10 +2,10 @@
  * 序列化类型注册、反序列化容错与版本迁移。
  *
  * 契约：
- * - 序列化写出的 type 由「构造函数 → 注册名」反查得到，与类的 JS 名解耦（压缩改名不破坏数据）
- * - 未注册的自定义类型回退到 constructor.name（保持既有约定）
+ * - 序列化写出的 type 由「构造函数 → canonical typeId」反查得到（namespace:Type）
+ * - 未注册的自定义类型回退到 constructor.name（保持既有约定），并记录到 unregisteredTypes
  * - 反序列化遇到未注册类型不再抛错：跳过该节点并记录到 unknownTypes，其余内容照常加载
- * - 旧数据（type 写类名）仍能加载；缺失 version 视为 1；高于当前版本仍抛错
+ * - 类型名只有 canonical 一种形式：无 namespace 的旧类名按未注册类型处理（跳过 + 记录）
  * - SERIALIZATION_MIGRATIONS 按 to 升序逐级执行
  */
 jest.mock('../../src/cross-platform/root', () => {
@@ -25,7 +25,7 @@ global.Path2D = class {
 
 import ICE from '../../src/ICE';
 import EventBus from '../../src/event/EventBus';
-import componentTypeMap from '../../src/consts/COMPONENT_TYPE_MAPPING';
+import { componentTypeEntries } from '../../src/consts/COMPONENT_TYPE_MAPPING';
 import ICERect from '../../src/graphic/shape/ICERect';
 import ICECircle from '../../src/graphic/shape/ICECircle';
 import ICERose from '../../src/graphic/shape/ICERose';
@@ -37,7 +37,6 @@ function makeIce(): any {
   const ice: any = new ICE();
   ice.evtBus = new EventBus();
   ice.childNodes = [];
-  ice.typeMapping = { ...componentTypeMap };
   return ice;
 }
 
@@ -47,7 +46,7 @@ describe('类型注册表（typeId）', () => {
     ice.addChild(new ICERose({ left: 10, top: 10, radius: 40, leafNum: 3 }));
 
     const json = new Serializer(ice).toJSONString();
-    expect(json).toContain('"type":"ICERose"');
+    expect(json).toContain('"type":"ice-render:Rose"');
 
     const ice2 = makeIce();
     new Deserializer(ice2).fromJSONString(json);
@@ -57,22 +56,23 @@ describe('类型注册表（typeId）', () => {
 
   it('每种已注册类型都能由构造函数反查到稳定 typeId', () => {
     const ice = makeIce();
-    for (const name in componentTypeMap) {
-      expect(ice.getTypeId(componentTypeMap[name])).toBe(name);
+    for (const entry of componentTypeEntries) {
+      expect(ice.getTypeId(entry.ctor)).toBe(entry.typeId);
+      expect(ice.hasType(entry.typeId)).toBe(true);
     }
   });
 
   it('序列化用反查到的注册名，与类的 JS 名解耦（模拟压缩改名）', () => {
     class RenamedByBundler extends ICERect {}
     const ice = makeIce();
-    ice.registerType('CustomRect', RenamedByBundler);
+    ice.registerType('test:CustomRect', RenamedByBundler);
 
     const r = new RenamedByBundler({ left: 1, top: 2, width: 10, height: 10 });
     ice.addChild(r);
     const json: any = new Serializer(ice).toJSONObject();
 
     expect(r.constructor.name).toBe('RenamedByBundler');
-    expect(json.childNodes[0].type).toBe('CustomRect'); // 用注册名而非类名
+    expect(json.childNodes[0].type).toBe('test:CustomRect'); // 用 canonical typeId 而非类名
   });
 
   it('未注册类型回退到 constructor.name（不破坏既有约定）', () => {
@@ -81,18 +81,51 @@ describe('类型注册表（typeId）', () => {
     ice.addChild(new NeverRegistered({ width: 10, height: 10 }));
 
     expect(ice.getTypeId(NeverRegistered)).toBeUndefined();
-    const json: any = new Serializer(ice).toJSONObject();
+    const serializer = new Serializer(ice);
+    const json: any = serializer.toJSONObject();
     expect(json.childNodes[0].type).toBe('NeverRegistered');
+    // 回退写类名是**有风险**的（下游 mangle 后读不回来），必须可观测
+    expect(serializer.unregisteredTypes).toEqual(['NeverRegistered']);
   });
 
-  it('同名别名的注册会让反查表失效并重建', () => {
+  it('未注册类型只告警一次，且每次序列化重新收集', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      class NeverRegistered extends ICERect {}
+      const ice = makeIce();
+      ice.addChild(new NeverRegistered({ width: 10, height: 10 }));
+      ice.addChild(new NeverRegistered({ width: 20, height: 20 }));
+
+      const serializer = new Serializer(ice);
+      serializer.toJSONObject();
+      expect(serializer.unregisteredTypes).toEqual(['NeverRegistered']);
+      expect(warn.mock.calls.filter((c) => String(c[0]).includes('未注册'))).toHaveLength(1);
+
+      serializer.toJSONObject(); // 第二次：重新收集，不再累积
+      expect(serializer.unregisteredTypes).toEqual(['NeverRegistered']);
+      expect(warn.mock.calls.filter((c) => String(c[0]).includes('未注册'))).toHaveLength(2);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('内置 / 已注册类型不产生未注册告警', () => {
+    const ice = makeIce();
+    ice.addChild(new ICERect({ width: 10, height: 10 }));
+    const serializer = new Serializer(ice);
+    serializer.toJSONObject();
+    expect(serializer.unregisteredTypes).toEqual([]);
+  });
+
+  it('注册前 getTypeId 返回 undefined，注册后返回 canonical typeId', () => {
     class Aliased extends ICERect {}
     const ice = makeIce();
     ice.addChild(new Aliased({ width: 10, height: 10 }));
     expect(ice.getTypeId(Aliased)).toBeUndefined();
 
-    ice.registerType('Aliased', Aliased);
-    expect(ice.getTypeId(Aliased)).toBe('Aliased');
+    ice.registerType('test:Aliased', Aliased);
+    expect(ice.getTypeId(Aliased)).toBe('test:Aliased');
+    expect(ice.getType('test:Aliased')).toBe(Aliased);
   });
 });
 
@@ -102,13 +135,13 @@ describe('反序列化容错', () => {
     const json: any = {
       version: 1,
       childNodes: [
-        { type: 'ICERect', state: { left: 1, top: 2, width: 10, height: 10 }, childNodes: [] },
+        { type: 'ice-render:Rect', state: { left: 1, top: 2, width: 10, height: 10 }, childNodes: [] },
         {
-          type: 'NotRegisteredWidget',
+          type: 'other-app:Widget',
           state: { foo: 1 },
-          childNodes: [{ type: 'ICECircle', state: { radius: 5 }, childNodes: [] }],
+          childNodes: [{ type: 'ice-render:Circle', state: { radius: 5 }, childNodes: [] }],
         },
-        { type: 'ICECircle', state: { radius: 7 }, childNodes: [] },
+        { type: 'ice-render:Circle', state: { radius: 7 }, childNodes: [] },
       ],
     };
 
@@ -118,18 +151,18 @@ describe('反序列化容错', () => {
     expect(ice.childNodes.length).toBe(2); // 未知节点（含其子树）被跳过
     expect(ice.childNodes[0]).toBeInstanceOf(ICERect);
     expect(ice.childNodes[1]).toBeInstanceOf(ICECircle);
-    expect(d.unknownTypes).toEqual(['NotRegisteredWidget']);
+    expect(d.unknownTypes).toEqual(['other-app:Widget']);
     expect(json.version).toBe(1); // 未发生迁移
   });
 
   it('registerType 之后同一份数据即可完整加载', () => {
     class Widget extends ICERect {}
     const ice = makeIce();
-    ice.registerType('NotRegisteredWidget', Widget);
+    ice.registerType('test:NotRegisteredWidget', Widget);
 
     const json: any = {
       version: 1,
-      childNodes: [{ type: 'NotRegisteredWidget', state: { width: 10, height: 10 }, childNodes: [] }],
+      childNodes: [{ type: 'test:NotRegisteredWidget', state: { width: 10, height: 10 }, childNodes: [] }],
     };
     const d = new Deserializer(ice);
     d.fromJSONObject(json);
@@ -139,16 +172,17 @@ describe('反序列化容错', () => {
     expect(d.unknownTypes).toEqual([]);
   });
 
-  it('旧数据（type 写类名）仍能加载', () => {
+  it('无 namespace 的旧类名不被识别：跳过该节点并记入 unknownTypes（无 version 字段也不影响）', () => {
     const ice = makeIce();
     const legacy: any = {
       createTime: '2022/1/1 00:00:00',
       lastModifyTime: '2022/1/1 00:00:00',
       childNodes: [{ type: 'ICERect', state: { left: 3, top: 4, width: 5, height: 6 }, childNodes: [] }],
     };
-    new Deserializer(ice).fromJSONObject(legacy); // 无 version 字段
-    expect(ice.childNodes[0]).toBeInstanceOf(ICERect);
-    expect(ice.childNodes[0].state.left).toBe(3);
+    const d = new Deserializer(ice);
+    expect(() => d.fromJSONObject(legacy)).not.toThrow(); // 无 version 字段
+    expect(ice.childNodes.length).toBe(0);
+    expect(d.unknownTypes).toEqual(['ICERect']);
   });
 
   it('缺失 / 空 childNodes 不抛错', () => {

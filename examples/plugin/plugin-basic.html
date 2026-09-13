@@ -7,8 +7,9 @@
     <h2 style="margin: 0 0 6px;">ice-render 插件 <code>ice.use(plugin)</code></h2>
     <p style="color:#555; margin: 0 0 10px; max-width: 1100px;">
       一个插件同时用到三层注册点：<br />
-      ① <strong>组件层</strong> <code>components: { PlugBadge }</code> —— 自定义图元自动注册，因此可被序列化
-      （typeId 反查命中插件注册名）；<br />
+      ① <strong>组件层</strong> <code>components: { 'demo:PlugBadge': PlugBadge }</code> —— 自定义图元自动注册，因此可被序列化
+      （注册键必须是 <code>namespace:Type</code> 格式的 canonical typeId，写出时反查命中它；
+      格式非法或与已注册类型冲突会明确抛错，不再静默覆盖）；<br />
       ② <strong>渲染层</strong> <code>render(frame)</code> —— 每帧在世界坐标下叠加绘制：给所有 PlugBadge 画虚线外框，
       并在左上角画图例；<br />
       ③ <strong>交互层</strong> <code>tools</code> —— 选中 PlugBadge 时挂一个自定义工具（青绿色虚线高亮），
@@ -82,7 +83,8 @@
 
       const plugin = {
         name: 'demo-badges',
-        components: { PlugBadge: PlugBadge },
+        // 组件层：键必须是 namespace:Type（本 namespace 内唯一）
+        components: { 'demo:PlugBadge': PlugBadge },
         render: renderOverlay,
         tools: [
           {

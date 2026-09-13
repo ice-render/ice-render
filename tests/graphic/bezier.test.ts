@@ -38,6 +38,6 @@ describe('ICEBezier 贝塞尔曲线', () => {
   });
 
   it('已注册到序列化类型映射', () => {
-    expect(componentTypeMap[ICEBezier.name]).toBe(ICEBezier);
+    expect(componentTypeMap['ice-render:Bezier']).toBe(ICEBezier);
   });
 });

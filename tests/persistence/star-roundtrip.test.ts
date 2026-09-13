@@ -13,7 +13,6 @@ global.Path2D = class {
 
 import ICE from '../../src/ICE';
 import EventBus from '../../src/event/EventBus';
-import componentTypeMap from '../../src/consts/COMPONENT_TYPE_MAPPING';
 import ICEStar from '../../src/graphic/shape/ICEStar';
 import ICEPolyLine from '../../src/graphic/link/ICEPolyLine';
 import Serializer from '../../src/persistence/Serializer';
@@ -23,7 +22,6 @@ function makeIce(): ICE {
   const ice = new ICE();
   ice.evtBus = new EventBus();
   ice.childNodes = [];
-  ice.typeMapping = { ...componentTypeMap };
   return ice;
 }
 
