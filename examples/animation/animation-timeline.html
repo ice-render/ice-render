@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>动画时间轴：错峰入场 + 点击重播</title>
+  <style>
+    html, body { margin: 0; padding: 0; font-family: system-ui, sans-serif; background: #f8fafc; }
+    #toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+    #toolbar button { padding: 4px 10px; border: 1px solid #cbd5e1; background: #fff; border-radius: 4px; cursor: pointer; }
+    #hint { padding: 6px 10px; color: #475569; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <button id="btn-play">播放入场（错峰）</button>
+    <button id="btn-restart">重播</button>
+    <button id="btn-pause">暂停 / 继续</button>
+    <button id="btn-stop">停止</button>
+  </div>
+  <div id="hint">
+    六张卡片用 <code>timeline.stagger(..., { each: 80 })</code> 依次滑入；每张卡片同时做透明度 + 位移
+    （位移走自定义缓动 <code>registerEasing('brandEase', ...)</code>）。点「重播」= <code>timeline.restart()</code>。
+  </div>
+  <canvas id="canvas-1" width="1024" height="420"></canvas>
+  <script src="../../dist/index.umd.js"></script>
+  <script>
+    const ice = new ICE.ICE().init('canvas-1');
+
+    // 应用层自定义缓动：带一点回弹的手感
+    ICE.registerEasing('brandEase', (t) => 1 - Math.pow(1 - t, 3) * Math.cos(t * 4));
+
+    const CARDS = 6;
+    const cards = [];
+    for (let i = 0; i < CARDS; i++) {
+      const card = new ICE.ICERect({
+        left: 40 + i * 160,
+        top: 120,
+        width: 130,
+        height: 180,
+        radius: 12,
+        style: { fillStyle: '#ffffff', strokeStyle: '#94a3b8', lineWidth: 1, shadow: 'md', globalAlpha: 0 },
+      });
+      const label = new ICE.ICEText({
+        left: 60 + i * 160,
+        top: 200,
+        text: '卡片 ' + (i + 1),
+        style: { fontSize: 18, fillStyle: '#334155' },
+      });
+      ice.addChild(card);
+      ice.addChild(label);
+      cards.push({ card, label, home: { left: card.state.left, top: card.state.top, textLeft: label.state.left, textTop: label.state.top } });
+    }
+
+    // 入场时间轴：卡片本身（透明度 + 位移）与文字一起错峰
+    const timeline = ice.animationManager.timeline();
+    cards.forEach(({ card, label, home }, index) => {
+      const at = index * 80;
+      timeline.add(
+        card,
+        {
+          'style.globalAlpha': { from: 0, to: 1, duration: 320 },
+          'transform.translate': { from: [0, 24], to: [0, 0], duration: 420, easing: 'brandEase' },
+        },
+        { at }
+      );
+      timeline.add(label, { 'style.globalAlpha': { from: 0, to: 1, duration: 320 } }, { at: at + 60 });
+    });
+
+    // 「播放/重播前先把卡片放回起点」——重播的语义由应用决定（引擎只负责重置运行时状态）
+    function resetCards() {
+      cards.forEach(({ card, label, home }) => {
+        card.setState({ left: home.left, top: home.top, style: { ...card.state.style, globalAlpha: 0 } });
+        label.setState({ left: home.textLeft, top: home.textTop, style: { ...label.state.style, globalAlpha: 0 } });
+        card.setState({ transform: { ...card.state.transform, translate: [0, 24] } });
+      });
+      ice.dirty = true;
+    }
+
+    function playFrom(startOfSequence) {
+      resetCards();
+      if (startOfSequence) {
+        timeline.play();
+      } else {
+        timeline.restart();
+      }
+    }
+
+    document.getElementById('btn-play').onclick = () => playFrom(true);
+    document.getElementById('btn-restart').onclick = () => playFrom(false);
+    document.getElementById('btn-pause').onclick = () => {
+      if (timeline.isPlaying()) {
+        timeline.pause();
+      } else {
+        timeline.resume();
+      }
+    };
+    document.getElementById('btn-stop').onclick = () => timeline.stop();
+
+    // 载入即播一次
+    playFrom(true);
+
+    window.__ice = ice;
+    window.__timeline = timeline;
+    window.__cards = cards;
+  </script>
+</body>
+</html>

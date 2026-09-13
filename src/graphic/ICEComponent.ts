@@ -1314,6 +1314,47 @@ abstract class ICEComponent extends ICEEventTarget {
     'style',
   ];
 
+  /**
+   * 运行时挂上/改写一条属性动画（免"必须在构造时声明 `animations`"）。
+   *
+   * 关键细节：**写时复制**。没在构造时传 `animations` 的组件，`props.animations` 继承的是
+   * `DEFAULT_PROPS.animations`（**冻结的共享默认对象**）—— 直接 `props.animations[key] = cfg`
+   * 在严格模式下会抛 "Cannot add property …: object is not extensible"。这里先把默认对象复制成
+   * 实例自己的、可扩展的对象再写，并顺手把组件纳入 `AnimationManager`（否则动画不会推进）。
+   *
+   * ```js
+   * card.setAnimation('style.globalAlpha', { from: 0, to: 1, duration: 300 });
+   * ```
+   */
+  public setAnimation(key: string, config: any): this {
+    if (!key) {
+      return this;
+    }
+    const own = Object.prototype.hasOwnProperty.call(this.props, 'animations');
+    if (!own || !this.props.animations || Object.isFrozen(this.props.animations)) {
+      this.props.animations = { ...(this.props.animations || {}) };
+    }
+    this.props.animations[key] = config;
+    if (this.ice && this.ice.animationManager) {
+      this.ice.animationManager.add(this);
+    }
+    return this;
+  }
+
+  /** 运行时摘掉一条属性动画（组件没在动画里就什么都不做）。 */
+  public removeAnimation(key: string): this {
+    if (!key || !this.props.animations || !Object.prototype.hasOwnProperty.call(this.props.animations, key)) {
+      return this;
+    }
+    const next = { ...this.props.animations };
+    delete next[key];
+    this.props.animations = next;
+    if (this.ice && this.ice.animationManager && !Object.keys(next).length) {
+      this.ice.animationManager.remove(this);
+    }
+    return this;
+  }
+
   /** 该 state 键路径是否在「动画安全键」白名单里（`transform` 这类前缀按 `transform.xxx` 匹配）。 */
   public isAnimationSafeKey(path: string): boolean {
     return ICEComponent.isAnimationSafeKeyFor(this.constructor, path);

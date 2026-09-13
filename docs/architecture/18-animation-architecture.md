@@ -69,6 +69,11 @@
 
 **分层原语至此齐了**（视口绑定 / 输入穿透 / 事件归属 / 跨实例迁移 / 多层导出）。
 
+**编排与运行时控制也已落地**：`ice.animationManager.timeline()`（`add` / `at: '+=N'` / `stagger` /
+`play` / `pause` / `resume` / `stop` / `restart` / `finished`）与 `component.setAnimation/removeAnimation`、
+`manager.replay/isAnimating`。时间轴是**调度器**（把 `at` 折算成 `delay`），不是新的求值器 ——
+所以前面所有性能机制（写值通道、量化、缓存复用、空闲停帧）对它自动生效。
+
 ### 3.2 写值与重绘解耦（动画专属写值通道）
 
 - 动画写值**不得**走通用 `setState`：纯平移（`left/top`、`transform.translate`）只置 `dirty`，
