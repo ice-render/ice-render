@@ -5,7 +5,7 @@
   "description": "A canvas engine for interactive graphics.",
   "repository": {
     "type": "git",
-    "url": "https://gitee.com/ice-render/ice-render.git"
+    "url": "git+https://github.com/ice-render/ice-render.git"
   },
   "type": "commonjs",
   "module": "dist/index.mjs",
