@@ -107,7 +107,25 @@
 +  `e2e/visual/animation-expressiveness.spec.ts`（2 条真实浏览器：颜色动画真的画上画布 + 自定义缓动 +
 +  回调链 + alternate 往返）。
 +
-+  **待做**：编排（timeline / stagger / 事件触发）与运行时控制（`component.animate()` / 句柄）；脏区面积门（C）。
++- **编排（时间轴 / 错峰）与运行时控制**（2026-09-13，⑥）：
++  - `ice.animationManager.timeline()`：`add(component, config, { at })`（绝对毫秒或 `'+=N'` 相对上一条）、
++    `stagger(components, config, { each, at })`（"卡片依次滑入"）、`play/pause/resume/stop/restart`、
++    `duration` / `isPlaying()` / `finished`（Promise）。**它是调度器而非新的求值器**：`play()` 把 `at` 折算成
++    `delay` 写进 `props.animations`，推进仍由 `AnimationManager` 完成 —— 缓动/关键帧/量化/缓存复用/空闲停帧
++    自动生效。`play()` 每次都从头播放，`restart()` 即"点击重播"。
++  - 运行时控制：`component.setAnimation(key, cfg)` / `removeAnimation(key)`（免"必须构造时声明"）、
++    `manager.replay(component)` / `isAnimating(component)`。
++  - **修掉两个真实缺陷**（都由真实浏览器 e2e 抓出）：① 没在构造时声明 `animations` 的组件，
++    `props.animations` 继承的是**冻结的共享默认对象**，运行时挂动画会抛
++    "Cannot add property …: object is not extensible" → `setAnimation` 内部做**写时复制**；
++    ② 时间轴 `stop()` 后再 `play()` 会沿用上一次的 `startTime`，elapsed 一夜之间变成"已经跑很久"，
++    编排被压缩/直接跳终点 → `play()` 现在每次都重置运行时状态；顺带把 `finished` 的计数从"轨道"改为"键"
++    （一条轨道可挂多个属性，否则 Promise 会提前 resolve）。
++  回归：`tests/animation/animation-timeline.test.ts`（11 条）+ `e2e/visual/animation-timeline.spec.ts`
++  （2 条真实浏览器：错峰入场各卡片依次开始且最终全部落位；重播/停止冻结/暂停继续）+
++  示例 `examples/animation/animation-timeline.html`（自定义缓动 + 错峰入场 + 重播按钮，进 examples 冒烟）。
++
++  **待做**：脏区面积门（C）；OffscreenCanvas/GPU 后端。
 
 ## [2.2.0] - 2026-09-13
 

@@ -22,6 +22,7 @@ import {
 import { getTheme } from '../theme/ICETheme';
 import root from '../cross-platform/root';
 import FrameManager from '../FrameManager';
+import AnimationTimeline from './AnimationTimeline';
 
 /**
  * @class AnimationManager
@@ -730,6 +731,55 @@ class AnimationManager {
    */
   public hasActiveAnimations(): boolean {
     return !this.paused && this.animationMap.size > 0;
+  }
+
+  /**
+   * 新建一条时间轴（编排多个组件/属性的时序）。见 `AnimationTimeline` 的文档与 18 §3。
+   *
+   * ```js
+   * ice.animationManager.timeline()
+   *   .add(cardA, { left: { from: 0, to: 100, duration: 400 } }, { at: 0 })
+   *   .add(cardB, { left: { from: 0, to: 100, duration: 400 } }, { at: '+=120' })
+   *   .play();
+   * ```
+   */
+  public timeline(): AnimationTimeline {
+    return new AnimationTimeline(this);
+  }
+
+  /**
+   * 重播某个组件的全部动画：清掉运行时状态（startTime / finished / 轮次 / 降频节拍）后重新纳入管理。
+   *
+   * 与 `add()` 的区别：`add()` 只是"确保它在管理器的列表里"（跑完的动画不会自己重播），
+   * `replay()` 才是"从头再放一遍"。时间轴的 `restart()` 就是用它实现的。
+   */
+  public replay(component: any): this {
+    const animations = component && component.props && component.props.animations;
+    if (animations) {
+      for (const key in animations) {
+        const animation = animations[key];
+        animation.startTime = undefined;
+        animation.finished = false;
+        animation.__iteration = 0;
+        animation.__lastTick = undefined;
+      }
+      this.add(component);
+    }
+    return this;
+  }
+
+  /** 这个组件的动画现在还在推进吗（跑完 / 被 stop / 已从管理器摘除 → false）。 */
+  public isAnimating(component: any): boolean {
+    const animations = component && component.props && component.props.animations;
+    if (!animations || !this.animationMap.has(component.props.id)) {
+      return false;
+    }
+    for (const key in animations) {
+      if (!animations[key].finished) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public add(component: ICEComponent) {

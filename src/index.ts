@@ -19,6 +19,8 @@ export {
   easingNames,
   customEasingNames,
 } from './animation/easing-registry';
+export { default as AnimationTimeline } from './animation/AnimationTimeline';
+export type { TimelineOptions } from './animation/AnimationTimeline';
 export { EasingProgress } from './animation/Easing';
 export {
   classifyValue as classifyAnimationValueKind,

@@ -83,6 +83,14 @@ graph TD
   `ICE_ANIM_CALLBACK_ERROR` 诊断并忽略，**不会打断帧循环**。
 - **往返方向**：`direction: 'normal' | 'reverse' | 'alternate'`——`reverse` 从 to 走到 from；
   `alternate` 与 `loop` / `iterationCount` 组合即 yoyo（奇数轮反向）。
+- **运行时 API**：`component.setAnimation(key, cfg)` / `removeAnimation(key)` —— 免"必须在构造时声明 `animations`"，
+  内部做**写时复制**（没声明过的组件继承的是冻结的共享默认对象，直接写会抛 `object is not extensible`）；
+  `ice.animationManager.replay(component)`（重播）与 `isAnimating(component)`（查询）。
+- **时间轴（编排）**：`ice.animationManager.timeline()` —— `add(component, cfg, { at })`（`at` 为绝对毫秒或 `'+=N'`）、
+  `stagger(components, cfg, { each, at })`（错峰）、`play()/pause()/resume()/stop()/restart()`、
+  `duration` / `isPlaying()` / `finished`（Promise）。它是**调度器而非新的求值器**：`play()` 把 `at` 折算成 `delay`
+  写进 `props.animations`，推进仍由 `AnimationManager` 完成，因此与缓动/关键帧/量化/缓存复用/空闲停帧完全兼容。
+  `play()` 每次都从**头**播放（会重置运行时状态），`restart()` 即"点击重播"；暂停/继续走全局 `pause/resume`。
 - **减少动态效果**：系统开着 `prefers-reduced-motion: reduce`（或应用层 `ice.setReducedMotion(true)`）时，
   动画**不播放过程、直接落终态**，并记一条 `ICE_ANIM_REDUCED_MOTION` 诊断（见 `getDiagnostics()`）。
 - **空闲停帧**：没有脏、没有动画在推进时 `FrameManager` 会**停掉 rAF**（省电）；置脏、`animationManager.add()`、
