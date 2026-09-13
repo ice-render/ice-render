@@ -130,6 +130,11 @@ export function mergeBox(a: number[], b: number[]): number[] {
  *    `maxRegions` 是**软上限**：没有划算的合并时就多留几块（多跑几遍便宜的 AABB 过滤，
  *    好过把脏区撑成整屏）；区数超过 `MAX_REGIONS_HARD` 时塌缩成一个并集盒，
  *    让面积阈值去回退全量。
+ * 3. **聚合预算 `MAX_COALESCE_REGIONS`**（2026-09-13 加）：第 2 步的「挑代价最小的两块」
+ *    是 O(k²)，最多跑 k 轮 → 整体 O(k³)。脏块数量上百时，聚合本身就够把一帧卡死
+ *    （实测：100 块 108ms / 300 块 2.7s / 600 块 21.9s / 1000 块 111s）。
+ *    因此区数一旦超过预算就**不再精挑细选**，直接塌缩成并集盒 —— 保守解，
+ *    最多回退全量重绘，绝不会画错。
  *
  * ## 「合并划算」护栏（`isWorthMerging`，2026-09-11 加）
  *
@@ -159,11 +164,33 @@ const MAX_MERGE_AREA_GROWTH = 2;
  */
 const MAX_REGIONS_HARD = 24;
 
+/**
+ * 进入「精挑细选合并」阶段前允许的**区数预算**。
+ *
+ * 该阶段是 O(k³)：预算内的最坏代价 ≈ 32³ ≈ 3.3 万次基本运算（远低于一帧预算），
+ * 一旦超预算就塌缩成并集盒。之所以留到 32（而不是直接卡在 `MAX_REGIONS_HARD = 24`）：
+ * 现实中 25~32 块分散脏区（多选拖拽、若干条独立动画）还能靠划算合并收敛进少数几块，
+ * 这条路径要保住；再多的脏块，并集盒几乎必然覆盖大片画布，回退全量本来就是更优解。
+ */
+const MAX_COALESCE_REGIONS = 32;
+
 /** 合并两块是否「划算」：不会把大片干净区域圈进来。 */
 function isWorthMerging(a: number[], b: number[]): boolean {
   const sum = boxArea(a) + boxArea(b);
   if (sum <= 0) return true;
   return boxArea(mergeBox(a, b)) <= sum * MAX_MERGE_AREA_GROWTH;
+}
+
+/**
+ * 把所有有限盒塌缩成一个并集盒（超预算时的保守解；空输入返回空数组）。
+ */
+function collapseToUnion(boxes: number[][]): number[][] {
+  const union = emptyBox();
+  for (let i = 0; i < boxes.length; i++) {
+    if (!isFiniteBox(boxes[i])) continue;
+    unionBoxes(union, boxes[i]);
+  }
+  return union[0] === Infinity ? [] : [union];
 }
 
 export function coalesceRegions(boxes: number[][], maxRegions = 6): number[][] {
@@ -180,6 +207,9 @@ export function coalesceRegions(boxes: number[][], maxRegions = 6): number[][] {
       }
     }
     if (!merged) out.push([b[0], b[1], b[2], b[3]]);
+    // 超预算：立刻塌缩，避免下面的 O(k³) 阶段把一帧卡死。
+    // 并集对「已聚合的块 ∪ 剩余未处理的盒」取并，与逐步合并的结果同集。
+    if (out.length > MAX_COALESCE_REGIONS) return collapseToUnion(boxes);
   }
 
   // 合并后可能产生新的相接关系，迭代到收敛（通常 1~2 轮）

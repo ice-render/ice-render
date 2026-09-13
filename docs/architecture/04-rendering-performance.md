@@ -6,7 +6,7 @@
 
 1. **脏标记** `ice.dirty`：任何状态变化（`setState`、增删组件）置 `true`；渲染器仅在为真时工作。
 2. **帧入口决策**：`refreshQueue()` 后，若 `renderMode==='dirty-rect'` 且场景满足局部条件 → `doRenderDirtyRect()`；否则回退 `doRenderFull()`（旧全量逻辑**原样保留**，为参考与兜底）。
-3. **局部重绘**：脏区按组件**旧世界盒 ∪ 新世界盒 + paint pad** 收集，聚合成若干块**互不相接**的裁剪区（`coalesceRegions`，上限 6 块，超出时合并「面积增量最小」的两块），逐块 `clearRect` + `clip`，块内按 z 序重画与区域相交的组件。渲染器用 `WeakMap` 保存每组件「上次实际绘制的世界轴对齐盒」快照，用于旧区域擦除与相交判断。
+3. **局部重绘**：脏区按组件**旧世界盒 ∪ 新世界盒 + paint pad** 收集，聚合成若干块**互不相接**的裁剪区（`coalesceRegions`，上限 6 块，超出时合并「面积增量最小」的两块；**脏块数超过聚合预算 `MAX_COALESCE_REGIONS = 32` 时直接塌缩成并集盒**，避免 O(k³) 聚合把一帧卡死），逐块 `clearRect` + `clip`，块内按 z 序重画与区域相交的组件。渲染器用 `WeakMap` 保存每组件「上次实际绘制的世界轴对齐盒」快照，用于旧区域擦除与相交判断。
    - **两个坐标系**：脏区收集与相交判定在世界坐标里做（快照盒是世界盒），而 `clearRect`/`clip` 必须用**渲染坐标** = 世界坐标 × 渲染视口（`dpr · viewport`）。两者之间只有一个换算点 `mapBoxToRender()`（向外取整防接缝）。
 4. **组件上下文自包含**：每个组件 render 末尾把本组件写过的泄漏 ctx 属性（shadow/globalAlpha/composite/lineCap/lineJoin/miterLimit/textAlign/textBaseline/虚线）归位为 canvas 默认值——这是 full 与 partial **逐像素一致**的前提。
 
@@ -245,7 +245,8 @@ node bench/render.cjs 5000
 却按**组件个数**被判死刑。越过这道门后成本与动画数量几乎无关（都是整屏重绘）。
 
 另外两条门同样要记住：脏区**面积**占比 > `FULL_FALLBACK_AREA_RATIO = 0.35` → 全量；
-脏区最多聚合 `MAX_DIRTY_REGIONS = 6` 块。
+脏区最多聚合 `MAX_DIRTY_REGIONS = 6` 块（脏块数超过 `MAX_COALESCE_REGIONS = 32` 时不再精挑细选，
+直接塌缩成并集盒 → 交给面积阈值回退全量，见 [18 §3.3](18-animation-architecture.md)）。
 
 ### ④ 文本动画是重灾区
 
@@ -322,9 +323,13 @@ Canvas 2D 没有合成器通路：CSS/WAAPI 的 `transform` / `opacity` 可以�
 
 ### 优化方向（**尚未实现**，别当成已有能力）
 
-1. **把「计数门」换成「面积门」**（或对"纯平移 + 已缓存"直接放行）→ 消掉 ③ 的断崖
-   （注意：位图可复用时**全量重绘本身并不贵**，这条主要影响不可缓存的矢量图形；
-   且 `coalesceRegions(…, 6)` 会把大量分散小脏盒并成大盒，改之前要先做区域模型实测）；
+1. ~~**把「计数门」换成「面积门」**（或对"纯平移 + 已缓存"直接放行）~~ ——
+   **2026-09-13 实测后否决**（结论与数据见
+   [18 · 动画机制 §3.3](18-animation-architecture.md)）：脏区一散开，并集盒必然撞 0.35 的面积阈值，
+   面积门并不能把 ③ 的断崖补回来，反而让"注定回退全量"的帧白花 ~30% 做收集与聚合；
+   成片脏区的交叉点在 20~30% 且低于测量噪声。**该场景的正解是分层渲染**（见 18 §3.1 与本文末）。
+   评估中撞出并修掉了 `coalesceRegions` 的 O(k³) 卡帧缺陷（聚合预算 `MAX_COALESCE_REGIONS = 32`，
+   1000 脏块 111s → 1ms，单测钉住）；
 2. **帧率分级 + 空闲停帧**：次要动画按 30fps 推进；没有动画且无脏帧时停 rAF
    （当前 `FrameManager` 每帧无条件续帧，纯耗电）；
 3. **OffscreenCanvas / Worker**（见 ⑥）。

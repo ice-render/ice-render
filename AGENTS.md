@@ -66,8 +66,11 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   1,000 个文本平移动画 **35.1ms → 2.7ms**（位图复用率 100%），门禁 `npm run bench:anim -- --check`（已进 `verify:full`）。
   **已落地（2026-09-13）**：动画写值通道 + 设备像素量化、分层渲染原语（视口绑定/输入穿透/事件归属/跨实例迁移/多层导出）、
   动画结构化诊断（`validateAnimations` + `getDiagnostics`）、**帧调度**（空闲停帧 `FrameManager.needsFrame/wake`、
-  次要动画 `fps` 降频、`prefers-reduced-motion` 折叠为终态）。**尚未做**：计数门换面积门（先做区域模型实测）、
-  **表达力已开放**（缓动传函数 / `registerEasing`、颜色与带单位数字串插值、生命周期回调、`direction: reverse|alternate`）；**编排与运行时控制已落地**（`animationManager.timeline()` 的 add/at/stagger/play/pause/resume/stop/restart/finished，`component.setAnimation/removeAnimation`、`manager.replay/isAnimating`；**注意 `props.animations` 默认值是被冻结的共享对象，运行时挂动画必须走 `setAnimation` 写时复制**）。**尚未做**：脏区面积门、OffscreenCanvas/GPU 后端。
+ 次要动画 `fps` 降频、`prefers-reduced-motion` 折叠为终态）。**脏区门控已定案（2026-09-13）**：维持计数门（"换成面积门"实测后否决，数据见 18 §3.3）。
+ **`coalesceRegions` 聚合预算铁律**：「挑代价最小的两块合并」是 O(k²)、最多跑 k 轮 → O(k³)，脏块上百即可把一帧卡死（实测 1000 块 111s）；
+ 预算 `MAX_COALESCE_REGIONS = 32` 之外**直接塌缩成并集盒**交给面积阈值（保守解：最多回退全量，绝不画错）。
+ **不要把这道预算换成"更聪明的合并"**——除非有新的区域模型实测支撑（探针脚本一律不入库）；
+  **表达力已开放**（缓动传函数 / `registerEasing`、颜色与带单位数字串插值、生命周期回调、`direction: reverse|alternate`）；**编排与运行时控制已落地**（`animationManager.timeline()` 的 add/at/stagger/play/pause/resume/stop/restart/finished，`component.setAnimation/removeAnimation`、`manager.replay/isAnimating`；**注意 `props.animations` 默认值是被冻结的共享对象，运行时挂动画必须走 `setAnimation` 写时复制**）。**尚未做**：OffscreenCanvas/GPU 后端。
   **目标架构、红线与验收指标见 [18 · 动画机制](docs/architecture/18-animation-architecture.md)**
   （含"不用 CSS 变换做图元动画"的决策记录）。
 
