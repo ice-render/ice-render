@@ -24,7 +24,7 @@ export function toIsoTime(value: unknown): string | undefined {
   // 数字按 **epoch 毫秒**解释（`Date.now()` / `getTime()` 的产物）；
   // 字符串交给 `Date.parse`（同时能吃 ISO 与 `2022/1/1 00:00:00` 这类历史格式）。
   const ms = value instanceof Date ? value.getTime() : typeof value === 'number' ? value : Date.parse(value);
-  if (!isFinite(ms)) {
+  if (!Number.isFinite(ms)) {
     return undefined;
   }
   return new Date(ms).toISOString();

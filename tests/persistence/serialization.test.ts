@@ -207,6 +207,19 @@ describe('序列化 / 反序列化 round-trip', () => {
       expect(after.createTime).toBe('2026-09-13T05:00:00.000Z');
       expect(after.createTime).not.toBe(before.createTime);
     });
+
+    it('载入失败（版本不支持）不改动实例上已有的 createTime', () => {
+      const ice: any = makeIce();
+      ice.documentMeta = { createTime: '2020-01-01T00:00:00.000Z' };
+      expect(() =>
+        new Deserializer(ice).fromJSONObject({
+          version: 999,
+          createTime: '2030-01-01T00:00:00.000Z',
+          childNodes: [],
+        })
+      ).toThrow(/不支持的反序列化版本/);
+      expect(ice.documentMeta.createTime).toBe('2020-01-01T00:00:00.000Z');
+    });
   });
 
   it('序列化排除运行时缓存值（linearMatrix/composedMatrix/localOrigin/absoluteOrigin）', () => {
