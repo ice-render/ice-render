@@ -146,6 +146,26 @@ class ICE {
   }
 
   /**
+   * 读画布矩形（border-box）。
+   *
+   * **小程序 / 无 DOM 的运行时没有 `getBoundingClientRect`**：那里的 canvas 节点只有
+   * `width` / `height` / `getContext`，尺寸要自己用 `wx.createSelectorQuery()` 拿。
+   * 这种情况下退回「原点在 (0,0)、尺寸取画布自身尺寸」的矩形 —— 正好对上小程序触摸事件
+   * 的坐标语义（`touch.x/y` 就是相对画布的），输入换算与内容盒计算因此有确定输入，
+   * 宿主不需要再包一层假 DOM。
+   *
+   * 有原生实现的运行时（浏览器、jsdom）行为完全不变。
+   */
+  public readCanvasRect(el: any = this.canvasEl): any {
+    if (el && typeof el.getBoundingClientRect === 'function') {
+      return el.getBoundingClientRect();
+    }
+    const width = (el && el.width) || 0;
+    const height = (el && el.height) || 0;
+    return { left: 0, top: 0, width, height, right: width, bottom: height, x: 0, y: 0 };
+  }
+
+  /**
    * @param ctx DOM id、HTMLCanvasElement 或 CanvasRenderingContext2D
    * @param options 渲染配置。renderMode: 'dirty-rect'(默认) | 'full'
    *
@@ -197,7 +217,7 @@ class ICE {
       };
       this.canvasWidth = this.canvasEl.width;
       this.canvasHeight = this.canvasEl.height;
-      this.canvasBoundingClientRect = this.canvasEl.getBoundingClientRect();
+      this.canvasBoundingClientRect = this.readCanvasRect();
       this.__rememberInputRect(this.canvasBoundingClientRect);
       this.__contentBox = this.__readContentBox(this.canvasBoundingClientRect);
       this.ctx = this.canvasEl.getContext('2d');
@@ -1074,7 +1094,11 @@ class ICE {
     this.controlPanelManager.start();
     this.linkSlotManager.start();
     setTimeout(() => {
-      this.eventDispatcher.stopped = false;
+      // 实例可能在 300ms 内被 destroy()（eventDispatcher 置空）——定时器里再取用就是
+      // 未捕获异常，在小程序里表现为白屏。这里必须判空。
+      if (this.eventDispatcher) {
+        this.eventDispatcher.stopped = false;
+      }
     }, 300);
 
     const endTime = Date.now();

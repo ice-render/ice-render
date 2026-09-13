@@ -42,6 +42,8 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 - **无全局 `Path2D` 的运行时自动降级**：`PolyfillPath2D` 记录路径命令、渲染时重放，与原生 `Path2D` 逐像素一致（老版本小程序基础库可用）。
 - 字体、图片、离屏画布、像素比全部有平台适配（`FontFace` / 小程序 `loadFont`、`Image` / 小程序 `createImage`、`document.createElement('canvas')` / 小程序 `createOffscreenCanvas`、`devicePixelRatio` / 小程序系统信息）。
 - `ICE.init(ctx)` 支持直接传入 Canvas 上下文，完全绕开 DOM。
+- **每次提交都在「小程序形状」的运行时里回归**：[`tests/mini-program/`](./tests/mini-program/) 摘掉 `document` / `window` / `Path2D` / `requestAnimationFrame` / `FontFace` / `OffscreenCanvas`，只留 `wx.*`，画布对象只有 `width` / `height` / `getContext` —— 覆盖启动、出帧、路径重放、离屏缓存降级、文本量测降级、触摸输入、序列化与 SVG 导出。
+- **接入示例与宿主契约**：[`examples/mini-program/`](./examples/mini-program/)，含可直接拷进小程序项目的页面与触摸坐标适配层。
 
 ## ✨ 核心特性
 

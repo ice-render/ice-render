@@ -49,7 +49,18 @@
 | `devicePixelRatio` | ✅ 已实现：`ICE.init(el, { dpr })`，backing store = 内容盒 × dpr | 小程序按系统信息提供 dpr |
 | 字体 / 图片 / 离屏画布 | ✅ 均经 `root` 抽象（见上表） | 需平台提供对应能力；缺失时报错信息应指向该适配点 |
 
-> **说明（2026-09-11 更新）**：`Path2D` 已不再是待办（已抽象为 `root.createPath2D()` + `PolyfillPath2D`），
-> 无 rAF 的运行时的启动阻塞也已解除。当前**唯一未闭环的是真机验证**：`PolyfillPath2D`、离屏 canvas、
-> 字体加载在低版本基础库上的逐像素一致性与可用性，需要微信开发者工具或真机确认 —— 自动化测试（Playwright/Chromium）
-> 覆盖不到这一层，因此这是兼容性路线上仅剩的已知工作项。
+> **说明（2026-09-13 更新）**：`Path2D` 已不再是待办（已抽象为 `root.createPath2D()` + `PolyfillPath2D`），
+> 无 rAF 的运行时的启动阻塞也已解除。
+>
+> **「小程序形状的运行时」回归已经自动化**：[`tests/mini-program/`](../../tests/mini-program/) 把
+> `document` / `window` / `Path2D` / `requestAnimationFrame` / `FontFace` / `OffscreenCanvas` 全部摘掉，
+> 只留 `wx.*`，画布对象就是小程序 canvas 节点本来的样子（只有 `width` / `height` / `getContext`），
+> 每次提交都跑：启动、出帧、路径命令重放、离屏缓存走 `wx.createOffscreenCanvas`、
+> **老基础库缺 `createOffscreenCanvas` / `measureText` 墨迹界标时的降级**、触摸输入归一化、
+> 序列化往返、SVG 导出，以及一条「不许触碰小程序 Canvas 2D 子集之外成员」的越界检查。
+> 这一层已抓出并修掉五处真缺陷（`init` 无条件调 `getBoundingClientRect`、无离屏 canvas 时帧回调抛错、
+> 文本量测靠抛异常降级、控制面板对空 `target` 崩溃、销毁后定时器写 `eventDispatcher`）。
+>
+> 仍然**只有开发者工具模拟器 / 真机**能覆盖的是：`PolyfillPath2D`、离屏 canvas、字体加载在
+> 具体基础库版本与真机上的逐像素一致性与可用性 —— 模拟器的 canvas 由 Chromium/Skia 实现，
+> 与真机实现不同，**模拟器通过 ≠ 真机逐像素一致**。这是兼容性路线上仅剩的已知工作项。

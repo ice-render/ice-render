@@ -84,6 +84,15 @@ class ObjectCache {
   private map = new WeakMap<object, CachedSurface>();
   /** 已缓存位图的累计字节数（用于总预算门控；WeakMap 不可遍历，故显式记账）。 */
   private __bytes = 0;
+
+  /**
+   * 运行时是否**没有**离屏 canvas 能力。
+   *
+   * 小程序老基础库没有 `wx.createOffscreenCanvas`，极简 headless 环境也没有 —— 这类运行时
+   * 建位图会抛错；由于 build 发生在帧回调里，抛出去就是未捕获异常（小程序直接白屏）。
+   * 一旦探测到这种情况就整体关掉缓存，退化为直接落墨。
+   */
+  private __offscreenUnavailable = false;
   /** 上一帧的渲染视口（复用同一对象，避免每帧分配）。 */
   private __vp: { scale: number; tx: number; ty: number } | null = null;
   /** 本帧的渲染视口是否与上一帧不同。视口变化帧一律不缓存，见 `beginFrame()`。 */
@@ -135,6 +144,9 @@ class ObjectCache {
     // 视口变化帧一律不缓存：位图栅格与设备栅格已错位，重建代价又和直接落墨同阶。
     // 见 `beginFrame()`。（只是一次字段读 —— 本方法在热路径上每个组件每帧都会被调用。）
     if (this.__vpChanged) return false;
+    // 运行时没有离屏 canvas（老基础库的 `wx.createOffscreenCanvas` 缺失、极简 headless 环境）：
+    // 缓存整条不可用，一律直接落墨。见 `render()` 里对 build 失败的兜底。
+    if (this.__offscreenUnavailable) return false;
     // 有效不透明度 ≠ 1（自身或**任一祖先**）时不缓存。
     //
     // 位图是 `build() → renderTo()` 用「当时」的 effectiveOpacity 烤出来的，而贴图路径 `draw()`
@@ -327,7 +339,16 @@ class ObjectCache {
     if (needRebuild) {
       const prev = cache || null;
       if (prev) this.__bytes = Math.max(0, this.__bytes - prev.pw * prev.ph * 4);
-      cache = this.build(component, contentKey, linearKey, rs, ox, oy);
+      try {
+        cache = this.build(component, contentKey, linearKey, rs, ox, oy);
+      } catch (err) {
+        // 离屏 canvas 建不出来（小程序老基础库没有 wx.createOffscreenCanvas / 极简运行时）：
+        // 这里**不能**把异常抛出去 —— build 是在帧回调里被调用的，抛出去就是未捕获异常，
+        // 在小程序里表现为直接白屏。降级为「不缓存、直接落墨」，并记住这个运行时没有离屏能力。
+        this.__offscreenUnavailable = true;
+        this.map.delete(component);
+        return false;
+      }
       this.__bytes += cache.pw * cache.ph * 4;
     }
     this.map.set(component, cache as CachedSurface);

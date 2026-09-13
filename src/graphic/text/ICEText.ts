@@ -504,6 +504,12 @@ class ICEText extends ICEComponent {
   private __measureByDOM() {
     let div;
     try {
+      // 无 DOM 的运行时（小程序 / Node / headless）：这里没有可用的降级量测。
+      // 直接按当前 state 尺寸兜底，别靠抛异常走到 catch —— 那会在小程序控制台刷一堆错误日志。
+      const doc: any = this.root && this.root.document;
+      if (!doc || typeof doc.getElementById !== 'function') {
+        return { width: this.state.width, height: this.state.height };
+      }
       div = this.root.document.getElementById(utilDivId);
       if (!div) {
         div = this.root.document.createElement('div');
