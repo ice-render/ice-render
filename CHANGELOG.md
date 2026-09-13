@@ -90,7 +90,24 @@
 +  reduced-motion 折叠、帧需求）、`e2e/visual/animation-scheduling.spec.ts`（4 条真实浏览器：空闲停帧三段态 /
 +  置脏唤醒 / reduced-motion 落终态 / 正常偏好对照组）。
 +
-+  **待做**：脏区面积门（C）；动画侧的 timeline/stagger。
++- **动画表达力：应用层自定义动画（⑤）**（2026-09-13）：
++  - **自定义缓动**：`easing` 可直接传函数 `(t) => number`（只对这条动画生效），或 `registerEasing(name, fn)`
++    注册后按名字用（新增 `easing-registry.ts`：`registerEasing` / `unregisterEasing` / `resolveEasing` /
++    `easingNames` / `customEasingNames`；内置缓动不可覆盖，重名抛 `ICE_ANIM_EASING_NAME_CONFLICT`）。
++  - **颜色与带单位数字串插值**（新增 `interpolators.ts`，校验与运行时同源）：支持
++    `#rgb` / `#rgba` / `#rrggbb` / `#rrggbbaa` / `rgb()` / `rgba()` 与 `'12px'`（单位须一致）；
++    颜色在 sRGB 空间插值、输出统一 `rgb()` / `rgba()`。此前"颜色动画不支持"的坑填上了
++    （`ICE_ANIM_VALUE_NOT_INTERPOLATABLE` 不再对颜色报错）。
++  - **生命周期回调**：`onStart` / `onUpdate` / `onRepeat` / `onComplete`，回调上下文
++    `{ component, key, value, progress, iteration, animation }`；回调异常只记 `ICE_ANIM_CALLBACK_ERROR`
++    并忽略，不打断帧循环。
++  - **往返方向**：`direction: 'normal' | 'reverse' | 'alternate'`（alternate 与 loop/iterationCount
++    组合即 yoyo，奇数轮反向）；校验器新增 `ICE_ANIM_DIRECTION_INVALID`。
++  回归：`tests/animation/interpolators-easing-registry.test.ts`（10）、`tests/animation/animation-expressiveness.test.ts`（9）、
++  `e2e/visual/animation-expressiveness.spec.ts`（2 条真实浏览器：颜色动画真的画上画布 + 自定义缓动 +
++  回调链 + alternate 往返）。
++
++  **待做**：编排（timeline / stagger / 事件触发）与运行时控制（`component.animate()` / 句柄）；脏区面积门（C）。
 
 ## [2.2.0] - 2026-09-13
 

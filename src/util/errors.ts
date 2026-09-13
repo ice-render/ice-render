@@ -46,6 +46,10 @@ export const ICE_ERROR_CODES = {
   OFFSCREEN_CONTEXT_UNSUPPORTED: 'ICE_OFFSCREEN_CONTEXT_UNSUPPORTED',
   /** 当前运行时没有可用的离屏 canvas。 */
   OFFSCREEN_CANVAS_UNSUPPORTED: 'ICE_OFFSCREEN_CANVAS_UNSUPPORTED',
+  /** `registerEasing()` 的名字/函数非法。 */
+  ANIM_EASING_INVALID: 'ICE_ANIM_EASING_INVALID',
+  /** `registerEasing()` 的名字已被内置缓动占用，或重复注册。 */
+  ANIM_EASING_NAME_CONFLICT: 'ICE_ANIM_EASING_NAME_CONFLICT',
 } as const;
 
 export type ICEErrorCode = (typeof ICE_ERROR_CODES)[keyof typeof ICE_ERROR_CODES];

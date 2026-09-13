@@ -67,7 +67,7 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   **已落地（2026-09-13）**：动画写值通道 + 设备像素量化、分层渲染原语（视口绑定/输入穿透/事件归属/跨实例迁移/多层导出）、
   动画结构化诊断（`validateAnimations` + `getDiagnostics`）、**帧调度**（空闲停帧 `FrameManager.needsFrame/wake`、
   次要动画 `fps` 降频、`prefers-reduced-motion` 折叠为终态）。**尚未做**：计数门换面积门（先做区域模型实测）、
-  timeline/stagger 编排、OffscreenCanvas/GPU 后端。
+  **表达力已开放**（缓动传函数 / `registerEasing`、颜色与带单位数字串插值、生命周期回调、`direction: reverse|alternate`）；**尚未做**：timeline/stagger 编排与运行时控制 API、OffscreenCanvas/GPU 后端。
   **目标架构、红线与验收指标见 [18 · 动画机制](docs/architecture/18-animation-architecture.md)**
   （含"不用 CSS 变换做图元动画"的决策记录）。
 

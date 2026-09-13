@@ -43,11 +43,41 @@ describe('动画配置校验：错误（error）', () => {
   it('from/to 不可插值（字符串颜色、长度不等的数组）', () => {
     const single = validateAnimations({ left: { from: 0, to: 1, duration: 100 } });
     expect(single).toEqual([]);
-    const bad1 = validateAnimations({ 'style.fillStyle': { from: '#fff', to: '#000', duration: 100 } });
+    // 颜色**可以**插值（表达力 ⑤）；带单位数字串也可以（同单位）
+    expect(validateAnimations({ 'style.fillStyle': { from: '#fff', to: '#000', duration: 100 } })).toEqual([]);
+    expect(validateAnimations({ 'style.lineWidth': { from: '2px', to: '10px', duration: 100 } })).toEqual([]);
+    // 真正的非插值类型：普通字符串、单位不一致、长度不等的数组
+    const bad1 = validateAnimations({ 'style.fillStyle': { from: 'hello', to: 'world', duration: 100 } });
     expect(codesOf(bad1)).toContain(CODES.VALUE_NOT_INTERPOLATABLE);
     expect(bad1[0].path).toBe('style.fillStyle');
+    expect(codesOf(validateAnimations({ 'style.lineWidth': { from: '2px', to: '3em', duration: 100 } }))).toContain(
+      CODES.VALUE_NOT_INTERPOLATABLE
+    );
     const bad2 = validateAnimations({ 'transform.scale': { from: [1, 1], to: [2, 2, 2], duration: 100 } });
     expect(codesOf(bad2)).toContain(CODES.VALUE_NOT_INTERPOLATABLE);
+  });
+
+  it('direction 与生命周期回调的取值校验', () => {
+    expect(validateAnimations({ left: { from: 0, to: 1, duration: 100, direction: 'alternate' } })).toEqual([]);
+    expect(codesOf(validateAnimations({ left: { from: 0, to: 1, duration: 100, direction: 'pingpong' } }))).toContain(
+      CODES.DIRECTION_INVALID
+    );
+    expect(
+      codesOf(validateAnimations({ left: { from: 0, to: 1, duration: 100, onUpdate: 'not-a-function' } }))
+    ).toContain(CODES.CALLBACK_ERROR);
+    expect(validateAnimations({ left: { from: 0, to: 1, duration: 100, onUpdate: () => {} } })).toEqual([]);
+  });
+
+  it('应用层注册的缓动名视为已知（registerEasing 后校验通过）', () => {
+    const { registerEasing, unregisterEasing } = require('../../src/animation/easing-registry');
+    registerEasing('brandEaseForValidation', (t: number) => t);
+    try {
+      expect(validateAnimations({ left: { from: 0, to: 1, duration: 100, easing: 'brandEaseForValidation' } })).toEqual(
+        []
+      );
+    } finally {
+      unregisterEasing('brandEaseForValidation');
+    }
   });
 
   it('keyframes 形状非法（少于 2 帧 / offset 非有限 / 长度不一致）', () => {

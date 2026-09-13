@@ -71,6 +71,18 @@ graph TD
   避免交互干扰属性计算；组件销毁时自动从 `animationMap` 摘除。
 - 默认**不取整**（避免 0→1 的透明度/角度/缩放被压掉），需要整数步进时显式 `round: true`（数组逐元素取整）。
 - `fps`（可选）：**次要动画降频**，如 `{ duration: 900, fps: 30 }`。采样按时间、跳过帧不改变曲线，终点仍精确落值。
+- **取值类型**（`interpolators.ts` 统一判定与求值）：
+  - 数值 / 等长数字数组（矩阵与位移）；
+  - **颜色**：`#rgb` / `#rgba` / `#rrggbb` / `#rrggbbaa` / `rgb()` / `rgba()`，两端都必须是颜色，
+    插值在 sRGB 数值空间做（与 CSS transition 一致），输出统一为 `rgb()` / `rgba()`；
+  - **带单位数字串**：`'12px'` / `'1.5em'`（**单位必须一致**）。
+- **自定义缓动**：`easing` 可以直接给函数 `(t) => number`（只对这条动画生效），
+  或先 `ICE.registerEasing(name, fn)` 再按名字用（内置缓动不可覆盖，重名抛 `ICE_ANIM_EASING_NAME_CONFLICT`）。
+- **生命周期回调**：`onStart` / `onUpdate` / `onRepeat` / `onComplete`，回调收到
+  `{ component, key, value, progress, iteration, animation }`；回调抛异常只记一条
+  `ICE_ANIM_CALLBACK_ERROR` 诊断并忽略，**不会打断帧循环**。
+- **往返方向**：`direction: 'normal' | 'reverse' | 'alternate'`——`reverse` 从 to 走到 from；
+  `alternate` 与 `loop` / `iterationCount` 组合即 yoyo（奇数轮反向）。
 - **减少动态效果**：系统开着 `prefers-reduced-motion: reduce`（或应用层 `ice.setReducedMotion(true)`）时，
   动画**不播放过程、直接落终态**，并记一条 `ICE_ANIM_REDUCED_MOTION` 诊断（见 `getDiagnostics()`）。
 - **空闲停帧**：没有脏、没有动画在推进时 `FrameManager` 会**停掉 rAF**（省电）；置脏、`animationManager.add()`、
