@@ -66,8 +66,9 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 **文本与国际化**
 
 - **断行策略** —— `wrap` 开启后按 `wordBreak: 'normal'`（默认）断行：拉丁词不被硬拆、
-  CJK 逐字断并做**禁则**（行首不放闭标点、行尾不放开标点），单个词整行放不下时才硬拆；
-  `'break-all'` 保留逐字贪心（代码 / 艺术字场景）。
+  CJK 逐字断并做**禁则**（行首不放闭标点、行尾不放开标点）、**泰/老/高棉/缅甸这类无空格脚本
+  按词典分词断行**（复用运行时的 `Intl.Segmenter` word 粒度，宿主不支持则退回逐字），
+  单个词整行放不下时才硬拆；`'break-all'` 保留逐字贪心（代码 / 艺术字场景）。
 - **文字方向（RTL / BiDi）** —— `direction: 'ltr' | 'rtl' | 'auto'` 与 `textAlign: 'start' | 'end'`：
   `'auto'` 按首个强方向字符判定，写 `ctx.direction` 前做**特性检测**、渲染完归位；
   SVG 导出同口径（`direction` + 按方向映射的 `text-anchor`）。

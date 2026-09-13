@@ -33,6 +33,10 @@
 - 拉丁词不能被硬拆 —— `wordBreak: 'normal'`（默认）下 `hello world` 在窄行里断成 `hello` / `world`，
   整行放不下时才硬拆（等价 CSS `overflow-wrap: break-word`）；
 - CJK 逐字断，并做**禁则**：行首不能是闭标点（`、。，）」`…），行尾不能是开标点（`（「`…）；
+- **无空格脚本（泰 / 老挝 / 高棉 / 缅甸）按词典分词断行**：这些文字词间不写空格，逐字断会把词切碎。
+  引擎用 `Intl.Segmenter(undefined, { granularity: 'word' })` 复用运行时自带的词典实现
+  （实测不需要 locale 也能正确切分 —— 因此不违反「引擎不持 locale」），结果带缓存；
+  宿主未实现 word 粒度时退回逐 grapheme（`break-all` 行为）；
 - 需要等宽硬断的场景（代码、艺术字）用 `wordBreak: 'break-all'` 回到旧的逐 grapheme 贪心。
 
 实现：`src/graphic/text/text-wrap.ts`（纯函数）+ `ICEText.state.wordBreak`；回归 `tests/graphic/text-wrap.test.ts`。
@@ -54,6 +58,11 @@ new ICEText({
   渲染结束归位 `inherit` —— 遵循「组件渲染自包含」铁律，不影响脏矩形/离屏缓存的像素契约；
 - SVG 导出保持同口径：输出 `direction="rtl"`，并按方向映射 `text-anchor`（RTL 下 `start` 是右边）；
 - 回归：`tests/graphic/text-direction.test.ts`、`tests/graphic/text-i18n.test.ts`、`tests/export/svg-export.test.ts`。
+
+> **明确不做：完整 UAX#9 段落重排。** canvas 的 `fillText` 本来就由平台实现双向算法
+> （浏览器 / 小程序各自实现），引擎的职责只是把**基线方向**传对（上面三条）。自己实现一遍
+> 只会更差 —— 嵌套方向、数字上下文、隔离符（`U+2066..U+2069`）这些都必须与平台一致，
+> 而这些控制字符我们**原样透传**（引擎不做文本规范化），交给平台处理即可。
 
 ### 3. 输入法（IME）
 
@@ -105,7 +114,7 @@ try {
 | 项 | 现状 |
 |---|---|
 | 引擎词条 / locale 状态 | ✅ 没有（本契约要求保持） |
-| 引擎断行策略 | ✅ `wordBreak: 'normal' \| 'break-all'` + CJK 禁则（2026-09-13） |
+| 引擎断行策略 | ✅ `wordBreak: 'normal' \| 'break-all'` + CJK 禁则 + 无空格脚本（泰/老/高棉/缅甸）词典分词（2026-09-13） |
 | 引擎文字方向 | ✅ `direction` + `textAlign: 'start' \| 'end'`（2026-09-13，含 SVG 口径） |
 | 输入法 | ✅ 透明 `<input>` + `compositionend` |
 | 错误码 | ✅ `ICE_*` 稳定码（2026-09-13） |

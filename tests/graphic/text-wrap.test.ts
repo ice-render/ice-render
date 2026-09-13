@@ -31,6 +31,26 @@ describe('wrapParagraph', () => {
     expect(wrapParagraph('中文测试', 20, measure)).toEqual(['中文', '测试']);
   });
 
+  it('normal：无空格脚本（泰语）按词典分词断行，不把词切碎', () => {
+    // Intl.Segmenter 的 word 粒度给出：สวัสดี | ครับ | ผม | ชื่อ
+    // 7 字符/行：按词断 → สวัสดี | ครับผม | ชื่อ（每个词都完整）
+    const text = 'สวัสดีครับผมชื่อ';
+    const byWord = wrapParagraph(text, 70, measure);
+    expect(byWord).toEqual(['สวัสดี', 'ครับผม', 'ชื่อ']);
+    // 对照：逐字断会把词切开（结果不同，但内容一个不丢）
+    const byGrapheme = wrapParagraph(text, 70, measure, 'break-all');
+    expect(byGrapheme).not.toEqual(byWord);
+    expect(byGrapheme.join('')).toBe(text);
+    expect(byWord.join('')).toBe(text);
+  });
+
+  it('normal：运行时不支持 word 粒度时，无空格脚本退回逐 grapheme', () => {
+    const noSegmenter = {}; // 没有 Intl.Segmenter
+    expect(wrapParagraph('สวัสดีครับ', 20, measure, 'normal', noSegmenter)).toEqual(
+      wrapParagraph('สวัสดีครับ', 20, measure, 'break-all')
+    );
+  });
+
   it('normal：行首禁则 —— 闭标点不孤零零跑到行首', () => {
     // 3 字/行：朴素断点是「他说好」+「」的」→ 禁则把 」 留在上一行
     expect(wrapParagraph('他说好」的', 30, measure)).toEqual(['他说好」', '的']);
