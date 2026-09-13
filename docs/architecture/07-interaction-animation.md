@@ -70,4 +70,9 @@ graph TD
 - 动画期间把组件 `state.interactive` 临时置 `false`（**保存并恢复原值**，不覆盖用户显式设置的 `false`），
   避免交互干扰属性计算；组件销毁时自动从 `animationMap` 摘除。
 - 默认**不取整**（避免 0→1 的透明度/角度/缩放被压掉），需要整数步进时显式 `round: true`（数组逐元素取整）。
+- `fps`（可选）：**次要动画降频**，如 `{ duration: 900, fps: 30 }`。采样按时间、跳过帧不改变曲线，终点仍精确落值。
+- **减少动态效果**：系统开着 `prefers-reduced-motion: reduce`（或应用层 `ice.setReducedMotion(true)`）时，
+  动画**不播放过程、直接落终态**，并记一条 `ICE_ANIM_REDUCED_MOTION` 诊断（见 `getDiagnostics()`）。
+- **空闲停帧**：没有脏、没有动画在推进时 `FrameManager` 会**停掉 rAF**（省电）；置脏、`animationManager.add()`、
+  `resume()` 都会自动唤醒。应用层自己按帧做计算时用 `ice.setContinuousFrames(true)` 保持常驻。
 - 未知缓动名回退 `linear` 并只提示一次；非法配置的告警不会逐帧刷屏。
