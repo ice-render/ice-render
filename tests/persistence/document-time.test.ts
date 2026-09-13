@@ -31,4 +31,10 @@ describe('toIsoTime', () => {
     expect(toIsoTime([])).toBeUndefined();
     expect(toIsoTime(NaN)).toBeUndefined();
   });
+
+  it('随包导出：下游包在自己的快照格式里复用同一套归一化规则', () => {
+    const pkg = require('../../src/index');
+    expect(pkg.toIsoTime).toBe(toIsoTime);
+    expect(pkg.toIsoTime('2022/1/1 00:00:00')).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  });
 });
