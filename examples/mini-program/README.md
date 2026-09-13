@@ -25,6 +25,31 @@ examples/mini-program/
 > 想接到自己的项目里：把 `pages/ice-canvas/` 与 `host-adapter.js` 拷过去，`package.json` 里加
 > `ice-render` 依赖，同样「构建 npm」后再打开即可。
 
+## 模拟器级端到端（`npm run e2e`）
+
+`e2e/smoke.js` 用官方 `miniprogram-automator` 驱动开发者工具，在**真实小程序运行时**里跑：
+页面加载 → `ICE.init` → 引擎建图 → **触摸拖拽** → 断言图元真的移动 → 截图存档。
+
+```bash
+npm install
+npm run e2e          # 结束后自动关闭项目窗口；加 --keep-open 可以保留窗口人工查看
+```
+
+前置条件：
+
+1. 安装微信开发者工具并登录；
+2. **工具 → 设置 → 安全设置 → 打开「服务端口」**（automator 靠它连模拟器）；
+3. 引擎仓先 `npm run build`（脚本会把 `dist/index.umd.js` 拷成 `miniprogram_npm/ice-render/`）。
+
+> **游客模式的坑**：`project.config.json` 用的 `touristappid` 在 GUI 里没问题，但 CLI 的
+> `build-npm` 会因 AppID 校验失败。所以脚本直接按 DevTools 的产物形状放一份 `miniprogram_npm/ice-render`
+> （内容就是引擎产物，等价于「构建 npm」的结果）。用自己的 AppID 时，按上面第 2 步正常构建即可。
+
+这一层比 `tests/mini-program/`（Node 里的形状环境）更接近真实：真的 `wx.createSelectorQuery`、
+真的 `wx.createOffscreenCanvas`、真实事件 payload。但它**仍不是真机**，见文末。
+
+**不进 CI**：需要开发工具 + 登录 + 服务端口，维护成本高于它带来的额外置信度；本地跑一次即可。
+
 ## 三步接入
 
 **1）拿 canvas 节点（不是旧接口的 canvasId）**

@@ -9,5 +9,6 @@
     "enhance": true,
     "postcss": true,
     "minified": false
-  }
+  },
+  "compileType": "miniprogram"
 }

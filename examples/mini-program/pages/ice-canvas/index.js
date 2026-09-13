@@ -50,8 +50,20 @@ Page({
         this.buildScene(ice);
 
         this.host = createHostAdapter({ ice, component: this, canvasId: 'ice-canvas' });
-        this.setData({ status: '拖一下方块试试（触摸已接入）' });
+        this.syncStatus();
       });
+  },
+
+  /** 把第一块图元的位置写进页面数据：既能当演示状态，也方便自动化断言 */
+  syncStatus() {
+    const node = this.ice && this.ice.childNodes[0];
+    if (!node) {
+      this.setData({ status: '拖一下方块试试（触摸已接入）' });
+      return;
+    }
+    const left = Math.round(node.state.left);
+    const top = Math.round(node.state.top);
+    this.setData({ status: `拖一下方块试试（触摸已接入）· 方块位置 (${left}, ${top})` });
   },
 
   buildScene(ice) {
@@ -100,9 +112,11 @@ Page({
   },
   onTouchMove(evt) {
     this.host && this.host.onTouchMove(evt);
+    this.syncStatus();
   },
   onTouchEnd(evt) {
     this.host && this.host.onTouchEnd(evt);
+    this.syncStatus();
   },
   onTouchCancel(evt) {
     this.host && this.host.onTouchCancel(evt);
