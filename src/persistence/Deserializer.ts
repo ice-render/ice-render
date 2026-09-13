@@ -7,6 +7,7 @@
  */
 import ICE from '../ICE';
 import { SERIALIZATION_VERSION } from './Serializer';
+import { toIsoTime } from './document-time';
 
 /**
  * 序列化格式迁移表：`to` 为目标版本，按升序执行。
@@ -40,6 +41,7 @@ export default class Deserializer {
 
   public fromJSONObject(jsonObj) {
     this._unknownTypes = [];
+    this.__rememberCreateTime(jsonObj);
     // 版本迁移入口：兼容缺失 version 的旧数据（视为版本 1）
     const version = jsonObj && jsonObj.version ? jsonObj.version : 1;
     this.migrate(jsonObj, version);
@@ -47,6 +49,28 @@ export default class Deserializer {
     const childNodes = (jsonObj && jsonObj.childNodes) || [];
     for (let i = 0; i < childNodes.length; i++) {
       this.decodeRecursively(this.ice, childNodes[i]);
+    }
+  }
+
+  /**
+   * 记住文档的「首次创建时间」，供之后 `Serializer` 沿用（见 `ICE.documentMeta`）。
+   *
+   * - 旧数据里的 `2022/1/1 00:00:00` 这类历史格式会被归一化成 ISO 8601 UTC；
+   * - 数据里没有 / 解析不了 → 清掉，让下一次写出取当前时刻（避免沿用上一个文档的时间）。
+   */
+  private __rememberCreateTime(jsonObj: any): void {
+    const ice: any = this.ice;
+    if (!ice || typeof ice !== 'object') {
+      return;
+    }
+    if (!ice.documentMeta || typeof ice.documentMeta !== 'object') {
+      ice.documentMeta = {};
+    }
+    const createTime = toIsoTime(jsonObj && jsonObj.createTime);
+    if (createTime) {
+      ice.documentMeta.createTime = createTime;
+    } else {
+      delete ice.documentMeta.createTime;
     }
   }
 

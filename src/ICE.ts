@@ -122,6 +122,17 @@ class ICE {
   /** 构造函数 → 类型名 的反查表（序列化用）。惰性构建，registerType/init 后失效重建。 */
   private __typeIdMapping: Map<any, string> | null = null;
 
+  /**
+   * 文档级元信息（当前只有 `createTime`）。
+   *
+   * 语义：**首次创建时间跨「打开 → 再保存」保留**。
+   * - `Deserializer` 读到合法 `createTime` 时写在这里（归一化成 ISO 8601 UTC）；
+   * - `Serializer` 写出时优先用它，`lastModifyTime` 才是"这一次写出的时刻"；
+   * - `clearAll()` 清空场景时一并清掉（清空后新建的内容属于新文档，不该继承旧文档的创建时间）；
+   * - 因此"打开 A → 编辑 → 保存"里 `createTime` 稳定不变，只有 `lastModifyTime` 前进。
+   */
+  public documentMeta: { createTime?: string } = {};
+
   public renderer: any; //渲染器实例
   public animationManager: AnimationManager;
   public eventDispatcher: DOMEventDispatcher;
@@ -453,6 +464,8 @@ class ICE {
 
   public clearAll() {
     this.removeChildren([...this.childNodes]);
+    // 清空即"新文档"：不继承旧文档的创建时间（`Deserializer` 载入时会把读到的 createTime 重新写回来）
+    this.documentMeta = {};
   }
 
   /**

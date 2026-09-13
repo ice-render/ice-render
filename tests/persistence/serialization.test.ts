@@ -129,6 +129,86 @@ describe('序列化 / 反序列化 round-trip', () => {
     expect(json.lastModifyTime).toBe(json.createTime);
   });
 
+  describe('createTime 的语义（首次创建 / 最后修改）', () => {
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('「打开 → 再保存」保留 createTime，只推进 lastModifyTime', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-09-13T00:00:00.000Z'));
+
+      const first = makeIce();
+      first.addChild(new ICERect({ width: 10, height: 10 }));
+      const saved: any = new Serializer(first).toJSONObject();
+      expect(saved.createTime).toBe('2026-09-13T00:00:00.000Z');
+      expect(saved.lastModifyTime).toBe('2026-09-13T00:00:00.000Z');
+
+      // 一小时后打开它、改点东西、再保存
+      jest.setSystemTime(new Date('2026-09-13T01:00:00.000Z'));
+      const second = makeIce();
+      new Deserializer(second).fromJSONObject(saved);
+      second.addChild(new ICECircle({ radius: 5 }));
+      const savedAgain: any = new Serializer(second).toJSONObject();
+
+      expect(savedAgain.createTime).toBe('2026-09-13T00:00:00.000Z'); // 不变
+      expect(savedAgain.lastModifyTime).toBe('2026-09-13T01:00:00.000Z'); // 前进
+    });
+
+    it('数据里没有 createTime 时不沿用上一个文档的时间', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-09-13T00:00:00.000Z'));
+      const ice = makeIce();
+      new Deserializer(ice).fromJSONObject({
+        version: 1,
+        createTime: '2020-01-01T00:00:00.000Z',
+        childNodes: [{ type: 'ice-render:Rect', state: { width: 5, height: 5 }, childNodes: [] }],
+      });
+      expect((ice as any).documentMeta.createTime).toBe('2020-01-01T00:00:00.000Z');
+
+      jest.setSystemTime(new Date('2026-09-13T02:00:00.000Z'));
+      new Deserializer(ice).fromJSONObject({
+        version: 1,
+        childNodes: [{ type: 'ice-render:Rect', state: { width: 5, height: 5 }, childNodes: [] }],
+      });
+      const json: any = new Serializer(ice).toJSONObject();
+      expect(json.createTime).toBe('2026-09-13T02:00:00.000Z');
+    });
+
+    it('历史格式 / 脏 createTime 会被归一化或忽略', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-09-13T03:00:00.000Z'));
+
+      const legacy = makeIce();
+      new Deserializer(legacy).fromJSONObject({ version: 1, createTime: '2022/1/1 00:00:00', childNodes: [] });
+      const legacyOut: any = new Serializer(legacy).toJSONObject();
+      expect(legacyOut.createTime).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/); // 不再是 2022/1/1 这种本地格式
+      expect(Date.parse(legacyOut.createTime)).toBe(Date.parse('2022/1/1 00:00:00'));
+
+      const dirty = makeIce();
+      new Deserializer(dirty).fromJSONObject({ version: 1, createTime: '不是时间', childNodes: [] });
+      expect((dirty as any).documentMeta.createTime).toBeUndefined();
+      const dirtyOut: any = new Serializer(dirty).toJSONObject();
+      expect(dirtyOut.createTime).toBe('2026-09-13T03:00:00.000Z'); // 回退到当前时刻
+    });
+
+    it('clearAll() 之后视为新文档：createTime 重新取当前时刻', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-09-13T00:00:00.000Z'));
+      const ice = makeIce();
+      ice.addChild(new ICERect({ width: 10, height: 10 }));
+      const before: any = new Serializer(ice).toJSONObject();
+
+      jest.setSystemTime(new Date('2026-09-13T05:00:00.000Z'));
+      ice.clearAll();
+      ice.addChild(new ICERect({ width: 20, height: 20 }));
+      const after: any = new Serializer(ice).toJSONObject();
+
+      expect(after.createTime).toBe('2026-09-13T05:00:00.000Z');
+      expect(after.createTime).not.toBe(before.createTime);
+    });
+  });
+
   it('序列化排除运行时缓存值（linearMatrix/composedMatrix/localOrigin/absoluteOrigin）', () => {
     const ice = makeIce();
     const rect = new ICERect({ width: 10, height: 10 });
