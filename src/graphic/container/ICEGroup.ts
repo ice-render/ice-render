@@ -323,11 +323,14 @@ class ICEGroup extends ICERect {
    * setState 仅仅修改参数，不会立即导致重新渲染，需要等待 FrameManager 调度，最小延迟时间约为 1/60=16.67 ms 。
    * @param newState
    */
-  public setState(newState: any) {
+  public setState(newState: any, options?: { paramsDirty?: boolean }) {
     const sizeChanged = this.__beforeStateMerge(newState);
     merge(this.state, newState);
-    // 容器**自身**的 state 变了 → 自身派生参数可能变（尺寸等），两个标志都置
-    this.paramsDirty = true;
+    // 容器**自身**的 state 变了 → 自身派生参数可能变（尺寸等），**默认**两个标志都置；
+    // 动画/高频写值可以显式传 `{ paramsDirty: false }`（见 ICEComponent.ANIMATION_SAFE_KEYS）。
+    if (!options || options.paramsDirty !== false) {
+      this.paramsDirty = true;
+    }
     this.dirty = true;
 
     // 容器型组件自身的状态发生变化时，需要把所有层级上的子节点都标记为 dirty。

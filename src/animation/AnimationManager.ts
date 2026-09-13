@@ -30,6 +30,16 @@ class AnimationManager {
   private ice: ICE;
   private paused = false;
   private pausedAt = 0;
+  /**
+   * 飞行中的**平移**是否吸附到设备像素栅格（默认开）。
+   *
+   * 为什么需要它：离屏位图的纯平移复用（`ObjectCache.refreshPosition`）要求位移是**整数设备像素**，
+   * 否则会退化成每帧重建位图（实测 1000 个文本：可复用 2.5ms/帧 vs 重建 32~41ms/帧）。
+   * 吸附只作用于「纯平移 + 当前可离屏缓存」的组件，且**动画终点值永远精确写入**（配置 100.5 就落在 100.5）。
+   * 需要极致平滑的应用可以整体关掉（`ice.animationManager.snapToDevicePixel = false`），
+   * 或对单条动画写 `snapToDevicePixel: false`。
+   */
+  public snapToDevicePixel = true;
   // 已告警过的动画配置：只提示一次，避免非法配置每帧刷屏（WeakSet，不污染会被序列化的 props）
   private warned = new WeakSet<object>();
 
@@ -106,6 +116,12 @@ class AnimationManager {
    */
   private tween(el: ICEComponent, now?: number) {
     const newState: any = {};
+    // 本帧实际写出的键路径：决定"要不要置 paramsDirty"（见 __commitAnimationState）
+    const writtenPaths: string[] = [];
+    const write = (path: string, value: any): void => {
+      writtenPaths.push(path);
+      this.__writeValue(newState, path, value);
+    };
     const animations = el.props.animations;
     const t = isUndefined(now) ? Date.now() : now;
     let hasActive = false;
@@ -155,7 +171,7 @@ class AnimationManager {
           animation,
           `[ICE] 动画属性「${key}」的 duration 必须是正数，当前为 ${String(animation.duration)}；已直接落到终点。`
         );
-        this.__writeValue(newState, key, this.__roundIfNeeded(animation, this.__sampleValue(frames, animation, 1)));
+        write(key, this.__roundIfNeeded(animation, this.__sampleValue(frames, animation, 1)));
         continue;
       }
 
@@ -165,7 +181,7 @@ class AnimationManager {
       if (elapsed < 0) {
         hasActive = true;
         // 延迟期保持起始值，**不取整**（与旧行为一致：组件静止在 from 处）
-        this.__writeValue(newState, key, this.__sampleValue(frames, animation, 0));
+        write(key, this.__sampleValue(frames, animation, 0));
         continue;
       }
 
@@ -180,7 +196,8 @@ class AnimationManager {
         } else {
           animation.finished = true;
         }
-        this.__writeValue(newState, key, this.__roundIfNeeded(animation, value));
+        // 终点/新一轮起点：**精确写入**（不吸附，保证"配置多少就落在多少"）
+        write(key, this.__roundIfNeeded(animation, value));
         continue;
       }
 
@@ -188,20 +205,93 @@ class AnimationManager {
       // 关键帧：缓动由各段自己承担，这里传**线性**进度；
       // 单段：用动画级缓动把线性进度映射成缓动后的进度。
       const progress = frames ? elapsed / duration : this.__easingFn(animation.easing, animation)(elapsed / duration);
-      this.__writeValue(
-        newState,
-        key,
-        this.__roundIfNeeded(animation, this.__sampleValue(frames, animation, progress))
-      );
+      const sampled = this.__sampleValue(frames, animation, progress);
+      // 飞行中：纯平移可吸附到设备像素栅格（命中位图纯平移复用），其余键原样
+      write(key, this.__roundIfNeeded(animation, this.__snapTranslation(el, key, animation, sampled)));
     }
 
     if (!hasActive) {
       this.remove(el);
     }
     if (Object.keys(newState).length > 0) {
-      el.setState(newState);
+      this.__commitAnimationState(el, newState, writtenPaths);
     }
     return el;
+  }
+
+  /**
+   * 动画写值通道：把本帧的新值提交给组件。
+   *
+   * 与直接 `setState` 的区别只有一点 —— **只在必要时才置 `paramsDirty`**：
+   * 本帧写出的键**全部**落在组件的「动画安全键」白名单里（纯绘制/变换）时跳过派生参数重算。
+   * 判定由组件自己给（`isAnimationSafeKey`），未声明白名单的组件/第三方组件一律走旧路径（每帧置脏）。
+   */
+  private __commitAnimationState(el: any, newState: any, writtenPaths: string[]): void {
+    let paramsDirty = true;
+    if (writtenPaths.length > 0 && typeof el.isAnimationSafeKey === 'function') {
+      paramsDirty = !writtenPaths.every((path) => el.isAnimationSafeKey(path));
+    }
+    el.setState(newState, { paramsDirty });
+  }
+
+  /**
+   * 飞行中的**纯平移**吸附到设备像素栅格（`1 / 设备缩放` 的整数倍）。
+   *
+   * 三个前提缺一不可：① 实例开关打开且该动画没写 `snapToDevicePixel: false`；
+   * ② 键是纯平移（`left` / `top` / `transform.translate`）；③ 该组件当前**可离屏缓存**
+   * （只有这时吸附才换得来位图复用；无渲染器的运行时/测试替身自动跳过）。
+   */
+  private __snapTranslation(el: any, path: string, animation: any, value: any): any {
+    if (!this.snapToDevicePixel) return value;
+    if (animation && animation.snapToDevicePixel === false) return value;
+    if (path !== 'left' && path !== 'top' && path !== 'transform.translate') return value;
+    if (!this.__isBitmapReusable(el)) return value;
+    const scale = this.__deviceScale();
+    if (!(scale > 0)) return value;
+    return this.__snapValue(value, scale);
+  }
+
+  /** 渲染视口的缩放（= dpr × 视口 scale）——设备像素与世界单位的换算比例。 */
+  private __deviceScale(): number {
+    const ice: any = this.ice;
+    if (ice && typeof ice.getRenderViewport === 'function') {
+      const vp = ice.getRenderViewport();
+      if (vp && Number(vp.scale) > 0) {
+        return Number(vp.scale);
+      }
+    }
+    return 1;
+  }
+
+  /** 该组件当前是否走离屏缓存（只有它才谈得上"位图纯平移复用"）。判定权在渲染器，这里只查询。 */
+  private __isBitmapReusable(el: any): boolean {
+    const ice: any = this.ice;
+    const cache = ice && ice.renderer && ice.renderer.cache;
+    if (!cache || typeof cache.isCachable !== 'function') {
+      return false;
+    }
+    try {
+      return !!cache.isCachable(el);
+    } catch (err) {
+      return false;
+    }
+  }
+
+  /** 数值按设备像素栅格吸附；数组逐元素（`transform.translate`）。 */
+  private __snapValue(value: any, scale: number): any {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? Math.round(value * scale) / scale : value;
+    }
+    if (Array.isArray(value)) {
+      const out = value.slice();
+      for (let i = 0; i < out.length; i++) {
+        if (typeof out[i] === 'number' && Number.isFinite(out[i])) {
+          out[i] = Math.round(out[i] * scale) / scale;
+        }
+      }
+      return out;
+    }
+    return value;
   }
 
   /** 取进度 p 处的值：单段在 from→to 之间插值；关键帧按段插值（段内进度再经该段缓动）。 */

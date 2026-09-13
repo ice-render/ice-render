@@ -51,7 +51,8 @@
     "pkg:check": "npm run pkg:lint && npm run pkg:types",
     "test:visual:ci": "playwright test e2e/visual/examples-smoke.spec.ts e2e/visual/interaction.spec.ts e2e/visual/dirty-rect-pixel.spec.ts e2e/visual/viewport.spec.ts e2e/visual/alignment.spec.ts e2e/visual/hidpi.spec.ts e2e/visual/worker-perf.spec.ts e2e/visual/svg-parity.spec.ts",
     "verify": "npm run lint && npm run types:check && npm run build && npm test -- --runInBand && npm run bench 2000 && npm run pkg:check",
-    "verify:full": "npm run verify && npm run test:visual"
+    "verify:full": "npm run verify && npm run test:visual && npm run bench:anim -- --check",
+    "bench:anim": "node bench/anim/animation-bench.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",

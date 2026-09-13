@@ -21,6 +21,38 @@ const utilDivId = '__ICE_UTILS_TEXT_MEASURE_DIV__';
  */
 class ICEText extends ICEComponent {
   /**
+   * 文本的「动画安全键」：基类那批（位置/变换/透明度/显示/zIndex）之外，再放行**不参与量测**的
+   * 绘制类与编辑类键；字号/字间距/行高/内边距/`font*`/文本内容/换行参数一概**不在**白名单里
+   * （它们都会改变盒子尺寸或换行结果 → 必须走 `paramsDirty`）。
+   */
+  public static readonly ANIMATION_SAFE_KEYS: readonly string[] = [
+    ...ICEComponent.ANIMATION_SAFE_KEYS,
+    // 光标 / 选区 / 编辑外形：只影响绘制
+    'caretIndex',
+    'selectionStart',
+    'selectionEnd',
+    'multiline',
+    // 绘制类 style：不参与量测
+    'style.textAlign',
+    'style.textBaseline',
+    'style.fillStyle',
+    'style.strokeStyle',
+    'style.globalAlpha',
+    'style.globalCompositeOperation',
+    'style.shadow',
+    'style.shadowColor',
+    'style.shadowBlur',
+    'style.shadowOffsetX',
+    'style.shadowOffsetY',
+    'style.textDecoration',
+    'style.textDecorationColor',
+    'style.textDecorationWidth',
+    'style.selectionColor',
+    'style.fillGradient',
+    'style.strokeGradient',
+  ];
+
+  /**
    * @cfg
    * {
    *   text:'文本内容',

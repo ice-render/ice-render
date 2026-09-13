@@ -59,9 +59,13 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   因为文本属 risky 类别 + 动画写值走 `setState` → 每帧 `paramsDirty` → 离屏位图每帧重建
   （插桩实测：只置 `dirty` 时 2.6ms/23000 次位图复用，走 `setState` 时 34.8ms/0 次复用，**13×**）；
   ③ **`stagger` / 入场动画 = 脏比≈100%**，做编排功能前必须先解决重绘路径，否则"错峰"比"一起动"更慢。
-  当前优化方向（**尚未实现**）：动画写值专用通道（纯平移不置 `paramsDirty`）→ 计数门换面积门 →
-  帧率分级 + 空闲停帧 → 分层 canvas / OffscreenCanvas。**目标架构、红线与验收指标见
-  [18 · 动画机制](docs/architecture/18-animation-architecture.md)**（含"不用 CSS 变换做图元动画"的决策记录）。
+  **已落地（2026-09-13）**：动画写值专用通道（`setState(patch, { paramsDirty })` + 组件
+  `ANIMATION_SAFE_KEYS` 白名单；未知键/未声明的第三方组件一律保守置脏）+ 设备像素量化
+  （`AnimationManager.snapToDevicePixel`，默认开、可单条关，终点值精确写入）——
+  1,000 个文本平移动画 **35.1ms → 2.7ms**（位图复用率 100%），门禁 `npm run bench:anim -- --check`（已进 `verify:full`）。
+  **尚未做**：计数门换面积门（先做区域模型实测）、帧率分级 + 空闲停帧、分层 canvas / OffscreenCanvas。
+  **目标架构、红线与验收指标见 [18 · 动画机制](docs/architecture/18-animation-architecture.md)**
+  （含"不用 CSS 变换做图元动画"的决策记录）。
 
 - **任何触碰每帧热路径的改动，都必须做「同时刻新旧对照」的基准测量**，不能只看单次数值：
   `npm run bench 5000`（场景 A 静态重绘 / B 动画全量 compose / C 文本缓存命中 / D 文本重建缓存）。
