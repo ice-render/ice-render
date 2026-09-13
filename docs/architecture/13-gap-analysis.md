@@ -129,18 +129,24 @@
 - `wrap: true` 按 `state.width` 贪心断行；`maxLines` 限制行数，末行逐 grapheme 回退加 `ellipsis`，保证「内容+省略号」不超宽
 - 断行按 grapheme cluster 切分（优先 `Intl.Segmenter`，不可用则退化为码点），emoji / ZWJ 序列不被拆开
 - 编辑态不换行（`caretIndex` 按原始文本计，换行会错位）
-- 仍缺：`letterSpacing` / `wordSpacing`、RTL / `ctx.direction`、富文本、CJK 断行规则（标点避头尾）
+- 仍缺：`letterSpacing` / `wordSpacing` 的**正式配置**（目前只是随 `style` 透传给 ctx，量测与 SVG 导出没纳入口径）、可配 `lineHeight`、`textDecoration`、富文本（混排粗体/颜色）
+
+> **状态（2026-09-13）**：RTL / `ctx.direction`、CJK 断行规则（标点避头尾）与无空格脚本（泰 / 老挝 / 高棉 / 缅甸）词典分词断行**已落地**（见 [17 · i18n 边界](17-i18n-boundary.md)），无 DOM 运行时的编辑也已改为 grapheme 感知。「正式配置」那一类（量测 / SVG 导出口径一致）留待下一轮。
 
 **grapheme 问题**：`caretIndex` 按 UTF-16 码元计数（`ICEText.ts:242-273`），`ICEPolyLine.ts:787` 降级宽度估算用 `label.length * fontSize`——中文/emoji/ZWJ 序列下**光标定位与估算均不正确**。对标：主流引擎的新版本已引入 grapheme 感知布局；标准解法是 `Intl.Segmenter`（Baseline 2024）。
+
+> **状态（2026-09-13）**：断行按 grapheme 切分、无 DOM 运行时的编辑（Backspace / Delete / 方向键）与光标定位已改为 grapheme 感知（RTL / 多行 / 对齐一并修正，见 `tests/graphic/text-bugfixes.test.ts`）；`caretIndex` 仍是 UTF-16 下标（与 DOM 输入法保持一致），`ICEPolyLine` 的降级宽度估算仍按 `label.length`。
 
 ### P1-2 文本量测的 HTML 注入与非 DOM 退化（**安全缺陷**）
 
 **证据**：`graphic/text/ICEText.ts:406` → `div.innerHTML = this.state.text.split('\n').join('<br>')`。若文本来自用户输入，含 `<img onerror=...>` 之类内容会**执行**。
 
 **已修复（2026-09-10）**：改为 `div.textContent = text` + `white-space: pre` 承担换行，`innerHTML` 不再被写入；并加了回归用例锁死（断言 `textContent` 被设置、`innerHTML` 未被触碰）。
-**仍缺**：非 DOM 运行时的量测仍是「先按默认 10×10、首帧渲染后由 `calcComponentParams` 重算」——可用但首帧前尺寸不准。
+**仍缺**：非 DOM 运行时的量测仍是「先停在默认 10×10、首帧渲染后由 `calcComponentParams` 重算」——可用但首帧前尺寸不准（自定义字体加载完成后可调 `ice.remeasureTexts()` 或 `ICEText.remeasureText()` 让已挂载文本重新量测）。
 
 另：`ICEText.ts:379-428` 在无 `document` 的运行时（Node / 小程序）无法量测，退化到默认 `10×10`（除非调用方显式传 width/height）。
+
+> **状态（2026-09-13）**：自动尺寸的判定改为「调用方是否**显式**给尺寸」（构造参数与 `setState` 都算显式），默认值 `10` 不再兼任哨兵——显式写 `width: 10` 的文本框不再被悄悄放大。无 DOM 运行时的量测退化行为本身未变。
 
 ### P1-3 导出与互操作
 
@@ -265,7 +271,7 @@
 
 ### 4.2 布局（**2026-09-11 已完成**）
 - ✅ `addChild` / `removeChild` 现在**立即重排**（旧实现只在 `setLayout()` 时排一次，之后增删都不重排 → 加进去的子组件位置全错、删掉后留下空位）。`addChildren` / `removeChildren` 批量操作只在结束后排一次，避免逐个重排的 O(n²)。
-- ✅ **新增 measure 阶段**：`ICEGroup.doLayout()` 排布前先对每个子组件调 `measure()`（`calcComponentParams()`），使文本字形量测、点集路径 `calcDots` 在布局前完成 —— 旧实现读到的全是 `0` / 文本的 `10` 哨兵值。
+- ✅ **新增 measure 阶段**：`ICEGroup.doLayout()` 排布前先对每个子组件调 `measure()`（`calcComponentParams()`），使文本字形量测、点集路径 `calcDots` 在布局前完成 —— 旧实现读到的全是 `0` / 文本的默认尺寸（当时 `10` 兼作「未设置」哨兵；2026-09-13 起改为按「是否显式给尺寸」判定）。
 - ✅ **新增的容器型子组件继承父层布局**（与 `setLayout()` 的传播规则一致），否则它内部的子组件不会被排布。
 - ✅ **`dirty` 拆成 `dirty` / `paramsDirty` 两级**（2026-09-11）：`dirty` = 需要重绘；`paramsDirty` = 自身派生参数（尺寸 / 点集 / 文本量测）需要重算，只取决于自身 `state`。
   - 祖先变换变化时，后代只置 `dirty`（绝对矩阵变了，必须重绘），**不再连带重量测**；统一入口 `refreshParams()` 负责「按需重算 + 清标志」。

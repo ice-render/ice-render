@@ -27,6 +27,28 @@
 - **引擎对文本保持中立**（2026-09-13，写进契约）：不做 Unicode 规范化 / 大小写折叠、不做任何
   locale 相关的默认格式化（时间戳固定 ISO 8601 UTC）、序列化逐字节保留用户文本。
 
+### 修复
+
+- **文本子系统四项契约级缺陷**（2026-09-13，审计 + 回归确立，铁律见 AGENTS.md）：回归用例
+  `tests/graphic/text-bugfixes.test.ts`（8 条），视觉回归 `e2e/visual/offscreen-cache-fidelity.spec.ts`。
+  - **`style` 透传的 ctx 状态泄漏**：`style` 是**透传**给 canvas 的（`__applyStyleProp` 末行 `ctx[prop] = value`），
+    旧实现只把 shadow / globalAlpha / lineCap / textAlign 等 11 个属性列入归位表 —— 用户只要写一个没登记的键
+    （`letterSpacing`、`direction`、`filter`、`imageSmoothingQuality`…），它就会**漏给同一帧后面绘制的组件**，
+    破坏「组件渲染自包含」，也就是脏矩形局部重绘 / 离屏缓存的像素契约。现在归位表补齐到 21 项，
+    虚线位改由数组长度推导（`LEAKY_LINE_DASH_BIT`）——**新增 style→ctx 键必须同步登记**。
+  - **无 DOM 运行时的编辑不按 grapheme**：Backspace / Delete / 左右方向键改按 grapheme 边界移动
+    （`a👍b` 退格删整个 emoji，而不是留下半个代理对）；`renderCaret()` 重写，光标位置对**多行**
+    （按 `\n` 折行定位）、**RTL**（从右边缘往左量）与 `textAlign: start/end/center/right` 都正确。
+  - **自定义字体加载完成后不重测**：`ice.loadFont()` resolve 后自动 `remeasureTexts()`，
+    首帧用回退字体量出的宽高与换行不再残留（i18n 场景下中文字体按需加载最容易踩）；
+    `ICEText.remeasureText()` 只标脏，真正的重算发生在下一帧渲染。
+  - **「默认值 10 = 未设置」哨兵**：文本的自动尺寸改为按「**调用方是否显式给尺寸**」判定 ——
+    构造参数与 `setState({ width / height })`（含布局管理器分配的尺寸）都算显式，此后不再被量测覆盖；
+    `new ICEText({ width: 10, height: 10 })` 因此不再被悄悄放大，未给尺寸时行为不变。引擎内 10 处
+    依赖旧哨兵语义的测试/视觉夹具一并清理（`tests/persistence/derived-children.test.ts`、
+    `tests/renderer/CanvasRenderer.dirty-rect-gate.test.ts`、
+    `e2e/visual/fixtures/{offscreen-cache-fidelity,dirty-rect-compare}.html`）。
+
 ## [2.1.1] - 2026-09-13
 
 ### 修复
