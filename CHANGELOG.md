@@ -10,7 +10,8 @@
 - **i18n 边界与引擎侧原语**（2026-09-13）：明确「引擎不做 i18n，但必须让 i18n 显示正确」的契约
   （见 `docs/architecture/17-i18n-boundary.md` / AGENTS.md「i18n 边界铁律」），并补上三块原语：
   - **断行策略** `ICEText.wordBreak: 'normal' | 'break-all'`（默认 `'normal'`）：拉丁词不再被硬拆、
-    CJK 逐字断并做禁则（行首禁标点 / 行尾禁开括号），单个词整行放不下时才硬拆；
+    CJK 逐字断并做禁则（行首禁标点 / 行尾禁开括号）、**无空格脚本（泰/老挝/高棉/缅甸）按词典分词断行**
+    （复用 `Intl.Segmenter` 的 word 粒度，不需 locale；宿主不支持则退回逐字），单个词整行放不下时才硬拆；
     `'break-all'` 保留旧的逐 grapheme 贪心。实现 `src/graphic/text/text-wrap.ts`。
   - **文字方向** `ICEText.direction: 'ltr' | 'rtl' | 'auto'` + `textAlign: 'start' | 'end'`：
     `'auto'` 按首个强方向字符判定；渲染时写 `ctx.direction`（**特性检测**，运行时没有该成员就跳过），

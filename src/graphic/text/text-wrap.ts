@@ -75,8 +75,41 @@ const WORD_CHAR = /^[\p{L}\p{N}\p{M}]$/u;
 const HYPHEN = /^[-\u2010\u2011\u2012\u2013\u2014]$/u;
 /** CJK / 假名 / 全角标点：逐字断行（不进「词」单元）。 */
 const CJK = /[\u2e80-\u303f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff00-\uffef]/u;
+/**
+ * 「无空格脚本」：泰 / 老挝 / 高棉 / 缅甸 —— 词与词之间不写空格，逐字断会把词切碎。
+ * 这些文字的断行需要**词典**（ICU 的 line-break dictionary），我们通过
+ * `Intl.Segmenter(undefined, { granularity: 'word' })` 复用运行时自带的实现
+ * （实测不需要指定 locale 也能正确切分），失败则退回逐 grapheme。
+ */
+const DICTIONARY_SCRIPT = /[\u0e00-\u0e7f\u0e80-\u0eff\u1000-\u109f\u1780-\u17ff]/u;
 
 const graphemeCache = new Map<string, string[]>();
+const dictionaryWordCache = new Map<string, string[]>();
+
+/** 用运行时的 word 粒度分词切「无空格脚本」的一段文本；不支持时退回逐 grapheme。 */
+function segmentDictionaryWords(run: string, intl?: any): string[] {
+  const cached = dictionaryWordCache.get(run);
+  if (cached) return cached;
+  let out: string[] | null = null;
+  const SegmenterCtor: any = intl && intl.Segmenter;
+  if (typeof SegmenterCtor === 'function') {
+    try {
+      const seg = new SegmenterCtor(undefined, { granularity: 'word' });
+      out = [];
+      for (const part of seg.segment(run)) {
+        out.push(part.segment);
+      }
+    } catch (err) {
+      out = null; // 运行时未实现 word 粒度 → 退回逐 grapheme
+    }
+  }
+  if (!out || !out.length) {
+    out = splitGraphemes(run, intl);
+  }
+  if (dictionaryWordCache.size > 500) dictionaryWordCache.clear();
+  dictionaryWordCache.set(run, out);
+  return out;
+}
 
 /** 按 grapheme cluster 切分（与 ICEText 同一口径）。带小缓存，避免重复切分同一段文本。 */
 export function splitGraphemes(s: string, intl: any = typeof Intl !== 'undefined' ? Intl : undefined): string[] {
@@ -104,6 +137,7 @@ export function splitGraphemes(s: string, intl: any = typeof Intl !== 'undefined
 /** 测试用：清空 grapheme 缓存。 */
 export function clearGraphemeCache(): void {
   graphemeCache.clear();
+  dictionaryWordCache.clear();
 }
 
 function firstGrapheme(s: string): string {
@@ -122,7 +156,7 @@ function lastGrapheme(s: string): string {
  * - CJK 字符各自成一个单元（逐字可断）；
  * - 空白连续段算一个单元；其余符号各自成一个单元。
  */
-function toUnits(graphemes: string[]): string[] {
+function toUnits(graphemes: string[], intl?: any): string[] {
   const units: string[] = [];
   let word = '';
   const flushWord = () => {
@@ -134,6 +168,18 @@ function toUnits(graphemes: string[]): string[] {
 
   for (let i = 0; i < graphemes.length; i++) {
     const g = graphemes[i];
+    if (DICTIONARY_SCRIPT.test(g)) {
+      // 无空格脚本：整段交给运行时的词典分词（词边界即断点），避免把词切碎
+      flushWord();
+      let run = g;
+      while (i + 1 < graphemes.length && DICTIONARY_SCRIPT.test(graphemes[i + 1])) {
+        run += graphemes[++i];
+      }
+      for (const piece of segmentDictionaryWords(run, intl)) {
+        units.push(piece);
+      }
+      continue;
+    }
     if (WORD_CHAR.test(g) && !CJK.test(g)) {
       word += g;
       continue;
@@ -203,13 +249,13 @@ export function wrapParagraph(
   maxWidth: number,
   measure: (s: string) => number,
   wordBreak: ICEWordBreak = 'normal',
-  intl?: any
+  intl: any = typeof Intl !== 'undefined' ? Intl : undefined
 ): string[] {
   const gs = splitGraphemes(paragraph, intl);
   if (!(maxWidth > 0)) return [paragraph];
   if (wordBreak === 'break-all') return greedyWrap(gs, maxWidth, measure);
 
-  const units = toUnits(gs);
+  const units = toUnits(gs, intl);
   const out: string[] = [];
   let line = '';
 
