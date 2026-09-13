@@ -12,6 +12,21 @@ export {
   isInterpolatablePair,
   ICE_ANIMATION_DIAGNOSTIC_CODES,
 } from './animation/validate-animations';
+export {
+  registerEasing,
+  unregisterEasing,
+  resolveEasing,
+  easingNames,
+  customEasingNames,
+} from './animation/easing-registry';
+export { EasingProgress } from './animation/Easing';
+export {
+  classifyValue as classifyAnimationValueKind,
+  interpolateValue as interpolateAnimationValue,
+  isInterpolatable as isAnimationValueInterpolatable,
+  parseColor,
+  parseNumberWithUnit,
+} from './animation/interpolators';
 export type {
   ICEAnimationDiagnostic,
   ICEAnimationDiagnosticCode,

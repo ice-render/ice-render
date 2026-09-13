@@ -12,6 +12,8 @@ import ICEEvent from '../event/ICEEvent';
 import ICEComponent from '../graphic/ICEComponent';
 import ICE from '../ICE';
 import { EasingProgress } from './Easing';
+import { resolveEasing } from './easing-registry';
+import { classifyValue, interpolateValue, isInterpolatable } from './interpolators';
 import {
   ICE_ANIMATION_DIAGNOSTIC_CODES,
   ICEAnimationDiagnostic,
@@ -78,6 +80,8 @@ class AnimationManager {
   private __diagnosticKeys: string[] = [];
   /** 当前正在处理的属性路径（`__easingFn` 记诊断时要用，避免把 path 一层层传下去）。 */
   private __currentPath = '';
+  /** 已告警过的回调异常（key|name），避免写错的回调每帧刷屏。 */
+  private __callbackWarned: string[] = [];
 
   constructor(ice: ICE) {
     this.ice = ice;
@@ -173,6 +177,14 @@ class AnimationManager {
         animation.startTime = t;
         // 首次解析 motion token（duration 语义名如 'normal' → 数字；easing 语义名如 'out' → 缓动方法名）
         this.__resolveMotion(animation);
+        animation.__iteration = 0;
+        // onStart：进入这条动画时触发一次（回调异常不打断帧循环，见 __invokeCallback）
+        this.__invokeCallback(
+          animation,
+          key,
+          'onStart',
+          this.__callbackContext(el, key, animation, animation.from, 0, 0)
+        );
       }
       if (isUndefined(animation.easing)) {
         animation.easing = 'linear';
@@ -246,26 +258,46 @@ class AnimationManager {
         continue;
       }
 
+      const direction = this.__directionOf(animation);
+      const iteration = Number(animation.__iteration) || 0;
+      // 这一轮的"起点/终点"进度（alternate 的奇偶轮会交换）
+      const startProgress = this.__roundStartProgress(direction, iteration);
+      const endProgress = this.__roundEndProgress(direction, iteration);
+
       // delay：延迟期内保持起始值不推进（可让同一组件的多个属性错峰，或让多个组件的动画成序列）
       const delay = Number(animation.delay) || 0;
       const elapsed = t - animation.startTime - delay;
       if (elapsed < 0) {
         hasActive = true;
-        // 延迟期保持起始值，**不取整**（与旧行为一致：组件静止在 from 处）
-        write(key, this.__sampleValue(frames, animation, 0));
+        // 延迟期保持**本轮的起点值**，**不取整**（与旧行为一致：组件静止在起点处）
+        write(key, this.__sampleValue(frames, animation, startProgress));
         continue;
       }
 
       if (elapsed >= duration) {
-        // 到达终点：精确落到终点值，避免浮点残差
-        let value = this.__sampleValue(frames, animation, 1);
+        // 到达终点：精确落到本轮终点值，避免浮点残差
+        let value = this.__sampleValue(frames, animation, endProgress);
         if (this.shouldRepeat(animation)) {
-          // 需要重复：重置 startTime，重新开始一轮，本帧取新一轮的起点
+          // 需要重复：重置 startTime、轮次 +1，本帧取新一轮的起点
           animation.startTime = t;
-          value = this.__sampleValue(frames, animation, 0);
+          animation.__iteration = iteration + 1;
+          const nextStart = this.__roundStartProgress(direction, animation.__iteration);
+          value = this.__sampleValue(frames, animation, nextStart);
           hasActive = true;
+          this.__invokeCallback(
+            animation,
+            key,
+            'onRepeat',
+            this.__callbackContext(el, key, animation, value, 1, animation.__iteration)
+          );
         } else {
           animation.finished = true;
+          this.__invokeCallback(
+            animation,
+            key,
+            'onComplete',
+            this.__callbackContext(el, key, animation, value, 1, iteration)
+          );
         }
         // 终点/新一轮起点：**精确写入**（不吸附，保证"配置多少就落在多少"）
         write(key, this.__roundIfNeeded(animation, value));
@@ -273,12 +305,22 @@ class AnimationManager {
       }
 
       hasActive = true;
+      const linear = elapsed / duration;
       // 关键帧：缓动由各段自己承担，这里传**线性**进度；
       // 单段：用动画级缓动把线性进度映射成缓动后的进度。
-      const progress = frames ? elapsed / duration : this.__easingFn(animation.easing, animation)(elapsed / duration);
+      const eased = frames ? linear : this.__easingFn(animation.easing, animation)(linear);
+      // 方向：reverse 直接反转；alternate 在奇数轮反向（yoyo）
+      const progress = this.__applyDirection(eased, direction, iteration);
       const sampled = this.__sampleValue(frames, animation, progress);
       // 飞行中：纯平移可吸附到设备像素栅格（命中位图纯平移复用），其余键原样
-      write(key, this.__roundIfNeeded(animation, this.__snapTranslation(el, key, animation, sampled)));
+      const value = this.__roundIfNeeded(animation, this.__snapTranslation(el, key, animation, sampled));
+      this.__invokeCallback(
+        animation,
+        key,
+        'onUpdate',
+        this.__callbackContext(el, key, animation, value, linear, iteration)
+      );
+      write(key, value);
     }
 
     if (!hasActive) {
@@ -396,41 +438,22 @@ class AnimationManager {
     return last.value;
   }
 
-  /** 按进度 p 在 from/to 之间插值：数值直接线性，等长数字数组逐元素。 */
+  /**
+   * 按进度 p 在 from/to 之间插值：数值 / 等长数字数组 / **颜色** / 带单位数字串
+   * （判定与求值都在 `interpolators.ts`，与校验器同源）。
+   */
   private __interpolate(from: any, to: any, p: number): any {
-    if (typeof from === 'number') {
-      return from + (to - from) * p;
-    }
-    const out = new Array(from.length);
-    for (let i = 0; i < from.length; i++) {
-      out[i] = from[i] + (to[i] - from[i]) * p;
-    }
-    return out;
+    return interpolateValue(from, to, p);
   }
 
-  /** 补间取值是否合法：都是数字，或都是**等长**的数字数组。 */
+  /** 补间取值是否合法（数值 / 等长数字数组 / 颜色 / 同单位数字串）—— 判定见 interpolators。 */
   private __isTweenable(from: any, to: any): boolean {
-    const kind = this.__valueKind(from);
-    if (kind === null || kind !== this.__valueKind(to)) {
-      return false;
-    }
-    return kind === 'number' || from.length === to.length;
+    return isInterpolatable(from, to);
   }
 
-  /** 取值种类：number | array（非空且全为数字） | null（不支持）。 */
-  private __valueKind(value: any): 'number' | 'array' | null {
-    if (typeof value === 'number') {
-      return 'number';
-    }
-    if (Array.isArray(value) && value.length > 0) {
-      for (let i = 0; i < value.length; i++) {
-        if (typeof value[i] !== 'number') {
-          return null;
-        }
-      }
-      return 'array';
-    }
-    return null;
+  /** 取值种类（转发到插值器，保持既有私有方法名可用）。 */
+  private __valueKind(value: any): any {
+    return classifyValue(value);
   }
 
   /** 归一化关键帧到 animation.__frames（只做一次）：夹紧 offset、排序、校验各帧取值同型。 */
@@ -471,7 +494,8 @@ class AnimationManager {
 
   /** 解析缓动名 → 归一化进度函数；未知名称回退 linear 并只提示一次。 */
   private __easingFn(name: any, animation?: any): EasingProgress {
-    const fn = typeof name === 'string' ? EasingProgress[name] : undefined;
+    // 函数（临时自定义）→ 内置名 → 应用层注册名；都没有才回退 linear
+    const fn = resolveEasing(name);
     if (fn) {
       return fn;
     }
@@ -484,6 +508,71 @@ class AnimationManager {
       );
     }
     return EasingProgress.linear;
+  }
+
+  /** 动画方向（缺省 `'normal'`；非法的方向由 `validateAnimations` 在运行前拦住）。 */
+  private __directionOf(animation: any): 'normal' | 'reverse' | 'alternate' {
+    const direction = animation && animation.direction;
+    return direction === 'reverse' || direction === 'alternate' ? direction : 'normal';
+  }
+
+  /** 把缓动后的进度按方向映射：`reverse` 反转；`alternate` 在奇数轮反向（yoyo）。 */
+  private __applyDirection(progress: number, direction: 'normal' | 'reverse' | 'alternate', iteration: number): number {
+    if (direction === 'reverse') {
+      return 1 - progress;
+    }
+    if (direction === 'alternate' && iteration % 2 === 1) {
+      return 1 - progress;
+    }
+    return progress;
+  }
+
+  /** 本轮**起点**对应的进度（alternate 的奇数轮从另一端出发）。 */
+  private __roundStartProgress(direction: 'normal' | 'reverse' | 'alternate', iteration: number): number {
+    return this.__applyDirection(0, direction, iteration);
+  }
+
+  /** 本轮**终点**对应的进度。 */
+  private __roundEndProgress(direction: 'normal' | 'reverse' | 'alternate', iteration: number): number {
+    return this.__applyDirection(1, direction, iteration);
+  }
+
+  /** 回调上下文：给应用层足够信息做链式编排（不用再去读 state 反推进度）。 */
+  private __callbackContext(
+    el: any,
+    key: string,
+    animation: any,
+    value: any,
+    progress: number,
+    iteration: number
+  ): any {
+    return { component: el, key, value, progress, iteration, animation };
+  }
+
+  /**
+   * 触发生命周期回调（`onStart` / `onUpdate` / `onRepeat` / `onComplete`）。
+   *
+   * 回调异常**绝不打断帧循环**（一个写错的回调不该让整个场景卡死）：吞掉异常、记一条
+   * `ICE_ANIM_CALLBACK_ERROR` 诊断并 `console.warn` 一次。
+   */
+  private __invokeCallback(animation: any, key: string, name: string, context: any): void {
+    const callback = animation && animation[name];
+    if (typeof callback !== 'function') {
+      return;
+    }
+    try {
+      callback(context);
+    } catch (err: any) {
+      this.__recordDiagnostic(
+        ICE_ANIMATION_DIAGNOSTIC_CODES.CALLBACK_ERROR,
+        key,
+        `[ICE] 动画属性「${key}」的 ${name} 回调抛异常：${err && err.message ? err.message : String(err)}`
+      );
+      if (this.__callbackWarned.indexOf(key + '|' + name) === -1) {
+        this.__callbackWarned.push(key + '|' + name);
+        console.warn(`[ICE] 动画属性「${key}」的 ${name} 回调抛异常，已忽略（不影响动画推进）：`, err);
+      }
+    }
   }
 
   /** round: true 时对补间结果取整（数组逐元素）。 */

@@ -33,7 +33,8 @@ describe('运行期动画诊断', () => {
 
   it('非法取值被跳过时记一条 VALUE_NOT_INTERPOLATABLE（带 path）', () => {
     const mgr: any = makeManager();
-    const el = makeEl({ 'style.fillStyle': { from: '#fff', to: '#000', duration: 100 } });
+    // 注意：颜色**现在可以插值**（表达力 ⑤），所以这里用真正不可插值的字符串
+    const el = makeEl({ 'style.fillStyle': { from: 'hello', to: 'world', duration: 100 } });
     mgr.add(el);
     mgr.tween(el);
 

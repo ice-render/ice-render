@@ -9,8 +9,9 @@
  * 诊断与运行时判定同源：`AnimationManager` 拒绝/回退一份配置时记的也是这些码（`getDiagnostics()`），
  * 因此"跑起来才发现被跳过了"与"编译期就报出来"说的是同一件事。
  */
-import { EasingProgress } from './Easing';
 import { DEFAULT_THEME } from '../theme/ICETheme';
+import { classifyValue, isInterpolatable, AnimationValueKind } from './interpolators';
+import { easingNames } from './easing-registry';
 
 export const ICE_ANIMATION_DIAGNOSTIC_CODES = {
   /** 键不是合法的属性路径（空串 / 非字符串）。 */
@@ -33,6 +34,10 @@ export const ICE_ANIMATION_DIAGNOSTIC_CODES = {
   KEY_AFFECTS_MEASUREMENT: 'ICE_ANIM_KEY_AFFECTS_MEASUREMENT',
   /** 运行期告知：用户开启了「减少动态效果」，这条动画被折叠成终态（未播放过程）。 */
   REDUCED_MOTION: 'ICE_ANIM_REDUCED_MOTION',
+  /** `direction` 不是 `normal` / `reverse` / `alternate`。 */
+  DIRECTION_INVALID: 'ICE_ANIM_DIRECTION_INVALID',
+  /** 生命周期回调（onStart/onUpdate/onRepeat/onComplete）抛了异常（已忽略，不打断动画）。 */
+  CALLBACK_ERROR: 'ICE_ANIM_CALLBACK_ERROR',
 } as const;
 
 export type ICEAnimationDiagnosticCode =
@@ -55,29 +60,17 @@ export type ValidateAnimationsOptions = {
   maxDuration?: number;
 };
 
-/** 取值种类：`number` / `array`（非空且全为数字）/ `null`（不可插值）。 */
-export function classifyAnimationValue(value: any): 'number' | 'array' | null {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? 'number' : null;
-  }
-  if (Array.isArray(value) && value.length > 0) {
-    for (let i = 0; i < value.length; i++) {
-      if (typeof value[i] !== 'number' || !Number.isFinite(value[i])) {
-        return null;
-      }
-    }
-    return 'array';
-  }
-  return null;
+/**
+ * 取值种类：`number` / `array`（等长数字数组）/ `color` / `length`（带单位数字串）/ `null`（不可插值）。
+ * 判定与求值都转发到 `interpolators.ts`（运行时同源，避免"校验通过但跑起来算错"）。
+ */
+export function classifyAnimationValue(value: any): AnimationValueKind {
+  return classifyValue(value);
 }
 
-/** 两个取值能否互相插值（同型；数组还要等长）。 */
+/** 两个取值能否互相插值（同型；数组等长；颜色互插；带单位数字串单位一致）。 */
 export function isInterpolatablePair(from: any, to: any): boolean {
-  const kind = classifyAnimationValue(from);
-  if (kind === null || kind !== classifyAnimationValue(to)) {
-    return false;
-  }
-  return kind === 'number' || from.length === to.length;
+  return isInterpolatable(from, to);
 }
 
 function describeValue(value: any): string {
@@ -161,6 +154,31 @@ export function validateAnimations(animations: any, options: ValidateAnimationsO
       }
     }
 
+    // direction：只认三种（alternate = yoyo）
+    if (
+      animation.direction !== undefined &&
+      ['normal', 'reverse', 'alternate'].indexOf(String(animation.direction)) === -1
+    ) {
+      push(
+        'error',
+        ICE_ANIMATION_DIAGNOSTIC_CODES.DIRECTION_INVALID,
+        `direction 只支持 'normal' | 'reverse' | 'alternate'，当前为 ${String(animation.direction)}`,
+        key
+      );
+    }
+
+    // 生命周期回调：给了就必须是函数
+    ['onStart', 'onUpdate', 'onRepeat', 'onComplete'].forEach((name) => {
+      if (animation[name] !== undefined && typeof animation[name] !== 'function') {
+        push(
+          'error',
+          ICE_ANIMATION_DIAGNOSTIC_CODES.CALLBACK_ERROR,
+          `${name} 必须是函数，当前为 ${typeof animation[name]}`,
+          key
+        );
+      }
+    });
+
     // delay：非负有限数
     if (animation.delay !== undefined) {
       const delay = Number(animation.delay);
@@ -198,12 +216,12 @@ export function validateAnimations(animations: any, options: ValidateAnimationsO
     // easing：内置缓动名或 motion.easing 语义名
     if (animation.easing !== undefined && animation.easing !== null) {
       const name = String(animation.easing);
-      const known = EasingProgress[name] !== undefined || easingTokens[name] !== undefined;
+      const known = easingNames().indexOf(name) !== -1 || easingTokens[name] !== undefined;
       if (!known) {
         push(
           'error',
           ICE_ANIMATION_DIAGNOSTIC_CODES.EASING_UNKNOWN,
-          `未知缓动「${name}」（运行时会回退 linear）。可用：${Object.keys(EasingProgress).join(' / ')}` +
+          `未知缓动「${name}」（运行时会回退 linear）。可用：${easingNames().join(' / ')}` +
             (Object.keys(easingTokens).length ? ` + 主题 token：${Object.keys(easingTokens).join(' / ')}` : ''),
           key
         );
