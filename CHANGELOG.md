@@ -74,7 +74,23 @@
 +  回归：`tests/animation/validate-animations.test.ts`（10 条）、`tests/animation/animation-diagnostics.test.ts`（5 条）、
 +  `tests/graphic/animation-write-channel.test.ts` 增静态查询与白名单语义断言。
 +
-+  **待做**：脏区面积门（C）；动画侧的 timeline/stagger 与帧调度仍是后续分期。
++### 变更
++
++- **帧调度与合规（④）**（2026-09-13）：
++  - **空闲停帧**：`FrameManager` 从"无条件续帧"改为"按需续帧"——宿主（ICE 实例）用 `needsFrame()` 回答
++    "这一帧还要吗"（脏 / 动画在推进 / `setContinuousFrames(true)`）；`ice.dirty = true`、`AnimationManager.add()`、
++    `resume()` 都会 `wake()` 唤醒。真实浏览器实测：静止页面 500ms 内 **0 次帧回调**（改造前约 30 次），
++    有动画时恢复、暂停与结束后再次归零。`ICE.destroy()` 的顺序随之调整（先清场景再注销总线），
++    否则清理阶段的置脏会把刚停下的循环又拉起来。
++  - **次要动画降频**：动画配置新增 `fps`（如 `fps: 30`）——按时间降采样，跳过帧不改变运动曲线，终点仍精确。
++  - **减少动态效果**：`prefers-reduced-motion: reduce`（或 `ice.setReducedMotion(true)`）下动画**直接落终态**，
++    并记 `ICE_ANIM_REDUCED_MOTION` 运行期诊断；`AnimationManager.reducedMotion` 构造时读系统偏好。
++  - 拖拽期间跳过命中检测：确认是**既有行为**（移动类事件本就不做命中检测），本轮补回归钉住。
++  回归：`tests/FrameManager.idle.test.ts`（6）、`tests/animation/animation-scheduling.test.ts`（6，含 fps 采样、
++  reduced-motion 折叠、帧需求）、`e2e/visual/animation-scheduling.spec.ts`（4 条真实浏览器：空闲停帧三段态 /
++  置脏唤醒 / reduced-motion 落终态 / 正常偏好对照组）。
++
++  **待做**：脏区面积门（C）；动画侧的 timeline/stagger。
 
 ## [2.2.0] - 2026-09-13
 

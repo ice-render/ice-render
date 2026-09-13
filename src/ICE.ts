@@ -263,7 +263,7 @@ class ICE {
 
     //启动当前 ICE 实例上的所有 Manager，有顺序
     this.evtBus = new EventBus(); //后续所有 Manager 都依赖事件总线，所以 this.evtBus 需要最先初始化。
-    FrameManager.registerEvtBus(this.evtBus);
+    FrameManager.registerEvtBus(this.evtBus, this);
     FrameManager.start();
 
     DOMEventInterceptor.registerEvtBus(this.evtBus);
@@ -310,6 +310,17 @@ class ICE {
       this.canvasEl.oncontextmenu = null;
     }
 
+    //4) 清空场景并释放引用（插件工具也一并摘下）
+    //
+    // 注意顺序：**先清场景、后注销总线**。clearAll → removeChild 会把 `ice.dirty` 置真，
+    // 而 `dirty = true` 会 `FrameManager.wake()`（空闲停帧的唤醒路径）——若此时已经注销完总线，
+    // 这一次 wake 会把刚停下的帧循环又拉起来，destroy 之后 `FrameManager.stopped` 就不是 true 了
+    //（既有回归用例正是断言这一点）。放在最后注销，终态才是"没有总线 → 停帧"。
+    if (this.plugins) {
+      this.plugins.clear();
+    }
+    this.clearAll();
+
     //3) 注销全局事件总线
     if (this.evtBus) {
       FrameManager.delEvtBus(this.evtBus);
@@ -318,12 +329,6 @@ class ICE {
     if (FrameManager.evtBuses.length === 0) {
       FrameManager.stop();
     }
-
-    //4) 清空场景并释放引用（插件工具也一并摘下）
-    if (this.plugins) {
-      this.plugins.clear();
-    }
-    this.clearAll();
     this.renderer = null;
     this.animationManager = null;
     this.controlPanelManager = null;
@@ -522,10 +527,74 @@ class ICE {
 
   public set dirty(flag: boolean) {
     this.__dirty = flag;
+    // 置脏 = "这一帧有事要做"：空闲停帧之后必须把帧循环唤醒，否则画面永远不更新。
+    // 循环已经在跑时 wake() 只是一次布尔判断（可安全挂在 setState 这类高频路径上）。
+    if (flag) {
+      FrameManager.wake();
+    }
   }
 
   public get dirty() {
     return this.__dirty;
+  }
+
+  /**
+   * 「帧需求」：这一帧还需要继续跑吗（`FrameManager` 空闲停帧靠它判断）。
+   *
+   * 有脏要重绘、或有动画在推进 → 需要；否则可以停帧省电。
+   * 应用层若自己监听 `ICE_FRAME_EVENT` 做每帧计算（时钟、呼吸灯…），
+   * 调 `ice.setContinuousFrames(true)` 让本实例永远报"需要帧"。
+   */
+  public needsFrame(): boolean {
+    if (this.__continuousFrames) {
+      return true;
+    }
+    if (this.__dirty) {
+      return true;
+    }
+    const manager: any = this.animationManager;
+    if (manager && typeof manager.hasActiveAnimations === 'function') {
+      return !!manager.hasActiveAnimations();
+    }
+    return false;
+  }
+
+  /** 是否永远需要帧（见 {@link ICE.needsFrame}）；默认 false = 允许空闲停帧。 */
+  private __continuousFrames = false;
+
+  /**
+   * 让本实例永远需要帧（应用层自己按帧做计算时用；默认关闭 = 空闲停帧省电）。
+   * 打开后会立刻唤醒帧循环。
+   */
+  public setContinuousFrames(enabled: boolean): this {
+    this.__continuousFrames = !!enabled;
+    if (this.__continuousFrames) {
+      FrameManager.wake();
+    }
+    return this;
+  }
+
+  /** 当前是否"永远需要帧"（见 {@link ICE.setContinuousFrames}）。 */
+  public isContinuousFrames(): boolean {
+    return this.__continuousFrames;
+  }
+
+  /**
+   * 显式覆盖「减少动态效果」（默认取系统偏好 `prefers-reduced-motion`，见 `AnimationManager.reducedMotion`）。
+   *
+   * 为 true 时动画不播放过程、直接落终点（无障碍上最保守的语义）。应用层也可以把它接到自己的
+   * 偏好设置里（比如"我的设置 → 降低动效"），而不必改系统设置。
+   */
+  public setReducedMotion(enabled: boolean): this {
+    if (this.animationManager) {
+      this.animationManager.reducedMotion = !!enabled;
+    }
+    return this;
+  }
+
+  /** 当前是否处于「减少动态效果」（见 {@link ICE.setReducedMotion}）。 */
+  public isReducedMotion(): boolean {
+    return !!(this.animationManager && this.animationManager.reducedMotion);
   }
 
   /**

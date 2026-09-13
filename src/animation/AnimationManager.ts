@@ -18,6 +18,8 @@ import {
   ICEAnimationDiagnosticCode,
 } from './validate-animations';
 import { getTheme } from '../theme/ICETheme';
+import root from '../cross-platform/root';
+import FrameManager from '../FrameManager';
 
 /**
  * @class AnimationManager
@@ -30,6 +32,22 @@ import { getTheme } from '../theme/ICETheme';
  * @see ICE
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
+/**
+ * 读系统偏好 `prefers-reduced-motion: reduce`。
+ * 无 DOM / 没有 matchMedia 的运行时（Node、小程序）返回 false —— 引擎不替应用猜偏好。
+ */
+function readPrefersReducedMotion(): boolean {
+  try {
+    const mm =
+      (root as any) && typeof (root as any).matchMedia === 'function'
+        ? (root as any).matchMedia('(prefers-reduced-motion: reduce)')
+        : null;
+    return !!(mm && mm.matches);
+  } catch (err) {
+    return false;
+  }
+}
+
 class AnimationManager {
   private animationMap = new Map(); //所有需要执行动画的元素都会被自动存入此列表中
   private ice: ICE;
@@ -45,6 +63,14 @@ class AnimationManager {
    * 或对单条动画写 `snapToDevicePixel: false`。
    */
   public snapToDevicePixel = true;
+  /**
+   * 「减少动态效果」：用户系统偏好（`prefers-reduced-motion: reduce`）为真时，**动画直接落终点**
+   * （不播放位移/缩放过程），只保留最终状态 —— 这是无障碍上最保守、最可预期的语义。
+   *
+   * 默认在构造时读一次 `root.matchMedia`（无 DOM 运行时为 false）；应用层可用
+   * `ice.setReducedMotion(true/false)` 显式覆盖（也能接自己的偏好设置）。
+   */
+  public reducedMotion = false;
   // 已告警过的动画配置：只提示一次，避免非法配置每帧刷屏（WeakSet，不污染会被序列化的 props）
   private warned = new WeakSet<object>();
   /** 运行期诊断（见 getDiagnostics）：按 code|path 去重。 */
@@ -55,6 +81,7 @@ class AnimationManager {
 
   constructor(ice: ICE) {
     this.ice = ice;
+    this.reducedMotion = readPrefersReducedMotion();
   }
 
   public start() {
@@ -188,6 +215,33 @@ class AnimationManager {
           key,
           `[ICE] 动画属性「${key}」的 duration 必须是正数，当前为 ${String(animation.duration)}；已直接落到终点。`
         );
+        write(key, this.__roundIfNeeded(animation, this.__sampleValue(frames, animation, 1)));
+        continue;
+      }
+
+      // 「次要动画降频」：`fps` 给了就按这个频率更新（缺省 = 每帧）。
+      // 采样是**按时间**的，跳过帧不会改变运动曲线（只是采样更稀），所以可以安全降频。
+      const fps = Number(animation.fps);
+      if (Number.isFinite(fps) && fps > 0 && fps < 240) {
+        const minInterval = 1000 / fps;
+        const last = Number(animation.__lastTick);
+        if (Number.isFinite(last) && t - last < minInterval - 1) {
+          hasActive = true; // 还在动画中（只是这一帧不更新）—— 保持"需要帧"
+          continue;
+        }
+        animation.__lastTick = t;
+      }
+
+      // 「减少动态效果」（prefers-reduced-motion: reduce）：不播放过程，直接落终点、只留最终状态。
+      // 放在 duration 校验之后 —— 非法配置照旧报错（无障碍偏好不该掩盖配置错误）。
+      if (this.reducedMotion) {
+        this.__recordDiagnostic(
+          ICE_ANIMATION_DIAGNOSTIC_CODES.REDUCED_MOTION,
+          key,
+          `[ICE] 用户开启了「减少动态效果」：动画属性「${key}」直接落到终态（未播放过程）。`,
+          'warning'
+        );
+        animation.finished = true;
         write(key, this.__roundIfNeeded(animation, this.__sampleValue(frames, animation, 1)));
         continue;
       }
@@ -474,13 +528,18 @@ class AnimationManager {
   }
 
   /** 记一条结构化诊断（按 `code|path` 去重；只留文本，不含动画对象本身）。 */
-  private __recordDiagnostic(code: ICEAnimationDiagnosticCode, path: string, message: string): void {
+  private __recordDiagnostic(
+    code: ICEAnimationDiagnosticCode,
+    path: string,
+    message: string,
+    severity: 'error' | 'warning' = 'error'
+  ): void {
     const key = `${code}|${path}`;
     if (this.__diagnosticKeys.indexOf(key) !== -1) {
       return;
     }
     this.__diagnosticKeys.push(key);
-    this.__diagnostics.push({ severity: 'error', code, message, path });
+    this.__diagnostics.push({ severity, code, message, path });
   }
 
   /**
@@ -564,14 +623,30 @@ class AnimationManager {
       }
     }
     this.paused = false;
+    // 恢复 = 进度又开始推进：空闲停帧之后要唤醒帧循环（e2e 抓到的真实缺陷）
+    if (this.animationMap.size > 0) {
+      FrameManager.wake();
+    }
   }
 
   public isPaused(): boolean {
     return this.paused;
   }
 
+  /**
+   * 是否有"还在推进"的动画（`ICE.needsFrame()` 用它决定要不要继续要帧）。
+   *
+   * 暂停时返回 false：暂停期间动画进度不推进，继续跑帧纯属空转（空闲停帧会因此把 rAF 停掉，
+   * 恢复时 `resume()` 会调整 startTime，进度从暂停处接上）。
+   */
+  public hasActiveAnimations(): boolean {
+    return !this.paused && this.animationMap.size > 0;
+  }
+
   public add(component: ICEComponent) {
     this.animationMap.set(component.props.id, component);
+    // 新动画 = "这一帧有事要做"：空闲停帧之后必须唤醒（否则动画要等下一次别的置脏才开始跑）
+    FrameManager.wake();
   }
 
   public remove(el: any) {

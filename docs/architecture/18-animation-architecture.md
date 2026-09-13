@@ -91,11 +91,21 @@
   并对"**纯平移 + 已缓存**"的组件直接放行；计数口径只作为"完全不划算"的兜底上限。
 - 任何改动都必须过**逐像素一致性**回归（脏矩形/离屏缓存与全量的像素契约不能破）。
 
-### 3.4 帧调度
+### 3.4 帧调度（**已落地 2026-09-13**）
 
-- 保留"单 rAF + 每帧只取一次时间"（同帧内所有动画时间一致）。
-- **次要动画降频**（如 30fps）与**空闲停帧**（没有动画且无脏帧时不空转）。
-- **拖拽期间跳过命中检测**、**屏外裁剪**（这两条是纯收益）。
+- **空闲停帧**：`FrameManager` 从"无条件续帧"改成"按需续帧" —— 每个总线的宿主（ICE 实例）用
+  `ice.needsFrame()` 回答"这一帧还要吗"（有脏要重绘 / 有动画在推进 / `setContinuousFrames(true)`）。
+  置脏（`ice.dirty = true`）与新动画入列（`AnimationManager.add`）/ 恢复（`resume()`）都会 `wake()` 唤醒循环。
+  **实测（真实浏览器）**：静止页面 500ms 内 **0 次帧回调**（改造前约 30 次）；有动画时恢复；暂停/动画结束/清空后再次归零。
+  应用层若自己监听 `ICE_FRAME_EVENT` 做每帧计算（时钟、呼吸灯…），用 `ice.setContinuousFrames(true)` 保持常驻。
+- **次要动画降频**：单条动画可写 `fps`（如 `fps: 30`）——采样是按时间的，跳过帧只改变采样密度、不改变运动曲线，
+  终点仍精确落值。
+- **减少动态效果**：`prefers-reduced-motion: reduce`（或应用层 `ice.setReducedMotion(true)`）下，
+  动画**不播放过程、直接落终态**，并记一条 `ICE_ANIM_REDUCED_MOTION` 运行期诊断
+  （让开发者知道"没动"是用户偏好，而不是引擎坏了）。`AnimationManager.reducedMotion` 在构造时读系统偏好。
+- **拖拽期间跳过命中**：`DOMEventDispatcher` 对移动类事件本来就不做命中检测（只在按下/滚轮时 `findTargetComponent`），
+  且拖拽时指针被 capture —— 这条是**既有行为**，本轮以回归用例钉住（见 `tests/event/DOMEventDispatcher.*` 与
+  `e2e/visual/animation-scheduling.spec.ts`）。
 
 ### 3.5 可选：命中与绘制分离
 

@@ -31,6 +31,8 @@ export const ICE_ANIMATION_DIAGNOSTIC_CODES = {
   INFINITE_LOOP: 'ICE_ANIM_INFINITE_LOOP',
   /** 该属性会改变派生参数（尺寸 / 点集 / 文本量测）→ 每帧都要重量测，性能上不划算。 */
   KEY_AFFECTS_MEASUREMENT: 'ICE_ANIM_KEY_AFFECTS_MEASUREMENT',
+  /** 运行期告知：用户开启了「减少动态效果」，这条动画被折叠成终态（未播放过程）。 */
+  REDUCED_MOTION: 'ICE_ANIM_REDUCED_MOTION',
 } as const;
 
 export type ICEAnimationDiagnosticCode =
