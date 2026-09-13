@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>文本进阶：行高 / 字间距 / 装饰线 / 多行编辑 / 选区</title>
+  <style>
+    html, body { margin: 0; padding: 0; font-family: system-ui, sans-serif; background: #f8fafc; }
+    #toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+    #toolbar button { padding: 4px 10px; border: 1px solid #cbd5e1; background: #fff; border-radius: 4px; cursor: pointer; }
+    #toolbar button:hover { background: #f1f5f9; }
+    #hint { padding: 6px 10px; color: #475569; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <button id="btn-spacing">字间距 +2px</button>
+    <button id="btn-lineheight">行高 40px / 默认</button>
+    <button id="btn-deco">下划线 → 删除线 → 无</button>
+    <button id="btn-select">全选 / 清空选区</button>
+    <button id="btn-edit">进入多行编辑</button>
+  </div>
+  <div id="hint">
+    文本上双击进入编辑（多行：回车换行，Ctrl/Cmd+Enter 或 Esc 提交）；非编辑态在文本上按下鼠标可按字形定位光标。
+  </div>
+  <canvas id="canvas-1" width="1024" height="600"></canvas>
+  <script src="../../dist/index.umd.js"></script>
+  <script>
+    const ice = new ICE.ICE().init('canvas-1');
+    const FONT = { fontSize: 24, fontFamily: 'Arial', fontWeight: 'normal', fillStyle: '#0f172a' };
+
+    const addText = (props) => {
+      const comp = new ICE.ICEText(props);
+      ice.addChild(comp);
+      return comp;
+    };
+
+    addText({
+      left: 40, top: 30, text: '字间距 letterSpacing', style: { ...FONT, fontSize: 20, fillStyle: '#334155' },
+    });
+    const spacingText = new ICE.ICEText({
+      left: 40, top: 60, text: 'SPACING', style: { ...FONT, letterSpacing: 0 },
+    });
+    ice.addChild(spacingText);
+
+    addText({
+      left: 40, top: 130, text: '行高 lineHeight（默认 1.35 × 字号）', style: { ...FONT, fontSize: 20, fillStyle: '#334155' },
+    });
+    const lineText = new ICE.ICEText({
+      left: 40, top: 160, text: '第一行\n第二行\n第三行', style: { ...FONT, fontSize: 18 },
+    });
+    ice.addChild(lineText);
+
+    addText({
+      left: 480, top: 30, text: '装饰线 textDecoration', style: { ...FONT, fontSize: 20, fillStyle: '#334155' },
+    });
+    const decoText = new ICE.ICEText({
+      left: 480, top: 60, text: 'UNDERLINE / STRIKE', style: { ...FONT, fillStyle: '#b91c1c' },
+    });
+    ice.addChild(decoText);
+
+    addText({
+      left: 480, top: 130, text: '多行编辑 + 选区（双击进入编辑）', style: { ...FONT, fontSize: 20, fillStyle: '#334155' },
+    });
+    const editable = new ICE.ICEText({
+      left: 480, top: 160, width: 460, height: 120, text: '第一行\n第二行', multiline: true,
+      fill: true, stroke: false,
+      style: { ...FONT, fontSize: 20, textBaseline: 'top', selectionColor: 'rgba(59,130,246,0.35)' },
+    });
+    ice.addChild(editable);
+
+    // 非编辑态在文本上按下鼠标：按字形换算下标（演示 getCaretIndexAt）
+    const canvasEl = document.getElementById('canvas-1');
+    canvasEl.addEventListener('mousedown', (evt) => {
+      const rect = canvasEl.getBoundingClientRect();
+      const world = ice.screenToWorld(evt.clientX - rect.left, evt.clientY - rect.top);
+      [spacingText, lineText, decoText, editable].forEach((comp) => {
+        const local = comp.globalToLocal(world[0], world[1]);
+        if (comp.containsPoint(world[0], world[1])) {
+          comp.setSelection(comp.getCaretIndexAt(local[0], local[1]));
+        } else {
+          comp.setSelection(-1, -1);
+        }
+      });
+    });
+
+    // 工具栏
+    let spacing = 0;
+    document.getElementById('btn-spacing').onclick = () => {
+      spacing = spacing === 0 ? 2 : 0;
+      spacingText.setState({ style: { ...spacingText.state.style, letterSpacing: spacing } });
+    };
+    let lineMode = 0;
+    document.getElementById('btn-lineheight').onclick = () => {
+      lineMode = (lineMode + 1) % 2;
+      lineText.setState({ style: { ...lineText.state.style, lineHeight: lineMode ? 40 : 0 } });
+    };
+    const DECOS = ['underline', 'line-through', 'none'];
+    let decoMode = 0;
+    document.getElementById('btn-deco').onclick = () => {
+      decoMode = (decoMode + 1) % DECOS.length;
+      decoText.setState({ style: { ...decoText.state.style, textDecoration: DECOS[decoMode] } });
+    };
+    let selected = false;
+    document.getElementById('btn-select').onclick = () => {
+      selected = !selected;
+      if (selected) {
+        editable.selectAll();
+      } else {
+        editable.setSelection(-1, -1);
+      }
+    };
+    document.getElementById('btn-edit').onclick = () => {
+      editable.startEditing();
+    };
+
+    window.__ice = ice;
+    window.__texts = { spacingText, lineText, decoText, editable };
+  </script>
+</body>
+</html>

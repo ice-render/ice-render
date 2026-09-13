@@ -7,6 +7,8 @@
  * 盒的表示：一维数组 [minX, minY, maxX, maxY]（世界/画布坐标，轴对齐，已含 paint pad）。
  */
 
+import { resolveTextDecorations } from '../graphic/text/text-style';
+
 /** 抗锯齿兜底余量（px），覆盖 1px 级 AA 溢出与文字 baseline 溢出。 */
 export const PAD_AA = 2;
 
@@ -44,6 +46,13 @@ export function stylePaintPad(state: any): number {
       shadowBlur + Math.max(Math.abs(Number(style.shadowOffsetX) || 0), Math.abs(Number(style.shadowOffsetY) || 0));
   } else if (typeof style.shadow === 'string' && SHADOW_PAD[style.shadow]) {
     pad += SHADOW_PAD[style.shadow];
+  }
+
+  // 文本装饰线：下划线画在**基线下方**（0.12em + 半个线宽），会溢出「贴合字形墨迹」的几何盒。
+  // 不把这段算进落墨盒，脏矩形会把它裁掉半截、离屏位图也会切掉 —— 表现为「下划线时有时无」。
+  if (resolveTextDecorations(style.textDecoration).indexOf('underline') >= 0) {
+    const fontSize = Number(style.fontSize) || 0;
+    pad += Math.ceil(fontSize * 0.2);
   }
   return pad;
 }

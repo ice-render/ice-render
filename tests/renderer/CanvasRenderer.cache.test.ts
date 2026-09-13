@@ -136,6 +136,28 @@ describe('CanvasRenderer 组件级离屏缓存', () => {
     expect(renderer.cache.has(text)).toBe(true);
   });
 
+  it('文本的墨迹属性（字间距 / 行高 / 装饰线 / 选区）变化必须让内容指纹失效', () => {
+    const { ice, renderer } = makeHarness('dirty-rect');
+    const text: any = new ICEText({ text: 'hello', left: 10, top: 10, width: 100, height: 20 });
+    ice.addChild(text);
+    renderFrame(renderer, ice);
+
+    const base = renderer.cache.contentKey(text);
+    const withStyle = (patch: any): string => {
+      text.setState({ style: { ...text.state.style, ...patch } });
+      return renderer.cache.contentKey(text);
+    };
+    // 这些属性只改墨迹、不改合成矩阵 —— 不进指纹的话，离屏缓存会把旧位图继续贴回来
+    expect(withStyle({ letterSpacing: 4 })).not.toBe(base);
+    expect(withStyle({ lineHeight: 30 })).not.toBe(base);
+    expect(withStyle({ textDecoration: 'underline' })).not.toBe(base);
+    expect(withStyle({ textDecorationColor: '#ff0000' })).not.toBe(base);
+    expect(withStyle({ selectionColor: '#00ff00' })).not.toBe(base);
+
+    text.setState({ selectionStart: 1, selectionEnd: 3 });
+    expect(renderer.cache.contentKey(text)).not.toBe(base);
+  });
+
   it('场景含已缓存文本时，移动其他组件走局部重绘而非全量', () => {
     const { ice, renderer, clears, drawImages } = makeHarness('dirty-rect');
     const text = new ICEText({ text: 'hello', left: 10, top: 10, width: 100, height: 20, zIndex: 1 });

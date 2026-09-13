@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>text-advanced</title>
+  <style>html, body { margin: 0; padding: 0; }</style>
+</head>
+<body>
+  <canvas id="canvas-1" width="1024" height="768"></canvas>
+  <script src="../../../dist/index.umd.js"></script>
+  <script>
+    const ice = new ICE.ICE().init('canvas-1');
+    const FONT = { fontSize: 24, fontFamily: 'Arial', fontWeight: 'normal', fillStyle: '#111111' };
+
+    // 1) 字间距：引擎盒子宽度必须与浏览器 canvas 的量测宽度一致（含最后一个字符后的间距）
+    const spacing = new ICE.ICEText({ left: 40, top: 40, text: 'ABC', style: { ...FONT, letterSpacing: 6 } });
+    ice.addChild(spacing);
+
+    // 2) 行高：显式 40px，两行 → 文本高 80
+    const lineHeight = new ICE.ICEText({ left: 40, top: 120, text: '第一行\n第二行', style: { ...FONT, lineHeight: 40 } });
+    ice.addChild(lineHeight);
+
+    // 3) 文本装饰线：下划线 / 删除线 / 无装饰对照
+    // 故意全用大写拉丁字母（Arial 大写没有降部）—— 这样「基线以下」的墨迹只可能来自装饰线，
+    // 像素断言才能区分「画了装饰线」与「字母自己的降部」。
+    const underlined = new ICE.ICEText({
+      left: 40, top: 300, text: 'UNDERLINE', style: { ...FONT, textDecoration: 'underline', fillStyle: '#cc0000' },
+    });
+    const struck = new ICE.ICEText({
+      left: 40, top: 380, text: 'STRIKE', style: { ...FONT, textDecoration: 'line-through', fillStyle: '#cc0000' },
+    });
+    const plain = new ICE.ICEText({ left: 40, top: 460, text: 'PLAIN', style: { ...FONT, fillStyle: '#cc0000' } });
+    ice.addChild(underlined);
+    ice.addChild(struck);
+    ice.addChild(plain);
+
+    // 4) 多行编辑：multiline 时挂 textarea、回车插入换行
+    const editable = new ICE.ICEText({
+      left: 480, top: 40, text: 'a\nb', multiline: true, style: { ...FONT, fillStyle: '#0b5cad' },
+    });
+    ice.addChild(editable);
+
+    // 5) 选区自绘（非 DOM 编辑态：没有浏览器选区可用）
+    const selected = new ICE.ICEText({
+      left: 480, top: 220, text: 'select me', selectionStart: 1, selectionEnd: 5,
+      style: { ...FONT, selectionColor: '#ffcc00' },
+    });
+    ice.addChild(selected);
+
+    // 6) 按字形命中：本地坐标 → 光标下标
+    const hit = new ICE.ICEText({ left: 480, top: 320, text: 'abcdef', style: { ...FONT } });
+    ice.addChild(hit);
+
+    window.__ice = ice;
+    window.__t = { spacing, lineHeight, underlined, struck, plain, editable, selected, hit };
+  </script>
+</body>
+</html>

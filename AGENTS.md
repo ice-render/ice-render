@@ -83,6 +83,20 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   光标 / 编辑按 **grapheme** 移动，`renderCaret()` 对多行、RTL、`textAlign: start/end` 都要正确。
   回归用例见 `tests/graphic/text-bugfixes.test.ts`、`e2e/visual/offscreen-cache-fidelity.spec.ts`。
 
+- **文本排版属性铁律（2026-09-13 确立，B 组）**：① `lineHeight` / `letterSpacing` / `textDecoration` 是
+  **正式排版属性**，解析规则只能有一处（`src/graphic/text/text-style.ts`）——量测、换行、渲染、SVG 导出
+  四处必须同口径，任何一处各自 `parseFloat` 都会漂移（`letterSpacing` 只透传给 ctx 的旧行为就是
+  「屏幕上有间距、盒子宽度不含间距」）。② `letterSpacing` 必须**在量测之前**写进 `ctx.letterSpacing`
+  （canvas 的 `measureText` 含尾随间距），不要自己再加一遍。③ 文本装饰线是引擎自绘：下划线在基线下方
+  `0.12em`，**会溢出几何盒**，落墨盒（`stylePaintPad()`）与离屏缓存的 `contentKey` 都必须覆盖它。
+  ④ `ObjectCache.contentKey` 的文本分支必须包含「只改墨迹、不改矩阵」的属性（排版属性、`selectionStart/End`、
+  `wrap/wordBreak/maxLines/ellipsis`）——漏一项就会出现「属性改了画面不动」的贴旧位图 bug。
+  ⑤ 光标 / 选区 / 命中的**行带**必须按 `textBaseline` 与真实字形/字体度量推导（`__lineBoxes()` 是唯一入口），
+  不能只按 `y + 行号 × 行高` 推（`textBaseline: 'top'` 下会整体错位）。⑥ 多行编辑用透明 `<textarea>`
+  （回车换行、Ctrl/Cmd+Enter 提交），单行仍是 `<input>`（回车提交）。回归见
+  `tests/graphic/text-layout.test.ts`、`tests/graphic/text-editing-selection.test.ts`、
+  `e2e/visual/text-advanced.spec.ts`、`examples/text/text-advanced.html`。
+
 ## 已知技术债（严重度）
 
 > 复核日期 **2026-09-11**。此前本节长期停留在「8 suite / 36 用例」等早期口径，与仓库实际严重脱节，已按实测重写。
