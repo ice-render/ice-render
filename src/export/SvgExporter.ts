@@ -379,81 +379,116 @@ function fontAttributes(style: Record<string, any>, digits: number): string[] {
  *
  * @param target ICE 实例（导出整幅画布）或任意组件（导出它的子树）
  */
-export function exportSvg(target: any, options: SvgExportOptions = {}): string {
+/**
+ * 导出场景为 SVG 字符串。
+ *
+ * `target` 可以是 **ICE 实例**、**任意组件**，也可以是**这两个的数组**（多层合成）：
+ * 分层渲染（静态层 + 动画层）导出时按数组顺序叠加，各层的世界坐标共用同一套 `worldToView`。
+ * 单层（传单个 target）的输出与历史版本逐字节一致。
+ */
+export function exportSvg(target: any | any[], options: SvgExportOptions = {}): string {
   return exportSvgResult(target, options).svg;
 }
 
-export function exportSvgResult(target: any, options: SvgExportOptions = {}): SvgExportResult {
+export function exportSvgResult(target: any | any[], options: SvgExportOptions = {}): SvgExportResult {
+  return exportLayersResult(Array.isArray(target) ? target : [target], options);
+}
+
+/**
+ * 多层导出的实现：每一"层"是 ICE 实例或单个组件。
+ *
+ * - `area: 'content'`（默认）：所有层一起求内容包围盒（世界坐标）→ 各层共用同一个 `worldToView`，
+ *   因此层与层之间**按世界坐标对齐**（不是各层各自从 0,0 开始）；
+ * - `area: 'viewport'`：取**第一层**的渲染视口与画布尺寸（分层场景各层视口应已用 `ICE.linkViewport` 同步）；
+ * - 绘制顺序 = 数组顺序（第一层在最下面），层内仍按 zIndex。
+ */
+function exportLayersResult(targets: any[], options: SvgExportOptions = {}): SvgExportResult {
   const digits = typeof options.precision === 'number' ? options.precision : 2;
   const scale = Number(options.scale) > 0 ? Number(options.scale) : 1;
-  const isIceRoot = !!(target && target.childNodes && target.getRenderViewport);
-  const ice = isIceRoot ? target : target && target.ice;
 
-  // ---- 1) 取出要导出的组件，顺序与渲染队列一致 ----
-  const queue: any[] = [];
-  const collect = (nodes: any[]): void => {
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-      queue.push(node);
-      if (node.childNodes && node.childNodes.length) {
-        collect(node.childNodes);
-      }
+  // ---- 1) 逐层取出要导出的组件（层内顺序与渲染队列一致，层间按数组顺序）----
+  const layers: Array<{ ice: any; queue: any[] }> = [];
+  for (let i = 0; i < targets.length; i++) {
+    const target: any = targets[i];
+    if (!target) {
+      continue;
     }
-  };
-  collect(isIceRoot ? target.childNodes : [target]);
-  if (options.includeTools && ice && ice.toolNodes) {
-    collect(ice.toolNodes);
+    const isIceRoot = !!(target.childNodes && target.getRenderViewport);
+    const ice = isIceRoot ? target : target.ice;
+    const queue: any[] = [];
+    const collect = (nodes: any[]): void => {
+      for (let j = 0; j < nodes.length; j++) {
+        const node = nodes[j];
+        queue.push(node);
+        if (node.childNodes && node.childNodes.length) {
+          collect(node.childNodes);
+        }
+      }
+    };
+    collect(isIceRoot ? target.childNodes : [target]);
+    if (options.includeTools && ice && ice.toolNodes) {
+      collect(ice.toolNodes);
+    }
+    queue.sort((a: any, b: any) => (a.state.zIndex || 0) - (b.state.zIndex || 0));
+    layers.push({ ice, queue });
   }
-  queue.sort((a: any, b: any) => (a.state.zIndex || 0) - (b.state.zIndex || 0));
+  // 视口模式取第一层的视口；内容模式把各层内容并起来算包围盒
+  const firstIce: any = layers.length ? layers[0].ice : null;
+  const isIceRoot = !!firstIce;
 
   // ---- 2) 计算「世界 → 视图」矩阵与画布尺寸 ----
   let worldToView: number[] = [1, 0, 0, 1, 0, 0];
   let viewWidth = 0;
   let viewHeight = 0;
   if (options.area === 'viewport' && isIceRoot) {
-    const vp = ice.getRenderViewport();
-    const canvasWidth = Number(ice.canvasWidth) || 0;
-    const canvasHeight = Number(ice.canvasHeight) || 0;
+    // 多层：各层视口应已同步（ICE.linkViewport），这里以第一层为准
+    const vp = firstIce.getRenderViewport();
+    const canvasWidth = Number(firstIce.canvasWidth) || 0;
+    const canvasHeight = Number(firstIce.canvasHeight) || 0;
     worldToView = [vp.scale, 0, 0, vp.scale, vp.tx, vp.ty];
     viewWidth = canvasWidth;
     viewHeight = canvasHeight;
   } else {
-    // 内容自适应：把所有可见组件的绘制包围盒（含描边余量）并起来
+    // 内容自适应：把所有层、所有可见组件的绘制包围盒（含描边余量）并起来
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
     let maxY = -Infinity;
-    queue.forEach((component) => {
-      if (typeof component.isEffectivelyVisible === 'function' && !component.isEffectivelyVisible()) {
-        return;
+    for (let li = 0; li < layers.length; li++) {
+      const queue = layers[li].queue;
+      for (let qi = 0; qi < queue.length; qi++) {
+        const component = queue[qi];
+        if (typeof component.isEffectivelyVisible === 'function' && !component.isEffectivelyVisible()) {
+          continue;
+        }
+        // 必须先刷新世界矩阵：`__paintWorldBox()` 用的是 state.composedMatrix 缓存，
+        // 对**从未上过屏**的组件（Node 出图、刚构造完就导出）那是空/过期值，
+        // 内容包围盒会算到 (0,0) 附近，导出结果整体偏移。
+        //
+        // 派生几何（折线的点、文本的换行行）由 refreshParams() 负责：画布通道是渲染时刷的，
+        // 无头场景没有帧循环，必须在这里补一次，否则折线仍是空点集、包围盒也跟着错。
+        if (typeof component.refreshParams === 'function') {
+          component.refreshParams();
+        }
+        if (typeof component.composeMatrix === 'function') {
+          component.composeMatrix();
+        }
+        let box: number[] | null = null;
+        if (typeof component.__paintWorldBox === 'function') {
+          box = component.__paintWorldBox();
+        } else if (typeof component.getMinBoundingBox === 'function') {
+          const b = component.getMinBoundingBox(true);
+          box = [b.tl[0], b.tl[1], b.br[0], b.br[1]];
+        }
+        if (!box || !isFinite(box[0]) || !isFinite(box[1]) || !isFinite(box[2]) || !isFinite(box[3])) {
+          continue;
+        }
+        minX = Math.min(minX, box[0]);
+        minY = Math.min(minY, box[1]);
+        maxX = Math.max(maxX, box[2]);
+        maxY = Math.max(maxY, box[3]);
       }
-      // 必须先刷新世界矩阵：`__paintWorldBox()` 用的是 state.composedMatrix 缓存，
-      // 对**从未上过屏**的组件（Node 出图、刚构造完就导出）那是空/过期值，
-      // 内容包围盒会算到 (0,0) 附近，导出结果整体偏移。
-      //
-      // 派生几何（折线的点、文本的换行行）由 refreshParams() 负责：画布通道是渲染时刷的，
-      // 无头场景没有帧循环，必须在这里补一次，否则折线仍是空点集、包围盒也跟着错。
-      if (typeof component.refreshParams === 'function') {
-        component.refreshParams();
-      }
-      if (typeof component.composeMatrix === 'function') {
-        component.composeMatrix();
-      }
-      let box: number[] | null = null;
-      if (typeof component.__paintWorldBox === 'function') {
-        box = component.__paintWorldBox();
-      } else if (typeof component.getMinBoundingBox === 'function') {
-        const b = component.getMinBoundingBox(true);
-        box = [b.tl[0], b.tl[1], b.br[0], b.br[1]];
-      }
-      if (!box || !isFinite(box[0]) || !isFinite(box[1]) || !isFinite(box[2]) || !isFinite(box[3])) {
-        return;
-      }
-      minX = Math.min(minX, box[0]);
-      minY = Math.min(minY, box[1]);
-      maxX = Math.max(maxX, box[2]);
-      maxY = Math.max(maxY, box[3]);
-    });
+    }
     const padding = Number(options.padding) >= 0 ? Number(options.padding) : 0;
     if (!isFinite(minX)) {
       minX = 0;
@@ -477,238 +512,243 @@ export function exportSvgResult(target: any, options: SvgExportOptions = {}): Sv
   const body: string[] = [];
   let defSeq = 0;
 
-  queue.forEach((component) => {
-    if (typeof component.isEffectivelyVisible === 'function' && !component.isEffectivelyVisible()) {
-      return;
-    }
-    const state = component.state;
-    const style = mergedStyle(component);
-    const matrix = typeof component.composeMatrix === 'function' ? component.composeMatrix() : state.composedMatrix;
-    const attrs: string[] = [];
-
-    // 裁剪：祖先链上的 clipChildren（与 __applyAncestorClips 同口径，世界包围盒）
-    const clips: any[] = [];
-    let ancestor: any = component.parentNode;
-    while (ancestor && ancestor.state) {
-      if (ancestor.state.clipChildren && typeof ancestor.__paintWorldBox === 'function') {
-        clips.push(ancestor.__paintWorldBox());
+  // 逐层、逐组件生成：层间顺序即数组顺序（第一层在下），层内按 zIndex
+  layers.forEach((layer) =>
+    layer.queue.forEach((component) => {
+      if (typeof component.isEffectivelyVisible === 'function' && !component.isEffectivelyVisible()) {
+        return;
       }
-      ancestor = ancestor.parentNode;
-    }
+      const state = component.state;
+      const style = mergedStyle(component);
+      const matrix = typeof component.composeMatrix === 'function' ? component.composeMatrix() : state.composedMatrix;
+      const attrs: string[] = [];
 
-    const groupAttr: string[] = [`transform="${matrixAttr(matrix, digits)}"`];
-    if (clips.length) {
-      const clipId = `ice-clip-${defSeq++}`;
-      // 从外到内依次裁剪：把外层盒子作为主矩形，内层盒子叠加即可（与画布的多重 clip 等价）
-      const inner = clips[clips.length - 1];
-      defs.push(
-        `<clipPath id="${clipId}"><rect x="${inner[0].toFixed(digits)}" y="${inner[1].toFixed(digits)}" width="${(
-          inner[2] - inner[0]
-        ).toFixed(digits)}" height="${(inner[3] - inner[1]).toFixed(digits)}"/></clipPath>`
-      );
-      groupAttr.push(`clip-path="url(#${clipId})"`);
-    }
-    // 不透明度有两个来源，画布上是相乘生效的（祖先/自身的 state.opacity × style.globalAlpha）：
-    //   - state.opacity 及祖先链 → getEffectiveOpacity()
-    //   - style.globalAlpha      → ctx.globalAlpha（画布直接按组件设置）
-    // 只取其中一个，导出就会比画布亮/暗一截。
-    const subtreeOpacity = typeof component.getEffectiveOpacity === 'function' ? component.getEffectiveOpacity() : 1;
-    const alpha = style.globalAlpha === undefined ? 1 : Number(style.globalAlpha);
-    const opacity = subtreeOpacity * (alpha >= 0 ? alpha : 1);
-    if (opacity !== 1) {
-      groupAttr.push(`opacity="${Number(opacity.toFixed(3))}"`);
-    }
-    // 阴影：canvas 的 shadow* 是「绘制时给形状加投影」，等价物是给元素挂 filter
-    const shadow = shadowFilter(`ice-shadow-${defSeq}`, style);
-    if (shadow) {
-      defSeq++;
-      defs.push(shadow.def);
-      groupAttr.push(`filter="${shadow.url}"`);
-    }
-    attrs.push(...groupAttr);
-
-    let element = '';
-
-    if (component instanceof ICEPath) {
-      // 没有渲染循环时（Node / 未上过屏的组件）路径命令还是空的，先补齐
-      if (typeof component.ensurePathBuilt === 'function') {
-        component.ensurePathBuilt();
+      // 裁剪：祖先链上的 clipChildren（与 __applyAncestorClips 同口径，世界包围盒）
+      const clips: any[] = [];
+      let ancestor: any = component.parentNode;
+      while (ancestor && ancestor.state) {
+        if (ancestor.state.clipChildren && typeof ancestor.__paintWorldBox === 'function') {
+          clips.push(ancestor.__paintWorldBox());
+        }
+        ancestor = ancestor.parentNode;
       }
-      const recorder = component.path2D;
-      const commands: Array<Array<any>> = (recorder && recorder._commands) || [];
-      // 渐变有两个来源：声明式 style.fillGradient，或命令式创建的原生 CanvasGradient
-      // （由 ICE 旁挂 __iceGradient 描述）。后者不识别的话，画布上好好的渐变在导出里会凭空消失。
-      const fillGradDesc = style.fillGradient || gradientDesc(style.fillStyle);
-      const strokeGradDesc = style.strokeGradient || gradientDesc(style.strokeStyle);
-      const paintsFill = state.fill !== false && (!!style.fillStyle || !!fillGradDesc);
-      const paintsStroke = state.stroke !== false && (!!style.strokeStyle || !!strokeGradDesc);
-      if (commands.length && (paintsFill || paintsStroke)) {
-        const d = commandsToPathData(commands, !!(recorder && recorder._closed) || state.closePath !== false, digits);
-        // 渐变对象本身不能直接当颜色字符串（会变成 "[object CanvasGradient]"），有渐变时走 url(#id)
-        const fill = state.fill !== false && !fillGradDesc ? paint(style.fillStyle) : null;
-        const stroke = state.stroke !== false && !strokeGradDesc ? paint(style.strokeStyle) : null;
-        const pathAttrs: string[] = [];
-        if (fillGradDesc && state.fill !== false) {
-          const id = `ice-grad-${defSeq++}`;
-          const def = gradientDef(id, fillGradDesc);
-          if (def) {
-            defs.push(def);
-            pathAttrs.push(`fill="url(#${id})"`);
-          } else if (fill) {
-            pathAttrs.push(`fill="${escapeXml(fill)}"`);
-          } else {
-            pathAttrs.push('fill="none"');
-          }
-        } else {
-          pathAttrs.push(`fill="${fill ? escapeXml(fill) : 'none'}"`);
-        }
-        if (strokeGradDesc && state.stroke !== false) {
-          const id = `ice-grad-${defSeq++}`;
-          const def = gradientDef(id, strokeGradDesc);
-          if (def) {
-            defs.push(def);
-            pathAttrs.push(`stroke="url(#${id})"`);
-          }
-        } else if (stroke) {
-          pathAttrs.push(`stroke="${escapeXml(stroke)}"`);
-        }
-        if (style.lineWidth !== undefined) {
-          pathAttrs.push(`stroke-width="${Number(style.lineWidth)}"`);
-        }
-        if (Array.isArray(state.lineDash) && state.lineDash.length) {
-          pathAttrs.push(`stroke-dasharray="${state.lineDash.join(' ')}"`);
-          if (state.lineDashOffset) {
-            pathAttrs.push(`stroke-dashoffset="${Number(state.lineDashOffset)}"`);
-          }
-        }
-        if (state.lineJoin) {
-          pathAttrs.push(`stroke-linejoin="${state.lineJoin}"`);
-        }
-        if (state.lineCap) {
-          pathAttrs.push(`stroke-linecap="${state.lineCap}"`);
-        }
-        element = `<path d="${d}" ${pathAttrs.join(' ')}/>`;
 
-        // 实心端点箭头：画布上是 `drawArrowFills()` 用 fill() 补的（不在路径描边里），
-        // 导出器必须显式补一块填充路径，否则所有实心箭头在 SVG 里都会变成空心
-        // （BPMN 消息流、UML 依赖、流程图箭头全部受影响）。面顶点与画布共用 getArrowFaces()。
-        if (state.arrowStyle !== 'hollow' && typeof (component as any).getArrowFaces === 'function') {
-          const faces: number[][][] = (component as any).getArrowFaces();
-          const arrowColor = stroke || (style.strokeStyle ? String(style.strokeStyle) : '#000000');
-          if (faces.length && state.stroke !== false) {
-            const facePath = faces
-              .map(
-                (face) =>
-                  `M${Number(face[0][0].toFixed(digits))},${Number(face[0][1].toFixed(digits))}` +
-                  `L${Number(face[1][0].toFixed(digits))},${Number(face[1][1].toFixed(digits))}` +
-                  `L${Number(face[2][0].toFixed(digits))},${Number(face[2][1].toFixed(digits))}Z`
-              )
-              .join(' ');
-            element += `<path d="${facePath}" fill="${escapeXml(arrowColor)}" stroke="none"/>`;
-          }
-        }
-
-        // 连线标签：画布上是 PolyLine.drawLabel() 用 fillText 直接画的（不是独立子组件），
-        // 导出器必须显式问它，否则流程图的「是/否」、BPMN 的条件/默认流标签会整批丢失。
-        const labelInfo =
-          typeof (component as any).getLabelRenderInfo === 'function' ? (component as any).getLabelRenderInfo() : null;
-        if (labelInfo) {
-          const rectX = Number((labelInfo.x - labelInfo.halfW).toFixed(digits));
-          const rectY = Number((labelInfo.y - labelInfo.halfH).toFixed(digits));
-          const rectW = Number((labelInfo.halfW * 2).toFixed(digits));
-          const rectH = Number((labelInfo.halfH * 2).toFixed(digits));
-          element +=
-            `<rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="${escapeXml(
-              labelInfo.backgroundColor
-            )}"/>` +
-            `<text x="${Number(labelInfo.x.toFixed(digits))}" y="${Number(labelInfo.y.toFixed(digits))}" ` +
-            `font-family="Arial" font-size="${Number(labelInfo.fontSize)}" fill="${escapeXml(labelInfo.fillStyle)}" ` +
-            `text-anchor="middle" dominant-baseline="central">${escapeXml(labelInfo.text)}</text>`;
-        }
-      }
-    } else if (component instanceof ICEText) {
-      const lines =
-        typeof (component as any).getRenderLines === 'function' ? (component as any).getRenderLines() : null;
-      if (lines && lines.length) {
-        const fill = state.fill !== false ? paint(style.fillStyle) : null;
-        const stroke = state.stroke ? paint(style.strokeStyle) : null;
-        const textAttrs: string[] = fontAttributes(style, digits);
-        textAttrs.push(`fill="${fill ? escapeXml(fill) : 'none'}"`);
-        if (stroke) {
-          textAttrs.push(`stroke="${escapeXml(stroke)}"`);
-          textAttrs.push(`stroke-width="${Number(style.lineWidth) || 1}"`);
-        }
-        // 字间距 / 文本装饰线：与画布同口径（画布侧 letterSpacing 进 ctx、装饰线由引擎自绘）。
-        // SVG 让渲染方自己按 `letter-spacing` 排版，锚点与画布一致；装饰线交给 `text-decoration`。
-        const fontSize = Number(style.fontSize) || 12;
-        const letterSpacingPx = resolveLetterSpacingPx(style.letterSpacing, fontSize);
-        if (letterSpacingPx !== 0) {
-          textAttrs.push(`letter-spacing="${Number(letterSpacingPx.toFixed(digits))}"`);
-        }
-        const decorations = resolveTextDecorations(style.textDecoration);
-        if (decorations.length) {
-          textAttrs.push(`text-decoration="${decorations.join(' ')}"`);
-        }
-        // 对齐用锚点表达，而不是把测出来的行宽写死：
-        // canvas 里居中/右对齐依赖 measureText 的结果，SVG 用 text-anchor 让渲染方自己量。
-        // 居中：画布把文字中心放在本地 x=0；右对齐：右边缘在 `localOrigin[0] - paddingRight`。
-        //
-        // 注意 RTL：SVG 的 `text-anchor="start"` 是「文字方向的起点」，RTL 下等于**右侧**。
-        // 而画布的 `textAlign: 'left'` 是物理左对齐（x 是文字左边缘），因此这里要把物理对齐
-        // 按方向映射成锚点，否则 RTL 文案在 SVG 里会与画布相反。
-        const direction = resolveTextDirection(String(state.text ?? ''), state.direction);
-        const align = resolveTextAlign(style.textAlign, direction);
-        if (direction === 'rtl') {
-          textAttrs.push('direction="rtl"');
-        }
-        let anchorX: number | null = null;
-        if (align === 'center') {
-          textAttrs.push('text-anchor="middle"');
-          anchorX = 0;
-        } else if (align === 'right') {
-          textAttrs.push(direction === 'rtl' ? 'text-anchor="start"' : 'text-anchor="end"');
-          anchorX = state.localOrigin[0] - (Number(style.paddingRight) || 0);
-        } else {
-          // 物理左对齐：RTL 下对应 SVG 的 end 锚点
-          textAttrs.push(direction === 'rtl' ? 'text-anchor="end"' : 'text-anchor="start"');
-        }
-        const baseline = BASELINE_MAP[style.textBaseline || 'bottom'];
-        if (baseline) {
-          textAttrs.push(`dominant-baseline="${baseline}"`);
-        }
-        const tspans = lines
-          .map((line: any) => {
-            const x = anchorX === null ? line.x : anchorX;
-            return `<tspan x="${Number(x.toFixed(digits))}" y="${Number(line.y.toFixed(digits))}">${escapeXml(
-              line.text
-            )}</tspan>`;
-          })
-          .join('');
-        element = `<text ${textAttrs.join(' ')}>${tspans}</text>`;
-      }
-    } else if (component instanceof ICEImage && state.src && !(state.sw > 0 && state.sh > 0)) {
-      const x = 0 - state.localOrigin[0];
-      const y = 0 - state.localOrigin[1];
-      const imageAttrs: string[] = [
-        `x="${x}"`,
-        `y="${y}"`,
-        `width="${state.width}"`,
-        `height="${state.height}"`,
-        `href="${escapeXml(String(state.src))}"`,
-      ];
-      if ((state.clipType || 'none') === 'circle') {
+      const groupAttr: string[] = [`transform="${matrixAttr(matrix, digits)}"`];
+      if (clips.length) {
         const clipId = `ice-clip-${defSeq++}`;
-        const r = Math.min(state.width, state.height) / 2;
-        defs.push(`<clipPath id="${clipId}"><circle cx="0" cy="0" r="${r}"/></clipPath>`);
-        imageAttrs.push(`clip-path="url(#${clipId})"`);
+        // 从外到内依次裁剪：把外层盒子作为主矩形，内层盒子叠加即可（与画布的多重 clip 等价）
+        const inner = clips[clips.length - 1];
+        defs.push(
+          `<clipPath id="${clipId}"><rect x="${inner[0].toFixed(digits)}" y="${inner[1].toFixed(digits)}" width="${(
+            inner[2] - inner[0]
+          ).toFixed(digits)}" height="${(inner[3] - inner[1]).toFixed(digits)}"/></clipPath>`
+        );
+        groupAttr.push(`clip-path="url(#${clipId})"`);
       }
-      element = `<image ${imageAttrs.join(' ')} preserveAspectRatio="none"/>`;
-    }
+      // 不透明度有两个来源，画布上是相乘生效的（祖先/自身的 state.opacity × style.globalAlpha）：
+      //   - state.opacity 及祖先链 → getEffectiveOpacity()
+      //   - style.globalAlpha      → ctx.globalAlpha（画布直接按组件设置）
+      // 只取其中一个，导出就会比画布亮/暗一截。
+      const subtreeOpacity = typeof component.getEffectiveOpacity === 'function' ? component.getEffectiveOpacity() : 1;
+      const alpha = style.globalAlpha === undefined ? 1 : Number(style.globalAlpha);
+      const opacity = subtreeOpacity * (alpha >= 0 ? alpha : 1);
+      if (opacity !== 1) {
+        groupAttr.push(`opacity="${Number(opacity.toFixed(3))}"`);
+      }
+      // 阴影：canvas 的 shadow* 是「绘制时给形状加投影」，等价物是给元素挂 filter
+      const shadow = shadowFilter(`ice-shadow-${defSeq}`, style);
+      if (shadow) {
+        defSeq++;
+        defs.push(shadow.def);
+        groupAttr.push(`filter="${shadow.url}"`);
+      }
+      attrs.push(...groupAttr);
 
-    if (element) {
-      body.push(`<g ${attrs.join(' ')}>${element}</g>`);
-    }
-  });
+      let element = '';
+
+      if (component instanceof ICEPath) {
+        // 没有渲染循环时（Node / 未上过屏的组件）路径命令还是空的，先补齐
+        if (typeof component.ensurePathBuilt === 'function') {
+          component.ensurePathBuilt();
+        }
+        const recorder = component.path2D;
+        const commands: Array<Array<any>> = (recorder && recorder._commands) || [];
+        // 渐变有两个来源：声明式 style.fillGradient，或命令式创建的原生 CanvasGradient
+        // （由 ICE 旁挂 __iceGradient 描述）。后者不识别的话，画布上好好的渐变在导出里会凭空消失。
+        const fillGradDesc = style.fillGradient || gradientDesc(style.fillStyle);
+        const strokeGradDesc = style.strokeGradient || gradientDesc(style.strokeStyle);
+        const paintsFill = state.fill !== false && (!!style.fillStyle || !!fillGradDesc);
+        const paintsStroke = state.stroke !== false && (!!style.strokeStyle || !!strokeGradDesc);
+        if (commands.length && (paintsFill || paintsStroke)) {
+          const d = commandsToPathData(commands, !!(recorder && recorder._closed) || state.closePath !== false, digits);
+          // 渐变对象本身不能直接当颜色字符串（会变成 "[object CanvasGradient]"），有渐变时走 url(#id)
+          const fill = state.fill !== false && !fillGradDesc ? paint(style.fillStyle) : null;
+          const stroke = state.stroke !== false && !strokeGradDesc ? paint(style.strokeStyle) : null;
+          const pathAttrs: string[] = [];
+          if (fillGradDesc && state.fill !== false) {
+            const id = `ice-grad-${defSeq++}`;
+            const def = gradientDef(id, fillGradDesc);
+            if (def) {
+              defs.push(def);
+              pathAttrs.push(`fill="url(#${id})"`);
+            } else if (fill) {
+              pathAttrs.push(`fill="${escapeXml(fill)}"`);
+            } else {
+              pathAttrs.push('fill="none"');
+            }
+          } else {
+            pathAttrs.push(`fill="${fill ? escapeXml(fill) : 'none'}"`);
+          }
+          if (strokeGradDesc && state.stroke !== false) {
+            const id = `ice-grad-${defSeq++}`;
+            const def = gradientDef(id, strokeGradDesc);
+            if (def) {
+              defs.push(def);
+              pathAttrs.push(`stroke="url(#${id})"`);
+            }
+          } else if (stroke) {
+            pathAttrs.push(`stroke="${escapeXml(stroke)}"`);
+          }
+          if (style.lineWidth !== undefined) {
+            pathAttrs.push(`stroke-width="${Number(style.lineWidth)}"`);
+          }
+          if (Array.isArray(state.lineDash) && state.lineDash.length) {
+            pathAttrs.push(`stroke-dasharray="${state.lineDash.join(' ')}"`);
+            if (state.lineDashOffset) {
+              pathAttrs.push(`stroke-dashoffset="${Number(state.lineDashOffset)}"`);
+            }
+          }
+          if (state.lineJoin) {
+            pathAttrs.push(`stroke-linejoin="${state.lineJoin}"`);
+          }
+          if (state.lineCap) {
+            pathAttrs.push(`stroke-linecap="${state.lineCap}"`);
+          }
+          element = `<path d="${d}" ${pathAttrs.join(' ')}/>`;
+
+          // 实心端点箭头：画布上是 `drawArrowFills()` 用 fill() 补的（不在路径描边里），
+          // 导出器必须显式补一块填充路径，否则所有实心箭头在 SVG 里都会变成空心
+          // （BPMN 消息流、UML 依赖、流程图箭头全部受影响）。面顶点与画布共用 getArrowFaces()。
+          if (state.arrowStyle !== 'hollow' && typeof (component as any).getArrowFaces === 'function') {
+            const faces: number[][][] = (component as any).getArrowFaces();
+            const arrowColor = stroke || (style.strokeStyle ? String(style.strokeStyle) : '#000000');
+            if (faces.length && state.stroke !== false) {
+              const facePath = faces
+                .map(
+                  (face) =>
+                    `M${Number(face[0][0].toFixed(digits))},${Number(face[0][1].toFixed(digits))}` +
+                    `L${Number(face[1][0].toFixed(digits))},${Number(face[1][1].toFixed(digits))}` +
+                    `L${Number(face[2][0].toFixed(digits))},${Number(face[2][1].toFixed(digits))}Z`
+                )
+                .join(' ');
+              element += `<path d="${facePath}" fill="${escapeXml(arrowColor)}" stroke="none"/>`;
+            }
+          }
+
+          // 连线标签：画布上是 PolyLine.drawLabel() 用 fillText 直接画的（不是独立子组件），
+          // 导出器必须显式问它，否则流程图的「是/否」、BPMN 的条件/默认流标签会整批丢失。
+          const labelInfo =
+            typeof (component as any).getLabelRenderInfo === 'function'
+              ? (component as any).getLabelRenderInfo()
+              : null;
+          if (labelInfo) {
+            const rectX = Number((labelInfo.x - labelInfo.halfW).toFixed(digits));
+            const rectY = Number((labelInfo.y - labelInfo.halfH).toFixed(digits));
+            const rectW = Number((labelInfo.halfW * 2).toFixed(digits));
+            const rectH = Number((labelInfo.halfH * 2).toFixed(digits));
+            element +=
+              `<rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="${escapeXml(
+                labelInfo.backgroundColor
+              )}"/>` +
+              `<text x="${Number(labelInfo.x.toFixed(digits))}" y="${Number(labelInfo.y.toFixed(digits))}" ` +
+              `font-family="Arial" font-size="${Number(labelInfo.fontSize)}" fill="${escapeXml(labelInfo.fillStyle)}" ` +
+              `text-anchor="middle" dominant-baseline="central">${escapeXml(labelInfo.text)}</text>`;
+          }
+        }
+      } else if (component instanceof ICEText) {
+        const lines =
+          typeof (component as any).getRenderLines === 'function' ? (component as any).getRenderLines() : null;
+        if (lines && lines.length) {
+          const fill = state.fill !== false ? paint(style.fillStyle) : null;
+          const stroke = state.stroke ? paint(style.strokeStyle) : null;
+          const textAttrs: string[] = fontAttributes(style, digits);
+          textAttrs.push(`fill="${fill ? escapeXml(fill) : 'none'}"`);
+          if (stroke) {
+            textAttrs.push(`stroke="${escapeXml(stroke)}"`);
+            textAttrs.push(`stroke-width="${Number(style.lineWidth) || 1}"`);
+          }
+          // 字间距 / 文本装饰线：与画布同口径（画布侧 letterSpacing 进 ctx、装饰线由引擎自绘）。
+          // SVG 让渲染方自己按 `letter-spacing` 排版，锚点与画布一致；装饰线交给 `text-decoration`。
+          const fontSize = Number(style.fontSize) || 12;
+          const letterSpacingPx = resolveLetterSpacingPx(style.letterSpacing, fontSize);
+          if (letterSpacingPx !== 0) {
+            textAttrs.push(`letter-spacing="${Number(letterSpacingPx.toFixed(digits))}"`);
+          }
+          const decorations = resolveTextDecorations(style.textDecoration);
+          if (decorations.length) {
+            textAttrs.push(`text-decoration="${decorations.join(' ')}"`);
+          }
+          // 对齐用锚点表达，而不是把测出来的行宽写死：
+          // canvas 里居中/右对齐依赖 measureText 的结果，SVG 用 text-anchor 让渲染方自己量。
+          // 居中：画布把文字中心放在本地 x=0；右对齐：右边缘在 `localOrigin[0] - paddingRight`。
+          //
+          // 注意 RTL：SVG 的 `text-anchor="start"` 是「文字方向的起点」，RTL 下等于**右侧**。
+          // 而画布的 `textAlign: 'left'` 是物理左对齐（x 是文字左边缘），因此这里要把物理对齐
+          // 按方向映射成锚点，否则 RTL 文案在 SVG 里会与画布相反。
+          const direction = resolveTextDirection(String(state.text ?? ''), state.direction);
+          const align = resolveTextAlign(style.textAlign, direction);
+          if (direction === 'rtl') {
+            textAttrs.push('direction="rtl"');
+          }
+          let anchorX: number | null = null;
+          if (align === 'center') {
+            textAttrs.push('text-anchor="middle"');
+            anchorX = 0;
+          } else if (align === 'right') {
+            textAttrs.push(direction === 'rtl' ? 'text-anchor="start"' : 'text-anchor="end"');
+            anchorX = state.localOrigin[0] - (Number(style.paddingRight) || 0);
+          } else {
+            // 物理左对齐：RTL 下对应 SVG 的 end 锚点
+            textAttrs.push(direction === 'rtl' ? 'text-anchor="end"' : 'text-anchor="start"');
+          }
+          const baseline = BASELINE_MAP[style.textBaseline || 'bottom'];
+          if (baseline) {
+            textAttrs.push(`dominant-baseline="${baseline}"`);
+          }
+          const tspans = lines
+            .map((line: any) => {
+              const x = anchorX === null ? line.x : anchorX;
+              return `<tspan x="${Number(x.toFixed(digits))}" y="${Number(line.y.toFixed(digits))}">${escapeXml(
+                line.text
+              )}</tspan>`;
+            })
+            .join('');
+          element = `<text ${textAttrs.join(' ')}>${tspans}</text>`;
+        }
+      } else if (component instanceof ICEImage && state.src && !(state.sw > 0 && state.sh > 0)) {
+        const x = 0 - state.localOrigin[0];
+        const y = 0 - state.localOrigin[1];
+        const imageAttrs: string[] = [
+          `x="${x}"`,
+          `y="${y}"`,
+          `width="${state.width}"`,
+          `height="${state.height}"`,
+          `href="${escapeXml(String(state.src))}"`,
+        ];
+        if ((state.clipType || 'none') === 'circle') {
+          const clipId = `ice-clip-${defSeq++}`;
+          const r = Math.min(state.width, state.height) / 2;
+          defs.push(`<clipPath id="${clipId}"><circle cx="0" cy="0" r="${r}"/></clipPath>`);
+          imageAttrs.push(`clip-path="url(#${clipId})"`);
+        }
+        element = `<image ${imageAttrs.join(' ')} preserveAspectRatio="none"/>`;
+      }
+
+      if (element) {
+        body.push(`<g ${attrs.join(' ')}>${element}</g>`);
+      }
+    })
+  );
 
   const background = options.background
     ? `<rect x="0" y="0" width="${viewWidth}" height="${viewHeight}" fill="${escapeXml(options.background)}"/>`
