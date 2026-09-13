@@ -71,10 +71,19 @@ export default class Serializer {
    */
   public toJSONObject(): object {
     this._unregisteredTypes = [];
+    // 时间戳用 **ISO 8601 UTC**（`2026-09-13T04:12:33.123Z`）：
+    // - 与运行环境的语言/时区无关（旧实现用 `toLocaleString()`，同一份工程在 zh-CN 机器上写
+    //   `2026/9/13 12:12:33`、在 en-US 机器上写 `9/13/2026, 12:12:33 PM`，同一份数据换个机器就不一样）；
+    // - 定长、字典序即时间序，可直接排序/比对；
+    // - 任何语言、任何工具（`new Date()`、dayjs、SQL、Python）都能直接解析，也是 JSON Schema 的 `date-time` 形态。
+    // 不用 epoch 毫秒（`Date.now()`）：这里的字段是**给人看的导出元信息**，JSON 里可读性比省 10 个字节重要。
+    // 需要「同一次编辑导出结果逐字节相同」的场景（如编辑器的去重/签名），由消费方按需丢弃这两个字段——
+    // ice-entity-designer 的 FlowDesigner 就是这么做的。
+    const now = new Date().toISOString();
     const result = {
       version: SERIALIZATION_VERSION,
-      createTime: new Date().toLocaleString(),
-      lastModifyTime: new Date().toLocaleString(),
+      createTime: now,
+      lastModifyTime: now,
       childNodes: [],
     };
 
