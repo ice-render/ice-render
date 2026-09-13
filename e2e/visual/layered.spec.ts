@@ -165,3 +165,39 @@ test('页面无 console / pageerror 报错', async ({ page }) => {
   await page.waitForTimeout(300);
   expect((page as any).__errors).toEqual([]);
 });
+
+test('多层导出：SVG 合成两层内容、PNG 合成两层像素', async ({ page }) => {
+  // SVG：矢量合成 —— 静态层的文本与动画层的标记都要在，且尺寸覆盖整个画布
+  await page.click('#btn-export-svg');
+  await page.waitForTimeout(300);
+  const svg = await page.evaluate(() => (window as any).__layeredSvg as string);
+  expect(svg).toContain('<svg');
+  expect(svg).toContain('静态标签 0'); // 下层（静态层）的内容
+  // 上层（动画层）的标记：颜色取自 COLORS[0] = #3B82F6
+  expect(svg.toLowerCase()).toContain('#3b82f6');
+  // viewport 口径：尺寸 = 画布尺寸（两层都是 1024×640）
+  const meta = svg.match(/width="([\d.]+)" height="([\d.]+)"/);
+  expect(meta).toBeTruthy();
+  expect([Number(meta![1]), Number(meta![2])]).toEqual([1024, 640]);
+
+  // PNG：位图合成 —— 拿到 data URL，且尺寸与画布一致（两层都是 1024×640）
+  await page.click('#btn-export-png');
+  await page.waitForTimeout(300);
+  const png = await page.evaluate(() => (window as any).__layeredPng as string);
+  expect(png.startsWith('data:image/png;base64,')).toBe(true);
+  const size = await page.evaluate(async (dataUrl: string) => {
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+    return { width: img.naturalWidth, height: img.naturalHeight };
+  }, png);
+  expect(size).toEqual({ width: 1024, height: 640 });
+
+  // 单层对比：只导静态层时不应包含动画层的标记色（证明"合成确实叠了两层"）
+  const single = await page.evaluate(() => (window as any).__staticIce.toSvg());
+  expect(single.toLowerCase()).toContain('#475569'); // 静态文本色
+  expect(single.toLowerCase()).not.toContain('#3b82f6'); // 标记色只存在于动画层
+});

@@ -21,6 +21,8 @@
     <button id="btn-toggle-anim">暂停/继续动画</button>
     <button id="btn-migrate">把选中的静态图元提升到动画层</button>
     <button id="btn-migrate-back">把动画层里的标记放回静态层</button>
+    <button id="btn-export-svg">导出 SVG（两层合成）</button>
+    <button id="btn-export-png">导出 PNG（两层合成）</button>
   </div>
   <div id="hint">
     两张 canvas 叠放：<b>下层静态层</b>（只画一次：大量文本/折线/方块）+ <b>上层动画层</b>（每帧只重绘几十个标记）。
@@ -160,6 +162,27 @@
       }
       staticIce.dirty = true;
       staticIce.renderer.frameEvtHandler();
+    };
+
+    // ---- 多层导出：SVG 走矢量合成，PNG 走位图合成（toDataURL 只拿得到单层）----
+    document.getElementById('btn-export-svg').onclick = () => {
+      // 分层场景导出"所见即所得"：用 viewport 口径（= 画布尺寸），各层视口已同步
+      const svg = ICE.exportSvg([staticIce, animIce], { area: 'viewport', background: '#ffffff' });
+      window.__layeredSvg = svg;
+      const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'layered.svg';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    document.getElementById('btn-export-png').onclick = () => {
+      const png = ICE.composeLayersDataURL([staticIce, animIce], { background: '#ffffff' });
+      window.__layeredPng = png;
+      const a = document.createElement('a');
+      a.href = png;
+      a.download = 'layered.png';
+      a.click();
     };
 
     // 自检用：e2e 通过这两个句柄观察分层是否生效

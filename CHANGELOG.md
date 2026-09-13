@@ -45,7 +45,20 @@
 +  回归：`tests/ICE.move-component.test.ts`（9 条：世界坐标换算/子树重绑/动画注册迁移/选中态/防御/队列标记）
 +  + `e2e/visual/layered.spec.ts` 新增 1 条真实浏览器用例（提升→重绑→动画注册→放回，世界坐标 ≤1px）。
 +
-+  **待做**：多层导出合成（`exportSvg` 按层合成）、脏区面积门。
++- **多层导出合成**（2026-09-13，18 §3.1 的 ②-3 切片）：分层渲染是**多张 canvas**，
+  `ice.toDataURL()` 只拿得到自己那一层，导出"用户看到的整张图"必须按层合成：
++  - `exportSvg([layerA, layerB], options)` / `exportSvgResult(...)`：**矢量合成**。
++    数组顺序 = 叠加顺序（第一层在下）；`area: 'content'`（默认）各层共用覆盖全部层的内容包围盒
++    → 层间按世界坐标对齐；`area: 'viewport'` 取第一层的视口与画布尺寸。**单层传单个 target 时输出与历史逐字节一致**。
++  - `composeLayersDataURL([layerA, layerB], opts)` / `composeLayersToCanvas(...)`：**位图合成**
++    （PNG 截图 / 缩略图）。按层序 `drawImage` 叠加，尺寸缺省取各层 canvas 的最大者，可给背景色；
++    运行时无离屏画布能力时抛稳定错误码 `ICE_OFFSCREEN_CANVAS_UNSUPPORTED`。
++  - 示例 `examples/animation/layered-canvas.html` 增加"导出 SVG / 导出 PNG（两层合成）"两个按钮。
++  回归：`tests/export/svg-export.test.ts` 新增 4 条（单层数组=单目标逐字节一致 / 层序 / 世界坐标对齐的并集 /
++  空数组安全）+ `tests/export/compose-layers.test.ts` 5 条（层序、尺寸取最大与显式尺寸、背景、类型、错误码）
++  + `e2e/visual/layered.spec.ts` 新增 1 条真实浏览器用例（SVG 含两层内容且 1024×640、PNG 为 1024×640）。
++
++  **待做**：脏区面积门（C）；动画侧的 timeline/stagger、Agent 校验与诊断码、帧调度仍是后续分期。
 
 ## [2.2.0] - 2026-09-13
 

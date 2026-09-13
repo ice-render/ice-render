@@ -42,6 +42,8 @@
 | `ice.setInputPassthrough(true)` | 覆盖层 canvas 置 `pointer-events: none`（关闭时还原为**空**而不是 `auto`，不覆盖应用样式）。**不加这条，上层会吃掉整屏指针事件，下层交互直接失效** |
 | 事件归属过滤（`DOMEventDispatcher` 内置） | 同页多实例由全局拦截器广播事件，因此"按下/滚轮"事件必须按**目标 canvas** 归属：目标是别人的 canvas → 本实例忽略。移动/抬起**不过滤**，避免拖拽途中指针划过另一张画布时丢事件 |
 | `ice.moveComponentTo(component, targetIce, targetParent?)` | 跨实例迁移组件（连同子树）：**保持世界坐标**（按矩阵换算，不照抄 left/top）、**不销毁**（监听/子树/动画配置都留着）、`ice/ctx/evtBus` 递归重绑、动画注册与选中态由目标实例接管。配套 `ice.detachChild()`（摘除不销毁）与 `rebindComponentTree()`（显式子树重绑——`ICEGroup` 的 AFTER_ADD 同步钩子是 `once`，迁移时不会自己触发） |
+| `exportSvg([layerA, layerB])` | **多层矢量合成**：数组顺序 = 叠加顺序（第一层在下）；`area: 'content'`（默认）各层共用同一个覆盖全部层的内容包围盒 → 层间按**世界坐标**对齐；`area: 'viewport'` 取**第一层**的视口与画布尺寸（各层视口应已 `linkViewport`）。单层（传单个 target）输出与历史逐字节一致 |
+| `composeLayersDataURL([layerA, layerB], opts)` / `composeLayersToCanvas(...)` | **多层位图合成**（PNG 截图 / 缩略图）：按层序 `drawImage` 叠加，尺寸缺省取各层 canvas 最大者，可给背景色；运行时无离屏画布能力时抛稳定错误码 `ICE_OFFSCREEN_CANVAS_UNSUPPORTED`（`ice.toDataURL()` 只拿得到自己那一层，分层导出必须用它） |
 
 **配方**（应用侧）：
 
@@ -53,6 +55,8 @@
 6. **拖拽期间把元素提升到动画层、松手放回**（Konva drag-layer 模式）用
    `sourceIce.moveComponentTo(component, animIce)` / 反向迁移 —— 位置与选中态自动保持；
    放回前记得清掉临时动画并 `animationManager.remove()`（示例见 `examples/animation/layered-canvas.html`）。
+7. **导出**：矢量用 `exportSvg([staticIce, animIce], { area: 'viewport', background: '#fff' })`；
+   位图用 `composeLayersDataURL([staticIce, animIce], { background: '#fff' })`（示例页两个按钮已接）。
 
 **实测**（`npm run bench:layers`；10000 静态元素 —— 2000 文本 + 1000 折线 + 7000 方块 —— + 200 个动画标记）：
 
@@ -63,7 +67,7 @@
 
 收益随"动画元素数量"增长而收敛（动画层自己变成全量重绘），但分层不会更差 —— 它只是拿内存换"静态层一帧都不用重画"。
 
-**仍未做**：②-3 多层导出合成（`exportSvg` / 截图按层合成）。
+**分层原语至此齐了**（视口绑定 / 输入穿透 / 事件归属 / 跨实例迁移 / 多层导出）。
 
 ### 3.2 写值与重绘解耦（动画专属写值通道）
 

@@ -15,6 +15,7 @@ jest.mock('../../src/cross-platform/root', () => {
 });
 
 import root from '../../src/cross-platform/root';
+import ICE from '../../src/ICE';
 import ICEPath from '../../src/graphic/ICEPath';
 import ICEGroup from '../../src/graphic/container/ICEGroup';
 import ICERect from '../../src/graphic/shape/ICERect';
@@ -265,5 +266,102 @@ describe('SVG 导出', () => {
 
     expect(svg).not.toContain('#00ff00');
     expect(svg).toContain('#000000');
+  });
+
+  /**
+   * 多层合成（分层渲染的导出）：`exportSvg([层1, 层2])`。
+   * 断言的重点：单层输出与历史逐字节一致（不回归）、层间**按世界坐标对齐**（内容包围盒取并集，
+   * 不是各层各自从 0,0 开始）、层顺序 = 数组顺序（第一层在下）。
+   */
+  describe('多层合成导出', () => {
+    function makeLayerIce(...components: any[]) {
+      const ice: any = ICE.headless();
+      components.forEach((c) => ice.addChild(c));
+      return ice;
+    }
+
+    it('单层传数组 = 与单目标导出逐字节一致', () => {
+      const ice = makeLayerIce(
+        new ICERect({
+          left: 10,
+          top: 10,
+          width: 40,
+          height: 20,
+          fill: true,
+          stroke: false,
+          style: { fillStyle: '#ff0000' },
+        })
+      );
+      expect(exportSvg([ice])).toBe(exportSvg(ice));
+    });
+
+    it('两层都进产物，且按数组顺序叠加（第一层在前 = 在下）', () => {
+      const bottom = makeLayerIce(
+        new ICERect({
+          left: 0,
+          top: 0,
+          width: 50,
+          height: 50,
+          fill: true,
+          stroke: false,
+          style: { fillStyle: '#111111' },
+        })
+      );
+      const top = makeLayerIce(
+        new ICERect({
+          left: 10,
+          top: 10,
+          width: 20,
+          height: 20,
+          fill: true,
+          stroke: false,
+          style: { fillStyle: '#222222' },
+        })
+      );
+
+      const svg = exportSvg([bottom, top]);
+      expect(svg).toContain('#111111');
+      expect(svg).toContain('#222222');
+      expect(svg.indexOf('#111111')).toBeLessThan(svg.indexOf('#222222')); // 层序 = 数组序
+    });
+
+    it('层间按世界坐标对齐：内容包围盒取并集（第二层在远处 → 画布变宽）', () => {
+      const layerA = makeLayerIce(
+        new ICERect({
+          left: 0,
+          top: 0,
+          width: 50,
+          height: 50,
+          fill: true,
+          stroke: false,
+          style: { fillStyle: '#ff0000' },
+        })
+      );
+      const layerB = makeLayerIce(
+        new ICERect({
+          left: 200,
+          top: 0,
+          width: 50,
+          height: 50,
+          fill: true,
+          stroke: false,
+          style: { fillStyle: '#00ff00' },
+        })
+      );
+
+      const singleA = exportSvgResult(layerA);
+      const composed = exportSvgResult([layerA, layerB]);
+      // 并集：宽 ≈ 250（单层只有 50）
+      expect(composed.width).toBeGreaterThan(singleA.width + 190);
+      expect(composed.svg).toContain('#00ff00');
+      // 第二层的内容确实被平移到 200 附近（世界坐标对齐，而不是被压回 0）
+      const composedMatrix = (composed.svg.match(/<g transform="matrix\(([^)]+)\)"/) || [])[1] || '';
+      expect(composedMatrix).toBeTruthy();
+    });
+
+    it('空数组 / 全非法层 → 退回 1x1 空产物（不抛异常）', () => {
+      expect(() => exportSvg([])).not.toThrow();
+      expect(exportSvgResult([]).width).toBeGreaterThan(0);
+    });
   });
 });
