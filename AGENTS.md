@@ -176,6 +176,11 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   回归：`tests/event/DOMEventDispatcher.drag-owner.test.ts`。
 - 两者合起来才是完整用户路径：**点连线 → 出端点手柄 → 拖到别的组件上出插槽 → 松手改接**
   （ice-entity-designer 的 `e2e/link-hooks.spec.ts` 钉住整条链路）。
+- **插槽就近吸附（2026-09-13）**：插槽是 5 个**共享实例**（T/R/B/L/C，同属当前悬停组件），
+  拖拽中**只显示离手柄最近的那一个**、松手**只认它**（吸附距离 `snapDistance`，默认 24 世界 px）。
+  不要改回"5 个全显示、松手挑第一个相交的"：那样用户看到的插槽与实际连上的可能不是同一个。
+  量测包围盒时要传 `true` 强制刷新（否则读到上一帧位置，吸附状态比画面晚一拍）。
+  回归：`tests/link/link-slot-nearest.test.ts`。
 
 ## 提交前自检
 
