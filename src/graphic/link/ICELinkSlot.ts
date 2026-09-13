@@ -120,6 +120,14 @@ class ICELinkSlot extends ICECircle {
     if (component) {
       component.on(ICE_EVENT_NAME_CONSTS.AFTER_RENDER, this.updatePosition, this);
       component.on(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE, this.__onHostRemoved, this);
+      /**
+       * 立刻按新宿主定位。
+       *
+       * 只订阅新宿主的 `AFTER_RENDER` 是不够的：宿主没变脏、这一帧不重渲染时，
+       * 插槽会**沿用上一个宿主的位置** —— 钩子先掠过一个很大的泳道、再落到泳道里的任务上时，
+       * 插槽就留在泳道边上（表现就是"插槽位置错乱"，ice-entity-designer 的 bpmn-editor.html 实测）。
+       */
+      this.updatePosition();
       this.setState({
         display: true,
       });

@@ -158,7 +158,10 @@ export default class LineControlPanel extends ICEControlPanel {
     //设置 LineControlPanel 自身的位置
     this.setState({
       left: 0,
-      top: -5,
+      // 面板自身必须落在原点：两个端点手柄是它的**子组件**，手柄位置是按连线端点算的绝对坐标，
+      // 面板一旦有偏移（历史上这里是 `top: -5`），两个手柄会整体偏离端点 5px
+      // ——BPMN 这类"线多、端点密集"的图里一眼就能看出钩子不在线上（2026-09-13 修）。
+      top: 0,
       width: 3,
       height: 3,
       transform: {

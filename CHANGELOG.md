@@ -22,6 +22,17 @@
   现在派发器记住按下的组件，抬起时先把事件补派给它，再按老规矩派发给命中组件（总线仍只触发一次）。
   回归：`tests/event/DOMEventDispatcher.drag-owner.test.ts`。
 
+- **"端点手柄与插槽位置错乱"（两个真实缺陷，2026-09-13 实测于 ice-entity-designer 的 bpmn-editor.html）**：
+  ① `LineControlPanel` 给面板自身设了 `top: -5`，而两个端点手柄是它的**子组件** ——
+     手柄位置是按连线端点算的绝对坐标，于是整体偏离端点 5px（实测端点 [148,576] vs 手柄中心 [148,571]）。
+     改为 `top: 0`，手柄中心与连线端点严格重合。回归 `tests/control-panel/line-control-panel.test.ts`。
+  ② `ICELinkSlot.hostComponent` 的 setter 只订阅新宿主的 `AFTER_RENDER`、**不立刻重算位置** ——
+     钩子先掠过一个很大的泳道、再落到泳道里的任务上时，插槽继续留在泳道边上
+     （实测：碰撞已命中任务，插槽却仍铺在 1180×150 的泳道上）。现在 setter 里立刻 `updatePosition()`。
+     回归 `tests/link/link-slot.test.ts`。
+  端到端回归：ice-entity-designer 的 `e2e/link-hooks-bpmn.spec.ts`（真浏览器：手柄中心 == 连线端点；
+  拖到任务上后，插槽中心 == 该任务的 T/R/B/L/C）。
+
 > 两处一起修，ice-entity-designer 才恢复"点连线 → 出现端点手柄 → 拖到另一个实体上 → 连接关系改变"，
 > 该仓新增 e2e `e2e/link-hooks.spec.ts` 钉住整条用户路径。
 
