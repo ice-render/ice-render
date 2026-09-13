@@ -5,8 +5,17 @@
 
 ## [Unreleased]
 
+> 暂无（下一个版本发布前在这里累积）。
+
+## [2.0.1] - 2026-09-13
+
 ### 修复
 
+- **时间戳有了真正的语义：`createTime` 跨保存保留**（2026-09-13）：以前两个字段都是"这一次写出的时刻"，
+  于是 `createTime` 名不副实（重新打开再保存就变了）。现在 `Deserializer` 会把读到的 `createTime`
+  记到 `ice.documentMeta.createTime`（归一化成 ISO 8601 UTC），`Serializer` 写出时优先沿用它，
+  `lastModifyTime` 才是本次写出的时刻；`ice.clearAll()` 清空即视为新文档、并清掉该值。
+  数据里没有 / 解析不了（历史脏值）则回退到当前时刻。回归用例见 `tests/persistence/serialization.test.ts`。
 - **序列化时间戳改用 ISO 8601 UTC**（2026-09-13）：`createTime` / `lastModifyTime` 从
   `new Date().toLocaleString()` 改为 `new Date().toISOString()`（如 `2026-09-13T04:12:33.123Z`）。
   旧实现在 **zh-CN 机器上写 `2026/9/13 12:12:33`、en-US 机器上写 `9/13/2026, 12:12:33 PM`**

@@ -74,7 +74,19 @@ describe('复合组件的引擎序列化', () => {
     ice2.registerType('test:Card', Card as any);
     new Deserializer(ice2).fromJSONObject(JSON.parse(first));
     const second = new Serializer(ice2).toJSONString();
-    expect(second).toBe(first);
+
+    // 时间戳是会变的导出元信息（`lastModifyTime` 是"这一次写出"的时刻），逐字节比对前先摘掉——
+    // 本用例要钉的是**组件树结构**稳定（子组件 zIndex 不抖动），不是时间戳。
+    const dropTimes = (json: string): string => {
+      const obj = JSON.parse(json);
+      delete obj.createTime;
+      delete obj.lastModifyTime;
+      return JSON.stringify(obj);
+    };
+    expect(dropTimes(second)).toBe(dropTimes(first));
+
+    // 顺带钉住时间戳语义：`createTime` 跨「打开 → 再保存」保留
+    expect(JSON.parse(second).createTime).toBe(JSON.parse(first).createTime);
   });
 
   it('未声明派生的普通容器：子节点照常序列化并往返', () => {
