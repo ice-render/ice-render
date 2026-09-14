@@ -330,6 +330,7 @@ class ObjectCache {
         s.wordBreak,
         s.maxLines,
         s.ellipsis,
+        s.textOverflow,
         // 选区 / 光标是编辑器状态：不计入就会出现「选中了却看不到高亮（贴的是旧位图）」
         s.selectionStart,
         s.selectionEnd,

@@ -60,7 +60,10 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
   引擎提供 `setInteractionState()` 与可选的自动驱动（`ice.enableInteractionStates()`）；
   主题支持**深合并**（`{ motion: { duration: { fast: 50 } } }` 不会抹掉 `easing`）、
   **子树作用域**（`new ICEGroup({ theme: {...} })`）、**进快照**（`theme: { name | patch }`）、
-  **结构化校验**（`ice.validateTheme()`：未知 token / 类型不对 / WCAG 对比度不足）。
+  **变更通知**（`ice.onThemeChange(fn)`：上层能被动跟随，不必等下一次重建）、
+  **结构化校验**（`ice.validateTheme()`：拼错内置 token / 类型不对 / WCAG 对比度不足；
+  应用自带词汇只给 `info`，因为 `$app.highlight` 这类引用是能被解析的）。
+  命名主题注册有护栏：内置 `default` / `dark` 不可覆盖、重复注册抛错（要覆盖显式传 `{ overwrite: true }`）。
   细节见 [`docs/architecture/21-theme-and-style.md`](./docs/architecture/21-theme-and-style.md)。
 - **`display: false` 是整棵子树隐藏** —— 隐藏父容器后子组件不再被绘制、也不参与命中
   （判定收敛在 `isEffectivelyVisible()`，渲染/命中/a11y/离屏缓存共用）。
@@ -83,6 +86,10 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 - **文字方向（RTL / BiDi）** —— `direction: 'ltr' | 'rtl' | 'auto'` 与 `textAlign: 'start' | 'end'`：
   `'auto'` 按首个强方向字符判定，写 `ctx.direction` 前做**特性检测**、渲染完归位；
   SVG 导出同口径（`direction` + 按方向映射的 `text-anchor`）。
+- **溢出截断（不变形）** —— 文本放不下盒子时按宽度截断并追加省略号（`textOverflow: 'ellipsis'`，默认），
+  也可以用 `textOverflow: 'clip'` 允许溢出交给调用方裁；多行配合 `maxLines` 截末行。
+  **绝不压字形**：以前把盒子宽度当 `fillText(..., maxWidth)` 传下去，canvas 会把文字横向挤扁
+  （长中文尤其明显），现在这条路径已经去掉。
 - **i18n 边界** —— 引擎**不做 i18n**（没有词条表、没有 locale 状态）：词条、复数与 `Intl`
   格式化归应用层，组件库的内置文案可配置且不持全局状态；引擎只负责断行、方向、输入法，
   并让错误带**稳定错误码**（`ICE_ERROR_CODES` / `getICEErrorCode(err)`，应用据此映射自己的语言包）。

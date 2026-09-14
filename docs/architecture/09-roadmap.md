@@ -58,6 +58,7 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | 连接线 | 正交路由 `routeType: 'orthogonal'`、连线标签 `label + labelStyle`、5 个共享插槽吸附；端点箭头默认实心（`arrowStyle: 'filled' \| 'hollow'`）、连线形态可切（`linkShape: 'visio' \| 'bezier'`，贝塞尔为插槽法线方向的三次曲线采样）；`findComponent` 递归查找（因此**连线可连嵌套子组件**） |
 | 序列化 | 类型标识统一为 **`namespace:Type`**（`ice-render:*` / `ice-entity-designer:*` / `ice-chart:*` / 第三方包名），`ICE.getTypeId(ctor)` 反查（与类的 JS 名解耦，压缩改名不破坏已存数据）；重复注册（同 typeId 不同构造函数 / 同构造函数第二个 typeId）**明确抛错**；不做旧无 namespace 名的兼容；`version` 字段 + `SERIALIZATION_MIGRATIONS` 迁移表；未注册类型跳过并记入 `deserializer.unknownTypes`（序列化侧记入 `Serializer.unregisteredTypes`） |
 | 插件 | `ICE.use(plugin)` / `unuse(name)` 三层注册点（组件类型 / 每帧渲染 / 交互工具）+ `setup` / `teardown` 生命周期 |
+| 主题与样式 | 三层 token（base / semantic / chrome）+ 组件预设四层结构；`setTheme`（命名主题 / 深合并部分主题）与 `setChrome`（只改外壳）是**写主题的唯一入口**；样式里的 `'$token'` 引用在 **paint 时**解析（自定义组件也能随主题热切换）；子树作用域 `new ICEGroup({ theme })`；主题进快照只存**相对命名主题的最小差异**；`validateTheme()` 给结构化诊断。**主题变更通知** `ice.onThemeChange(fn)`（`evtBus` 上的 `ICE_EVENT_NAME_CONSTS.THEME_CHANGE`）让应用层能被动跟随。注册表护栏与 preset / type 对齐：内置主题名不可覆盖、重复注册抛错。详见 [21](21-theme-and-style.md) |
 | 无障碍 | `getAccessibilityTree()` 可访问节点快照 + `setFocusedComponent()` 键盘焦点回传。**引擎不自建 DOM 镜像层**（见 [14](14-accessibility.md)） |
 | 多运行时 | `root.createPath2D()`（原生 `Path2D` / `PolyfillPath2D` 降级）、离屏 canvas、图片、像素比全部有平台适配；`requestFrame` 无 rAF 时定时器兜底（Node / headless / 小程序低版本也能启动） |
 | 脏矩形 | 局部重绘支持缩放/平移/`dpr>1`/多块裁剪；门控按「相交」判定；**离屏缓存与直接落墨逐像素一致**（位图栅格对齐设备像素，零重采样）；连线可缓存；脏盒合并带「划算护栏」，细长盒不会被串成整屏大盒。应用层实测：拖动实体时局部重绘 0 → 20 次、渲染 −31%/帧、局部 ≡ 全量 0 差异 |

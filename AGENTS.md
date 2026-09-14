@@ -138,6 +138,18 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   `tests/graphic/text-layout.test.ts`、`tests/graphic/text-editing-selection.test.ts`、
   `e2e/visual/text-advanced.spec.ts`、`examples/text/text-advanced.html`。
 
+- **文本溢出铁律（2026-09-14 确立，C 组）**：① **禁止把宽度当 `fillText/strokeText` 的 `maxWidth` 传下去** ——
+  canvas 对 `maxWidth` 的语义是**把字形横向压扁**（不是截断），长中文会被挤成一团、还溢出盒子
+  （smart-water 顶部 Message 的实测事故）。溢出只有两种处理：截断（默认 `textOverflow: 'ellipsis'`，
+  grapheme 回退 + 省略号）或显式 `'clip'` 交给调用方裁。
+  ② 截断算在 `getRenderLines()` 的**显示行**里（写进 `state.lines`，派生缓存、不进快照），
+  因此画布、SVG 导出、行盒（光标/选区/命中）三处必然同口径；`textOverflow` 必须进
+  `ObjectCache.contentKey` 的文本分支（漏了就「属性改了画面不动」）。
+  ③ **`splitGraphemes()` 返回的数组是副本**，调用方可以就地 `pop()`；直接把缓存数组交出去
+  会让「谁 pop 谁改坏全局缓存」（表现为同一段文本第二次截断少截几个字）。
+  ④ 编辑态不截断：caret / 选区是按原始文本算的。
+  回归见 `tests/graphic/text-overflow.test.ts`。
+
 ## 已知技术债（严重度）
 
 > 复核日期 **2026-09-11**。此前本节长期停留在「8 suite / 36 用例」等早期口径，与仓库实际严重脱节，已按实测重写。
