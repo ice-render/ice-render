@@ -55,7 +55,11 @@ for (const c of SYNC_CASES) {
     expect(res.frameStats, '应产出 frameStats').toBeTruthy();
 
     const s = res.frameStats;
-    expect(s.p50).toBeGreaterThan(0);
+    // 本断言的原意是「确实采到了帧样本」，而不是「每帧都必须大于 0」——
+    // 静态层位图接入后，`mode=static` 的一帧只剩「清屏 + 贴一张位图」，
+    // 在 Chrome 上已低于 `performance.now()` 的计时精度（实测 p50 = 0，窗口内 30/30 帧都走了层路径）。
+    expect(s.samples).toBeGreaterThan(0);
+    expect(Number.isFinite(s.p50)).toBe(true);
     expect(s.p50).toBeLessThan(LOOSE_CEIL_MS[c.n]);
 
     // 打印数据行（含 human 可读汇总）

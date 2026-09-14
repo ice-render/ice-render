@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>静态层位图像素一致性对比</title>
+  <body style="font: 13px/1.6 sans-serif; padding: 12px;">
+    <p>
+      同一确定性场景跑两个 canvas：<code>canvas-a</code> 关闭静态层位图
+      （<code>setStaticLayerEnabled(false)</code>，即逐组件重画），
+      <code>canvas-b</code> 开启（默认）。由 <code>window.__step(i)</code> 逐步驱动相同操作，
+      <code>window.__compare()</code> 逐像素比对，必须 100% 一致。
+      <code>?hidpi=1</code> 时用 dpr=2 启动，验证高分屏下位图栅格仍然逐像素对齐。
+      <code>window.__layerStats.builds</code> 用于确认确实走了静态层路径。
+    </p>
+    <canvas id="canvas-a" width="700" height="500" style="background:#fff; border:1px solid #ccc;"></canvas>
+    <canvas id="canvas-b" width="700" height="500" style="background:#fff; border:1px solid #ccc;"></canvas>
+  </body>
+  <script src="../../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+      const HIDPI = new URLSearchParams(location.search).get('hidpi') === '1';
+      window.__layerStats = { builds: 0, frames: 0 };
+
+      function buildScene(id) {
+        const ice = new ICE.ICE();
+        ice.init(id, { renderMode: 'dirty-rect', ...(HIDPI ? { dpr: 2 } : {}) });
+        // ① 一大段静态组件（连续 400 个，z 序在最底下）
+        const statics = [];
+        for (let i = 0; i < 400; i++) {
+          const r = new ICE.ICERect({
+            left: 8 + (i % 20) * 34,
+            top: 8 + Math.floor(i / 20) * 28,
+            width: 30,
+            height: 24,
+            style: { fillStyle: '#dbeafe', strokeStyle: '#1e3a8a', lineWidth: 1 },
+          });
+          ice.addChild(r);
+          statics.push(r);
+        }
+        // ② 分散在画布各处的组件（z 序在静态段之上）：每帧只动它们 → 静态段仍是连续干净段
+        const movers = [];
+        for (let i = 0; i < 60; i++) {
+          const r = new ICE.ICERect({
+            left: 10 + (i % 10) * 68,
+            top: 360 + Math.floor(i / 10) * 22,
+            width: 40,
+            height: 16,
+            style: { fillStyle: '#f59e0b', strokeStyle: '#78350f', lineWidth: 1 },
+          });
+          ice.addChild(r);
+          movers.push(r);
+        }
+        // ③ 一段文本（走离屏缓存，验证与静态层共存）
+        const text = new ICE.ICEText({
+          left: 12,
+          top: 588,
+          text: '静态层位图',
+          style: { fontSize: 14, fillStyle: '#111827' },
+        });
+        ice.addChild(text);
+        return { ice, statics, movers, text, added: null };
+      }
+
+      const a = buildScene('canvas-a');
+      const b = buildScene('canvas-b');
+      a.ice.renderer.setStaticLayerEnabled(false);
+      // 统计 b 的建层次数
+      const origRender = b.ice.renderer.frameEvtHandler.bind(b.ice.renderer);
+      b.ice.renderer.frameEvtHandler = function (evt) {
+        window.__layerStats.frames++;
+        return origRender(evt);
+      };
+      const origSetIntervalPatch = setInterval(function () {
+        window.__layerStats.builds = b.ice.renderer.__layerBuilds;
+      }, 100);
+
+      function pair(fn) {
+        fn(a);
+        fn(b);
+      }
+
+      window.__step = function (i) {
+        switch (i) {
+          case 0: // 首帧 prime
+            break;
+          case 1: // 分散改色 60 个 → 脏区分散，局部重绘不成立 → 静态层接手
+            pair((s) => {
+              for (let k = 0; k < s.movers.length; k++) {
+                s.movers[k].setState({ style: { fillStyle: k % 2 ? '#ef4444' : '#10b981' } });
+              }
+            });
+            break;
+          case 2: // 再改一次（成员集合不变 → 复用层）
+            pair((s) => {
+              for (let k = 0; k < s.movers.length; k++) {
+                s.movers[k].setState({ style: { fillStyle: k % 2 ? '#22c55e' : '#eab308' } });
+              }
+            });
+            break;
+          case 3: // 动一个静态段成员 → 连续干净段被切开 → 必须重建层
+            pair((s) => s.statics[5].setState({ left: 600, top: 470 }));
+            break;
+          case 4: // 小损伤（只动一个分散组件）→ 局部重绘很可能成立，两条路都要一致
+            pair((s) => s.movers[3].setState({ left: 300, top: 300 }));
+            break;
+          case 5: // 结构变更 addChild → 层失效 + 全量
+            pair((s) => {
+              s.added = new ICE.ICERect({
+                left: 620,
+                top: 60,
+                width: 40,
+                height: 30,
+                style: { fillStyle: '#8b5cf6', strokeStyle: '#111827', lineWidth: 1 },
+              });
+              s.ice.addChild(s.added);
+            });
+            break;
+          case 6: // 文本内容变化
+            pair((s) => s.text.setState({ text: '静态层 + 文本缓存' }));
+            break;
+          case 7: // 再一轮分散改色 → 重新建层
+            pair((s) => {
+              for (let k = 0; k < s.movers.length; k++) {
+                s.movers[k].setState({ style: { fillStyle: k % 3 ? '#0ea5e9' : '#f43f5e' } });
+              }
+            });
+            break;
+          case 8: // 改静态成员的 zIndex → 队列重排 → 层失效
+            pair((s) => s.statics[300].setState({ zIndex: 9001 }));
+            break;
+          case 9: // 结构变更 removeChild
+            pair((s) => {
+              if (s.added) {
+                s.ice.removeChild(s.added);
+                s.added = null;
+              }
+            });
+            break;
+          default:
+            return false;
+        }
+        return true;
+      };
+
+      window.__compare = function () {
+        function read(id) {
+          const canvas = document.getElementById(id);
+          const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+          return { w: canvas.width, h: canvas.height, data };
+        }
+        const ca = read('canvas-a');
+        const cb = read('canvas-b');
+        if (ca.w !== cb.w || ca.h !== cb.h || ca.data.length !== cb.data.length) {
+          return { equal: false, reason: '尺寸不一致', a: [ca.w, ca.h], b: [cb.w, cb.h] };
+        }
+        // 判据沿用离屏缓存的既定口径（见 e2e/visual/offscreen-cache-fidelity.html）：
+        // 位图是 8bit **预乘**存储，贴回不透明底上时会多一次「预乘→量化→解预乘」往返，
+        // 半透明边缘像素的通道值可能差 1~3/255（屏幕上不可辨）。
+        // 但 **alpha 必须逐位相同** —— 覆盖率只要错位（缩放取整 / 位图原点 / 亚像素位移）alpha 立刻会变。
+        const pm = (c, al) => Math.round((c * al) / 255);
+        let diff = 0;
+        let first = -1;
+        let maxChannelDelta = 0;
+        let maxPremultDelta = 0;
+        let alphaDiffCount = 0;
+        for (let i = 0; i < ca.data.length; i += 4) {
+          const aa = ca.data[i + 3];
+          const ba = cb.data[i + 3];
+          const dr = Math.abs(ca.data[i] - cb.data[i]);
+          const dg = Math.abs(ca.data[i + 1] - cb.data[i + 1]);
+          const db = Math.abs(ca.data[i + 2] - cb.data[i + 2]);
+          const da = Math.abs(aa - ba);
+          if (dr !== 0 || dg !== 0 || db !== 0 || da !== 0) {
+            diff++;
+            if (first < 0) first = i;
+          }
+          if (da !== 0) alphaDiffCount++;
+          maxChannelDelta = Math.max(maxChannelDelta, dr, dg, db);
+          maxPremultDelta = Math.max(
+            maxPremultDelta,
+            Math.abs(pm(ca.data[i], aa) - pm(cb.data[i], ba)),
+            Math.abs(pm(ca.data[i + 1], aa) - pm(cb.data[i + 1], ba)),
+            Math.abs(pm(ca.data[i + 2], aa) - pm(cb.data[i + 2], ba)),
+            da
+          );
+        }
+        const totalPixels = ca.data.length / 4;
+        return {
+          equal: diff === 0,
+          diffCount: diff,
+          diffRatio: diff / totalPixels,
+          alphaDiffCount: alphaDiffCount,
+          alphaDiffRatio: alphaDiffCount / totalPixels,
+          maxChannelDelta: maxChannelDelta,
+          maxPremultDelta: maxPremultDelta,
+          firstIndex: first,
+        };
+      };
+    })();
+  </script>
+</html>
