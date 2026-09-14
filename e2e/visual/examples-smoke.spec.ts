@@ -52,6 +52,8 @@ const pages: Page[] = walk(path.join(ROOT, 'examples')).map((rel) => {
     return { rel, wait: 10000 };
   }
   if (rel === 'performance/worker-main.html') {
+    // worker 示例要等整轮压测跑完并把帧 transfer 回来；机器负载高时 30s 会假红（实测踩过一次），
+    // 给到 90s：它挡的是"worker 链路彻底坏掉"，不值得因为慢一点就报门禁失败。
     return { rel, wait: 30000, expectWorkerResult: true };
   }
   return { rel, wait: 1200 };
@@ -74,8 +76,9 @@ test('examples 冒烟：所有页面无错误且画布正常输出', async ({ pa
     const url = `/examples/${p.rel}`;
     await page.goto(url, { waitUntil: 'load' });
     if (p.expectWorkerResult) {
+      // 见上方注释：worker 压测在负载下可能远超 30s，这里是"等结果"而不是"测耗时"
       await page.waitForFunction(() => (window as any).__workerBenchResult !== undefined, undefined, {
-        timeout: 30_000,
+        timeout: 90_000,
       });
       const wr: any = await page.evaluate(() => (window as any).__workerBenchResult);
       page.removeListener('pageerror', onErr);

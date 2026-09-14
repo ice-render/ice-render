@@ -321,6 +321,39 @@ Canvas 2D 没有合成器通路：CSS/WAAPI 的 `transform` / `opacity` 可以�
 | 同上、关掉量化（`snapToDevicePixel = false`） | — | 34.7 ms/帧（回到每帧重建） |
 | 1,000 个矩形（对照） | 1.4 ms/帧 | 1.4 ms/帧（不受影响） |
 
+### 基准门禁（4 套工具 + 判定口径，2026-09-14）
+
+性能数字必须**可复跑、可判定**，不能只写在文档里靠人记。四套工具与它们的门禁：
+
+| 命令 | 口径 | 判定 |
+|---|---|---|
+| `npm run bench <N> -- --check` | Node + stub ctx：引擎 JS 热路径（静态重绘 / 全量 compose / refreshQueue / 文本离屏缓存） | ✅ 基线 `bench/baselines/render.json`，实测 ≤ 基线 × 2.0 |
+| `npm run bench:micro -- --check` | mitata 微基准（矩阵/坐标、渲染、命中、util、路径记录、序列化、SVG 导出，共 37 项） | ✅ 基线 `bench/micro/baseline.json`（ns/iter），实测 ≤ 基线 × 2.5 |
+| `npm run bench:anim -- --check` | **真浏览器**：动画写值通道 + 设备像素量化 | ✅ 阈值写死在脚本（p50 8ms / 复用率 90%） |
+| `npm run bench:layers -- --check` | **真浏览器**：分层渲染 | ✅ 阈值写死在脚本 |
+
+其中前三项分别接在 `verify`（render）与 `verify:full`（anim / layers / micro）里。
+判定刻意用**宽松倍数**（2.0 / 2.5）：它挡的是"机制被改坏"这类**数量级**退化
+（写值通道退回 `setState`、位图复用失效、矩阵零分配被破坏…），不是几个百分点的抖动 ——
+跨机器、跨负载只要量级对就算过。基线刷新是有意动作：
+`npm run bench <N> -- --update-baseline` / `npm run bench:micro -- --update-baseline`。
+
+> 稳定性提示：本机单轮差异小于 5% 属噪声（实测见过一次 61ms 的 GC 停顿把某个 median 抬高一倍）。
+> 判断"有没有退化"请看多轮中位数与数量级，别盯单轮数字。
+
+**当前基线（2026-09-14，Apple M4 / Node 25 / darwin-arm64 / Chromium，dpr=1，N=2000）**
+
+| 指标 | 实测 | 说明 |
+|---|---|---|
+| 场景 A 静态重绘（稳态，仅 `ice.dirty`） | **1.05 ms** | 2000 组件；等效 ~950fps（仅引擎 JS，不含光栅化） |
+| 场景 B 动画（每帧全量 compose） | **1.75 ms** | 2000 组件；等效 ~570fps |
+| `refreshQueue`（flattenTree + sort） | **0.011 ms** | 单次 |
+| 场景 C 文本命中离屏缓存（N=501） | **0.12 ms** | 跳过 `measureText/fillText` |
+| 场景 D 文本每帧重建缓存（N=501） | **1.06 ms** | 对照；**缓存加速比 ≈ 8.7×** |
+
+跨版本复核（同脚本、同机器、各 3 轮）：2.3.1 与 2.3.0 / 1.4.10 全部落在 ±3% 以内（N=5000/10000 亦然），
+即 2026-09-13 那批改动（事件派发、连线插槽、脏区聚合预算）**没有引入热路径退化**。
+
 ### 优化方向（逐条状态；**标 ❌ 的别当成已有能力**）
 
 1. ~~**把「计数门」换成「面积门」**（或对"纯平移 + 已缓存"直接放行）~~ ——

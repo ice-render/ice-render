@@ -187,7 +187,11 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 ## 提交前自检
 
 - 一条命令跑完全部门禁：**`npm run verify`**（lint → types:check → build → jest → bench 2000 → pkg:check）；
-  需要浏览器回归时用 `npm run verify:full`（再追加 Playwright 全量）。
+  需要浏览器回归时用 `npm run verify:full`（再追加 Playwright 全量、bench:anim / bench:layers / bench:micro）。
+- **性能门禁（2026-09-14 补）**：`bench/render.cjs` 与 `bench/micro` 以前只打印数字、靠人眼看，
+  现在都能判定 —— `npm run bench <N> -- --check`（基线 `bench/baselines/render.json`）、
+  `npm run bench:micro -- --check`（基线 `bench/micro/baseline.json`），实测超基线 2.0× / 2.5× 即非 0 退出。
+  **改完性能相关代码要跑 `verify:full`**；确有必要刷新基线时才用 `--update-baseline`（并在提交信息里说明原因）。
 - CI（`.github/workflows/ci.yml`，跑在 GitHub 镜像上）执行的是同一批步骤；**主仓 Gitee 没有 runner**，
   所以 Gitee 侧的改动质量完全依赖本地跑 `npm run verify`。
 
