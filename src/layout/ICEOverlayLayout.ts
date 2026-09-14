@@ -19,12 +19,26 @@ import ICELayoutManager from './ICELayoutManager';
 class ICEOverlayLayout extends ICELayoutManager {
   /**
    * @overwrite
-   * 所有子组件叠放到容器左上角。
+   * 所有子组件叠放到内容盒左上角（容器 `padding` 之内）。
    */
   layoutContainer(container: ICEGroup): void {
+    const box = this.contentBox(container);
     for (const child of container.childNodes) {
-      child.setState({ left: 0, top: 0 });
+      this.placeChild(child, box.left, box.top);
     }
+  }
+
+  /** 内容首选尺寸：所有子项占位的最大值（叠加语义 —— 取最大而不是求和）。 */
+  getPreferredSize(container: ICEGroup): [number, number] {
+    const pad = this.paddingOf(container);
+    let width = 0;
+    let height = 0;
+    for (const child of container.childNodes) {
+      const [w, h] = this.outerSizeOf(child);
+      width = Math.max(width, w);
+      height = Math.max(height, h);
+    }
+    return [width + pad.left + pad.right, height + pad.top + pad.bottom];
   }
 }
 

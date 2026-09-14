@@ -1084,6 +1084,17 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   /**
+   * 组件**想要多大**（布局用）。
+   *
+   * 默认就是当前 `width/height`：对叶子图元来说"想要的尺寸 = 自己的盒子"，文本则在量测后
+   * 已经是字形实际尺寸。容器（`ICEGroup`）会覆写它，改为向自己的布局策略要「内容尺寸」——
+   * 这样父布局嵌一个子容器时，读到的是子容器的**自然尺寸**，而不是它当前的（可能是 0 / 默认 10 的）盒子。
+   */
+  public getPreferredSize(): [number, number] {
+    return [Number(this.state.width) || 0, Number(this.state.height) || 0];
+  }
+
+  /**
    * 派生参数刷新入口（**唯一**）：按需调用子类的 `calcComponentParams()`，并在算完后清除 `paramsDirty`。
    *
    * - 参数干净时直接返回，因此「只重绘、不改自身参数」的帧（例如祖先移动）不会重算点集/文本量测。

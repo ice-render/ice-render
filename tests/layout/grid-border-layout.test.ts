@@ -39,9 +39,11 @@ describe('ICEGridLayout（网格布局）', () => {
     expect(r2.state.left).toBe(110); // 100 + 10
     expect(r2.state.top).toBe(0);
     // 第 2 行（行高取第 1 行最高 50，y = 50 + 10）
+    // 注意：列宽**全局对齐**（第 0 列宽 = max(100, 60) = 100），所以第 2 行的第 2 个格子
+    // 从 110 开始 —— 这正是「网格」应有的语义（旧实现按行各自累加，列不对齐，跨格也无从谈起）。
     expect(r3.state.left).toBe(0);
     expect(r3.state.top).toBe(60);
-    expect(r4.state.left).toBe(70); // 60 + 10
+    expect(r4.state.left).toBe(110); // 列 0 宽 100 + gapX 10
     expect(r4.state.top).toBe(60);
   });
 });

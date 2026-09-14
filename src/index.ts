@@ -74,6 +74,13 @@ export { default as ICEBoxLayout } from './layout/ICEBoxLayout';
 export { default as ICECardLayout } from './layout/ICECardLayout';
 export { default as ICEOverlayLayout } from './layout/ICEOverlayLayout';
 export { default as ICELayeredLayout } from './layout/ICELayeredLayout';
+export type {
+  ICELayoutInsets,
+  ICELayoutInsetsValue,
+  ICELayoutConstraint,
+  ICELayoutBox,
+  ICEGridSpan,
+} from './layout/ICELayoutManager';
 export {
   /**
    * 主题工具包（`baseTokens` / `DEFAULT_THEME` / `registerTheme` / `token` … 的集合）。
