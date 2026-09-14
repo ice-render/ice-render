@@ -362,6 +362,12 @@ class CanvasRenderer extends ICEEventTarget {
    */
   private __renderWithStaticLayer(): boolean {
     if (!this.__layerEnabled || this.__forceFullRender) return false;
+    // 视口变化帧一律不建静态层 —— 与组件级离屏缓存同一条纪律（见 `ObjectCache.beginFrame`）。
+    //
+    // 为什么：位图的栅格是**按当时的渲染视口**对齐的，视口一变整层就作废；这一帧「重建位图 + 贴回」
+    // 比重画一遍还贵（多一次整层 blit），而下一帧视口再变又要重建 —— 实测拖拽平移/滚轮缩放时
+    // 每帧慢约 35%（13.0ms → 17.6ms）。所以手势期间直接逐组件画，手势停下后的第一帧再统一重建一次。
+    if (this.cache.viewportChangedThisFrame()) return false;
     const run = this.__pickLayerRun(this.componentQueue);
     if (!run) return false;
 

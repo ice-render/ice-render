@@ -833,9 +833,15 @@ class ICE {
    */
   public setViewport(scale: number, tx: number = 0, ty: number = 0): this {
     const s = Number(scale);
-    this.viewport = { scale: s > 0 ? s : 1, tx: Number(tx) || 0, ty: Number(ty) || 0 };
+    const next = { scale: s > 0 ? s : 1, tx: Number(tx) || 0, ty: Number(ty) || 0 };
+    const prev = this.viewport;
+    const unchanged = !!prev && prev.scale === next.scale && prev.tx === next.tx && prev.ty === next.ty;
+    this.viewport = next;
     this.dirty = true;
-    if (this.renderer) {
+    // 视口**没变**时不要回退全量：`markQueueDirty()` 会重建渲染队列、清掉上屏快照与静态层，
+    // 而平移/缩放驱动里重复调用 `setViewport(同值)` 很常见（钳制边界、视口跟随同步），
+    // 每帧白打掉一次队列就等于每帧丢一次静态层（实测这类调用下静态层每帧重建，反而慢 35%）。
+    if (this.renderer && !unchanged) {
       this.renderer.markQueueDirty();
     }
     this.__notifyViewportFollowers();

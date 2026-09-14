@@ -269,4 +269,67 @@ describe('静态层位图', () => {
     restore();
     expect(counter.total).toBe(400);
   });
+
+  it('视口变化帧不使用静态层（手势期间直接逐组件画），手势停下后重建一次再复用', () => {
+    const { ice, renderer } = makeHarness();
+    const clean = makeRects(ice, 400);
+    const dirty: any[] = [];
+    for (let i = 0; i < 300; i++) {
+      const c: any = new ICERect({ left: (i % 30) * 20, top: 300 + Math.floor(i / 30) * 10, width: 8, height: 6 });
+      ice.addChild(c);
+      dirty.push(c);
+    }
+    renderFrame(renderer, ice); // prime
+    renderFrame(renderer, ice); // 全干净 → 建层
+    expect(renderer.__layerBuilds).toBe(1);
+    for (const c of dirty) c.dirty = true;
+    renderFrame(renderer, ice); // 连续干净段收缩 → 重建
+    const base = renderer.__layerBuilds;
+    expect(base).toBe(2);
+
+    // ① 视口变化帧：不重建、也不用层（逐组件画全部 700 个）
+    ice.setViewport(1.2, 10, 5);
+    for (const c of dirty) c.dirty = true;
+    const { counter, restore } = countRenders([...clean, ...dirty]);
+    renderFrame(renderer, ice);
+    restore();
+    expect(renderer.__layerBuilds).toBe(base); // 视口变化帧不建位图
+    expect(counter.total).toBe(700); // 走的是直接落墨，不是层
+
+    // ② 视口稳定后的第一帧：统一重建一次
+    for (const c of dirty) c.dirty = true;
+    renderFrame(renderer, ice);
+    expect(renderer.__layerBuilds).toBe(base + 1);
+
+    // ③ 之后继续复用（每帧零重建）
+    for (const c of dirty) c.dirty = true;
+    renderFrame(renderer, ice);
+    expect(renderer.__layerBuilds).toBe(base + 1);
+  });
+
+  it('视口值没变时 setViewport 不打掉渲染队列与静态层', () => {
+    const { ice, renderer } = makeHarness();
+    const clean = makeRects(ice, 400);
+    const dirty: any[] = [];
+    for (let i = 0; i < 300; i++) {
+      const c: any = new ICERect({ left: (i % 30) * 20, top: 300 + Math.floor(i / 30) * 10, width: 8, height: 6 });
+      ice.addChild(c);
+      dirty.push(c);
+    }
+    renderFrame(renderer, ice);
+    renderFrame(renderer, ice);
+    for (const c of dirty) c.dirty = true;
+    renderFrame(renderer, ice);
+    const base = renderer.__layerBuilds;
+    expect(base).toBeGreaterThan(0);
+
+    // 平移驱动里重复下发同一个视口（钳制边界 / 视口跟随同步都会这么写）
+    for (let i = 0; i < 3; i++) {
+      for (const c of dirty) c.dirty = true;
+      ice.setViewport(1, 0, 0);
+      renderFrame(renderer, ice);
+    }
+    expect(renderer.__layerBuilds).toBe(base); // 没有被白打掉、也没重建
+    expect(clean.length).toBe(400);
+  });
 });
