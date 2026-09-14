@@ -186,6 +186,16 @@ class ObjectCache {
     }
   }
 
+  /**
+   * 本帧的渲染视口是否相对上一帧变过（由 `beginFrame()` 记录）。
+   *
+   * @internal 给静态层位图用：位图与组件位图同一条纪律 —— **视口变化的帧一律不建位图**
+   * （栅格已错位，加一次"重建 + 贴回"比直接画还贵），手势停下后的第一帧再统一重建。
+   */
+  public viewportChangedThisFrame(): boolean {
+    return this.__vpChanged;
+  }
+
   /** 位图是否与当前渲染视口同源（缩放与平移都必须一致，否则栅格不再对齐）。 */
   private __sameViewport(cache: CachedSurface, rs: number, ox: number, oy: number): boolean {
     return cache.rs === rs && cache.ox === ox && cache.oy === oy;
