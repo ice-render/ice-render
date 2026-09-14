@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>组件级离屏缓存 vs 直接落墨：像素一致性对比（已知问题复现）</title>
+  <body style="font: 13px/1.6 sans-serif; padding: 12px;">
+    <p>
+      复现「两层缓存机制不一致」的形状：300 个<b>可缓存</b>组件（文本）构成静态层成员，
+      尾部 80 个矩形每帧置脏（脏比 &gt; 20% → 局部重绘必回退 → 静态层接手）。
+      两个 canvas 跑同一场景：<code>canvas-a</code> 关层、<code>canvas-b</code> 开层。
+      历史上直绘路径对可缓存组件贴的是<b>组件级位图</b>，而层构建是<b>直接落墨</b> ——
+      两条路机制不同，位图往返的量化误差会暴露出来。二者必须逐像素一致。
+    </p>
+    <canvas id="canvas-a" width="900" height="600" style="background:#fff; border:1px solid #ccc;"></canvas>
+    <canvas id="canvas-b" width="900" height="600" style="background:#fff; border:1px solid #ccc;"></canvas>
+  </body>
+  <script src="../../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+      window.__layerStats = { builds: 0 };
+
+      function buildScene(id) {
+        const ice = new ICE.ICE();
+        ice.init(id, { renderMode: 'dirty-rect' });
+        // ① 300 个可缓存组件（文本）—— 它们会成为静态层成员
+        for (let i = 0; i < 300; i++) {
+          ice.addChild(
+            new ICE.ICEText({
+              left: 10 + (i % 20) * 44,
+              top: 10 + Math.floor(i / 20) * 22,
+              text: '节点 ' + i,
+              style: { fontSize: 13, fillStyle: '#334155' },
+            })
+          );
+        }
+        // ② 尾部 80 个矩形：每帧置脏，模拟「后加进来的一批动画组件」
+        const movers = [];
+        for (let i = 0; i < 80; i++) {
+          const r = new ICE.ICERect({
+            left: 20 + (i % 20) * 44,
+            top: 350 + Math.floor(i / 20) * 26,
+            width: 36,
+            height: 18,
+            style: { fillStyle: '#f59e0b', strokeStyle: '#78350f', lineWidth: 1 },
+          });
+          ice.addChild(r);
+          movers.push(r);
+        }
+        return { ice, movers };
+      }
+
+      const a = buildScene('canvas-a'); // 组件级缓存开（引擎默认）
+      const b = buildScene('canvas-b'); // 组件级缓存关（强制直接落墨）
+      // 两侧都关掉静态层：这条用例要隔离的是「组件缓存 vs 直接落墨」，不是静态层
+      a.ice.renderer.setStaticLayerEnabled(false);
+      b.ice.renderer.setStaticLayerEnabled(false);
+      b.ice.renderer.cache.isCachable = () => false;
+
+      window.__step = function (i) {
+        for (const s of [a, b]) {
+          for (const m of s.movers) m.dirty = true;
+          s.ice.dirty = true;
+        }
+        // 第 3 步：改一个成员的文本（走重建路径）
+        if (i === 3) {
+          for (const s of [a, b]) s.ice.childNodes[5].setState({ text: '改过的节点 5' });
+        }
+        return true;
+      };
+
+      window.__compare = function () {
+        function read(id) {
+          const canvas = document.getElementById(id);
+          const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+          return { w: canvas.width, h: canvas.height, data };
+        }
+        const ca = read('canvas-a');
+        const cb = read('canvas-b');
+        if (ca.w !== cb.w || ca.h !== cb.h) return { equal: false, reason: '尺寸不一致' };
+        const pm = (c, al) => Math.round((c * al) / 255);
+        let diff = 0;
+        let first = -1;
+        let maxChannelDelta = 0;
+        let maxPremultDelta = 0;
+        let alphaDiffCount = 0;
+        for (let i = 0; i < ca.data.length; i += 4) {
+          const aa = ca.data[i + 3];
+          const ba = cb.data[i + 3];
+          const dr = Math.abs(ca.data[i] - cb.data[i]);
+          const dg = Math.abs(ca.data[i + 1] - cb.data[i + 1]);
+          const db = Math.abs(ca.data[i + 2] - cb.data[i + 2]);
+          const da = Math.abs(aa - ba);
+          if (dr || dg || db || da) {
+            diff++;
+            if (first < 0) first = i;
+          }
+          if (da) alphaDiffCount++;
+          maxChannelDelta = Math.max(maxChannelDelta, dr, dg, db);
+          maxPremultDelta = Math.max(
+            maxPremultDelta,
+            Math.abs(pm(ca.data[i], aa) - pm(cb.data[i], ba)),
+            Math.abs(pm(ca.data[i + 1], aa) - pm(cb.data[i + 1], ba)),
+            Math.abs(pm(ca.data[i + 2], aa) - pm(cb.data[i + 2], ba)),
+            da
+          );
+        }
+        const total = ca.data.length / 4;
+        return {
+          equal: diff === 0,
+          diffCount: diff,
+          diffRatio: diff / total,
+          alphaDiffCount,
+          alphaDiffRatio: alphaDiffCount / total,
+          maxChannelDelta,
+          maxPremultDelta,
+          firstIndex: first,
+        };
+      };
+
+      // 建层次数（用于确认层确实参与）
+      setInterval(function () {
+        window.__layerStats.builds = b.ice.renderer.__layerBuilds;
+      }, 100);
+    })();
+  </script>
+</html>
