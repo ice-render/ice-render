@@ -142,7 +142,13 @@ class ICEText extends ICEComponent {
         direction: 'auto' as 'ltr' | 'rtl' | 'auto',
         maxLines: 0, //最大行数（0 = 不限）；超出时末行以 ellipsis 截断
         ellipsis: '…', //截断时追加的省略号
-        lines: null, //派生：换行后的行数组（不序列化，随 measureText 重算）
+        // 文本超出盒子宽度时怎么办：
+        //   'ellipsis'（默认）—— 按宽度截断并追加省略号；**绝不改字形**
+        //   'clip'            —— 原样画出去（允许溢出盒子），由调用方自己裁
+        // 历史坑：以前是把宽度当 `fillText(text, x, y, maxWidth)` 的第 4 个参数传下去，
+        // canvas 会按 maxWidth 把字形**横向压扁**（不是截断）——「文字变形」就是这么来的。
+        textOverflow: 'ellipsis' as 'ellipsis' | 'clip',
+        lines: null, //派生：换行 / 截断后的行数组（不序列化，随 measureText 重算）
         transformable: false, //文本默认不显示变换手柄（选中时只允许拖动），需变换时显式设 true
         style: {
           fontWeight: 'bold',
@@ -806,7 +812,9 @@ class ICEText extends ICEComponent {
   private measureText(evt?: ICEEvent) {
     // 0) 自动换行：只有显式开启 wrap 且给了可用宽度、且不在编辑态时才重排。
     //    编辑态不换行，避免 caretIndex（按原始文本计）与显示行错位。
-    this.state.lines = this.__computeWrappedLines();
+    //    没开 wrap 时走「按盒子宽度截断」——两者都只写 state.lines（派生缓存，不进快照），
+    //    画布渲染与 SVG 导出共用 getRenderLines()，所以两处必然同口径。
+    this.state.lines = this.__computeWrappedLines() || this.__computeTruncatedLines();
 
     // 优先用 Canvas 的真实字形边界测量，避免 DOM line-height 的 leading 造成 padding 偏差。
     const canvas = this.__measureByCanvas();
@@ -836,6 +844,52 @@ class ICEText extends ICEComponent {
       String(this.state.ellipsis ?? '…'),
       measure
     );
+  }
+
+  /**
+   * **非换行路径**的溢出处理：把每一行截断到盒子内宽（默认追加省略号）。
+   *
+   * 为什么必须有这一步：调用方给了显式宽度（例如 `ICELabel({ width })`）而文本更长时，
+   * 以前是把宽度当 `fillText(..., maxWidth)` 传下去 —— canvas 会**横向压扁字形**，
+   * 文字变形成一团（smart-water 顶部 Message 的实测事故）。溢出只能截断或溢出，不能变形。
+   *
+   * 返回 null 表示「没有一行溢出」：保持原有的零分配快路径。
+   * - 自动宽度的文本（调用方没给 width）盒子就是按文字量出来的，不可能溢出；
+   * - `textOverflow: 'clip'` 让调用方自己决定怎么裁；
+   * - 编辑态不截断：caret / 选区是按**原始文本**算的，截断会让光标与文字错位。
+   */
+  private __computeTruncatedLines(): string[] | null {
+    if (this.state.editing) return null;
+    if (String(this.state.textOverflow ?? 'ellipsis') !== 'ellipsis') return null;
+    if (this.__autoWidth) return null;
+    const width = Number(this.state.width);
+    if (!(width > 0)) return null;
+    const ctx: any = this.ctx;
+    if (!ctx || typeof ctx.measureText !== 'function') return null;
+    const { paddingLeft, paddingRight } = this.state.style;
+    const available = width - (Number(paddingLeft) || 0) - (Number(paddingRight) || 0);
+    if (!(available > 0)) return null;
+
+    const measure = this.__measureFn();
+    const ellipsis = String(this.state.ellipsis ?? '…');
+    let overflowed = false;
+    const out = String(this.state.text ?? '')
+      .split('\n')
+      .map((line) => {
+        if (measure(line) <= available) return line;
+        overflowed = true;
+        return this.__ellipsizeToWidth(line, available, ellipsis, measure);
+      });
+    return overflowed ? out : null;
+  }
+
+  /** 逐 grapheme 回退，直到「内容 + 省略号」放得下；放不下时至少保留省略号本身。 */
+  private __ellipsizeToWidth(line: string, maxWidth: number, ellipsis: string, measure: (s: string) => number): string {
+    const gs = this.__graphemes(line);
+    while (gs.length > 0 && measure(gs.join('') + ellipsis) > maxWidth) {
+      gs.pop();
+    }
+    return gs.join('') + ellipsis;
   }
 
   /** 统一的测宽函数：优先 ctx.measureText；无 ctx 时按 fontSize 粗估。 */
@@ -927,11 +981,7 @@ class ICEText extends ICEComponent {
   ): string[] {
     if (!(maxLines > 0) || lines.length <= maxLines) return lines;
     const kept = lines.slice(0, maxLines);
-    const gs = this.__graphemes(kept[maxLines - 1]);
-    while (gs.length > 0 && measure(gs.join('') + ellipsis) > maxWidth) {
-      gs.pop();
-    }
-    kept[maxLines - 1] = gs.join('') + ellipsis;
+    kept[maxLines - 1] = this.__ellipsizeToWidth(kept[maxLines - 1], maxWidth, ellipsis, measure);
     return kept;
   }
 
@@ -1178,10 +1228,12 @@ class ICEText extends ICEComponent {
 
     for (let i = 0; i < lines.length; i++) {
       if (this.state.stroke) {
-        this.ctx.strokeText(lines[i].text, lines[i].x, lines[i].y, this.state.width);
+        this.ctx.strokeText(lines[i].text, lines[i].x, lines[i].y);
       }
       if (this.state.fill) {
-        this.ctx.fillText(lines[i].text, lines[i].x, lines[i].y, this.state.width);
+        // 第 4 个参数（maxWidth）会让 canvas **横向压扁**字形，不是截断 —— 溢出已经在
+        // `__computeTruncatedLines()` 里按省略号处理过了（或由 textOverflow: 'clip' 显式接管）。
+        this.ctx.fillText(lines[i].text, lines[i].x, lines[i].y);
       }
     }
 

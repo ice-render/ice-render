@@ -86,6 +86,10 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 - **文字方向（RTL / BiDi）** —— `direction: 'ltr' | 'rtl' | 'auto'` 与 `textAlign: 'start' | 'end'`：
   `'auto'` 按首个强方向字符判定，写 `ctx.direction` 前做**特性检测**、渲染完归位；
   SVG 导出同口径（`direction` + 按方向映射的 `text-anchor`）。
+- **溢出截断（不变形）** —— 文本放不下盒子时按宽度截断并追加省略号（`textOverflow: 'ellipsis'`，默认），
+  也可以用 `textOverflow: 'clip'` 允许溢出交给调用方裁；多行配合 `maxLines` 截末行。
+  **绝不压字形**：以前把盒子宽度当 `fillText(..., maxWidth)` 传下去，canvas 会把文字横向挤扁
+  （长中文尤其明显），现在这条路径已经去掉。
 - **i18n 边界** —— 引擎**不做 i18n**（没有词条表、没有 locale 状态）：词条、复数与 `Intl`
   格式化归应用层，组件库的内置文案可配置且不持全局状态；引擎只负责断行、方向、输入法，
   并让错误带**稳定错误码**（`ICE_ERROR_CODES` / `getICEErrorCode(err)`，应用据此映射自己的语言包）。

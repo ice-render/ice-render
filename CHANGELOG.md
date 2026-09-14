@@ -49,6 +49,26 @@
 - 真实浏览器（`examples/theme/theme.html`）实测：`setTheme('dark')` 与 `setChrome(...)` 各触发一次通知
   （`kind` 分别为 `theme` / `chrome`，`previous` 正确），退订后不再收到，页面零报错。
 
+### 修复：文本放不下时**不再压字形**
+
+- **`fillText` / `strokeText` 不再传 `maxWidth`**。canvas 对第四个参数的语义是「把字形
+  **横向压扁**」而不是截断 —— 表现是长文本挤成一团、还溢出盒子（事故现场：smart-water 顶部 Message
+  的告警文案，中文一字约 13px，被压到约 7px/字的宽度里）。
+- **溢出改为截断 + 省略号**：新增 `textOverflow: 'ellipsis' | 'clip'`（默认 `'ellipsis'`），
+  按盒子内宽逐 grapheme 回退并追加 `ellipsis`（默认 `…`）；`'clip'` 保留「原样画出去、允许溢出」，
+  交给调用方自己裁。截断算在 `getRenderLines()` 的显示行里，**画布 / SVG 导出 / 行盒三处同口径**；
+  编辑态不截断（caret 按原始文本算）。
+- **顺带修掉一个跨调用污染**：`splitGraphemes()` 以前把**缓存数组本身**返回给调用方，
+  而截断逻辑用 `pop()` 就地回退 —— 谁截断谁改坏全局缓存。表现：先用 `ellipsis: '...'` 截过一次
+  `abcdefgh`，再用默认 `…` 截同一段文本，结果从 `abcd…` 变成 `ab…`。现在返回副本。
+
+### 验证（追加）
+
+- `verify:full` 全绿：**1066** 单测（+12：溢出截断 / textOverflow / SVG 同口径 / grapheme 缓存污染）
+  + 100 浏览器用例 + 4 套基准 + 包检查；**29 张 golden image 零差异**（示例里没有依赖压字形的场景）。
+- 真实浏览器实测 smart-water 顶部 Message：放得下 → 完整显示且字形正常（面板按实测文字定宽）；
+  放不下 → 末尾省略号截断，不再变形。
+
 ## [2.5.1] - 2026-09-14
 
 补一个**遗漏的公共导出**：2.5.0 新增的家族色板常量只在模块内可见，应用层（`ice-chart`）
