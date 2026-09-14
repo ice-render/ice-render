@@ -31,6 +31,9 @@ import {
   resolveTheme,
   getTheme,
   registerTheme,
+  getRegisteredTheme,
+  DEFAULT_THEME,
+  deepDiff,
   mergeThemes,
   registerPreset,
   validateTheme,
@@ -127,12 +130,14 @@ class ICE {
   public theme: ICETheme = getTheme();
   /** 主题版本号：每次 setTheme / setChrome 递增，组件的作用域主题缓存据此失效。 */
   public __themeRevision = 0;
-  /** 命名主题名（快照用；对象形式的部分主题为 null）。 */
+  /** 命名主题名（快照用；对象形式的部分主题不改它）。 */
   private __themeName: string | null = null;
-  /** 累积的主题补丁（快照用）。 */
+  /** 快照的基线主题名：主题补丁是叠在它上面的（默认 default）。 */
+  private __themeBaseName = 'default';
+  /** 有没有动过主题（没动过就不往快照里写 theme 字段）。 */
+  private __themeTouched = false;
+  /** 累积的主题补丁（内部记录；快照实际写的是 diff，见 themeSnapshot()）。 */
   private __themePatch: any = null;
-  /** 无命名主题时，补丁的基线当时长什么样（信息用途，便于排查）。 */
-  private __themePatchBase: any = null;
   private __interactionStatesEnabled = false;
   private __hoveredComponent: any = null;
 
@@ -853,16 +858,15 @@ class ICE {
   public setTheme(theme: ICEThemeInput): this {
     // 实例级：不修改模块级默认主题，因此多个 ICE 实例可以有各自的主题（多品牌/多租户）
     this.theme = resolveTheme(theme, this.theme);
-    // 记「主题是怎么来的」，供快照还原：命名主题记名字，对象记累积补丁
+    this.__themeTouched = true;
     if (typeof theme === 'string') {
+      // 命名主题：整份替换；补丁与基线都重置到它
       this.__themeName = theme;
+      this.__themeBaseName = theme;
       this.__themePatch = null;
-      this.__themePatchBase = null;
     } else if (theme && typeof theme === 'object') {
+      // 部分主题：叠在当前主题之上，基线（命名主题）不变
       this.__themePatch = this.__themePatch ? deepMerge(this.__themePatch, theme) : { ...(theme as any) };
-      // 补丁是叠在名称对应的主题上：没有名字时以"当前主题"为基线
-      if (!this.__themeName)
-        this.__themePatchBase = this.__themePatchBase ? deepMerge(this.__themePatchBase, theme) : { ...(theme as any) };
     }
     // 主题版本号：组件的作用域主题缓存靠它失效
     this.__themeRevision++;
@@ -883,11 +887,9 @@ class ICE {
   public setChrome(patch: Partial<ICEChromeTheme>): this {
     if (!patch || typeof patch !== 'object') return this;
     this.theme = mergeThemes(this.theme, { semantic: { chrome: patch } as any });
+    this.__themeTouched = true;
     const patchRecord: any = { chrome: patch };
     this.__themePatch = this.__themePatch ? deepMerge(this.__themePatch, patchRecord) : patchRecord;
-    if (!this.__themeName) {
-      this.__themePatchBase = this.__themePatchBase ? deepMerge(this.__themePatchBase, patchRecord) : patchRecord;
-    }
     this.__themeRevision++;
     this.__reapplyPresets();
     return this;
@@ -896,6 +898,21 @@ class ICE {
   /** 当前采用的主题（含设置的 chrome / 作用域之外的实例主题）。 */
   public getTheme(): ICETheme {
     return this.theme;
+  }
+
+  /**
+   * 主题快照（给 Serializer 用）：`{ name, patch? }`。
+   *
+   * patch 是**相对命名主题的真实差异**（`deepDiff`），所以「当初怎么设置主题的」
+   * （整份对象 / 部分补丁 / setChrome）都不影响存下来的内容 —— 只存改过的那几处。
+   * 没动过主题返回 null（旧快照格式不受影响）。
+   */
+  public themeSnapshot(): { name: string; patch?: any } | null {
+    if (!this.__themeTouched) return null;
+    const name = this.__themeBaseName || 'default';
+    const base = getRegisteredTheme(name) || DEFAULT_THEME;
+    const patch = deepDiff(base, this.theme);
+    return patch ? { name, patch } : { name };
   }
 
   /** 校验当前实例主题（未知 token / 类型不对 / 对比度不足），返回结构化诊断。 */

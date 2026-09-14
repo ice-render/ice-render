@@ -101,12 +101,16 @@ const darkPanel = new ICEGroup({ theme: { background: '#111827', text: '#e5e7eb'
 
 ```ts
 const json = ice.serializer.toJSONString();
-// { version, createTime, lastModifyTime, theme: { name: 'dark' } | { patch: {...} }, childNodes: [...] }
+// { version, createTime, lastModifyTime, theme: { name: 'dark' } | { name, patch: {...} }, childNodes: [...] }
 ```
 
-- 只存**名字 / 补丁**，不存整份主题（否则内置 token 会写进文档、与引擎版本耦合）。
-- 还原时**先恢复主题再建组件**：preset 与默认样式都是在构造时展开的。
-- 没动过主题就不写 `theme` 字段 —— 旧快照格式不受影响，旧文件也能照常读。
+- 存的是 **`{ name, patch }`**：`name` 是基线命名主题（默认 `default`），
+  `patch` 是**相对它的真实差异**（`deepDiff`），形状与主题同构（`{ base?, semantic? }`）。
+- 差异是**在快照那一刻算出来的**，所以「当初怎么设置的」（整份主题对象 / 部分补丁 / `setChrome`）
+  **不影响存下来的内容**：只存改过的那几处，永远是最小集。
+  （旧实现存的是"调用方传进来的原始对象"，塞一整份主题进去就会把内置 token 全写进文档。）
+- 与命名主题完全一致时只写 `{ name }`；**没动过主题就不写 `theme` 字段**（旧快照格式不受影响）。
+- 还原时**先切命名主题、再叠补丁、最后建组件**：preset 与默认样式都是在构造时展开的。
 
 ## 7. 校验：别让写错的主题静默生效
 
@@ -131,6 +135,10 @@ ice.registerPreset('app:my-card', (theme) => ({
 new ICERect({ preset: 'app:my-card' });
 ```
 
+- **`STYLE_PRESETS` 是只读视图**：读没问题（`STYLE_PRESETS.card(theme)`），
+  写会抛错并把调用方指向 `registerPreset` / `unregisterPreset`。
+  以前它是普通对象，`STYLE_PRESETS.card = fn` 能在实例上生成同名属性盖掉原型里的内置预设 ——
+  「内置不可覆盖」的纪律一行赋值就能绕过（实测确认），所以这条口子堵死了。
 - 内置预设（`card` / `panel` / `button` / `button-danger` / `gradient` / `title` / `subtitle` / `body` / `label`）
   **不允许覆盖**：同名不同义会让同一份 option 在不同工程里画出不同的图；
 - 重复注册同名应用层预设会**明确抛错**（与 `registerType` 同一套纪律），

@@ -501,24 +501,46 @@ const BUILTIN_PRESETS: { [name: string]: StylePresetFactory } = {
 };
 
 /**
- * 命名预设表（组件层 token）。
+ * 预设表（组件层 token）—— **只读视图**。
  *
- * 兼容旧用法：`STYLE_PRESETS.xxx = fn` 直接赋值仍然可用；
- * 新代码请用 `registerPreset(name, factory)` —— 它会挡重复注册（与类型注册同一套纪律：
- * 同名覆盖会让同一份配置在不同工程里画出不同的图）。
+ * 唯一的写入口是 `registerPreset()` / `unregisterPreset()`：内置不可覆盖、重复注册抛错。
+ *
+ * 为什么做成只读视图：以前它是普通对象，`STYLE_PRESETS.card = fn` 能直接赋值 ——
+ * 内置预设挂在原型上，赋值会在实例上生成同名属性把它盖掉，于是「内置不可覆盖」的纪律
+ * 被一行赋值就绕过去了（实测确认过）。同名不同义会让**同一份配置在不同工程里画出不同的图**，
+ * 这条口子必须堵死，不能只靠约定。
  */
-export const STYLE_PRESETS: { [name: string]: StylePresetFactory } = Object.create(BUILTIN_PRESETS);
+const presetRegistry: { [name: string]: StylePresetFactory } = { ...BUILTIN_PRESETS };
+
+const PRESET_WRITE_HINT = '[ice-render] STYLE_PRESETS 是只读视图：';
+
+export const STYLE_PRESETS: { [name: string]: StylePresetFactory } = new Proxy({} as any, {
+  get: (_target, prop) => (typeof prop === 'string' ? presetRegistry[prop] : undefined),
+  has: (_target, prop) => typeof prop === 'string' && Object.prototype.hasOwnProperty.call(presetRegistry, prop),
+  ownKeys: () => Object.keys(presetRegistry),
+  getOwnPropertyDescriptor: (_target, prop) =>
+    typeof prop === 'string' && Object.prototype.hasOwnProperty.call(presetRegistry, prop)
+      ? { configurable: true, enumerable: true, value: presetRegistry[prop], writable: false }
+      : undefined,
+  set: (_target, prop) => {
+    throw new Error(`${PRESET_WRITE_HINT}注册请用 registerPreset('${String(prop)}', factory)。`);
+  },
+  deleteProperty: (_target, prop) => {
+    throw new Error(`${PRESET_WRITE_HINT}注销请用 unregisterPreset('${String(prop)}')。`);
+  },
+});
 
 /** 内置预设名（不允许被应用层覆盖）。 */
 export const BUILTIN_PRESET_NAMES: string[] = Object.keys(BUILTIN_PRESETS);
 
 /**
- * 注册组件样式预设。
+ * 注册组件样式预设 —— **写预设的唯一入口**。
  *
  * - 内置预设（card / panel / button / button-danger / gradient / title / subtitle / body / label）
  *   不允许覆盖：不同工程里同名不同义 = 同一份 option 画出不同的图；
  * - 应用层预设请带命名空间（`app:my-card`），避免与引擎内置或其它库撞名；
- * - 重复注册同一个名字会**明确抛错**（与 `registerType` 一致），不会再静默覆盖。
+ * - 重复注册同一个名字会**明确抛错**（与 `registerType` 一致），不会再静默覆盖；
+ * - `STYLE_PRESETS` 是只读视图，直接赋值会抛错并把调用方指到这里。
  */
 export function registerPreset(name: string, factory: StylePresetFactory, options: { overwrite?: boolean } = {}): void {
   if (!name || typeof name !== 'string') {
@@ -530,17 +552,17 @@ export function registerPreset(name: string, factory: StylePresetFactory, option
   if (BUILTIN_PRESET_NAMES.indexOf(name) >= 0) {
     throw new Error(`[ice-render] registerPreset: 「${name}」是内置预设，不允许覆盖。`);
   }
-  if (!options.overwrite && Object.prototype.hasOwnProperty.call(STYLE_PRESETS, name)) {
+  if (!options.overwrite && Object.prototype.hasOwnProperty.call(presetRegistry, name)) {
     throw new Error(`[ice-render] registerPreset: 预设「${name}」已注册；要覆盖请显式传 { overwrite: true }。`);
   }
-  STYLE_PRESETS[name] = factory;
+  presetRegistry[name] = factory;
 }
 
 /** 注销应用层注册的预设（内置预设不可注销）。 */
 export function unregisterPreset(name: string): boolean {
   if (BUILTIN_PRESET_NAMES.indexOf(name) >= 0) return false;
-  if (!Object.prototype.hasOwnProperty.call(STYLE_PRESETS, name)) return false;
-  delete STYLE_PRESETS[name];
+  if (!Object.prototype.hasOwnProperty.call(presetRegistry, name)) return false;
+  delete presetRegistry[name];
   return true;
 }
 
@@ -618,6 +640,52 @@ export function resolveThemeValue(value: any, theme: ICETheme): any {
 }
 
 // ============ ⑤ 主题校验（别让写错的主题静默生效） ============
+/** 深比较（只用于快照这类冷路径，不进帧热路径）。 */
+export function deepEqual(a: any, b: any): boolean {
+  if (a === b) return true;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const ak = Object.keys(a);
+    const bk = Object.keys(b);
+    if (ak.length !== bk.length) return false;
+    for (const key of ak) {
+      if (!Object.prototype.hasOwnProperty.call(b, key) || !deepEqual(a[key], b[key])) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 求「把 base 深合并成 target 所需要的最小补丁」。
+ *
+ * 用途：快照里的主题只该存**真正被改过的那几处**，而不是调用方当初传进来的原始对象 ——
+ * `setTheme(someFullTheme)` 时入参是整份主题，直接存下来会把内置 token 全写进文档
+ * （体积 + 与引擎版本耦合）。用 diff 之后，「怎么设置的」不再影响「存什么」。
+ */
+export function deepDiff(base: any, target: any): any {
+  if (deepEqual(base, target)) return undefined;
+  const baseIsObject = base && typeof base === 'object' && !Array.isArray(base);
+  const targetIsObject = target && typeof target === 'object' && !Array.isArray(target);
+  if (!baseIsObject || !targetIsObject) return target;
+  const out: any = {};
+  let changed = false;
+  for (const key of Object.keys(target)) {
+    const diff = deepDiff(baseIsObject ? base[key] : undefined, target[key]);
+    if (diff !== undefined) {
+      out[key] = diff;
+      changed = true;
+    }
+  }
+  return changed ? out : undefined;
+}
+
 export interface ThemeDiagnostic {
   severity: 'error' | 'warning';
   code: string;

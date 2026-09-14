@@ -87,15 +87,12 @@ export default class Deserializer {
     const snapshot = jsonObj && jsonObj.theme;
     const ice: any = this.ice;
     if (!snapshot || typeof snapshot !== 'object' || !ice || typeof ice.setTheme !== 'function') return;
-    if (snapshot.patch && typeof snapshot.patch === 'object') {
-      ice.setTheme(snapshot.patch);
-    }
+    // 顺序要紧：先切到命名主题，再叠补丁（补丁是"相对这个命名主题改的那几处"）
     if (snapshot.name) {
       ice.setTheme(snapshot.name);
-      // 名字之后再叠补丁：补丁是"在这个命名主题之上改的那几处"
-      if (snapshot.patch && typeof snapshot.patch === 'object') {
-        ice.setTheme(snapshot.patch);
-      }
+    }
+    if (snapshot.patch && typeof snapshot.patch === 'object') {
+      ice.setTheme(snapshot.patch);
     }
   }
 

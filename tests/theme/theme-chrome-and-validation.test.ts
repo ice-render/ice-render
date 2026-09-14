@@ -122,6 +122,24 @@ describe('组件样式预设注册', () => {
     expect(unregisterPreset('card')).toBe(false); // 内置不可注销
   });
 
+  it('STYLE_PRESETS 是只读视图：直接赋值 / 删除都抛错并指向 registerPreset', () => {
+    // 旧实现里 `STYLE_PRESETS.card = fn` 能盖掉内置预设（内置挂在原型上，赋值生成同名自有属性）
+    expect(() => {
+      (STYLE_PRESETS as any).card = () => ({ style: {} });
+    }).toThrow(/只读视图|registerPreset/);
+    expect(() => {
+      delete (STYLE_PRESETS as any).card;
+    }).toThrow(/只读视图|unregisterPreset/);
+    // 读还是照常
+    expect(typeof STYLE_PRESETS.card).toBe('function');
+    expect(STYLE_PRESETS.card(DEFAULT_THEME).radius).toBe(DEFAULT_THEME.base.radius.lg);
+    // 注册进来的应用层预设也能读到，且 Object.keys 能看到它
+    registerPreset('app:listable', () => ({ style: {} }));
+    expect(Object.keys(STYLE_PRESETS)).toContain('app:listable');
+    unregisterPreset('app:listable');
+    expect(Object.keys(STYLE_PRESETS)).not.toContain('app:listable');
+  });
+
   it('注册的预设能直接用在组件上', () => {
     registerPreset('app:probe', (t) => ({ radius: 2, style: { fillStyle: t.semantic.danger } }));
     const rect = new ICERect({ preset: 'app:probe' } as any);

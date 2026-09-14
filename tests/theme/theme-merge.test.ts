@@ -9,6 +9,8 @@ import {
   DEFAULT_THEME,
   DARK_THEME,
   deepMerge,
+  deepDiff,
+  deepEqual,
   mergeThemes,
   resolveTheme,
   setTheme,
@@ -97,5 +99,39 @@ describe('主题合并：深合并', () => {
     const current = getTheme();
     expect(current.base.radius.md).toBe(3);
     expect(current.semantic.primary).toBe('#0f0');
+  });
+});
+
+describe('深比较与差异（快照只存改过的部分）', () => {
+  it('deepEqual：数组按值比、对象键数不同即不等', () => {
+    expect(deepEqual({ a: [1, 2], b: { c: 1 } }, { a: [1, 2], b: { c: 1 } })).toBe(true);
+    expect(deepEqual({ a: [1, 2] }, { a: [2, 1] })).toBe(false);
+    expect(deepEqual({ a: 1 }, { a: 1, b: 2 })).toBe(false);
+    expect(deepEqual('#fff', '#fff')).toBe(true);
+  });
+
+  it('deepDiff：完全相同返回 undefined', () => {
+    expect(deepDiff(DEFAULT_THEME, DEFAULT_THEME)).toBeUndefined();
+    expect(deepDiff({ a: { b: 1 } }, { a: { b: 1 } })).toBeUndefined();
+  });
+
+  it('deepDiff：只给出真正不同的分支', () => {
+    const target = resolveTheme({ semantic: { chrome: { handle: { fill: '#f00' } } } } as any, DEFAULT_THEME);
+    const diff = deepDiff(DEFAULT_THEME, target);
+    expect(diff).toEqual({ semantic: { chrome: { handle: { fill: '#f00' } } } });
+  });
+
+  it('deepDiff：数组整体替换（palette 不会被拆成逐项）', () => {
+    const target = resolveTheme({ palette: ['#111', '#222'] }, DEFAULT_THEME);
+    expect(deepDiff(DEFAULT_THEME, target)).toEqual({ semantic: { palette: ['#111', '#222'] } });
+  });
+
+  it('deepDiff 的结果喂回 setTheme 能还原出同一份主题（往返自洽）', () => {
+    const target = resolveTheme({ primary: '#123456', base: { radius: { md: 5 } } } as any, DARK_THEME);
+    const diff = deepDiff(DARK_THEME, target);
+    const rebuilt = resolveTheme(diff, DARK_THEME);
+    expect(rebuilt.semantic.primary).toBe('#123456');
+    expect(rebuilt.base.radius.md).toBe(5);
+    expect(rebuilt.semantic.motion.easing.spring).toBe(DARK_THEME.semantic.motion.easing.spring);
   });
 });

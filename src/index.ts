@@ -98,6 +98,8 @@ export {
   deepMerge,
   validateTheme,
   contrastRatio,
+  deepDiff,
+  deepEqual,
 } from './theme/ICETheme';
 export { default as ICE } from './ICE';
 export { default as CanvasRenderer } from './renderer/CanvasRenderer';
