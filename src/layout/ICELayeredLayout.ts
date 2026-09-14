@@ -17,14 +17,18 @@ interface GraphNode {
 }
 
 /**
- * @class ICELayeredLayout 分层图布局（dagre 式）
+ * @class ICELayeredLayout 分层图布局
  *
- * 用于「图」场景（节点 + 边，如流程图/ER 图），借鉴 dagre 的分层布局思想：
- * 1. 拓扑分层（最长路径法）：有向边总是从低层指向高层，源在左、汇在右；
+ * **设计思想来自 Java Swing 的 LayoutManager**：和 Flow / Grid / Border 一样，它只是"把子项摆到位"
+ * 的一个策略 —— 通过 `layoutContainer(container)` 接入容器（`setLayout`），重排时机由容器负责，
+ * 布局本身不碰容器以外的任何东西。
+ *
+ * 区别只在**面向的对象**：它服务的是「图」（节点 + 边，如流程图 / ER 图），所以读的是节点与
+ * `ICEPolyLine` 的连线，而不是单纯的子项列表。算法是分层图绘制的通用三步：
+ *
+ * 1. 拓扑分层（最长路径法）：有向边总是从低层指向高层，源在左、汇在右；有向环用 visiting 集合兜底；
  * 2. 层内排序（重心法）：迭代调整每层节点顺序，减少边交叉；
  * 3. 算坐标：层号 → left，层内序号 → top（LR 方向）。
- *
- * 与 Swing 的「容器布局」（Flow/Grid/Border）不同，本类面向「图」，作为策略框架里的一个特殊实现。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
