@@ -1,0 +1,18 @@
+{
+  "_meta": {
+    "updated": "2026-09-14",
+    "machine": "Apple M4 / Node v25.2.1 / darwin-arm64",
+    "note": "用 npm run bench <N> -- --update-baseline 刷新；判定为「实测 ≤ 基线 × tolerance」",
+    "tolerance": 2
+  },
+  "cases": {
+    "2000": {
+      "sceneA": 1.054,
+      "sceneB": 1.829,
+      "refreshQueue": 0.011,
+      "textStatic": 0.119,
+      "textAnimated": 1.079,
+      "textCacheSpeedup": 9.059
+    }
+  }
+}

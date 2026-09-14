@@ -7,6 +7,16 @@
 
 > 暂无（下一个版本发布前在这里累积）。
 
+### 变更
+
+- **基准门禁补齐：Node 侧两条热路径也能"判定"了**（2026-09-14）：`bench/render.cjs` 与 `bench/micro`
+  此前只打印数字，性能有没有退化完全靠人记得跑、记得上次是多少。现在两者都有 `--check`：
+  与入库基线（`bench/baselines/render.json`、`bench/micro/baseline.json`）对比，
+  超宽松倍数（2.0× / 2.5×）即非 0 退出；`--update-baseline` 是有意刷新基线的入口。
+  随之接进门禁：`verify` 里 `bench 2000 -- --check`、`verify:full` 追加 `bench:micro -- --check`。
+  基线为 2026-09-14 实测（Apple M4）：场景 A 1.05ms / 场景 B 1.75ms / refreshQueue 0.011ms /
+  文本缓存加速比 8.7×，与 2.3.0、1.4.10 跨版本复核均在 ±3% 内（无退化）。
+
 ## [2.3.1] - 2026-09-14
 
 本轮主题：**把"连线端点手柄（hook）/ 连接插槽（slot）"这条交互链路修通、修准**。
