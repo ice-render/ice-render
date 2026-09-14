@@ -264,5 +264,17 @@ export default class AnimationTimeline {
       this.resolveFinished = null;
       resolve();
     }
+    /**
+     * 全部键跑完 = **这条时间轴不再"在播"**。
+     *
+     * 不能省这一步：`play()` 的第一行是 `if (this.playing && !this.paused) return this;`（"已经在播就不重复启动"），
+     * 如果播完之后 `playing` 还是 true，那么再调 `play()` 会被这行吞掉 ——
+     * "重播"按钮点了没反应（ice-render-dsl 的编排真撞到过），`isPlaying()` 也一直说谎
+     * （示例页的"暂停/继续"按钮因此永远走 pause 分支）。
+     * 注意顺序：先 resolve `finished`（它依赖 `playing`），再把它置回 false。
+     */
+    if (this.pending <= 0) {
+      this.playing = false;
+    }
   }
 }
