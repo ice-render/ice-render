@@ -7,6 +7,7 @@
  */
 import ICEEvent from '../event/ICEEvent';
 import ICE from '../ICE';
+import { token } from '../theme/ICETheme';
 import LineControlPanel from './link-controls/LineControlPanel';
 import TransformControlPanel from './transform-controls/TransformControlPanel';
 
@@ -36,9 +37,10 @@ class ICEControlPanelManager {
       top: 100,
       width: 100,
       height: 100,
+      // 主题引用（paint 时解析）：setTheme / setChrome 之后外壳跟着换，不用重建组件
       style: {
-        strokeStyle: '#8b0000',
-        fillStyle: 'rgba(255, 255, 49, 0.2)',
+        strokeStyle: token('chrome.selection.stroke'),
+        fillStyle: token('chrome.selection.fill'),
         lineWidth: 1,
       },
       transform: {

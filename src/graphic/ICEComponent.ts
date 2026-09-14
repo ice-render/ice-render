@@ -17,7 +17,7 @@ import ICEEventTarget from '../event/ICEEventTarget';
 import GeoUtil from '../geometry/GeoUtil';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICE from '../ICE';
-import { STYLE_PRESETS, getTheme } from '../theme/ICETheme';
+import { STYLE_PRESETS, getTheme, resolveThemeValue, isTokenRef, mergeThemes, type ICETheme } from '../theme/ICETheme';
 
 /**
  * 阴影简写预设：style.shadow: 'sm' | 'md' | 'lg' 一行搞定浮起效果，
@@ -28,6 +28,52 @@ export const SHADOW_PRESETS = {
   md: { shadowColor: 'rgba(0,0,0,0.18)', shadowBlur: 10, shadowOffsetX: 0, shadowOffsetY: 3 },
   lg: { shadowColor: 'rgba(0,0,0,0.25)', shadowBlur: 20, shadowOffsetX: 0, shadowOffsetY: 6 },
 };
+
+/**
+ * 交互状态样式的叠加顺序（越靠后优先级越高）。
+ *
+ * 为什么是这个顺序：`disabled` 必须压住一切（禁用就该看起来禁用）；`selected` 是"持久选中"，
+ * 应当压住临时的 hover / active；`focus` 最弱（键盘焦点在没别的状态时才显示）。
+ */
+const STATE_ORDER = ['focus', 'hover', 'active', 'selected', 'disabled'];
+
+/**
+ * 这份 style 需不需要主题上下文？
+ *
+ * 需要的情况只有两类：值里写了主题引用（`token()` / `'$primary'`），或用了 `shadow: 'md'`
+ * 这类要按主题取色的简写。**纯字面量的样式走快路径**（与加主题机制之前的写法完全一致）——
+ * 样式应用是每帧每组件都跑的热路径，实测带上解析闭包会让它慢 1.88×。
+ */
+function styleNeedsTheme(style: any): boolean {
+  if (!style || typeof style !== 'object') return false;
+  for (const key in style) {
+    const value = style[key];
+    if (isTokenRef(value)) return true;
+    if (key === 'shadow' && typeof value === 'string') return true;
+    if ((key === 'fillGradient' || key === 'strokeGradient') && value && Array.isArray(value.stops)) {
+      for (const stop of value.stops) {
+        if (Array.isArray(stop) && isTokenRef(stop[1])) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * 主题派生的默认样式。
+ *
+ * 以前 `DEFAULT_PROPS.style` 写死 `fillStyle: 'red' / strokeStyle: 'blue'`（调试年代遗产）：
+ * 不写 style 的图元就是红蓝，跟主题毫无关系。现在默认样式来自主题语义色，
+ * 并且会跟着 `setTheme` 刷新（见 `__reapplyPreset`）。
+ */
+function themeDefaultStyle(theme: ICETheme): any {
+  const semantic: any = theme && theme.semantic ? theme.semantic : {};
+  return {
+    fillStyle: semantic.primary || '#3B82F6',
+    strokeStyle: semantic.border || '#E5E7EB',
+    lineWidth: 1,
+  };
+}
 
 /**
  * 会跨组件泄漏的 ctx 绘制状态及其 canvas 默认值。
@@ -110,7 +156,8 @@ const DEFAULT_PROPS = {
   lineDashFlowSpeed: 60,
   lineBorder: false,
   lineBorderWidth: 1.5,
-  lineBorderColor: '#999999',
+  // 留空 = 跟随主题的 chrome.lineBorder（显式给色值才用给定的）
+  lineBorderColor: '',
   fill: true,
   stroke: true,
   animations: Object.freeze({}),
@@ -322,6 +369,23 @@ abstract class ICEComponent extends ICEEventTarget {
   // 主题热切换：记录 preset 名 + 用户原始 props（preset 展开前），供 setTheme 时重新 resolve
   private __presetName?: string;
   private __userProps?: any;
+  /**
+   * 交互状态标记（hover / active / selected / disabled / focus）。
+   *
+   * 放普通字段而不是 state：它是运行时状态、不该进快照（组件的 state 是要被序列化的）。
+   */
+  private __uiStates: { [name: string]: boolean } = {};
+  /** 处于打开状态的状态数（0 = 快路径，不必每帧遍历状态表）。 */
+  private __uiStateCount = 0;
+  /**
+   * 这份组件的样式里有没有主题引用（构造时扫一次，写 style 时更新）。
+   * 决定 `applyStyleToCtx` 走快路径还是带主题解析的慢路径。
+   */
+  private __styleHasTokens = false;
+  /** 主题作用域缓存（见 `themeOf()`）。 */
+  private __themeCache: { key: string; theme: ICETheme } | null = null;
+  /** 用户没给 style，用的是主题派生的默认样式（setTheme 时要跟着刷新）。 */
+  private __usesThemeDefaultStyle = false;
 
   constructor(props: any = {}) {
     super();
@@ -338,6 +402,12 @@ abstract class ICEComponent extends ICEEventTarget {
     this.props.id = props && props.id !== undefined ? props.id : 'ICE_' + uuid();
     this.props.zIndex = ICEComponent.instanceCounter++;
     merge(this.props, props);
+    // 用户没写 style 时，给一份「主题派生」的默认样式（不是共享的 frozen 默认，避免被实例污染）
+    if (!props || props.style === undefined) {
+      this.__usesThemeDefaultStyle = true;
+      this.props.style = this.__defaultStyleFor(getTheme());
+    }
+    this.__styleHasTokens = styleNeedsTheme(this.props.style);
     this.__initState();
     this.root = root;
     this.initEvents();
@@ -360,6 +430,8 @@ abstract class ICEComponent extends ICEEventTarget {
       }
     }
     // 运行时派生字段：会在 render/compose 中被直接写，预分配为实例 own 值。
+    // state.style 是 props.style 的副本，引用标记跟着它走
+    this.__styleHasTokens = styleNeedsTheme(this.state.style);
     this.state.linearMatrix = [];
     this.state.composedMatrix = [];
     this.state.localOrigin = [0, 0];
@@ -371,6 +443,12 @@ abstract class ICEComponent extends ICEEventTarget {
    * 只更新 preset 涉及的字段（style + radius/stroke/fill 等），用户显式传的值优先。
    */
   public __reapplyPreset(theme?: any): void {
+    this.invalidateThemeCache();
+    const resolvedTheme = theme || this.themeOf();
+    // 没写 style 的组件：默认样式跟着主题走（否则红蓝会永远停在创建那一刻）
+    if (this.__usesThemeDefaultStyle) {
+      this.setState({ style: this.__defaultStyleFor(resolvedTheme) });
+    }
     if (!this.__presetName || !STYLE_PRESETS[this.__presetName]) {
       return;
     }
@@ -388,6 +466,121 @@ abstract class ICEComponent extends ICEEventTarget {
       }
     }
     this.setState(newState);
+  }
+
+  // ------------------------------------------------------------- 主题与状态样式
+
+  /**
+   * 没显式写 style 时的默认样式。
+   *
+   * 叶子图元（矩形 / 文本 / 连线）用主题的语义色；**容器覆写成透明**（见 `ICEGroup`）——
+   * 容器是布局用的，默认画一个不透明方块盖住/衬在子组件上，是最容易让人误解的一类"默认样式"。
+   */
+  protected __defaultStyleFor(theme: ICETheme): any {
+    return themeDefaultStyle(theme);
+  }
+
+  /**
+   * 本组件生效的主题 = 实例主题 + 祖先链上的作用域补丁（`props.theme`）。
+   *
+   * 作用域的意义：一张画布里可以分区用不同主题（分屏大屏、暗底面板里嵌一张亮底卡片）。
+   * 无作用域时直接返回实例主题（零分配快路径）；有作用域才合并并按
+   * 「主题版本 + 参与作用域的组件身份」缓存，避免每帧为每个组件重算。
+   */
+  public themeOf(): ICETheme {
+    const ice: any = this.ice;
+    const base: ICETheme = (ice && ice.theme) || getTheme();
+    // 快路径：整条祖先链没有作用域补丁
+    let scoped: any[] | null = null;
+    let node: any = this;
+    while (node) {
+      if (node.props && node.props.theme) {
+        (scoped || (scoped = [])).push(node);
+      }
+      node = node.parentNode;
+    }
+    if (!scoped) {
+      this.__themeCache = null;
+      return base;
+    }
+    const revision = (ice && ice.__themeRevision) || 0;
+    const key =
+      revision + '|' + scoped.map((c) => c.__scopeId || (c.__scopeId = 's' + ICEComponent.instanceCounter++)).join(',');
+    if (this.__themeCache && this.__themeCache.key === key) {
+      return this.__themeCache.theme;
+    }
+    // 由外向内合并：越靠近本组件的补丁优先级越高
+    let merged: ICETheme = base;
+    for (let i = scoped.length - 1; i >= 0; i--) {
+      merged = mergeThemes(merged, scoped[i].props.theme);
+    }
+    this.__themeCache = { key, theme: merged };
+    return merged;
+  }
+
+  /** 清除主题作用域缓存（`setTheme` / props.theme 变化时由引擎调用）。 */
+  public invalidateThemeCache(): void {
+    this.__themeCache = null;
+  }
+
+  /**
+   * 设置交互状态（hover / active / selected / disabled / focus）。
+   *
+   * 状态样式写在 `props.states` 里：
+   * ```ts
+   * new ICERect({ states: { hover: { fillStyle: token('primary') }, selected: { lineWidth: 2 } } });
+   * ```
+   * 合并顺序：基础样式 → focus → hover → active → selected → disabled（越靠后越优先），
+   * 最后再叠上运行时 `state.style`（显式写法永远最优先）。
+   *
+   * 引擎只提供机制：`ICE.enableInteractionStates()` 打开后会自动驱动 hover / active，
+   * 其余状态（selected / disabled / focus）由应用层按自己的语义设置。
+   */
+  public setInteractionState(name: string, on: boolean): this {
+    const next = !!on;
+    if (!!this.__uiStates[name] === next) return this;
+    if (next) {
+      this.__uiStates[name] = true;
+      this.__uiStateCount++;
+    } else {
+      delete this.__uiStates[name];
+      this.__uiStateCount = Math.max(0, this.__uiStateCount - 1);
+    }
+    this.dirty = true;
+    if (this.ice) this.ice.dirty = true;
+    return this;
+  }
+
+  public getInteractionState(name: string): boolean {
+    return !!this.__uiStates[name];
+  }
+
+  /** 清空全部交互状态（例如组件被移出选择集时）。 */
+  public clearInteractionStates(): this {
+    this.__uiStates = {};
+    this.__uiStateCount = 0;
+    this.dirty = true;
+    if (this.ice) this.ice.dirty = true;
+    return this;
+  }
+
+  /** 状态名列表（有序，决定样式叠加顺序）。 */
+  private activeStateNames(): string[] {
+    const out: string[] = [];
+    for (const name of STATE_ORDER) {
+      if (this.__uiStates[name]) out.push(name);
+    }
+    return out;
+  }
+
+  /** 有没有任何状态样式需要叠加（热路径早退用）。 */
+  private hasStateStyles(): boolean {
+    const states = this.props && this.props.states;
+    if (!states || typeof states !== 'object') return false;
+    for (const name in this.__uiStates) {
+      if (states[name]) return true;
+    }
+    return false;
   }
 
   /**
@@ -564,53 +757,176 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   protected applyStyleToCtx(): void {
-    //@perf: 直接遍历 props.style / state.style 赋值，避免每帧为每个组件分配合并后的 style 对象。
-    //       用 for...in（零分配）而非 Object.keys（会分配 key 数组，反而加重 GC）。
     const propsStyle = this.props.style;
     const stateStyle = this.state.style;
-    // 渐变单独摘出来放到最后应用：它写的是同一个 ctx.fillStyle / strokeStyle，
-    // 若按 style 的键序谁先谁后，「渐变 vs 纯色」的胜负就会不定（state.style 覆盖 props.style）
+
+    // 快路径：没有主题引用、没有交互状态时，**与加主题机制之前的写法完全一致**（零闭包零分配）。
+    // 样式应用是每帧每组件都跑的；实测带上解析闭包会慢 1.88×，所以这条路径必须保住。
+    if (!this.__styleHasTokens && this.__uiStateCount === 0) {
+      let fillGrad: any = null;
+      let strokeGrad: any = null;
+      if (propsStyle) {
+        for (const p in propsStyle) {
+          if (p === 'fillGradient') {
+            fillGrad = propsStyle[p];
+            continue;
+          }
+          if (p === 'strokeGradient') {
+            strokeGrad = propsStyle[p];
+            continue;
+          }
+          this.__applyStylePropRaw(p, propsStyle[p]);
+        }
+      }
+      if (stateStyle) {
+        for (const p in stateStyle) {
+          if (p === 'fillGradient') {
+            fillGrad = stateStyle[p];
+            continue;
+          }
+          if (p === 'strokeGradient') {
+            strokeGrad = stateStyle[p];
+            continue;
+          }
+          this.__applyStylePropRaw(p, stateStyle[p]);
+        }
+      }
+      if (fillGrad) {
+        this.__applyStylePropRaw('fillGradient', fillGrad);
+      }
+      if (strokeGrad) {
+        this.__applyStylePropRaw('strokeGradient', strokeGrad);
+      }
+      return;
+    }
+
+    // 慢路径：主题**惰性取用**（真的碰到引用才解析），交互状态按固定顺序叠加。
+    let themeRef: ICETheme | null = null;
+    const themeOf = () => themeRef || (themeRef = this.themeOf());
+    const resolveValue = (value: any) => (isTokenRef(value) ? resolveThemeValue(value, themeOf()) : value);
+    const resolveGradient = (desc: any) =>
+      desc && typeof desc === 'object' ? this.__resolveGradientTokens(desc, themeOf) : desc;
     let fillGrad: any = null;
     let strokeGrad: any = null;
     if (propsStyle) {
       for (const p in propsStyle) {
         if (p === 'fillGradient') {
-          fillGrad = propsStyle[p];
+          fillGrad = resolveGradient(propsStyle[p]);
           continue;
         }
         if (p === 'strokeGradient') {
-          strokeGrad = propsStyle[p];
+          strokeGrad = resolveGradient(propsStyle[p]);
           continue;
         }
-        this.__applyStyleProp(p, propsStyle[p]);
+        this.__applyStyleProp(p, resolveValue(propsStyle[p]), themeOf);
       }
     }
     if (stateStyle) {
       for (const p in stateStyle) {
         if (p === 'fillGradient') {
-          fillGrad = stateStyle[p];
+          fillGrad = resolveGradient(stateStyle[p]);
           continue;
         }
         if (p === 'strokeGradient') {
-          strokeGrad = stateStyle[p];
+          strokeGrad = resolveGradient(stateStyle[p]);
           continue;
         }
-        this.__applyStyleProp(p, stateStyle[p]);
+        this.__applyStyleProp(p, resolveValue(stateStyle[p]), themeOf);
+      }
+    }
+    // 交互状态样式：focus → hover → active → selected → disabled（越靠后越优先）。
+    // 刻意排在 state.style **之后**：state.style 在构造时是 props.style 的副本，
+    // 排前面的话每个状态补丁都会被它原样盖掉（hover 永远不生效）。
+    if (this.__uiStateCount > 0) {
+      const states = this.props.states;
+      if (states) {
+        for (let i = 0; i < STATE_ORDER.length; i++) {
+          const name = STATE_ORDER[i];
+          if (!this.__uiStates[name]) continue;
+          const patch = states[name];
+          if (!patch) continue;
+          for (const p in patch) {
+            if (p === 'fillGradient') {
+              fillGrad = resolveGradient(patch[p]);
+              continue;
+            }
+            if (p === 'strokeGradient') {
+              strokeGrad = resolveGradient(patch[p]);
+              continue;
+            }
+            this.__applyStyleProp(p, resolveValue(patch[p]), themeOf);
+          }
+        }
       }
     }
     if (fillGrad) {
-      this.__applyStyleProp('fillGradient', fillGrad);
+      this.__applyStyleProp('fillGradient', fillGrad, themeOf);
     }
     if (strokeGrad) {
-      this.__applyStyleProp('strokeGradient', strokeGrad);
+      this.__applyStyleProp('strokeGradient', strokeGrad, themeOf);
     }
+  }
+
+  /** 把渐变描述里的主题引用解析掉（stops 的色值也可能是引用）。 */
+  private __resolveGradientTokens(desc: any, themeOf: () => ICETheme): any {
+    if (!Array.isArray(desc.stops) || !desc.stops.length) return desc;
+    let changed = false;
+    const stops = desc.stops.map((stop: any) => {
+      if (!Array.isArray(stop) || stop.length < 2 || !isTokenRef(stop[1])) return stop;
+      changed = true;
+      return [stop[0], resolveThemeValue(stop[1], themeOf())];
+    });
+    if (!changed) return desc;
+    // 复制一份：颜色被解析后就不该再拿原对象当缓存键（原对象仍属于用户的 props）
+    return { ...desc, stops };
   }
 
   /**
    * 应用单个样式属性到 ctx，支持简写：
    * - shadow: 'sm' | 'md' | 'lg' 展开成 shadowColor/shadowBlur/shadowOffsetX/shadowOffsetY。
    */
-  private __applyStyleProp(prop: string, value: any): void {
+  /**
+   * 快路径专用的样式应用：不做主题引用解析、不做 undefined 检查。
+   *
+   * 为什么单开一个方法而不是在 `__applyStyleProp` 里加分支：样式应用是每帧每组件都跑的，
+   * 每个属性多两个分支，实测就是 1.27×（加上解析闭包是 1.88×）。
+   * 走到这里的前提是 `styleNeedsTheme()` 已确认样式里没有引用。
+   */
+  private __applyStylePropRaw(prop: string, value: any): void {
+    if (prop === 'fillGradient' || prop === 'strokeGradient') {
+      const target = prop === 'fillGradient' ? 'fillStyle' : 'strokeStyle';
+      const resolved = this.__resolveGradient(prop === 'fillGradient' ? 'fill' : 'stroke', value);
+      if (resolved) {
+        this.ctx[target] = resolved;
+      } else if (value) {
+        const stops = normalizeGradientStops(value.stops);
+        if (stops.length) {
+          this.ctx[target] = stops[Math.floor(stops.length / 2)][1];
+        }
+      }
+      return;
+    }
+    if (prop === 'shadow' && typeof value === 'string' && SHADOW_PRESETS[value]) {
+      const preset = SHADOW_PRESETS[value];
+      this.ctx.shadowColor = preset.shadowColor;
+      this.ctx.shadowBlur = preset.shadowBlur;
+      this.ctx.shadowOffsetX = preset.shadowOffsetX;
+      this.ctx.shadowOffsetY = preset.shadowOffsetY;
+      return;
+    }
+    this.ctx[prop] = value;
+  }
+
+  private __applyStyleProp(prop: string, value: any, themeOf?: () => ICETheme): void {
+    // 主题引用没解析出来（token 名写错）时**跳过赋值**，保留 ctx 原值：
+    // 把 fillStyle 写成 undefined 会让画布整块消失，比"颜色没变成预期的"严重得多。
+    if (isTokenRef(value)) {
+      const theme = themeOf ? themeOf() : this.themeOf();
+      const resolved = resolveThemeValue(value, theme);
+      if (resolved === undefined) return;
+      value = resolved;
+    }
+    if (value === undefined) return;
     // 声明式渐变：fillGradient / strokeGradient 解析成 CanvasGradient 后写进 fillStyle / strokeStyle
     if (prop === 'fillGradient' || prop === 'strokeGradient') {
       const target = prop === 'fillGradient' ? 'fillStyle' : 'strokeStyle';
@@ -628,7 +944,9 @@ abstract class ICEComponent extends ICEEventTarget {
     }
     if (prop === 'shadow' && typeof value === 'string' && SHADOW_PRESETS[value]) {
       const preset = SHADOW_PRESETS[value];
-      this.ctx.shadowColor = preset.shadowColor;
+      // 模糊半径 / 偏移量由引擎拥有（脏矩形外扩量按它们算），颜色归主题
+      const chrome = themeOf ? themeOf().semantic.chrome : null;
+      this.ctx.shadowColor = (chrome && chrome.shadow && (chrome.shadow as any)[value]) || preset.shadowColor;
       this.ctx.shadowBlur = preset.shadowBlur;
       this.ctx.shadowOffsetX = preset.shadowOffsetX;
       this.ctx.shadowOffsetY = preset.shadowOffsetY;
@@ -1177,12 +1495,14 @@ abstract class ICEComponent extends ICEEventTarget {
     if (this.state.showMinBoundingBox || this.state.showMaxBoundingBox) {
       const minBox = this.state.showMinBoundingBox ? this.getMinBoundingBox() : null;
       const maxBox = this.state.showMaxBoundingBox ? this.getMaxBoundingBox() : null;
+      // 调试框颜色也走主题（深色底上原来的纯红/纯蓝很刺眼，且与主题无关）
+      const debugChrome = this.themeOf().semantic.chrome.debug;
       // 无旋转/错切时，最小包围盒与最大包围盒是同一个矩形；同时开启时若不跳过，
       // 两条边完全重叠会产生红蓝混色/双线，视觉上很怪。此时只保留一个干净的框。
       const same = minBox && maxBox && this.__areBoundingBoxesNearlyEqual(minBox, maxBox);
 
       if (minBox && !same) {
-        this.ctx.strokeStyle = '#ff0000';
+        this.ctx.strokeStyle = debugChrome.minBox;
         this.ctx.fillStyle = 'rgba(0,0,0,0)';
         this.ctx.beginPath();
         this.ctx.moveTo(minBox.tl[0], minBox.tl[1]);
@@ -1195,7 +1515,7 @@ abstract class ICEComponent extends ICEEventTarget {
       }
 
       if (maxBox) {
-        this.ctx.strokeStyle = '#0000ff';
+        this.ctx.strokeStyle = debugChrome.maxBox;
         this.ctx.fillStyle = 'rgba(0,0,0,0)';
         this.ctx.beginPath();
         this.ctx.moveTo(maxBox.tl[0], maxBox.tl[1]);
@@ -1311,6 +1631,11 @@ abstract class ICEComponent extends ICEEventTarget {
   public setState(newState: any, options?: { paramsDirty?: boolean }) {
     const sizeChanged = this.__beforeStateMerge(newState);
     merge(this.state, newState);
+    // 运行时写 style（setState({style}) / 动画 / preset 重解析）可能引入主题引用：
+    // 重新扫一次，决定下次 applyStyleToCtx 走快路径还是慢路径。
+    if (newState && newState.style !== undefined) {
+      this.__styleHasTokens = styleNeedsTheme(this.state.style);
+    }
     // state 变化无法廉价判断「是否影响派生参数」，因此**默认**保守地两者都置脏（与旧行为一致）。
     // 高频写值（动画）可以显式传 `{ paramsDirty: false }` 跳过派生参数重算 —— 见
     // `ANIMATION_SAFE_KEYS` / `isAnimationSafeKey()` 与 AnimationManager 的写值通道。

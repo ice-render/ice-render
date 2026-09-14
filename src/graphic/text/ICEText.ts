@@ -159,8 +159,9 @@ class ICEText extends ICEComponent {
           textDecoration: 'none',
           textDecorationColor: '',
           textDecorationWidth: 0, //0 = 自动（字号 / 14，至少 1px）
-          // 编辑态的选区底色（引擎自绘；DOM 编辑态由浏览器 input/textarea 自己画）
-          selectionColor: 'rgba(64,128,255,0.35)',
+          // 编辑态的选区底色（引擎自绘；DOM 编辑态由浏览器 input/textarea 自己画）。
+          // 留空 = 跟随主题 chrome.textSelection；显式给色值则用给定的
+          selectionColor: '',
           paddingTop: 0,
           paddingBottom: 0,
           paddingLeft: 0,
@@ -680,7 +681,8 @@ class ICEText extends ICEComponent {
     const text = String(this.state.text ?? '');
     const sourceLines = text.split('\n');
     const boxes = this.__lineBoxes();
-    const color = this.state.style.selectionColor;
+    // 没显式给色就跟随主题的 chrome.textSelection（深色主题下会换成更协调的选区色）
+    const color = this.state.style.selectionColor || this.themeOf().semantic.chrome.textSelection.color;
     if (!color) {
       return;
     }

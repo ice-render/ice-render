@@ -10,6 +10,7 @@ import { isNil } from '../../util/lang';
 import { merge } from '../../util/lang';
 import { round } from '../../util/lang';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
+import { token, resolveThemeValue } from '../../theme/ICETheme';
 import ICEEvent from '../../event/ICEEvent';
 import GeoUtil from '../../geometry/GeoUtil';
 import ICEComponent from '../ICEComponent';
@@ -120,8 +121,9 @@ class ICEPolyLine extends ICEDotPath {
         label: '', //连线标签文本，非空时绘制在折线中点
         labelStyle: {
           fontSize: 14,
-          fillStyle: '#000000',
-          backgroundColor: '#ffffff',
+          // 主题引用：深色主题下标签变成深底亮字（原本写死白底黑字，压在深色画面上很突兀）
+          fillStyle: token('chrome.linkLabel.fill'),
+          backgroundColor: token('chrome.linkLabel.background'),
         },
         style: {
           lineJoin: 'round',
@@ -1003,13 +1005,14 @@ class ICEPolyLine extends ICEDotPath {
     if (!metrics) {
       return null;
     }
+    const theme = this.themeOf();
     const style: any = this.state.labelStyle || {};
     return {
       text: String(this.state.label),
       ...metrics,
       fontSize: style.fontSize || 14,
-      fillStyle: style.fillStyle || '#000000',
-      backgroundColor: style.backgroundColor || '#ffffff',
+      fillStyle: resolveThemeValue(style.fillStyle, theme) || '#000000',
+      backgroundColor: resolveThemeValue(style.backgroundColor, theme) || '#ffffff',
     };
   }
 
@@ -1046,9 +1049,10 @@ class ICEPolyLine extends ICEDotPath {
     }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = style.backgroundColor || '#ffffff';
+    const theme = this.themeOf();
+    ctx.fillStyle = resolveThemeValue(style.backgroundColor, theme) || '#ffffff';
     ctx.fillRect(lm.x - lm.halfW, lm.y - lm.halfH, lm.halfW * 2, lm.halfH * 2);
-    ctx.fillStyle = style.fillStyle || '#000000';
+    ctx.fillStyle = resolveThemeValue(style.fillStyle, theme) || '#000000';
     ctx.fillText(label, lm.x, lm.y);
     ctx.restore();
   }

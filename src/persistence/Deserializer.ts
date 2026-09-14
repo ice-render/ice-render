@@ -47,6 +47,8 @@ export default class Deserializer {
     this.migrate(jsonObj, version);
     // 迁移通过之后再记 createTime：版本不支持时 migrate 会抛错，此时不该改动实例上的文档元信息
     this.__rememberCreateTime(jsonObj);
+    // 先恢复主题再建组件：preset 与「没写 style」的默认样式都是在构造时展开的
+    this.__restoreTheme(jsonObj);
 
     const childNodes = (jsonObj && jsonObj.childNodes) || [];
     for (let i = 0; i < childNodes.length; i++) {
@@ -73,6 +75,27 @@ export default class Deserializer {
       ice.documentMeta.createTime = createTime;
     } else {
       delete ice.documentMeta.createTime;
+    }
+  }
+
+  /**
+   * 还原快照里的主题：`{ name }` 按名切换，`{ patch }` 深合并到当前主题。
+   *
+   * 旧快照没有 theme 字段 → 什么都不做（维持调用方当前的主题），与旧行为一致。
+   */
+  private __restoreTheme(jsonObj: any): void {
+    const snapshot = jsonObj && jsonObj.theme;
+    const ice: any = this.ice;
+    if (!snapshot || typeof snapshot !== 'object' || !ice || typeof ice.setTheme !== 'function') return;
+    if (snapshot.patch && typeof snapshot.patch === 'object') {
+      ice.setTheme(snapshot.patch);
+    }
+    if (snapshot.name) {
+      ice.setTheme(snapshot.name);
+      // 名字之后再叠补丁：补丁是"在这个命名主题之上改的那几处"
+      if (snapshot.patch && typeof snapshot.patch === 'object') {
+        ice.setTheme(snapshot.patch);
+      }
     }
   }
 

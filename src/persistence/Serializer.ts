@@ -95,18 +95,40 @@ export default class Serializer {
         meta.createTime = createTime;
       }
     }
-    const result = {
+    const result: any = {
       version: SERIALIZATION_VERSION,
       createTime,
       lastModifyTime: now,
       childNodes: [],
     };
+    // 主题进快照：文档存盘之后，「它是按哪个主题设计的」不能丢。
+    // 组件里的颜色是各自 state 的副本，所以旧快照照样能回放外观；这里存的是
+    // 「还原时该把实例主题设成什么」，让新加的图元、主题引用与外壳一起对上。
+    const themeSnapshot = this.__themeSnapshot();
+    if (themeSnapshot) result.theme = themeSnapshot;
 
     for (let i = 0; i < this.ice.childNodes.length; i++) {
       const child = this.ice.childNodes[i];
       this.encodeRecursively(child, result);
     }
     return result;
+  }
+
+  /**
+   * 主题快照。
+   *
+   * 存**补丁**而不是整份主题：整份主题会把内置 token 全写进文档（体积 + 与引擎版本耦合），
+   * 而补丁 = 「用户改过的那部分」，跨版本仍然稳定。命名主题只存名字。
+   */
+  private __themeSnapshot(): any {
+    const ice: any = this.ice;
+    const theme = ice && ice.theme;
+    if (!theme || typeof theme !== 'object') return null;
+    const name = ice.__themeName;
+    if (name && !ice.__themePatch) return { name };
+    const patch = ice.__themePatch;
+    if (!patch || !Object.keys(patch).length) return name ? { name } : null;
+    return name ? { name, patch } : { patch };
   }
 
   //递归序列化

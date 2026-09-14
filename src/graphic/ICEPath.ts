@@ -174,7 +174,7 @@ abstract class ICEPath extends ICEComponent {
       ctx.save();
       ctx.setLineDash([]);
       ctx.lineWidth = (this.state.style.lineWidth || 1) + (this.state.lineBorderWidth || 4) * 2;
-      ctx.strokeStyle = this.state.lineBorderColor || '#c8c8c8';
+      ctx.strokeStyle = this.state.lineBorderColor || this.themeOf().semantic.chrome.lineBorder;
       if (this.path2D._isPolyfill) {
         this.replayPath();
         ctx.stroke();
