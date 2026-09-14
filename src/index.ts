@@ -84,6 +84,9 @@ export {
    */
   default as themeUtils,
   baseTokens,
+  BOOTSTRAP_BASELINE,
+  FAMILY_PALETTE,
+  FAMILY_PALETTE_DARK,
   DEFAULT_THEME,
   DARK_THEME,
   registerTheme,
