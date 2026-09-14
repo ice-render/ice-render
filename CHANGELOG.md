@@ -9,6 +9,13 @@
 
 ### 变更
 
+- **`AnimationTimeline` 播完之后 `play()` 成了空操作（2026-09-14 修）**：时间轴跑完后 `playing` 仍是 `true`，
+  于是再次 `play()` 会被开头那句 `if (this.playing && !this.paused) return this;`（"已经在播就不重复启动"）
+  吞掉 —— **"重播"按钮点了没反应**，`isPlaying()` 也一直说谎（示例页的"暂停/继续"按钮因此永远走 pause 分支）。
+  现在全部键跑完即把 `playing` 置回 false（注意顺序：先 resolve `finished`，它依赖 `playing`）。
+  回归：`tests/animation/animation-timeline.test.ts` 新增用例「播完之后 play() 必须从头重播」；
+  真实浏览器路径由 ice-render-dsl 的编排 e2e 覆盖（`e2e/orchestration.spec.ts` 的"重播回起点"）。
+
 - **基准门禁补齐：Node 侧两条热路径也能"判定"了**（2026-09-14）：`bench/render.cjs` 与 `bench/micro`
   此前只打印数字，性能有没有退化完全靠人记得跑、记得上次是多少。现在两者都有 `--check`：
   与入库基线（`bench/baselines/render.json`、`bench/micro/baseline.json`）对比，
