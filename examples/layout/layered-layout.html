@@ -5,7 +5,8 @@
   <title>ICERender-layered-layout</title>
   <body>
     <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
-      分层图布局 <code>ICELayeredLayout</code>：只写「节点 + 关系（边）」，不写坐标，自动分层排列（dagre 式）。
+      分层图布局 <code>ICELayeredLayout</code>：只写「节点 + 关系（边）」，不写坐标，
+      由布局策略按「拓扑分层 → 层内排序 → 落坐标」自动排列。
     </div>
     <canvas id="canvas-1" width="900" height="500" style="background-color: #f7f7f7;"></canvas>
   </body>
