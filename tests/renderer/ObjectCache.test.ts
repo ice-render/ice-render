@@ -443,3 +443,109 @@ describe('ObjectCache 组件级离屏缓存', () => {
     expect(c.renderToCount).toBe(2);
   });
 });
+
+describe('isCachable 的廉价前置判断', () => {
+  /**
+   * `isCachable` 的分支决定它可能为真只有四种情况（文本 / 连线 / 点集路径 / 半透明落墨）。
+   * 四种都不是时结果必为 false —— 此时不该再去遍历祖先链（`getEffectiveOpacity` /
+   * `hasClippingAncestor`），那正是这条谓词里最贵的两段，而它在热路径上每帧每组件都要问。
+   */
+  it('不可能是可缓存类别的图形：直接判否，且不遍历祖先链', () => {
+    const { cache } = makeHarness();
+    const c: any = {
+      state: {
+        display: true,
+        opacity: 1,
+        closePath: true,
+        fill: true,
+        stroke: true,
+        // 不透明落墨 → 不走「半透明 shape」那条
+        style: { fillStyle: '#3366cc', strokeStyle: '#111111', lineWidth: 1 },
+      },
+      dirty: true,
+      getEffectiveOpacity: jest.fn(() => 1),
+      hasClippingAncestor: jest.fn(() => false),
+    };
+    expect(cache.isCachable(c)).toBe(false);
+    expect(c.getEffectiveOpacity).not.toHaveBeenCalled();
+    expect(c.hasClippingAncestor).not.toHaveBeenCalled();
+  });
+
+  it('四种可缓存类别仍然判真（前置判断不放宽也不收紧结果）', () => {
+    const { cache } = makeHarness();
+    const visible = { display: true, opacity: 1, editing: false };
+
+    const cases: Array<[string, any, boolean]> = [
+      ['文本', { state: { ...visible, style: {} }, measureText() {}, dirty: true }, true],
+      ['编辑中的文本', { state: { ...visible, editing: true, style: {} }, measureText() {}, dirty: true }, false],
+      [
+        '不透明连线',
+        {
+          state: { ...visible, lineDash: [], lineDashFlow: false, style: {} },
+          isLine: true,
+          __localBox: () => [0, 0, 10, 10],
+          dirty: true,
+        },
+        true,
+      ],
+      [
+        '蚂蚁线（流动虚线）',
+        {
+          state: { ...visible, lineDash: [4, 4], lineDashFlow: true, style: {} },
+          isLine: true,
+          __localBox: () => [0, 0, 10, 10],
+          dirty: true,
+        },
+        false,
+      ],
+      [
+        '大尺寸点集路径',
+        { state: { ...visible, width: 300, height: 300, lineDashFlow: false, style: {} }, calcDots() {}, dirty: true },
+        true,
+      ],
+      [
+        '过小的点集路径',
+        { state: { ...visible, width: 10, height: 10, lineDashFlow: false, style: {} }, calcDots() {}, dirty: true },
+        false,
+      ],
+      [
+        '半透明落墨的普通 shape',
+        {
+          state: { ...visible, style: { fillStyle: 'rgba(0,0,0,0.5)' } },
+          createPathObject() {},
+          dirty: true,
+        },
+        true,
+      ],
+      [
+        '不透明落墨的普通 shape',
+        { state: { ...visible, style: { fillStyle: '#000' } }, createPathObject() {}, dirty: true },
+        false,
+      ],
+      [
+        '有效不透明度 ≠ 1',
+        {
+          state: { ...visible, opacity: 0.5, style: {} },
+          measureText() {},
+          getEffectiveOpacity: () => 0.5,
+          dirty: true,
+        },
+        false,
+      ],
+      [
+        '祖先开了 clipChildren',
+        {
+          state: { ...visible, style: {} },
+          measureText() {},
+          hasClippingAncestor: () => true,
+          dirty: true,
+        },
+        false,
+      ],
+    ];
+
+    for (const [label, component, expected] of cases) {
+      expect([label, cache.isCachable(component)]).toEqual([label, expected]);
+    }
+  });
+});

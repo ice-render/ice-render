@@ -38,6 +38,28 @@ class ICEEllipse extends ICEPath {
   }
 
   /**
+   * @overwrite
+   * 命令流的输入：两个半径 / 圆心相对本地原点的位置 / 旋转 / 起止角 / 方向 / 是否闭合。
+   * 见 `createPathObject`。圆（`ICECircle`）作为 `radiusX === radiusY` 的特例自动继承。
+   */
+  protected __pathSignature(out: any[]): any[] | null {
+    const s: any = this.state;
+    const o = s.localOrigin;
+    out.push(
+      s.radiusX,
+      s.radiusY,
+      s.rotation,
+      s.startAngle,
+      s.endAngle,
+      s.counterclockwise,
+      o ? o[0] : 0,
+      o ? o[1] : 0,
+      s.closePath
+    );
+    return out;
+  }
+
+  /**
    * 所有坐标点的坐标都是相对于父层组件，而不是全局坐标。
    * @returns
    */
