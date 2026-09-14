@@ -3,6 +3,36 @@
 本文件记录所有值得注意的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.4.1] - 2026-09-14
+
+本轮：**把主题的类型导出去**（应用层要写 `setChrome` / `setTheme` / 自定义预设 / 处理诊断，
+缺类型就只能写 `any`），顺手把一个歧义导出改名。
+
+### 新增
+
+- 导出主题**类型**：`ICETheme` / `ICESemanticTheme` / `ICEChromeTheme` / `ICEThemeInput` /
+  `ICEThemePatch` / `ICEThemeTokenRef` / `StylePresetFactory` / `ThemeDiagnostic`。
+  （应用层的实际反馈：给 `setChrome(patch)` 传参数时拿不到 `ICEChromeTheme`，只能 `any` —— 那等于没有契约。）
+
+### 变更（破坏性：导出改名）
+
+- **默认导出的主题工具包从 `ICETheme` 改名为 `themeUtils`**。`ICETheme` 这个名字同时被
+  「运行时工具包（baseTokens / DEFAULT_THEME / registerTheme / token … 的集合）」和
+  「主题**类型** `{ base, semantic }`」占用，`import { ICETheme }` 拿到的是值还是类型说不清。
+  现在各归各位：值 = `themeUtils`，类型 = 上面的 `export type`。
+  家族内没有任何地方 import 这个默认导出，改名零影响。
+
+### 变更：外观入口收拢（详见下方 `[Unreleased]` 段，随本版发布）
+
+- 连线标签外观并入 `style.label`（老 `labelStyle` 保留为弃用别名，构造时单向归一）；
+- `lineBorderColor` 支持主题引用；
+- 边界写进 `docs/architecture/21-theme-and-style.md` §8.5 与 `AGENTS.md`：
+  **外观一律进 `style`**，顶层 props 只放「动画要写的 key」与「几何 / 缓存签名参数」。
+
+### 验证
+
+- `verify:full` 全绿：**1038** 单测 + 100 浏览器用例 + 4 套基准 + 包检查。
+
 ## [2.4.0] - 2026-09-14
 
 本轮主题：**把主题与样式机制补完** —— 让「主题」真正能覆盖引擎画出来的每一层，

@@ -75,7 +75,14 @@ export { default as ICECardLayout } from './layout/ICECardLayout';
 export { default as ICEOverlayLayout } from './layout/ICEOverlayLayout';
 export { default as ICELayeredLayout } from './layout/ICELayeredLayout';
 export {
-  default as ICETheme,
+  /**
+   * 主题工具包（`baseTokens` / `DEFAULT_THEME` / `registerTheme` / `token` … 的集合）。
+   *
+   * 以前它导出成 `ICETheme` —— 与**主题类型** `ICETheme`（`{ base, semantic }`）同名，
+   * `import { ICETheme }` 拿到的是值还是类型全看运气。现在各归各位：值叫 `themeUtils`，
+   * 类型从下面 `export type` 里拿。
+   */
+  default as themeUtils,
   baseTokens,
   DEFAULT_THEME,
   DARK_THEME,
@@ -100,6 +107,20 @@ export {
   contrastRatio,
   deepDiff,
   deepEqual,
+} from './theme/ICETheme';
+/**
+ * 主题的**类型**也导出：应用层要写 `setChrome(patch)` / `setTheme(patch)` / 自定义预设 /
+ * 处理诊断，缺了这些类型就只能写 `any`（那等于没有契约）。
+ */
+export type {
+  ICETheme,
+  ICESemanticTheme,
+  ICEChromeTheme,
+  ICEThemeInput,
+  ICEThemePatch,
+  ICEThemeTokenRef,
+  StylePresetFactory,
+  ThemeDiagnostic,
 } from './theme/ICETheme';
 export { default as ICE } from './ICE';
 export { default as CanvasRenderer } from './renderer/CanvasRenderer';
