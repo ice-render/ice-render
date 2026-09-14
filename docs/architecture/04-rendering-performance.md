@@ -321,7 +321,7 @@ Canvas 2D 没有合成器通路：CSS/WAAPI 的 `transform` / `opacity` 可以�
 | 同上、关掉量化（`snapToDevicePixel = false`） | — | 34.7 ms/帧（回到每帧重建） |
 | 1,000 个矩形（对照） | 1.4 ms/帧 | 1.4 ms/帧（不受影响） |
 
-### 优化方向（**尚未实现**，别当成已有能力）
+### 优化方向（逐条状态；**标 ❌ 的别当成已有能力**）
 
 1. ~~**把「计数门」换成「面积门」**（或对"纯平移 + 已缓存"直接放行）~~ ——
    **2026-09-13 实测后否决**（结论与数据见
@@ -330,9 +330,14 @@ Canvas 2D 没有合成器通路：CSS/WAAPI 的 `transform` / `opacity` 可以�
    成片脏区的交叉点在 20~30% 且低于测量噪声。**该场景的正解是分层渲染**（见 18 §3.1 与本文末）。
    评估中撞出并修掉了 `coalesceRegions` 的 O(k³) 卡帧缺陷（聚合预算 `MAX_COALESCE_REGIONS = 32`，
    1000 脏块 111s → 1ms，单测钉住）；
-2. **帧率分级 + 空闲停帧**：次要动画按 30fps 推进；没有动画且无脏帧时停 rAF
-   （当前 `FrameManager` 每帧无条件续帧，纯耗电）；
-3. **OffscreenCanvas / Worker**（见 ⑥）。
+2. ~~**帧率分级 + 空闲停帧**~~ —— **✅ 已落地（2026-09-13，详见
+   [18 §3.4](18-animation-architecture.md)）**：`FrameManager` 改成按需续帧（宿主用 `needsFrame()` 回答
+   "这一帧还要吗"），次要动画可写 `fps: 30` 降频，`prefers-reduced-motion` 下直接落终态。
+   真实浏览器实测：静止页面 500ms 内 **0 次帧回调**（改造前约 30 次）。回归
+   `tests/FrameManager.idle.test.ts`、`tests/animation/animation-scheduling.test.ts`、
+   `e2e/visual/animation-scheduling.spec.ts`。
+3. ❌ **OffscreenCanvas / Worker**（见 [10](10-worker-offscreen.md)：目前只有设计 + 最小可行性原型，
+   引擎尚未正式移植到 worker）。
 
 ### 已落地：分层渲染（静态层 + 动画层，2026-09-13）
 

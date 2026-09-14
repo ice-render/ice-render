@@ -163,8 +163,9 @@
 | 空闲（无动画、无脏帧） | rAF 常驻空转 | 停帧 |
 | 既有回归 | jest 全量 + Playwright 82 条 + 逐像素一致性 | 全绿，不许下降 |
 
-> 性能数字必须可复跑：改造同步落地 `bench/` 下的动画基线脚本（当前探针是临时脚本，未提交），
-> 并把阈值写进门槛，而不是只写在文档里。
+> 性能数字必须可复跑：**已固化**在 `bench/anim/animation-bench.mjs`（写值通道/量化，阈值 `--check`）
+> 与 `bench/layers/layering-bench.mjs`（分层渲染），两个门槛都已接进 `npm run verify:full`。
+> 一次性探针脚本一律不入库（结论写进本文，口径与原始数据见 [04](04-rendering-performance.md)）。
 
 ## 6. 分期
 
