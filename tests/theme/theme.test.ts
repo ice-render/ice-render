@@ -1,6 +1,15 @@
 import ICERect from '../../src/graphic/shape/ICERect';
 import AnimationManager from '../../src/animation/AnimationManager';
-import { setTheme, getTheme, registerTheme, baseTokens, DEFAULT_THEME, DARK_THEME } from '../../src/theme/ICETheme';
+import {
+  setTheme,
+  getTheme,
+  registerTheme,
+  baseTokens,
+  DEFAULT_THEME,
+  DARK_THEME,
+  BOOTSTRAP_BASELINE,
+  FAMILY_PALETTE,
+} from '../../src/theme/ICETheme';
 
 jest.mock('../../src/cross-platform/root', () => {
   const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
@@ -30,14 +39,17 @@ describe('三层 token 结构（base / semantic / component）', () => {
     expect(baseTokens.fontSize['2xl']).toBe(24);
   });
 
-  it('semantic 引用 base（primary = blue-500）', () => {
-    expect(DEFAULT_THEME.semantic.primary).toBe(baseTokens.color.blue[500]);
-    expect(DEFAULT_THEME.semantic.danger).toBe(baseTokens.color.red[500]);
+  it('semantic = 家族品牌基线（Bootstrap 5），与 base 色 ramp 分工明确', () => {
+    // 品牌决策落在 semantic（alias token）；base.color 只是"原始色料"（global token）
+    expect(DEFAULT_THEME.semantic.primary).toBe(BOOTSTRAP_BASELINE.primary);
+    expect(DEFAULT_THEME.semantic.danger).toBe(BOOTSTRAP_BASELINE.danger);
+    expect(DEFAULT_THEME.semantic.success).toBe(BOOTSTRAP_BASELINE.success);
   });
 
   it('palette 是数据系列配色数组（≥ 8 个）', () => {
     expect(DEFAULT_THEME.semantic.palette.length).toBeGreaterThanOrEqual(8);
-    expect(DEFAULT_THEME.semantic.palette[0]).toBe(baseTokens.color.blue[500]);
+    expect(DEFAULT_THEME.semantic.palette).toEqual(FAMILY_PALETTE);
+    expect(DEFAULT_THEME.semantic.palette[0]).toBe(BOOTSTRAP_BASELINE.primary);
   });
 
   it('motion 有时长 + 缓动 token', () => {
@@ -51,7 +63,7 @@ describe('preset（组件层）', () => {
     const card = new ICERect({ preset: 'card' });
     expect(card.state.radius).toBe(12);
     expect(card.state.style.fillStyle).toBe('#ffffff');
-    expect(card.state.style.strokeStyle).toBe(baseTokens.color.gray[200]);
+    expect(card.state.style.strokeStyle).toBe(BOOTSTRAP_BASELINE.border);
     expect(card.state.style.shadow).toBe('md');
   });
 
@@ -62,15 +74,16 @@ describe('preset（组件层）', () => {
 
   it('button 用主题 primary 色', () => {
     const btn = new ICERect({ preset: 'button' });
-    expect(btn.state.style.fillStyle).toBe('#3B82F6');
+    expect(btn.state.style.fillStyle).toBe(BOOTSTRAP_BASELINE.primary);
   });
 });
 
 describe('命名主题 + registerTheme', () => {
   it("setTheme('dark') 切换到暗色主题", () => {
     setTheme('dark');
-    expect(getTheme().semantic.background).toBe('#111827');
-    expect(getTheme().semantic.text).toBe(baseTokens.color.gray[200]);
+    // 深色主题 = Bootstrap 5.3 的深色变体（`#212529` 底 + `#dee2e6` 正文）
+    expect(getTheme().semantic.background).toBe('#212529');
+    expect(getTheme().semantic.text).toBe('#dee2e6');
   });
 
   it('registerTheme 注册自定义主题后可按名切换', () => {
@@ -83,14 +96,14 @@ describe('命名主题 + registerTheme', () => {
   it('setTheme 对象浅合并 semantic（兼容旧用法）', () => {
     setTheme({ primary: '#ff0000' });
     expect(getTheme().semantic.primary).toBe('#ff0000');
-    expect(getTheme().semantic.danger).toBe(baseTokens.color.red[500]); // 未覆盖字段保留
+    expect(getTheme().semantic.danger).toBe(BOOTSTRAP_BASELINE.danger); // 未覆盖字段保留
   });
 });
 
 describe('热切换', () => {
   it('__reapplyPreset 按新主题重新 resolve', () => {
     const btn = new ICERect({ preset: 'button' });
-    expect(btn.state.style.fillStyle).toBe('#3B82F6');
+    expect(btn.state.style.fillStyle).toBe(BOOTSTRAP_BASELINE.primary);
     setTheme({ primary: '#ff0000' });
     (btn as any).__reapplyPreset();
     expect(btn.state.style.fillStyle).toBe('#ff0000');
