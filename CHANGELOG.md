@@ -26,7 +26,7 @@
   `info → #0DCAF0`。**为什么**：`ice-chart`、`ice-web-components`、文档站门面本来就是 Bootstrap 值，
   引擎默认的 Tailwind 蓝是家族里唯一的"第三种蓝"；Bootstrap 也是这些库最常见的使用环境，对齐它是向现实靠拢。
 - **灰阶阶梯刻意比 Bootstrap 默认更深一档**，保证 `text > muted > hint` 三档全部通过 WCAG AA：
-  `text #212529`（对白底 15.4:1）、`muted #495057`（7.0:1）、`hint #6C757D`（4.68:1）、`border #DEE2E6`。
+  `text #212529`（对白底 15.4:1）、`muted #495057`（8.2:1）、`hint #6C757D`（4.7:1）、`border #DEE2E6`。
   （Bootstrap 自带的 `gray-500 #ADB5BD` 在纯白上只有 2.1:1，`ice.validateTheme()` 会直接判 error，
   所以 `hint` 取 gray-600；不要照抄 `gray-500`。）
 - **数据系列配色抽出唯一来源**：新增导出 `FAMILY_PALETTE` / `FAMILY_PALETTE_DARK`，
