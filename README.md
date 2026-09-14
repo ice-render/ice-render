@@ -60,7 +60,10 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
   引擎提供 `setInteractionState()` 与可选的自动驱动（`ice.enableInteractionStates()`）；
   主题支持**深合并**（`{ motion: { duration: { fast: 50 } } }` 不会抹掉 `easing`）、
   **子树作用域**（`new ICEGroup({ theme: {...} })`）、**进快照**（`theme: { name | patch }`）、
-  **结构化校验**（`ice.validateTheme()`：未知 token / 类型不对 / WCAG 对比度不足）。
+  **变更通知**（`ice.onThemeChange(fn)`：上层能被动跟随，不必等下一次重建）、
+  **结构化校验**（`ice.validateTheme()`：拼错内置 token / 类型不对 / WCAG 对比度不足；
+  应用自带词汇只给 `info`，因为 `$app.highlight` 这类引用是能被解析的）。
+  命名主题注册有护栏：内置 `default` / `dark` 不可覆盖、重复注册抛错（要覆盖显式传 `{ overwrite: true }`）。
   细节见 [`docs/architecture/21-theme-and-style.md`](./docs/architecture/21-theme-and-style.md)。
 - **`display: false` 是整棵子树隐藏** —— 隐藏父容器后子组件不再被绘制、也不参与命中
   （判定收敛在 `isEffectivelyVisible()`，渲染/命中/a11y/离屏缓存共用）。
