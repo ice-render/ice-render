@@ -92,6 +92,15 @@ class ICEPolyLine extends ICEDotPath {
    * @returns
    */
   protected static arrangeParam(props): any {
+    // 外观归一化：老的顶层 `labelStyle` 是**已弃用的别名**，这里单向并入 `style.label` ——
+    // 外观只保留一个容器（style），否则「标签的颜色算不算主题可控」会有两种答案。
+    if (props && props.labelStyle) {
+      props = {
+        ...props,
+        style: { ...(props.style || {}), label: { ...(props.labelStyle || {}), ...((props.style || {}).label || {}) } },
+      };
+      delete (props as any).labelStyle;
+    }
     //dots 是内部计算使用的属性，外部传参用 points 属性
     //points 是一个数组，用来描述一系列的坐标点，这些点会被按照顺序连接起来，example: [[0,0],[10,10],[20,20],[30,30]]
     let param = merge(
@@ -119,14 +128,16 @@ class ICEPolyLine extends ICEDotPath {
         routeOffset: 20, //正交布线时，从端点沿插槽方向延伸的距离（px）
         curveType: 'straight', //连线曲线方式：straight=直线折线，quadratic=二次贝塞尔(points 需 3 点：起/控制/终)，cubic=三次贝塞尔(points 需 4 点：起/控制1/控制2/终)
         label: '', //连线标签文本，非空时绘制在折线中点
-        labelStyle: {
-          fontSize: 14,
-          // 主题引用：深色主题下标签变成深底亮字（原本写死白底黑字，压在深色画面上很突兀）
-          fillStyle: token('chrome.linkLabel.fill'),
-          backgroundColor: token('chrome.linkLabel.background'),
-        },
+        // 标签外观归 **style**（外观只有一个容器）：`style.label` 与其它 style 键走同一条解析路径，
+        // 因此能引用主题 token、能被交互状态覆盖。
         style: {
           lineJoin: 'round',
+          label: {
+            fontSize: 14,
+            // 主题引用：深色主题下标签变成深底亮字（原本写死白底黑字，压在深色画面上很突兀）
+            fillStyle: token('chrome.linkLabel.fill'),
+            backgroundColor: token('chrome.linkLabel.background'),
+          },
         },
       },
       props,
@@ -969,7 +980,7 @@ class ICEPolyLine extends ICEDotPath {
     if (!label) {
       return null;
     }
-    const style = this.state.labelStyle || {};
+    const style = (this.state.style && this.state.style.label) || {};
     const fontSize = style.fontSize || 14;
     const padding = 4;
     const pos = this.getLabelPosition();
@@ -1006,7 +1017,7 @@ class ICEPolyLine extends ICEDotPath {
       return null;
     }
     const theme = this.themeOf();
-    const style: any = this.state.labelStyle || {};
+    const style: any = (this.state.style && this.state.style.label) || {};
     return {
       text: String(this.state.label),
       ...metrics,
@@ -1038,7 +1049,7 @@ class ICEPolyLine extends ICEDotPath {
       return;
     }
     const ctx = this.ctx;
-    const style = this.state.labelStyle || {};
+    const style = (this.state.style && this.state.style.label) || {};
 
     ctx.save();
     // 内含「先设 font 再 measureText」；font 由本次 save/restore 归位

@@ -75,6 +75,20 @@
 
 ## [Unreleased]
 
+### 变更：外观入口收拢到 `style`（`labelStyle` 并入 `style.label`）
+
+- **连线标签的外观**从独立的 `labelStyle` 容器并入 `style.label` —— 与其它 style 键走**同一条解析路径**，
+  因此可以引用主题 token、可以被 `props.states` 覆盖。「标签的颜色算不算主题可控」不再有两种答案。
+  老的顶层 `labelStyle` 保留为**弃用别名**：构造时单向并入 `style.label`（`style.label` 优先），一处归一化。
+- **`lineBorderColor` 支持主题引用**（`'$border'` / `token(...)`），读值处统一过 `resolveThemeValue` ——
+  颜色归主题、几何量（`lineBorderWidth`）归 props。
+- **写成规则**（`docs/architecture/21-theme-and-style.md` §8.5 + `AGENTS.md` 铁律）：
+  外观一律进 `style`（子元素用 `style.<元素>` 嵌套，不新开 `xxxStyle` 容器）；
+  顶层 props 只放两类东西 —— ① 动画要写的 key（引擎按顶层 `state[key]` 写值），
+  ② 几何 / 缓存签名参数（`ObjectCache` 的内容签名与脏矩形外扩量直接读它们）。
+  往这两类加字段要同步改动画写值通道与缓存签名；颜色类 props 必须支持主题引用。
+
+
 > 暂无（下一个版本发布前在这里累积）。
 
 ## [2.3.2] - 2026-09-14
