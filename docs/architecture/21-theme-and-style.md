@@ -122,8 +122,9 @@ const diagnostics = ice.validateTheme();
 覆盖：未知语义 token（警告）、颜色类型不对 / palette 为空 / motion 缺 duration 或 easing（错误）、
 `text` / `muted` / `hint` 与背景的 **WCAG 对比度**（< 3 报错、< 4.5 警告）。
 
-> 这条检查第一次跑就抓到了引擎自己的默认主题：`hint`（gray-400）在纯白上只有 2.54:1 ——
-> 现在默认主题的 `muted` / `hint` 已调深一档（gray-600 / gray-500），两级都过 AA。
+> 这条检查第一次跑就抓到了引擎自己的默认主题：`hint`（gray-400）在纯白上只有 2.54:1。
+> 现在默认主题走 Bootstrap 5 值，灰阶阶梯刻意比 Bootstrap 默认更深一档：
+> `text` = `#212529`（15.4:1）、`muted` = `#495057`（7.0:1）、`hint` = `#6C757D`（4.68:1），三档全过 AA。
 
 ## 8. 组件预设注册
 
@@ -185,9 +186,14 @@ new ICERect({ preset: 'app:my-card' });
    标签）走 `style`，`"$primary"` 这类引用能在绘制那一刻解析；**应用自绘的颜色**
    （图表系列是图表自己 `ctx.strokeStyle = color`）解析不了，只能用字面量 ——
    那类应用换主题的正确入口是它自己的主题字段（如 `option.theme`），再由它的桥转给引擎。
-6. **设计语言（品牌基线）是产品决策，别靠合并词汇解决**。家族里三套设计语言并存是事实
+6. **设计语言（品牌基线）是产品决策，别靠合并词汇解决**。选型前家族里三套设计语言并存
    （引擎默认偏 Tailwind 色、chart 与 web-components 用 Bootstrap、设计器 DOM 是 antd）；
    要不要选一个基线是产品问题，合并 token 词汇既解决不了它，还会把各自的可替换性搭进去。
+   **2026-09-14 已决策：方案① Bootstrap 5 基线** —— 引擎默认语义色对齐 Bootstrap 5
+   （`DEFAULT_THEME.semantic.primary = #0D6EFD`），数据系列配色抽成唯一来源 `FAMILY_PALETTE`
+   由引擎与 chart 共用，设计器画布外壳改为从引擎主题派生。**这只是"改值"**：三套词汇/三条桥
+   的结构照旧（本节 1–5 点不变），各产品自有的身份主题（XP / arcade / 高对比）也照旧保留。
+   决策记录见 [09 · 路线图](09-roadmap.md) 的「家族品牌基线」。
 
 ## 9. 默认样式与容器
 

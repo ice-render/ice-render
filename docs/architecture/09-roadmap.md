@@ -78,33 +78,33 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | P2 | **小程序真机验证** | `PolyfillPath2D`、离屏 canvas、字体加载在低版本基础库上的逐像素一致性与可用性，需微信开发者工具 / 真机确认（自动化测试覆盖不到） |
 | P3 | **控制面板抽象** | 「按组件类型展现不同操作工具」需进一步抽象（`src/control-panel/ICEControlPanelManager.ts` 内有 FIXME）。插件机制的 `tools` 注册点可视为该抽象的第一层 |
 
-### 待产品决策：家族品牌基线（**不是技术债**）
+### 家族品牌基线（**2026-09-14 已决策：方案① Bootstrap 5 基线**）
 
-家族目前有**三套设计语言并存**，这不是「机制不统一」，而是各产品的视觉身份：
+选型时家族里确实有**三套设计语言并存**（见下表）；产品视觉侧拍板：**引擎默认语义色对齐 Bootstrap 5**。
 
-| 位置 | 当前「主色蓝」 | 来源 |
-|---|---|---|
-| 引擎默认主题 `DEFAULT_THEME.semantic.primary` | `#3B82F6` | `src/theme/ICETheme.ts`（Tailwind blue-500，历史默认值） |
-| `ice-chart`（`BOOTSTRAP_TOKENS.primary` / `CHART_PALETTE[0]`） | `#0D6EFD` | `ice-chart/src/theme/chartTheme.ts` |
-| `ice-web-components`（`colors.primary`） | `#0d6efd` | `ice-web-components/src/theme/ICETheme.ts` |
-| `ice-entity-designer` 画布外壳 | `#1677ff` | `ice-entity-designer/src/theme/designerTheme.ts`（对齐 DOM 面板的 antd） |
+| 位置 | 决策前「主色蓝」 | 决策后 | 来源 |
+|---|---|---|---|
+| 引擎默认主题 `DEFAULT_THEME.semantic.primary` | `#3B82F6`（Tailwind blue-500，历史默认值） | **`#0D6EFD`** | `src/theme/ICETheme.ts` 的 `BOOTSTRAP_BASELINE` |
+| `ice-chart`（`CHART_PALETTE[0]`） | `#0D6EFD` | 不变（改为直接 import 引擎的 `FAMILY_PALETTE`） | `ice-chart/src/theme/chartTheme.ts` |
+| `ice-web-components`（`colors.primary`） | `#0d6efd` | 不变（本就是 Bootstrap） | `ice-web-components/src/theme/ICETheme.ts` |
+| `ice-entity-designer` 画布外壳 | `#1677ff`（对齐 antd DOM 面板） | 默认从引擎主题派生（`setChrome` 由 `primary/success/warning` 推出） | `ice-entity-designer/src/theme/designerTheme.ts` |
 
-**影响面很窄**：三个应用都通过各自的桥把自己那层对齐了，差异主要在**混合场景**露出 ——
-设计器里嵌一张 chart、或 web-components 的窗口与引擎默认样式同屏；以及**应用没显式设主题**时，
-引擎的默认样式与外壳用的是它自己的蓝。
+**为什么是它**：家族里两个应用与文档站门面本就是 Bootstrap 值，引擎默认的 Tailwind 蓝是唯一的"第三种蓝"；
+Bootstrap 也是这些库最常见的使用环境（宿主页面往往本身就是 Bootstrap）。对齐它是把默认值**向现实靠拢**，
+不是发明新品牌。
 
-**不要用「合并 token 词汇」来替代这个决策** —— 理由见
-[21 · 主题与样式机制](21-theme-and-style.md) §8.6（应用词汇是权威、桥单向、两边需求本就不重叠）。
-这只是一次**改值**的活，不是改结构：
+落地范围（本轮已完成）：
 
-1. **Bootstrap 基线**：把引擎默认主题的语义色对齐 Bootstrap（两个应用已在用）；
-   设计器是否跟着换，取决于 DOM 面板（antd）与画布要不要一起换肤；
-2. **保持各自身份**：接受「引擎默认中性、各产品各有品牌色」，混合场景由宿主显式 `setTheme`；
-3. **只消除误导**：把引擎默认主题退回中性灰阶 + 中性蓝，避免让人误以为它是某个产品的品牌色。
-
-**决策需要**：产品视觉负责人选定基线（以及是否允许设计器 DOM / 画布换掉 antd）。
-定了之后由各应用改自己的 token 文件 + 引擎改 `DEFAULT_THEME` / `DARK_THEME`，
-用现有三条桥的单测（web-components 7 条 / chart 5 条 / designer 7 条）守住映射。
+- `semantic` 的 9 个颜色 token 全量换成 Bootstrap 5 值；灰阶阶梯**刻意比 Bootstrap 默认更深一档**，
+  保证 `text > muted > hint` 三档全部通过 WCAG AA（`gray-500 #ADB5BD` 在白底仅 2.1:1，
+  `validateTheme()` 会直接判 error，因此 `hint` 取 gray-600 `#6C757D`，4.68:1）。
+- 数据系列配色抽出唯一来源 `FAMILY_PALETTE` / `FAMILY_PALETTE_DARK`，引擎与 `ice-chart` 共用同一份
+  （此前两者各有一套 8 色，同一份数据在两个产物里会得到不同颜色）。
+- `DARK_THEME` 换成 Bootstrap 5.3 的深色变体（`#212529` 底 + `#dee2e6` 正文）。
+- `base.color` 那套色 ramp **原样保留**：它是"原始色料"（global token），品牌决策落在
+  `semantic`（alias token）上 —— 两者故意的分工，不要靠合并词汇来替代决策。
+- **不搞多套入口**：`ice-web-components` / `ice-chart` 零改动（本来就是 Bootstrap 值），
+  XP / arcade / 高对比等**产品身份主题照旧保留**，它们是产品身份不是基线。
 
 ## 验收原则
 

@@ -289,11 +289,12 @@
 - ✅ `AnimationManager` 的 motion token（`duration`/`easing` 语义名）也改用实例主题。
 - ✅ 新增 `resolveTheme()`：解析主题但不修改任何全局状态（实例级主题的基础）。
 
-- ⏳ **家族品牌基线未定（产品决策，非技术债）**：引擎默认偏 Tailwind 色（`#3B82F6`）、
-  `ice-chart` 与 `ice-web-components` 用 Bootstrap（`#0D6EFD` / `#0d6efd`）、设计器画布外壳对齐 DOM 面板的 antd（`#1677ff`）。
-  **机制与桥已经统一**（见 [21 · 主题与样式机制](21-theme-and-style.md) §8.6），剩下的只是"选哪个基线" ——
-  不要用「把各家 token 合并到引擎一种词汇」来替代它（需求本就不重叠）。选项与影响面见
-  [09 · 路线图](09-roadmap.md) 的「待产品决策：家族品牌基线」。
+- ✅ **家族品牌基线已定（2026-09-14，方案① Bootstrap 5）**：引擎默认语义色从 Tailwind 值
+  （`#3B82F6`）换成 Bootstrap 5 值（`#0D6EFD` 等），数据系列配色抽成唯一来源 `FAMILY_PALETTE`
+  由引擎与 `ice-chart` 共用，`DARK_THEME` 换成 Bootstrap 5.3 深色变体；设计器画布外壳不再硬编码，
+  默认从引擎主题派生。**机制与桥本来就是统一的**（见 [21 · 主题与样式机制](21-theme-and-style.md) §8.6），
+  这轮只是**改值**，没有合并 token 词汇（各应用词汇需求本就不重叠）。决策记录见
+  [09 · 路线图](09-roadmap.md) 的「家族品牌基线」。
 
 ### 4.4 连线与工具（**2026-09-11 已完成**）
 - ✅ **`ICE.findComponent` 改为递归查找**（2026-09-11）：先查顶层（同 id 顶层优先，保持既有优先级），

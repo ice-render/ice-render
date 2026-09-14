@@ -3,6 +3,45 @@
 本文件记录所有值得注意的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.5.0] - 2026-09-14
+
+本轮：**家族品牌基线落地为 Bootstrap 5**。这是一次**改变默认观感**的版本（语义色与数据系列配色都换了值），
+机制与 API **完全不变**——应用层不需要改一行代码，但「没显式设主题」时引擎画出来的颜色会变。
+按语义化版本给到 minor。
+
+### 变更（破坏性：默认观感）
+
+- **默认语义色从 Tailwind 值换成 Bootstrap 5 值**（`DEFAULT_THEME.semantic`）：
+  `primary #3B82F6 → #0D6EFD`、`success → #198754`、`warning → #FFC107`、`danger → #DC3545`、
+  `info → #0DCAF0`。**为什么**：`ice-chart`、`ice-web-components`、文档站门面本来就是 Bootstrap 值，
+  引擎默认的 Tailwind 蓝是家族里唯一的"第三种蓝"；Bootstrap 也是这些库最常见的使用环境，对齐它是向现实靠拢。
+- **灰阶阶梯刻意比 Bootstrap 默认更深一档**，保证 `text > muted > hint` 三档全部通过 WCAG AA：
+  `text #212529`（对白底 15.4:1）、`muted #495057`（7.0:1）、`hint #6C757D`（4.68:1）、`border #DEE2E6`。
+  （Bootstrap 自带的 `gray-500 #ADB5BD` 在纯白上只有 2.1:1，`ice.validateTheme()` 会直接判 error，
+  所以 `hint` 取 gray-600；不要照抄 `gray-500`。）
+- **数据系列配色抽出唯一来源**：新增导出 `FAMILY_PALETTE` / `FAMILY_PALETTE_DARK`，
+  `DEFAULT_THEME.semantic.palette` 改为它的副本。此前引擎（Tailwind 500s）与 `ice-chart`
+  （Bootstrap 蓝 + Tailwind 混合）各有一套 8 色，**同一份数据在两个产物里会得到不同颜色**；
+  现在二者共用同一份（`ice-chart` 直接 import）。
+- **`DARK_THEME` 换成 Bootstrap 5.3 的深色变体**：`background #212529`、`text #dee2e6`、
+  `muted #ced4da`、`hint #adb5bd`、`border #495057`，彩色用亮一档的 `#3d8bfd / #479f76 / #ffda6a /
+  #ea868f / #6edff6`，palette 用 `FAMILY_PALETTE_DARK`。
+- **组件默认样式的兜底值**（主题缺字段时才命中的 `themeDefaultStyle` fallback）同步换成基线值。
+
+### 不变（刻意保持）
+
+- **`base.color` 那套色 ramp 原样保留**：它是"原始色料"（global token），品牌决策落在 `semantic`
+  （alias token）上——两者故意的分工。不要靠合并 token 词汇来替代品牌决策。
+- **主题机制、API、三条应用桥、`setTheme` / `setChrome` / token 引用全部照旧**；没有新增第二套入口。
+- **XP / arcade / 高对比等产品身份主题照旧保留**——它们是产品身份，不是家族基线。
+- `ice-web-components` / `ice-chart` **零代码改动**（本就是 Bootstrap 值）。
+
+### 验证
+
+- `verify:full` 全绿：**1038** 单测 + 100 浏览器用例 + 4 套基准 + 包检查。
+- golden image（29 张）**零差异**：示例页大多是显式配色，语义 token 换值不会波及它们——
+  这也顺带验证了示例的确定性。
+
 ## [2.4.1] - 2026-09-14
 
 本轮：**把主题的类型导出去**（应用层要写 `setChrome` / `setTheme` / 自定义预设 / 处理诊断，
@@ -22,12 +61,18 @@
   现在各归各位：值 = `themeUtils`，类型 = 上面的 `export type`。
   家族内没有任何地方 import 这个默认导出，改名零影响。
 
-### 变更：外观入口收拢（详见下方 `[Unreleased]` 段，随本版发布）
+### 变更：外观入口收拢到 `style`（`labelStyle` 并入 `style.label`）
 
-- 连线标签外观并入 `style.label`（老 `labelStyle` 保留为弃用别名，构造时单向归一）；
-- `lineBorderColor` 支持主题引用；
-- 边界写进 `docs/architecture/21-theme-and-style.md` §8.5 与 `AGENTS.md`：
-  **外观一律进 `style`**，顶层 props 只放「动画要写的 key」与「几何 / 缓存签名参数」。
+- **连线标签的外观**从独立的 `labelStyle` 容器并入 `style.label` —— 与其它 style 键走**同一条解析路径**，
+  因此可以引用主题 token、可以被 `props.states` 覆盖。「标签的颜色算不算主题可控」不再有两种答案。
+  老的顶层 `labelStyle` 保留为**弃用别名**：构造时单向并入 `style.label`（`style.label` 优先），一处归一化。
+- **`lineBorderColor` 支持主题引用**（`'$border'` / `token(...)`），读值处统一过 `resolveThemeValue` ——
+  颜色归主题、几何量（`lineBorderWidth`）归 props。
+- **写成规则**（`docs/architecture/21-theme-and-style.md` §8.5 + `AGENTS.md` 铁律）：
+  外观一律进 `style`（子元素用 `style.<元素>` 嵌套，不新开 `xxxStyle` 容器）；
+  顶层 props 只放两类东西 —— ① 动画要写的 key（引擎按顶层 `state[key]` 写值），
+  ② 几何 / 缓存签名参数（`ObjectCache` 的内容签名与脏矩形外扩量直接读它们）。
+  往这两类加字段要同步改动画写值通道与缓存签名；颜色类 props 必须支持主题引用。
 
 ### 验证
 
@@ -102,24 +147,6 @@
 - 单测 975 → **1032**；`verify:full` 全绿：单测 + 100 条浏览器用例（含像素快照）+ 4 套基准 + 包检查。
 - 应用侧回归：`ice-chart`（367 单测 + 36 浏览器用例）、`ice-entity-designer`（350 + 78）、
   `ice-web-components`（1289 + 9）、`ice-smart-water`（83 + 35）全部在新引擎上通过。
-
-## [Unreleased]
-
-### 变更：外观入口收拢到 `style`（`labelStyle` 并入 `style.label`）
-
-- **连线标签的外观**从独立的 `labelStyle` 容器并入 `style.label` —— 与其它 style 键走**同一条解析路径**，
-  因此可以引用主题 token、可以被 `props.states` 覆盖。「标签的颜色算不算主题可控」不再有两种答案。
-  老的顶层 `labelStyle` 保留为**弃用别名**：构造时单向并入 `style.label`（`style.label` 优先），一处归一化。
-- **`lineBorderColor` 支持主题引用**（`'$border'` / `token(...)`），读值处统一过 `resolveThemeValue` ——
-  颜色归主题、几何量（`lineBorderWidth`）归 props。
-- **写成规则**（`docs/architecture/21-theme-and-style.md` §8.5 + `AGENTS.md` 铁律）：
-  外观一律进 `style`（子元素用 `style.<元素>` 嵌套，不新开 `xxxStyle` 容器）；
-  顶层 props 只放两类东西 —— ① 动画要写的 key（引擎按顶层 `state[key]` 写值），
-  ② 几何 / 缓存签名参数（`ObjectCache` 的内容签名与脏矩形外扩量直接读它们）。
-  往这两类加字段要同步改动画写值通道与缓存签名；颜色类 props 必须支持主题引用。
-
-
-> 暂无（下一个版本发布前在这里累积）。
 
 ## [2.3.2] - 2026-09-14
 

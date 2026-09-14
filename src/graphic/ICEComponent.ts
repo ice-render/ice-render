@@ -17,7 +17,15 @@ import ICEEventTarget from '../event/ICEEventTarget';
 import GeoUtil from '../geometry/GeoUtil';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICE from '../ICE';
-import { STYLE_PRESETS, getTheme, resolveThemeValue, isTokenRef, mergeThemes, type ICETheme } from '../theme/ICETheme';
+import {
+  STYLE_PRESETS,
+  BOOTSTRAP_BASELINE,
+  getTheme,
+  resolveThemeValue,
+  isTokenRef,
+  mergeThemes,
+  type ICETheme,
+} from '../theme/ICETheme';
 
 /**
  * 阴影简写预设：style.shadow: 'sm' | 'md' | 'lg' 一行搞定浮起效果，
@@ -69,8 +77,9 @@ function styleNeedsTheme(style: any): boolean {
 function themeDefaultStyle(theme: ICETheme): any {
   const semantic: any = theme && theme.semantic ? theme.semantic : {};
   return {
-    fillStyle: semantic.primary || '#3B82F6',
-    strokeStyle: semantic.border || '#E5E7EB',
+    // 兜底值 = 家族品牌基线（只在主题缺字段时命中，正常路径取 semantic.*）
+    fillStyle: semantic.primary || BOOTSTRAP_BASELINE.primary,
+    strokeStyle: semantic.border || BOOTSTRAP_BASELINE.border,
     lineWidth: 1,
   };
 }
