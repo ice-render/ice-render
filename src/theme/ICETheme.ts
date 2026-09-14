@@ -238,7 +238,63 @@ export function deepMerge<T>(base: T, patch: any): T {
   return out;
 }
 
-// ============ ② semantic tokens（引用 base） ============
+// ============ ② semantic tokens ============
+/**
+ * **家族品牌基线 = Bootstrap 5**（2026-09-14 确立）。
+ *
+ * 为什么是它：家族里 `ice-chart`、`ice-web-components`、`ice-render-doc`（文档站门面）本来就是
+ * Bootstrap 值，引擎默认的 Tailwind 蓝是唯一的"第三种蓝"；而 Bootstrap 也是这些库最常见的使用环境
+ * （用户的页面本身就是 Bootstrap）。对齐它是**向现实靠拢**，不是发明新品牌。
+ *
+ * 灰阶阶梯刻意比 Bootstrap 默认更深一档（`text > muted > hint` 三档全过 WCAG AA）：
+ * Bootstrap 的 `gray-500 #ADB5BD` 在纯白上只有 2.1:1，`validateTheme()` 会直接判 error。
+ */
+export const BOOTSTRAP_BASELINE = {
+  primary: '#0D6EFD',
+  success: '#198754',
+  warning: '#FFC107',
+  danger: '#DC3545',
+  info: '#0DCAF0',
+  /** 正文（= Bootstrap `--bs-body-color`）。对白底 15.4:1。 */
+  text: '#212529',
+  /** 次要文字（gray-700）。对白底 7.0:1。 */
+  muted: '#495057',
+  /** 提示文字（gray-600）。对白底 4.68:1 —— 刚好过 AA。 */
+  hint: '#6C757D',
+  border: '#DEE2E6',
+  background: '#ffffff',
+} as const;
+
+/**
+ * 家族**数据系列配色**（唯一来源）。
+ *
+ * 引擎与 `ice-chart` 以前各有一套 8 色（引擎 Tailwind 500s、图表 Bootstrap 蓝 + Tailwind 混合）——
+ * 同一份数据在两个产物里会得到不同颜色。现在二者共用这一份：图表直接 import 它。
+ * 顺序是有意的：低对比度的黄排在后面（折线/散点用黄色在浅底上辨识度差，作为第 3 个系列色才安全）。
+ */
+export const FAMILY_PALETTE: string[] = [
+  '#0D6EFD',
+  '#10B981',
+  '#F59E0B',
+  '#EF4444',
+  '#8B5CF6',
+  '#14B8A6',
+  '#EC4899',
+  '#6366F1',
+];
+
+/** 深色主题下的数据系列配色（亮一档，暗底上可辨）。 */
+export const FAMILY_PALETTE_DARK: string[] = [
+  '#4D94FF',
+  '#479F76',
+  '#EA868F',
+  '#6EDFF6',
+  '#A370F7',
+  '#FFDA6A',
+  '#FD9843',
+  '#79DFC1',
+];
+
 /** 交互外壳的默认值 = 引擎历史行为（升级后观感不变，主题里可整体替换）。 */
 function buildChrome(): ICEChromeTheme {
   return {
@@ -256,34 +312,13 @@ function buildChrome(): ICEChromeTheme {
 }
 
 function buildSemantic(base: typeof baseTokens, overrides: Partial<ICESemanticTheme> = {}): ICESemanticTheme {
-  const c = base.color;
   const defaults = {
-    // 语义色对齐 Ant Design 经典语义 + Tailwind 500 level（低饱和、现代）
-    primary: c.blue[500],
-    success: c.emerald[500],
-    warning: c.amber[500],
-    danger: c.red[500],
-    info: c.blue[400],
-    text: c.gray[800],
-    // muted / hint 是给「次要文字、提示文字」用的：gray-400 在纯白上只有 2.54:1，
-    // 连 WCAG AA 的一半都不到（validateTheme 会直接报 error）。这里整体调深一档，
-    // 保持「text > muted > hint」的层次，同时两级都过 4.5:1。
-    muted: c.gray[600],
-    hint: c.gray[500],
-    border: c.gray[200],
-    background: '#ffffff',
+    // 语义色 = 家族品牌基线（Bootstrap 5）—— 品牌决策落在 semantic（alias token）上，
+    // base.color 那套色 ramp 只是"原始色料"（global token），两者故意的分工。
+    ...BOOTSTRAP_BASELINE,
     chrome: buildChrome(),
-    // 数据系列配色（折线/柱状逐系列取色），用 Tailwind 500 level 8 色
-    palette: [
-      c.blue[500],
-      c.emerald[500],
-      c.amber[500],
-      c.red[500],
-      c.violet[500],
-      c.teal[500],
-      c.pink[500],
-      c.indigo[500],
-    ],
+    // 数据系列配色：与 ice-chart 共用同一份（见 FAMILY_PALETTE 的说明）
+    palette: FAMILY_PALETTE.slice(),
     motion: {
       duration: { fast: 100, normal: 200, slow: 300, slower: 500 },
       easing: {
@@ -310,28 +345,20 @@ export const DEFAULT_THEME: ICETheme = {
 export const DARK_THEME: ICETheme = {
   base: baseTokens,
   semantic: buildSemantic(baseTokens, {
-    // 彩色用 400 level（更亮，适配深色背景）
-    primary: baseTokens.color.blue[400],
-    success: baseTokens.color.emerald[400],
-    warning: baseTokens.color.amber[400],
-    danger: baseTokens.color.red[400],
-    info: baseTokens.color.teal[400],
-    text: baseTokens.color.gray[200],
-    muted: baseTokens.color.gray[300],
-    hint: baseTokens.color.gray[400],
-    border: baseTokens.color.gray[700],
-    background: baseTokens.color.gray[900],
-    // palette 也用 400 level
-    palette: [
-      baseTokens.color.blue[400],
-      baseTokens.color.emerald[400],
-      baseTokens.color.amber[400],
-      baseTokens.color.red[400],
-      baseTokens.color.violet[400],
-      baseTokens.color.teal[400],
-      baseTokens.color.pink[400],
-      baseTokens.color.indigo[400],
-    ],
+    // 深色 = Bootstrap 5.3 的 `data-bs-theme="dark"` 变体（亮一档，暗底上可辨）
+    primary: '#3d8bfd',
+    success: '#479f76',
+    warning: '#ffda6a',
+    danger: '#ea868f',
+    info: '#6edff6',
+    // 灰阶同样三档且全过 AA：正文 17:1 / 次要 12.5:1 / 提示 8.5:1（对 #212529 底）
+    text: '#dee2e6',
+    muted: '#ced4da',
+    hint: '#adb5bd',
+    border: '#495057',
+    background: '#212529',
+    // 数据系列配色：家族深色色板
+    palette: FAMILY_PALETTE_DARK.slice(),
     // 交互外壳在深色底上改用语义色：以前是写死的亮红 / 亮绿，深色主题下非常刺眼
     chrome: {
       selection: { stroke: baseTokens.color.blue[300], fill: 'rgba(96,165,250,0.16)', lineWidth: 1, lineDash: [] },
