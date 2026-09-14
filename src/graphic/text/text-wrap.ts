@@ -114,7 +114,11 @@ function segmentDictionaryWords(run: string, intl?: any): string[] {
 /** 按 grapheme cluster 切分（与 ICEText 同一口径）。带小缓存，避免重复切分同一段文本。 */
 export function splitGraphemes(s: string, intl: any = typeof Intl !== 'undefined' ? Intl : undefined): string[] {
   const cached = graphemeCache.get(s);
-  if (cached) return cached;
+  // **返回副本**：缓存的是「这份文本切出来的 grapheme」，但调用方会就地加工它
+  // （截断逻辑用 `pop()` 逐个回退）。直接把缓存数组交出去 = 谁 pop 谁改坏全局缓存，
+  // 表现为「同一段文本、第二次截断少截了几个字」——2026-09-14 实测到的事故：
+  // 先用 `ellipsis: '...'` 截过一次 `abcdefgh`，再用默认 `…` 截同一段文本，结果从 `abcd…` 变成 `ab…`。
+  if (cached) return cached.slice();
   let out: string[];
   if (intl && typeof intl.Segmenter === 'function') {
     try {
@@ -131,7 +135,7 @@ export function splitGraphemes(s: string, intl: any = typeof Intl !== 'undefined
   }
   if (graphemeCache.size > 500) graphemeCache.clear();
   graphemeCache.set(s, out);
-  return out;
+  return out.slice();
 }
 
 /** 测试用：清空 grapheme 缓存。 */
