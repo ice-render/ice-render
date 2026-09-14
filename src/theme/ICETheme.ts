@@ -14,7 +14,7 @@
  *   ② semantic（语义）—— 用途：primary / danger / text / border / palette / motion，引用 base。
  *   ③ component（组件）—— STYLE_PRESETS 预设，引用 semantic + base。
  *
- * 优先级链（对齐 ECharts）：用户 props > 组件 preset > 语义 theme > 基础 default。
+ * 优先级链（与主流一致）：用户 props > 组件 preset > 语义 theme > 基础 default。
  *
  * 命名主题：registerTheme(name, theme) 注册，setTheme('dark') 按名切换；内置 default + dark。
  *
@@ -152,7 +152,7 @@ export interface ICESemanticTheme {
   hint: string;
   border: string;
   background: string;
-  // 数据系列配色（折线/柱状等逐系列取色），对齐 ECharts 的 color palette
+  // 数据系列配色（折线/柱状等逐系列取色），与主流的 color palette 一致
   palette: string[];
   // 动效 token（时长 / 缓动），供动画系统引用
   motion: {
