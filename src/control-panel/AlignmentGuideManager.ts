@@ -10,6 +10,7 @@
  *   3. 滞回（hysteresis）：已吸附的轴用更大的脱离阈值，避免阈值边界来回抖。
  */
 import ICE from '../ICE';
+import { token } from '../theme/ICETheme';
 import ICERect from '../graphic/shape/ICERect';
 import ICEComponent from '../graphic/ICEComponent';
 
@@ -50,7 +51,7 @@ export interface AlignmentGuideOptions {
   center?: boolean;
   /** 等间距对齐，默认 true。 */
   spacing?: boolean;
-  /** 提示线完整样式（透传给 canvas ctx），默认 { fillStyle: '#EC4899' }。 */
+  /** 提示线完整样式（透传给 canvas ctx），默认跟随主题的 chrome.guide.color。 */
   guideStyle?: Record<string, any>;
   /** 提示线 zIndex，默认在控制面板之上。 */
   guideZIndex?: number;
@@ -217,7 +218,7 @@ class AlignmentGuideManager {
     edge: true,
     center: true,
     spacing: true,
-    guideStyle: { fillStyle: '#EC4899' },
+    guideStyle: { fillStyle: token('chrome.guide.color') },
     guideZIndex: 10000010,
     guideWidth: 1,
   };

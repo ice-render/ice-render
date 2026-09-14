@@ -37,6 +37,19 @@ class ICEGroup extends ICERect {
   }
 
   /**
+   * 容器默认**不画自己的盒子**（透明）。
+   *
+   * 为什么：`ICEGroup` 继承自 `ICERect`，也就继承了「画自己的矩形」。历史上默认样式是
+   * `red/blue`，于是任何没显式给 style 的容器都会画一个红块 —— 叠层示例里 4 个半透明图层
+   * 下面垫着的不透明红块就是这么来的，肉眼看起来像"混合出了紫色"。
+   * 容器的正确定位是布局与分组：要背景 / 边框就显式给 style 或用 `preset: 'card' | 'panel'`
+   * （预设里会显式给样式），默认则保持透明。
+   */
+  protected __defaultStyleFor(): any {
+    return { fillStyle: 'rgba(0,0,0,0)', strokeStyle: 'rgba(0,0,0,0)', lineWidth: 1 };
+  }
+
+  /**
    * 设置布局策略（对齐 Swing 的 container.setLayout）。
    * 设置后立即执行一次布局，并把布局传播给「未显式设置布局」的容器型子组件（子容器默认继承父层布局）。
    */

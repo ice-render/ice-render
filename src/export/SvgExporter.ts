@@ -11,6 +11,7 @@ import { resolveTextAlign, resolveTextDirection } from '../graphic/text/text-dir
 import { resolveLetterSpacingPx, resolveTextDecorations } from '../graphic/text/text-style';
 import ICEImage from '../graphic/ICEImage';
 import { SHADOW_PRESETS } from '../graphic/ICEComponent';
+import { isTokenRef, resolveThemeValue } from '../theme/ICETheme';
 
 /**
  * @file SVG 导出
@@ -62,14 +63,44 @@ export type SvgExportResult = {
   height: number;
 };
 
-/** 合并 props.style 与 state.style（同 applyStyleToCtx：state 覆盖 props），零分配失败即返回空对象 */
+/**
+ * 合并 props.style 与 state.style（同 applyStyleToCtx：state 覆盖 props），并解析主题引用。
+ *
+ * 主题引用必须在这里解析掉：`{$token:'primary'}` 原样写进 SVG 的 `fill` 是无效值，
+ * 导出结果会变成「画布上有颜色、导出的 SVG 没有」（画布走的是 ctx，SVG 走的是字符串）。
+ */
 function mergedStyle(component: any): Record<string, any> {
   const propsStyle = component.props && component.props.style;
   const stateStyle = component.state && component.state.style;
   if (!propsStyle && !stateStyle) {
     return {};
   }
-  return { fillStyle: undefined, ...propsStyle, ...stateStyle };
+  const merged = { fillStyle: undefined, ...propsStyle, ...stateStyle };
+  // 交互状态样式也算进去（导出的是"当前看到的这一帧"）
+  const states = component.props && component.props.states;
+  const activeNames: string[] = typeof component.activeStateNames === 'function' ? component.activeStateNames() : [];
+  if (states && activeNames.length) {
+    for (const name of activeNames) {
+      if (states[name]) Object.assign(merged, states[name]);
+    }
+  }
+  const theme = typeof component.themeOf === 'function' ? component.themeOf() : null;
+  if (!theme) return merged;
+  const out: Record<string, any> = {};
+  for (const key of Object.keys(merged)) {
+    const value = (merged as any)[key];
+    if (isTokenRef(value)) {
+      const resolved = resolveThemeValue(value, theme);
+      out[key] = resolved === undefined ? value : resolved;
+    } else {
+      out[key] = value;
+    }
+  }
+  // 阴影是简写（'sm' | 'md' | 'lg'）时，把主题里的颜色摊成 shadowColor —— 导出侧只认具体字段
+  if (typeof out.shadow === 'string' && (theme.semantic.chrome.shadow as any)[out.shadow]) {
+    out.shadowColor = out.shadowColor || (theme.semantic.chrome.shadow as any)[out.shadow];
+  }
+  return out;
 }
 
 /** 颜色转 SVG 取值：`undefined` 当透明处理 */
@@ -307,7 +338,9 @@ function matrixAttr(m: number[], digits: number): string {
 function shadowFilter(id: string, style: Record<string, any>): any {
   let shadow: any = null;
   if (typeof style.shadow === 'string' && (SHADOW_PRESETS as any)[style.shadow]) {
-    shadow = (SHADOW_PRESETS as any)[style.shadow];
+    // 颜色优先取显式 shadowColor（mergedStyle 会把主题里的阴影色摊到这里）
+    const preset = (SHADOW_PRESETS as any)[style.shadow];
+    shadow = style.shadowColor ? { ...preset, shadowColor: style.shadowColor } : preset;
   } else {
     const blur = Number(style.shadowBlur) || 0;
     const dx = Number(style.shadowOffsetX) || 0;

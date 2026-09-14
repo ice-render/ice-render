@@ -7,6 +7,7 @@
  */
 import bigZIndexNum from '../../consts/BIG_ZINDEX_NUMBER';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
+import { token } from '../../theme/ICETheme';
 import ICEEvent from '../../event/ICEEvent';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
 import ICE from '../../ICE';
@@ -81,14 +82,14 @@ export default class ICELinkSlotManager {
         slot.setState({
           display: false,
           style: {
-            fillStyle: '#3ce92c',
+            fillStyle: token('chrome.slot.fill'),
           },
         });
       }
 
       linkHook.setState({
         style: {
-          fillStyle: '#3ce92c',
+          fillStyle: token('chrome.slot.fill'),
         },
       });
       return;
@@ -106,13 +107,13 @@ export default class ICELinkSlotManager {
       slot.setState({
         display: true,
         style: {
-          fillStyle: '#3ce92c',
+          fillStyle: token('chrome.slot.fill'),
         },
       });
 
       linkHook.setState({
         style: {
-          fillStyle: '#3ce92c',
+          fillStyle: token('chrome.slot.fill'),
         },
       });
 
@@ -122,7 +123,7 @@ export default class ICELinkSlotManager {
         isIntersect = true;
         slot.setState({
           style: {
-            fillStyle: '#fffb00',
+            fillStyle: token('chrome.slot.hoverFill'),
           },
         });
       }
@@ -130,7 +131,7 @@ export default class ICELinkSlotManager {
     if (isIntersect) {
       linkHook.setState({
         style: {
-          fillStyle: '#fffb00',
+          fillStyle: token('chrome.slot.hoverFill'),
         },
       });
     }
@@ -151,7 +152,7 @@ export default class ICELinkSlotManager {
         slot.setState({
           display: false,
           style: {
-            fillStyle: '#3ce92c',
+            fillStyle: token('chrome.slot.fill'),
           },
         });
 
@@ -180,7 +181,7 @@ export default class ICELinkSlotManager {
       linkHook.setState({
         display: false,
         style: {
-          fillStyle: '#3ce92c',
+          fillStyle: token('chrome.slot.fill'),
         },
       });
     }
@@ -196,7 +197,7 @@ export default class ICELinkSlotManager {
       slot.setState({
         display: false,
         style: {
-          fillStyle: '#3ce92c',
+          fillStyle: token('chrome.slot.fill'),
         },
       });
     }
@@ -220,8 +221,8 @@ export default class ICELinkSlotManager {
       radius: this.slotRadius,
       position: 'T',
       style: {
-        strokeStyle: '#0c09d4',
-        fillStyle: '#3ce92c',
+        strokeStyle: token('chrome.slot.stroke'),
+        fillStyle: token('chrome.slot.fill'),
         lineWidth: 1,
       },
     });
@@ -235,8 +236,8 @@ export default class ICELinkSlotManager {
       radius: this.slotRadius,
       position: 'R',
       style: {
-        strokeStyle: '#0c09d4',
-        fillStyle: '#3ce92c',
+        strokeStyle: token('chrome.slot.stroke'),
+        fillStyle: token('chrome.slot.fill'),
         lineWidth: 1,
       },
     });
@@ -250,8 +251,8 @@ export default class ICELinkSlotManager {
       radius: this.slotRadius,
       position: 'B',
       style: {
-        strokeStyle: '#0c09d4',
-        fillStyle: '#3ce92c',
+        strokeStyle: token('chrome.slot.stroke'),
+        fillStyle: token('chrome.slot.fill'),
         lineWidth: 1,
       },
     });
@@ -265,8 +266,8 @@ export default class ICELinkSlotManager {
       radius: this.slotRadius,
       position: 'L',
       style: {
-        strokeStyle: '#0c09d4',
-        fillStyle: '#3ce92c',
+        strokeStyle: token('chrome.slot.stroke'),
+        fillStyle: token('chrome.slot.fill'),
         lineWidth: 1,
       },
     });
@@ -280,8 +281,8 @@ export default class ICELinkSlotManager {
       radius: this.slotRadius,
       position: 'C',
       style: {
-        strokeStyle: '#0c09d4',
-        fillStyle: '#3ce92c',
+        strokeStyle: token('chrome.slot.stroke'),
+        fillStyle: token('chrome.slot.fill'),
         lineWidth: 1,
       },
     });

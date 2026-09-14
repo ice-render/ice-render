@@ -106,6 +106,13 @@ class DOMEventDispatcher {
           componentCache = this.findTargetComponent(evt); //FIXME: TransformControlPanel 会遮挡住组件，导致组件收不到鼠标事件，需要做一些处理。
         }
 
+        // 交互状态自动驱动（默认关闭，`ice.enableInteractionStates()` 打开）：
+        // 移动时更新 hover、按下/抬起时更新 active。**刻意只在开关打开时做命中检测** ——
+        // 引擎的 mousemove 本来是不做命中测试的（高频 + 脏矩形，全场景命中是实打实的开销）。
+        if (this.ice.interactionStatesEnabled && isMove && input) {
+          this.ice.updateHoverState(this.findTargetComponent(evt));
+        }
+
         // 键盘事件优先派发给「焦点组件」（无障碍），未设置焦点时维持既有行为
         let dispatchTarget = componentCache;
         if (isWheel) {
@@ -116,7 +123,21 @@ class DOMEventDispatcher {
         // 拖拽归属：抬起事件先回到"按下的那个组件"，再按命中结果派发（总线仍只触发一次）
         if (isPressEvt) {
           pressedComponent = componentCache;
+          if (
+            this.ice.interactionStatesEnabled &&
+            componentCache &&
+            typeof componentCache.setInteractionState === 'function'
+          ) {
+            componentCache.setInteractionState('active', true);
+          }
         } else if (isReleaseEvt) {
+          if (
+            this.ice.interactionStatesEnabled &&
+            pressedComponent &&
+            typeof pressedComponent.setInteractionState === 'function'
+          ) {
+            pressedComponent.setInteractionState('active', false);
+          }
           if (pressedComponent && pressedComponent !== dispatchTarget) {
             const rawTarget = evt.target;
             this.__dispatchToComponentOnly(nativeEvtName, evt, pressedComponent);

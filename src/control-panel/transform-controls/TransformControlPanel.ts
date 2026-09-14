@@ -9,6 +9,7 @@ import { mat2d, vec2 } from 'gl-matrix';
 import { applyAspectLock } from './constraints';
 import bigZIndexNum from '../../consts/BIG_ZINDEX_NUMBER';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
+import { token } from '../../theme/ICETheme';
 import ICEComponent from '../../graphic/ICEComponent';
 import ICEControlPanel from '../ICEControlPanel';
 import ResizeControl from './ResizeControl';
@@ -121,10 +122,10 @@ export default class TransformControlPanel extends ICEControlPanel {
         top: controlConfig.position[1],
         width: this.resizeControlSize,
         height: this.resizeControlSize,
-        //TODO: style 放到 props 中去变成可配置的参数
+        // 主题引用：手柄配色归主题（原本是写死的暗红/砖红，深色主题下不协调）
         style: {
-          strokeStyle: '#8b0000',
-          fillStyle: '#CC3300',
+          strokeStyle: token('chrome.handle.stroke'),
+          fillStyle: token('chrome.handle.fill'),
           lineWidth: 1,
         },
         direction: controlConfig.direction,
@@ -144,10 +145,9 @@ export default class TransformControlPanel extends ICEControlPanel {
       left: left,
       top: top,
       radius: this.rotateControlSize,
-      //TODO: style 放到 props 中去变成可配置的参数
       style: {
-        strokeStyle: '#8b0000',
-        fillStyle: '#CC3300',
+        strokeStyle: token('chrome.handle.stroke'),
+        fillStyle: token('chrome.handle.fill'),
         lineWidth: 1,
       },
     });
