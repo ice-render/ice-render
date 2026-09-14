@@ -6,6 +6,7 @@
  *
  */
 import root from '../cross-platform/root';
+import { resolveThemeValue } from '../theme/ICETheme';
 import ICEComponent from './ICEComponent';
 
 /**
@@ -174,7 +175,11 @@ abstract class ICEPath extends ICEComponent {
       ctx.save();
       ctx.setLineDash([]);
       ctx.lineWidth = (this.state.style.lineWidth || 1) + (this.state.lineBorderWidth || 4) * 2;
-      ctx.strokeStyle = this.state.lineBorderColor || this.themeOf().semantic.chrome.lineBorder;
+      // `lineBorderColor` 是颜色 → 允许写主题引用（'$border' / token(...)），与 style 里的色值同一套解析；
+      // 没给就用主题的 chrome.lineBorder。（lineBorderWidth 是几何量，保持数字、不进主题。）
+      const borderColor =
+        resolveThemeValue(this.state.lineBorderColor, this.themeOf()) || this.themeOf().semantic.chrome.lineBorder;
+      ctx.strokeStyle = borderColor;
       if (this.path2D._isPolyfill) {
         this.replayPath();
         ctx.stroke();
