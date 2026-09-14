@@ -25,11 +25,17 @@ describe('蚂蚁线（lineDashFlow / lineDashOffset / 水管壁）', () => {
     expect(r.state.lineBorder).toBe(false);
   });
 
-  it('水管壁默认：lineBorder=false, lineBorderWidth=1.5', () => {
+  it('水管壁默认：lineBorder=false, lineBorderWidth=1.5，颜色跟随主题', () => {
     const r = new ICERect({});
     expect(r.state.lineBorder).toBe(false);
     expect(r.state.lineBorderWidth).toBe(1.5);
-    expect(r.state.lineBorderColor).toBe('#999999');
+    // 留空 = 用主题的 chrome.lineBorder（以前写死 #999999，主题换了它不换）
+    expect(r.state.lineBorderColor).toBe('');
+    expect(r.themeOf().semantic.chrome.lineBorder).toBeTruthy();
+
+    // 显式给色值仍然优先
+    const explicit = new ICERect({ lineBorderColor: '#123456' });
+    expect(explicit.state.lineBorderColor).toBe('#123456');
   });
 
   it('lineDashFlow=true 触发 loop 动画注册（__flowRegistered）', () => {

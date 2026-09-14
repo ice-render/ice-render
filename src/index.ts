@@ -83,6 +83,23 @@ export {
   setTheme,
   getTheme,
   STYLE_PRESETS,
+  listThemes,
+  getRegisteredTheme,
+  resolveTheme,
+  mergeThemes,
+  registerPreset,
+  unregisterPreset,
+  BUILTIN_PRESET_NAMES,
+  token,
+  palette,
+  isTokenRef,
+  resolveThemeValue,
+  tokenValue,
+  deepMerge,
+  validateTheme,
+  contrastRatio,
+  deepDiff,
+  deepEqual,
 } from './theme/ICETheme';
 export { default as ICE } from './ICE';
 export { default as CanvasRenderer } from './renderer/CanvasRenderer';

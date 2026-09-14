@@ -5,6 +5,7 @@
  * 验证：默认值可读、用户字段写时复制、共享默认不被污染、state 仍是独立完整副本、id/zIndex 唯一。
  */
 import ICERect from '../../src/graphic/shape/ICERect';
+import { DEFAULT_THEME } from '../../src/theme/ICETheme';
 
 class FakePath2D {
   _isPolyfill = true;
@@ -27,20 +28,27 @@ beforeAll(() => {
 });
 
 describe('ICEComponent 默认 props 原型共享', () => {
-  it('默认字段通过原型继承可读', () => {
+  it('默认字段通过原型继承可读；默认样式来自主题', () => {
     const r = new ICERect({});
-    expect(r.props.style.fillStyle).toBe('red');
+    // 默认样式不再是写死的 red/blue —— 它按主题派生（DEFAULT_THEME 的语义色）
+    expect(r.props.style.fillStyle).toBe(DEFAULT_THEME.semantic.primary);
+    expect(r.props.style.strokeStyle).toBe(DEFAULT_THEME.semantic.border);
     expect(r.props.stroke).toBe(true);
     expect(r.props.transform.rotate).toBe(0);
     expect(r.props.display).toBe(true);
   });
 
-  it('用户传入 style 不污染共享默认值', () => {
+  it('用户传入 style 不污染默认值，且默认样式是实例各自的对象', () => {
     const a = new ICERect({ style: { fillStyle: '#333333' } });
     expect(a.props.style.fillStyle).toBe('#333333');
 
     const b = new ICERect({});
-    expect(b.props.style.fillStyle).toBe('red'); // 共享默认未被污染
+    expect(b.props.style.fillStyle).toBe(DEFAULT_THEME.semantic.primary);
+
+    // 实例之间不共享同一份 style 对象：改一个不会影响另一个
+    b.props.style.fillStyle = '#ff00ff';
+    const c = new ICERect({});
+    expect(c.props.style.fillStyle).toBe(DEFAULT_THEME.semantic.primary);
   });
 
   it('state 是独立完整副本，修改 state 不影响 props', () => {

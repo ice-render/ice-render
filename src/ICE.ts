@@ -27,7 +27,22 @@ import CanvasRenderer from './renderer/CanvasRenderer';
 import { exportSvg, exportSvgResult } from './export/SvgExporter';
 import type { SvgExportOptions, SvgExportResult } from './export/SvgExporter';
 import ImageCache from './util/ImageCache';
-import { resolveTheme, getTheme, registerTheme, ICETheme, ICESemanticTheme } from './theme/ICETheme';
+import {
+  resolveTheme,
+  getTheme,
+  registerTheme,
+  getRegisteredTheme,
+  DEFAULT_THEME,
+  deepDiff,
+  mergeThemes,
+  registerPreset,
+  validateTheme,
+  type ICETheme,
+  type ICESemanticTheme,
+  type ICEThemePatch,
+  type ICEChromeTheme,
+  type ICEThemeInput,
+} from './theme/ICETheme';
 import { assertTypeId } from './util/type-id';
 import { ICE_ERROR_CODES, iceError } from './util/errors';
 
@@ -55,6 +70,7 @@ function tagGradient(native: any, desc: any): any {
   return native;
 }
 import { flattenAllComponents, hitTestComponents } from './util/data-util';
+import { deepMerge } from './theme/ICETheme';
 import { HIT_BOX_TOLERANCE } from './renderer/dirty-rect-util';
 
 /**
@@ -112,6 +128,18 @@ class ICE {
    * （见 `addChild` / `addTool` 中的 `__reapplyPreset`）。
    */
   public theme: ICETheme = getTheme();
+  /** 主题版本号：每次 setTheme / setChrome 递增，组件的作用域主题缓存据此失效。 */
+  public __themeRevision = 0;
+  /** 命名主题名（快照用；对象形式的部分主题不改它）。 */
+  private __themeName: string | null = null;
+  /** 快照的基线主题名：主题补丁是叠在它上面的（默认 default）。 */
+  private __themeBaseName = 'default';
+  /** 有没有动过主题（没动过就不往快照里写 theme 字段）。 */
+  private __themeTouched = false;
+  /** 累积的主题补丁（内部记录；快照实际写的是 diff，见 themeSnapshot()）。 */
+  private __themePatch: any = null;
+  private __interactionStatesEnabled = false;
+  private __hoveredComponent: any = null;
 
   /**
    * 类型名（canonical typeId，`namespace:Type`）与构造函数之间的映射关系。
@@ -815,14 +843,127 @@ class ICE {
   }
 
   /**
-   * 切换主题（string 按名切换 / object 浅合并 semantic），预设样式（preset）会自动跟随主题变量。
-   * 热切换：已渲染的组件里用了 preset 的会重新 resolve（用户显式传的样式优先）。
+   * 切换主题。
+   *
+   * 入参三种形态（都支持热切换，不用重建场景）：
+   * - 命名主题：`ice.setTheme('dark')`
+   * - 部分主题（深合并）：`ice.setTheme({ primary: '#f00' })`（平铺 semantic，兼容旧写法）
+   *   或 `ice.setTheme({ base: { radius: { md: 6 } }, motion: { duration: { fast: 50 } } })`
+   * - 完整主题对象：`ice.setTheme(registeredTheme)`
+   *
+   * 热切换覆盖两条路径：
+   *   ① 样式里写了**主题引用**（`token('primary')` / `'$primary'`）的：paint 时解析，标脏即可；
+   *   ② 用了 `preset` 与「没写 style」的：重新 resolve 一次默认值。
    */
-  public setTheme(theme: string | Partial<ICESemanticTheme>): this {
+  public setTheme(theme: ICEThemeInput): this {
     // 实例级：不修改模块级默认主题，因此多个 ICE 实例可以有各自的主题（多品牌/多租户）
     this.theme = resolveTheme(theme, this.theme);
+    this.__themeTouched = true;
+    if (typeof theme === 'string') {
+      // 命名主题：整份替换；补丁与基线都重置到它
+      this.__themeName = theme;
+      this.__themeBaseName = theme;
+      this.__themePatch = null;
+    } else if (theme && typeof theme === 'object') {
+      // 部分主题：叠在当前主题之上，基线（命名主题）不变
+      this.__themePatch = this.__themePatch ? deepMerge(this.__themePatch, theme) : { ...(theme as any) };
+    }
+    // 主题版本号：组件的作用域主题缓存靠它失效
+    this.__themeRevision++;
     this.__reapplyPresets();
     return this;
+  }
+
+  /**
+   * 只改**交互外壳**（选中框 / 手柄 / 插槽 / 引导线 / 连线标签 / 选区 / 阴影颜色 / 调试框）。
+   *
+   * 与 `setTheme` 的关系：外壳是主题里的一组 token（`semantic.chrome`），
+   * 这个方法就是「只覆盖这一组」的语法糖 —— 应用层想保留主题的其余部分、只换品牌色手柄时用它。
+   *
+   * ```ts
+   * ice.setChrome({ handle: { fill: '#0d6efd', stroke: '#0d6efd' } });
+   * ```
+   */
+  public setChrome(patch: Partial<ICEChromeTheme>): this {
+    if (!patch || typeof patch !== 'object') return this;
+    this.theme = mergeThemes(this.theme, { semantic: { chrome: patch } as any });
+    this.__themeTouched = true;
+    const patchRecord: any = { chrome: patch };
+    this.__themePatch = this.__themePatch ? deepMerge(this.__themePatch, patchRecord) : patchRecord;
+    this.__themeRevision++;
+    this.__reapplyPresets();
+    return this;
+  }
+
+  /** 当前采用的主题（含设置的 chrome / 作用域之外的实例主题）。 */
+  public getTheme(): ICETheme {
+    return this.theme;
+  }
+
+  /**
+   * 主题快照（给 Serializer 用）：`{ name, patch? }`。
+   *
+   * patch 是**相对命名主题的真实差异**（`deepDiff`），所以「当初怎么设置主题的」
+   * （整份对象 / 部分补丁 / setChrome）都不影响存下来的内容 —— 只存改过的那几处。
+   * 没动过主题返回 null（旧快照格式不受影响）。
+   */
+  public themeSnapshot(): { name: string; patch?: any } | null {
+    if (!this.__themeTouched) return null;
+    const name = this.__themeBaseName || 'default';
+    const base = getRegisteredTheme(name) || DEFAULT_THEME;
+    const patch = deepDiff(base, this.theme);
+    return patch ? { name, patch } : { name };
+  }
+
+  /** 校验当前实例主题（未知 token / 类型不对 / 对比度不足），返回结构化诊断。 */
+  public validateTheme(): ReturnType<typeof validateTheme> {
+    return validateTheme(this.theme);
+  }
+
+  /** 注册组件样式预设（不允许覆盖内置；应用层预设建议带 `app:` 命名空间）。 */
+  public registerPreset(name: string, factory: any): this {
+    registerPreset(name, factory);
+    return this;
+  }
+
+  /**
+   * 打开「交互状态自动驱动」：鼠标移动时对命中的组件自动设置 `hover` 状态、
+   * 按下时设置 `active` 状态（抬起清除），配合 `props.states` 就能做出 hover / active 反馈。
+   *
+   * 默认关闭：引擎的 mousemove 刻意不做命中检测（高频事件 + 脏矩形渲染，
+   * 每帧对全场景做命中测试是实打实的开销）。需要 hover 反馈的场景显式打开；
+   * 数据流 / 大场景可以只对需要的组件手写 `setInteractionState()`。
+   */
+  public enableInteractionStates(): this {
+    this.__interactionStatesEnabled = true;
+    return this;
+  }
+
+  public disableInteractionStates(): this {
+    this.__interactionStatesEnabled = false;
+    return this;
+  }
+
+  public get interactionStatesEnabled(): boolean {
+    return this.__interactionStatesEnabled;
+  }
+
+  /**
+   * 让「鼠标当前命中的组件」进入 hover 状态（由 DOMEventDispatcher 在移动事件里调用）。
+   * 返回是否发生了变化（调用方据此决定要不要重绘）。
+   */
+  public updateHoverState(component: any): boolean {
+    if (!this.__interactionStatesEnabled) return false;
+    if (this.__hoveredComponent === component) return false;
+    const previous: any = this.__hoveredComponent;
+    this.__hoveredComponent = component || null;
+    if (previous && typeof previous.setInteractionState === 'function') {
+      previous.setInteractionState('hover', false);
+    }
+    if (component && typeof component.setInteractionState === 'function') {
+      component.setInteractionState('hover', true);
+    }
+    return true;
   }
 
   /**
@@ -1289,19 +1430,26 @@ class ICE {
     return hitTestComponents(this, wx, wy, HIT_BOX_TOLERANCE);
   }
 
+  /** 递归清除组件子树上的主题作用域缓存（主题变化后必须失效）。 */
+  private __invalidateThemeCacheDeep(component: any): void {
+    if (!component) return;
+    if (typeof component.invalidateThemeCache === 'function') {
+      component.invalidateThemeCache();
+    } else if (typeof component.__reapplyPreset === 'function') {
+      component.__reapplyPreset(this.theme);
+    }
+    const children: any[] = (component && component.childNodes) || [];
+    for (const child of children) {
+      this.__invalidateThemeCacheDeep(child);
+    }
+  }
+
   /**
    * 注册命名主题（运行时注入，如多品牌 / 多租户 / 暗色主题）。
    */
   public registerTheme(name: string, theme: ICETheme): this {
     registerTheme(name, theme);
     return this;
-  }
-
-  /**
-   * 获取当前主题对象（{ base, semantic }）。返回的是**本实例**的主题。
-   */
-  public getTheme(): ICETheme {
-    return this.theme;
   }
 
   /**
@@ -1314,6 +1462,21 @@ class ICE {
         (comp as any).__reapplyPreset(this.theme);
       }
     }
+    // 工具层（控制面板 / 插槽 / 引导线）也要跟着主题走
+    const tools: any[] = (this as any).toolNodes || [];
+    for (const tool of tools) {
+      this.__invalidateThemeCacheDeep(tool);
+    }
+    // 主题变了就是整帧都要重画：颜色可能出现在任何位置，脏矩形算不准 ——
+    // 把整棵树标脏，让渲染器自行合并脏区（合并预算挡下时它本来就会回退全量）
+    const all2 = flattenAllComponents(this);
+    for (const comp of all2) {
+      (comp as any).dirty = true;
+    }
+    for (const tool of tools) {
+      if (tool) tool.dirty = true;
+    }
+    this.dirty = true;
   }
 
   /**

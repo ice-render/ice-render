@@ -51,6 +51,17 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
   `linear` / `radial` / `conic` 渐变（`{ type, from/to | center/radius | startAngle, stops }`），
   渲染时构造 `CanvasGradient` 并按描述对象引用缓存。与手搓 `CanvasGradient` 的关键差别是
   **能进 JSON**（存盘不丢）且**能写进主题 preset**（随 `setTheme` 重新展开）。
+- **主题与样式：四层 token + 主题引用 + 状态样式** ——
+  ① base（色 ramp / spacing / radius / fontSize）→ ② semantic（primary / text / border / palette / motion）
+  → ③ chrome（选中框 / 手柄 / 插槽 / 引导线 / 连线标签 / 选区 / 阴影色）→ ④ preset（card / panel / button …）。
+  样式里可以直接**引用** token：`style: { fillStyle: token('primary') }`，**在绘制那一刻解析**，
+  所以 `setTheme()` 之后任意组件（不只是用了 preset 的）都会跟着换；
+  交互状态用 `states: { hover, active, selected, disabled, focus }` 声明，
+  引擎提供 `setInteractionState()` 与可选的自动驱动（`ice.enableInteractionStates()`）；
+  主题支持**深合并**（`{ motion: { duration: { fast: 50 } } }` 不会抹掉 `easing`）、
+  **子树作用域**（`new ICEGroup({ theme: {...} })`）、**进快照**（`theme: { name | patch }`）、
+  **结构化校验**（`ice.validateTheme()`：未知 token / 类型不对 / WCAG 对比度不足）。
+  细节见 [`docs/architecture/21-theme-and-style.md`](./docs/architecture/21-theme-and-style.md)。
 - **`display: false` 是整棵子树隐藏** —— 隐藏父容器后子组件不再被绘制、也不参与命中
   （判定收敛在 `isEffectivelyVisible()`，渲染/命中/a11y/离屏缓存共用）。
 - **变换手柄支持修改键约束** —— `Shift` 拖角手柄保持宽高比、`Shift` 拖旋转手柄吸附 15°。
@@ -191,7 +202,7 @@ PNG / PDF 不内置依赖：SVG 是通用中间格式，`resvg`、`sharp`、`rsv
 
 ## 📚 文档
 
-- **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：共 16 篇 —— 运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容 / 路线图与边界 / Worker 与离屏渲染 / 视口缩放 / 对齐吸附 / 能力缺口分析 / 无障碍 / 应用驱动复盘 / 连线端点（插槽）扩展评估。
+- **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：共 21 篇 —— 运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容 / 路线图与边界 / Worker 与离屏渲染 / 视口缩放 / 对齐吸附 / 能力缺口分析 / 无障碍 / 应用驱动复盘 / 连线端点（插槽）扩展评估 / 主题与样式机制。
 - **示例** —— [`examples/`](./examples/index.html) 目录提供 **88 个**可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、文本、视口、对齐、插件、无障碍、性能基准等）。
 
 ## 🧪 工程化

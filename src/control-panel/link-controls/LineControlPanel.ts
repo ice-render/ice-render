@@ -8,6 +8,7 @@
 import { mat2d, vec2 } from 'gl-matrix';
 import bigZIndexNum from '../../consts/BIG_ZINDEX_NUMBER';
 import ICE_EVENT_NAME_CONSTS from '../../consts/ICE_EVENT_NAME_CONSTS';
+import { token } from '../../theme/ICETheme';
 import ICEComponent from '../../graphic/ICEComponent';
 import ICELinkHook from '../../graphic/link/ICELinkHook';
 import ICEControlPanel from '../ICEControlPanel';
@@ -56,10 +57,9 @@ export default class LineControlPanel extends ICEControlPanel {
       top: -halfControlSize,
       width: this.controlSize,
       height: this.controlSize,
-      //TODO: style 放到 props 中去变成可配置的参数
       style: {
-        strokeStyle: '#0c09d4',
-        fillStyle: '#3ce92c',
+        strokeStyle: token('chrome.linkHook.stroke'),
+        fillStyle: token('chrome.linkHook.fill'),
         lineWidth: 1,
       },
       position: 'start',
@@ -73,10 +73,9 @@ export default class LineControlPanel extends ICEControlPanel {
       top: height - halfControlSize,
       width: this.controlSize,
       height: this.controlSize,
-      //TODO: style 放到 props 中去变成可配置的参数
       style: {
-        strokeStyle: '#0c09d4',
-        fillStyle: '#3ce92c',
+        strokeStyle: token('chrome.linkHook.stroke'),
+        fillStyle: token('chrome.linkHook.fill'),
         lineWidth: 1,
       },
       position: 'end',

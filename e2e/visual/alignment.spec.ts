@@ -25,7 +25,13 @@ test('对齐吸附：拖拽靠近边缘自动吸附并显示提示线', async ({
   const snap = await page.evaluate(() => {
     const ice = (window as any).__ice;
     const a = ice.childNodes[0];
-    const guides = ice.toolNodes.filter((t: any) => t.state.style.fillStyle === '#EC4899');
+    // 提示线的颜色现在走主题引用（paint 时解析），所以按「引用路径 + 解析结果」一起判：
+    // 直接比 '#EC4899' 会随着主题化改动失效（这正是这次要验证的能力）。
+    const guides = ice.toolNodes.filter((t: any) => {
+      const value = t.state.style && t.state.style.fillStyle;
+      if (value && value.$token === 'chrome.guide.color') return true;
+      return value === '#EC4899';
+    });
     return { left: a.state.left, top: a.state.top, guideCount: guides.length };
   });
 
