@@ -76,7 +76,60 @@ export interface CachedSurface {
   ox: number;
   oy: number;
   contentKey: string;
+  /**
+   * 内容指纹的**比较基准**（`contentKey` 的向量形态）：数组元素已深拷贝，
+   * 因此每帧只需与它逐项比较，不必再拼字符串。见 `contentKeyVector`。
+   */
+  contentKeys: any[];
   linearKey: string;
+}
+
+/**
+ * 指纹向量的深拷贝：数组元素复制成新数组（`lineDash` / `dots` 这类会被就地改写，
+ * 只存引用会让「比较基准」跟着一起变，等于永远比不出差异）。
+ */
+function cloneKeyVector(vec: any[]): any[] {
+  const out = new Array(vec.length);
+  for (let i = 0; i < vec.length; i++) {
+    const v = vec[i];
+    out[i] = Array.isArray(v) ? cloneKeyVector(v) : v;
+  }
+  return out;
+}
+
+/**
+ * 指纹向量比较。
+ *
+ * **必须严于字符串比较**：字符串不同时这里必须判「不同」（宁可多重一次位图，也不能贴旧位图）。
+ * 反向不要求 —— 判成「不同」只是多重建一次，安全。所以这里的边角取舍一律偏保守：
+ * `NaN` / `undefined` / 稀疏数组在 `JSON.stringify` 里都会被抹平，这里一律判为「不同」。
+ */
+export function keyEquals(a: any, b: any): boolean {
+  const aArr = Array.isArray(a);
+  const bArr = Array.isArray(b);
+  if (aArr || bArr) {
+    if (!aArr || !bArr || a.length !== b.length) {
+      return false;
+    }
+    for (let i = 0; i < a.length; i++) {
+      if (!keyEquals(a[i], b[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return Object.is(a, b);
+}
+
+/** 向量 → 字符串指纹（与改造前逐字一致：数组走 JSON，标量走 String，`|` 连接）。 */
+function stringifyKeyVector(vec: any[]): string {
+  let key = '';
+  for (let i = 0; i < vec.length; i++) {
+    const v = vec[i];
+    const part = Array.isArray(v) ? JSON.stringify(v) : String(v);
+    key = i === 0 ? part : key + '|' + part;
+  }
+  return key;
 }
 
 class ObjectCache {
@@ -97,6 +150,8 @@ class ObjectCache {
   private __vp: { scale: number; tx: number; ty: number } | null = null;
   /** 本帧的渲染视口是否与上一帧不同。视口变化帧一律不缓存，见 `beginFrame()`。 */
   private __vpChanged = false;
+  /** `contentKeyVector` 的复用缓冲（每帧复用，避免为每个组件分配一个 40 元素数组）。 */
+  private __keyScratch: any[] = [];
 
   constructor(ice: any) {
     this.ice = ice;
@@ -131,6 +186,16 @@ class ObjectCache {
     }
   }
 
+  /**
+   * 本帧的渲染视口是否相对上一帧变过（由 `beginFrame()` 记录）。
+   *
+   * @internal 给静态层位图用：位图与组件位图同一条纪律 —— **视口变化的帧一律不建位图**
+   * （栅格已错位，加一次"重建 + 贴回"比直接画还贵），手势停下后的第一帧再统一重建。
+   */
+  public viewportChangedThisFrame(): boolean {
+    return this.__vpChanged;
+  }
+
   /** 位图是否与当前渲染视口同源（缩放与平移都必须一致，否则栅格不再对齐）。 */
   private __sameViewport(cache: CachedSurface, rs: number, ox: number, oy: number): boolean {
     return cache.rs === rs && cache.ox === ox && cache.oy === oy;
@@ -147,6 +212,22 @@ class ObjectCache {
     // 运行时没有离屏 canvas（老基础库的 `wx.createOffscreenCanvas` 缺失、极简 headless 环境）：
     // 缓存整条不可用，一律直接落墨。见 `render()` 里对 build 失败的兜底。
     if (this.__offscreenUnavailable) return false;
+    //@perf 廉价前置判断：下面能判真的分支只有四类 —— 文本 / 连线 / 点集路径 / 半透明落墨。
+    //       四类都不是时结果必为 false，此时连**祖先链都不该遍历**（`getEffectiveOpacity` /
+    //       `hasClippingAncestor` 是这条谓词里最贵的两段，而它在渲染热路径上每帧每组件都要问）。
+    //       判定口径与下面的分支**逐条对应**，只是提前挡掉注定为 false 的那些。
+    //
+    //       注意：`isOpaqueDrawing()` 必须**放在最后**求值 —— 它带着两条颜色正则，是这几个判断里最贵的；
+    //       而文本 / 连线 / 点集这三类根本不看它（见下面的分支）。写成常量先算的话，每帧给每个文本
+    //       白付一次正则 —— 实测文本静态场景因此慢 15%（bench/render.cjs 场景 C）。
+    const isText = typeof component.measureText === 'function';
+    const isLine = !!component.isLine; // 与下面的分支同为「真值判断」，不用 `=== true`
+    const isDotPath = typeof component.calcDots === 'function';
+    let opaqueDrawing = true;
+    if (!isText && !isLine && !isDotPath) {
+      opaqueDrawing = isOpaqueDrawing(component.state);
+      if (opaqueDrawing) return false; // 不透明落墨且不是上面三类 → 永远不可缓存
+    }
     // 有效不透明度 ≠ 1（自身或**任一祖先**）时不缓存。
     //
     // 位图是 `build() → renderTo()` 用「当时」的 effectiveOpacity 烤出来的，而贴图路径 `draw()`
@@ -160,7 +241,7 @@ class ObjectCache {
     if (typeof component.hasClippingAncestor === 'function' && component.hasClippingAncestor()) {
       return false;
     }
-    if (typeof component.measureText === 'function') {
+    if (isText) {
       return !component.state.editing && isEffectivelyVisible(component);
     }
     // 连线（折线 / 贝塞尔 / Visio 连线）：`dots` 已进入 `contentKey`，纯平移复用位图同样成立，
@@ -188,7 +269,7 @@ class ObjectCache {
       return isEffectivelyVisible(component) && !component.state.lineDashFlow && w * h >= MIN_DOT_PATH_CACHE_AREA;
     }
     // 半透明普通 path 图形（rgba/阴影/globalAlpha/composite）：排除容器/图片/连线。
-    if (!isOpaqueDrawing(component.state)) {
+    if (!opaqueDrawing) {
       if (typeof component.createPathObject !== 'function') return false;
       if (component.childNodes || component.isLine) return false;
       return isEffectivelyVisible(component);
@@ -203,12 +284,27 @@ class ObjectCache {
   /**
    * 内容指纹：决定位图是否需要重新光栅化。只涵盖影响文本外观的 state 字段，
    * 不包含 left/top/transform（由 linearKey 单独处理，以便纯平移复用）。
+   *
+   * 字符串形态只给「需要人看的场合 / 测试」用；热路径请用 `contentKeyVector` + `keyEquals`。
    */
   contentKey(component: any): string {
+    return stringifyKeyVector(this.contentKeyVector(component, []));
+  }
+
+  /**
+   * 内容指纹的**输入向量**（顺序即指纹顺序）。
+   *
+   * 与 `contentKey()` 是同一份口径：字符串指纹由本向量拼出，两者不可能漂移。
+   * 单独拆出来的意义是热路径可以复用缓冲、逐项比较，省掉每帧为每个已缓存组件
+   * 拼一个长字符串的开销（实测 2000 文本动画场景里这一项占 1.29ms/帧）。
+   *
+   * @param out 复用缓冲：调用方负责清空
+   */
+  contentKeyVector(component: any, out: any[]): any[] {
     const s = component.state;
     if (typeof component.measureText === 'function') {
       const st = s.style || {};
-      return [
+      out.push(
         s.text,
         st.fontWeight,
         st.fontSize,
@@ -239,34 +335,36 @@ class ObjectCache {
         s.selectionEnd,
         s.fill,
         s.stroke,
-        JSON.stringify(s.lineDash),
+        s.lineDash,
         s.lineDashOffset,
         s.lineDashFlow,
         s.lineBorder,
         s.lineBorderWidth,
         s.lineBorderColor,
-        this.__styleKey(s),
-      ].join('|');
+        this.__styleKey(s)
+      );
+      return out;
     }
     if (typeof component.calcDots === 'function') {
       // dot-path：dots 是「以 origin 为原点」的派生坐标；contentKey 在读之前已经过
       // calcComponentParams + compose 刷新，因此对同一原始参数是稳定的。
-      return [
-        JSON.stringify(s.dots),
+      out.push(
+        s.dots,
         s.closePath,
         s.fill,
         s.stroke,
-        JSON.stringify(s.lineDash),
+        s.lineDash,
         s.lineDashOffset,
         s.lineDashFlow,
         s.lineBorder,
         s.lineBorderWidth,
         s.lineBorderColor,
-        this.__styleKey(s),
-      ].join('|');
+        this.__styleKey(s)
+      );
+      return out;
     }
     // 半透明普通 shape：几何参数 + 路径/样式指纹。
-    return [
+    out.push(
       s.width,
       s.height,
       s.radius,
@@ -275,14 +373,15 @@ class ObjectCache {
       s.closePath,
       s.fill,
       s.stroke,
-      JSON.stringify(s.lineDash),
+      s.lineDash,
       s.lineDashOffset,
       s.lineDashFlow,
       s.lineBorder,
       s.lineBorderWidth,
       s.lineBorderColor,
-      this.__styleKey(s),
-    ].join('|');
+      this.__styleKey(s)
+    );
+    return out;
   }
 
   private __styleKey(s: any): string {
@@ -340,10 +439,16 @@ class ObjectCache {
     }
     component.composeMatrix();
     const linearKey = this.linearKey(component);
-    const contentKey = this.contentKey(component);
+    //@perf 内容指纹走「向量 + 逐项比较」：拼字符串要分配一个 40 段的长串，
+    //       而绝大多数帧的内容根本没变（跑的多是平移/旋转这类不动位图的动画）。
+    //       字符串只在真的要重建位图时才拼。
+    const keys = this.__keyScratch;
+    keys.length = 0;
+    this.contentKeyVector(component, keys);
     let needRebuild =
       !cache ||
-      cache.contentKey !== contentKey ||
+      !cache.contentKeys ||
+      !keyEquals(cache.contentKeys, keys) ||
       cache.linearKey !== linearKey ||
       !this.__sameViewport(cache, rs, ox, oy);
 
@@ -357,7 +462,7 @@ class ObjectCache {
       const prev = cache || null;
       if (prev) this.__bytes = Math.max(0, this.__bytes - prev.pw * prev.ph * 4);
       try {
-        cache = this.build(component, contentKey, linearKey, rs, ox, oy);
+        cache = this.build(component, this.contentKey(component), cloneKeyVector(keys), linearKey, rs, ox, oy);
       } catch (err) {
         // 离屏 canvas 建不出来（小程序老基础库没有 wx.createOffscreenCanvas / 极简运行时）：
         // 这里**不能**把异常抛出去 —— build 是在帧回调里被调用的，抛出去就是未捕获异常，
@@ -396,6 +501,7 @@ class ObjectCache {
   private build(
     component: any,
     contentKey: string,
+    contentKeys: any[],
     linearKey: string,
     rs: number,
     ox: number,
@@ -435,6 +541,7 @@ class ObjectCache {
       ox,
       oy,
       contentKey,
+      contentKeys,
       linearKey,
     };
   }

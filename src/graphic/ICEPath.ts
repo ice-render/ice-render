@@ -17,6 +17,100 @@ abstract class ICEPath extends ICEComponent {
   public path2D: any = root.createPath2D();
 
   /**
+   * 上次构建命令流时的「派生参数代次」（见 `ICEComponent.paramsRev`）。
+   * `-1` = 还没建过。
+   */
+  private __pathRev: number = -1;
+  /** 上次构建命令流时的几何签名；`null` = 还没建过。 */
+  private __pathSig: any[] | null = null;
+  /** 几何签名的复用缓冲（每帧采样一次，避免为每个组件分配数组）。 */
+  private __pathSigScratch: any[] = [];
+  /** 本类是否提供了精确签名（惰性判定一次，避免给自定义子类每帧白采样）。 */
+  private __pathSigPrecise: boolean | undefined = undefined;
+
+  /**
+   * 本类是否覆盖了 `__pathSignature()`。
+   *
+   * 没覆盖的实现（默认返回 `null`）每帧采样都是白费 —— 结果恒为「无法判定」。
+   * 判定一次记在实例上，之后直接短路。第三方子类因此完全不付采样的钱。
+   */
+  private __hasPrecisePathSignature(): boolean {
+    if (this.__pathSigPrecise === undefined) {
+      this.__pathSigPrecise = this.__pathSignature !== ICEPath.prototype.__pathSignature;
+    }
+    return this.__pathSigPrecise;
+  }
+
+  /**
+   * 几何签名：**除「派生参数」之外**还有哪些 state 字段会改变命令流。
+   *
+   * 返回值的约定（这是本机制的安全边界，子类必须遵守）：
+   * - `null`（**默认**）= 本类无法用签名判定 → 维持改造前的行为：`dirty` 就重建。
+   *   凡是在 `createPathObject()` 里读了额外 state 字段的自定义子类，都落在这一档上 ——
+   *   它们的语义与改造前**逐字一致**，不会因为漏判而画错。
+   * - `数组` = 精确判定：与建流时采样下来的那组值逐项 `Object.is` 比较，任一不同即重建。
+   *
+   * 内置的四个 builder（`ICERect` / `ICEEllipse` / `ICEDotPath` / `ICEPolyLine`）都覆盖了本方法 ——
+   * 它们读的字段是封闭的，因此「几何没变」的帧可以安全跳过重建（平移/旋转动画的大头就在这里）。
+   *
+   * @param out 复用的输出缓冲：实现里请 `push`，不要新建数组
+   */
+  protected __pathSignature(out: any[]): any[] | null {
+    return null;
+  }
+
+  /**
+   * 命令流是否**可能**已经过期（几何被重算过，或签名里的值变了）。
+   *
+   * 只管几何，不管 `dirty` —— 调用方自己去与 `dirty` 取交集（`dirty` 的语义是「本帧要重绘」，
+   * 祖先移动、平移动画都会置脏，但它们不改变命令流）。
+   */
+  private __pathStale(): boolean {
+    if (!this.__hasPrecisePathSignature()) {
+      return true; // 无法判定 → 保守：一律当作过期（调用方再用 dirty 收口）
+    }
+    if (this.__pathRev !== this.paramsRev) {
+      return true; // 派生参数重算过（点集 / 尺寸 / 本地原点都在这一步产出）
+    }
+    const out = this.__pathSigScratch;
+    out.length = 0;
+    const sig = this.__pathSignature(out);
+    if (sig === null) {
+      return true; // 覆盖了却返回 null（子类动态决定不判定）→ 同样保守
+    }
+    const prev = this.__pathSig;
+    if (!prev || prev.length !== sig.length) {
+      return true;
+    }
+    // 用 `!==` 而不是 `Object.is`：前者是单条标量比较，且与改造前的**字符串比较**口径更接近
+    //（字符串比较里 NaN 与 NaN 相等、-0 与 0 相等，`!==` 同样如此；`Object.is` 反而不同）。
+    for (let i = 0; i < sig.length; i++) {
+      if (prev[i] !== sig[i]) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** 采样并记下当前签名（在命令流**建完之后**调用：`createPathObject()` 可能触发 `ensureDots()`）。 */
+  private __capturePathSignature(): void {
+    const out = this.__pathSigScratch;
+    out.length = 0;
+    const sig = this.__pathSignature(out);
+    this.__pathSig = sig === null ? null : out.slice();
+    this.__pathRev = this.paramsRev;
+  }
+
+  /** 按「几何是否真的变了」决定要不要重建命令流（`dirty` 由调用方判断）。 */
+  private __rebuildPathIfStale(): void {
+    if (!this.__pathStale()) {
+      return;
+    }
+    this.createPathObject();
+    this.__capturePathSignature();
+  }
+
+  /**
    * 确保路径命令流是最新的。
    *
    * 画布通道里由 `doRender()` 在 dirty 时重建；但**导出 / 服务端出图没有渲染循环**
@@ -24,8 +118,9 @@ abstract class ICEPath extends ICEComponent {
    */
   public ensurePathBuilt(): void {
     const commands = this.path2D && this.path2D._commands;
-    if (!commands || commands.length === 0 || this.dirty) {
+    if (!commands || commands.length === 0 || (this.dirty && this.__pathStale())) {
       this.createPathObject();
+      this.__capturePathSignature();
       if (this.state.closePath) {
         this.path2D.closePath();
       }
@@ -49,7 +144,10 @@ abstract class ICEPath extends ICEComponent {
    */
   protected doRender(): void {
     if (this.dirty) {
-      this.createPathObject();
+      //@perf 几何没变就不重建命令流：`dirty` 的语义是「本帧要重绘」，
+      //       祖先移动 / 只改 left·top·transform 的动画都会置脏，但矩形还是那个矩形 ——
+      //       重建 `Path2D` + 重放整条命令流是纯浪费（实测 10k 全动画场景占 2.28ms/帧）。
+      this.__rebuildPathIfStale();
     }
 
     if (this.state.closePath) {

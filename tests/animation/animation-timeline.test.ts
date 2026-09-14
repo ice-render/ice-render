@@ -141,6 +141,30 @@ describe('⑥ 时间轴：播放 / 暂停 / 停止 / 重播', () => {
     expect(a.state.left).toBeCloseTo(50, 6); // 从头再放
   });
 
+  it('播完之后 play() 必须从头重播（不能被"仍在播放"吞掉）；isPlaying() 如实返回 false', () => {
+    // 真实浏览器里撞到的缺陷（ice-render-dsl 的编排"重播"按钮点了没反应）：
+    // 时间轴跑完之后 `playing` 仍是 true，于是 play() 走进 `playing && !paused` 的早退分支 ——
+    // 不仅"重播"失效，isPlaying() 也一直说谎（示例页里"暂停/继续"按钮因此永远走 pause 分支）。
+    const { manager } = makeManager();
+    const a = new FakeElement('a', { left: { from: 0, to: 100, duration: 100 } });
+    const timeline: any = manager.timeline();
+    timeline.add(a, { left: { from: 0, to: 100, duration: 100 } }, { at: 0 }).play();
+    manager.tween(a, 0);
+    manager.tween(a, 200); // 跑完
+    expect(a.props.animations.left.finished).toBe(true);
+
+    // 播完 = 不再"在播"
+    expect(timeline.isPlaying()).toBe(false);
+
+    // 再 play()：从头重播
+    timeline.play();
+    expect(timeline.isPlaying()).toBe(true);
+    expect(a.props.animations.left.finished).toBe(false);
+    manager.tween(a, 250);
+    manager.tween(a, 300);
+    expect(a.state.left).toBeCloseTo(50, 6);
+  });
+
   it('finished：全部轨道跑完时 resolve（每条键的 onComplete 都计入）', async () => {
     const { manager } = makeManager();
     const a = new FakeElement('a', {

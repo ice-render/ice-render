@@ -103,6 +103,27 @@ export default abstract class ICEDotPath extends ICEPath {
   }
 
   /**
+   * @overwrite
+   * 命令流 = `dots` 逐点连线（见 `createPathObject`），因此签名就是 `dots` 的**内容**。
+   *
+   * 这里逐点比较而不是比数组引用：`dots` 会被就地改写（`composeMatrix` 把点平移到「以原点为原点」、
+   * `addDot` / `rmDot` 直接 splice），只比引用会漏判成「没变」。逐点比较是 O(n) 但零分配，
+   * 与该类原本每帧 `JSON.stringify(dots)` 的开销相比仍然便宜。
+   */
+  protected __pathSignature(out: any[]): any[] | null {
+    const s: any = this.state;
+    const dots = s.dots;
+    const n = dots ? dots.length : 0;
+    out.push(n);
+    for (let i = 0; i < n; i++) {
+      const d = dots[i];
+      out.push(d ? d[0] : undefined, d ? d[1] : undefined);
+    }
+    out.push(s.closePath);
+    return out;
+  }
+
+  /**
    * @returns
    */
   protected createPathObject(): any {

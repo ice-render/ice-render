@@ -17,6 +17,18 @@ class ICERect extends ICEPath {
     super({ width: 10, height: 10, ...props });
   }
 
+  /**
+   * @overwrite
+   * 命令流的输入只有「宽 / 高 / 圆角 / 本地原点 / 是否闭合」这几项（见 `createPathObject`），
+   * 因此可以用来判定「几何没变」——平移/旋转变换不进签名，它们由 CTM 承担。
+   */
+  protected __pathSignature(out: any[]): any[] | null {
+    const s: any = this.state;
+    const o = s.localOrigin;
+    out.push(s.width, s.height, s.radius, o ? o[0] : 0, o ? o[1] : 0, s.closePath);
+    return out;
+  }
+
   protected createPathObject(): any {
     this.path2D = root.createPath2D();
     const x = 0 - this.state.localOrigin[0];

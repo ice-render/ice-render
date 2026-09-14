@@ -8,6 +8,9 @@
  *
  * 用法：
  *   node bench/render.cjs [组件数N] [distPath]
+ *   node bench/render.cjs 2000 --check            # 与基线对比，超阈值即非 0 退出（门禁用）
+ *   node bench/render.cjs 2000 --update-baseline  # 有意刷新基线（改完性能机制后手工执行）
+ *   node bench/render.cjs 2000 --check --tolerance=1.5 --baseline=/tmp/x.json
  * 示例：
  *   node bench/render.cjs 5000
  *   node bench/render.cjs 5000 ./dist/index.cjs
@@ -34,6 +37,10 @@ global.Path2D = class {
 
 // 离屏缓存需要 document.createElement('canvas') 得到可用的 2d ctx；
 // ICEText.measureText 需要 document.createElement('div') 得到可量测的 DOM 节点。
+// 离屏 ctx 桩：必须覆盖引擎在离屏通道里会用到的**完整 2D 子集** ——
+// 组件（含静态层位图里的任意图形）会在这里重放整条路径命令流，
+// 少一个方法就会在帧回调里抛异常（历史上静态层第一次接进来就是被这个桩打出来的：
+// `ICEPath.replayPath` 重放到 `ctx.rect`/`ctx.closePath` 时 method 不存在）。
 const benchOffCtx = () => ({
   scale: () => {},
   setTransform: () => {},
@@ -43,13 +50,29 @@ const benchOffCtx = () => ({
   save: () => {},
   restore: () => {},
   beginPath: () => {},
+  closePath: () => {},
   moveTo: () => {},
   lineTo: () => {},
+  rect: () => {},
+  arc: () => {},
+  arcTo: () => {},
+  ellipse: () => {},
+  roundRect: () => {},
+  bezierCurveTo: () => {},
+  quadraticCurveTo: () => {},
+  addPath: () => {},
   stroke: () => {},
   fill: () => {},
+  clip: () => {},
+  clearRect: () => {},
+  drawImage: () => {},
+  measureText: (t) => ({ width: String(t).length * 7 }),
+  createLinearGradient: () => ({ addColorStop: () => {} }),
+  createRadialGradient: () => ({ addColorStop: () => {} }),
   lineWidth: 1,
   fillStyle: '',
   strokeStyle: '',
+  globalAlpha: 1,
 });
 const benchDocument = {
   getElementById: () => null,
@@ -71,9 +94,21 @@ const benchDocument = {
 global.window = { document: benchDocument, devicePixelRatio: 1 };
 global.document = benchDocument;
 
-const TARGET_N = parseInt(process.argv[2] || '1000', 10);
-const distPath =
-  process.argv[3] || path.resolve(__dirname, '..', 'dist', 'index.cjs');
+const rawArgs = process.argv.slice(2);
+const hasFlag = (name) => rawArgs.some((a) => a === `--${name}` || a.startsWith(`--${name}=`));
+const readArg = (name, fallback) => {
+  const hit = rawArgs.find((a) => a.startsWith(`--${name}=`));
+  return hit ? hit.split('=')[1] : fallback;
+};
+const positionals = rawArgs.filter((a) => !a.startsWith('--'));
+const CHECK = hasFlag('check');
+const UPDATE_BASELINE = hasFlag('update-baseline');
+/** 允许相对基线的倍数（默认 2.0：只挡"数量级"退化，跨机器/跨负载的抖动不误报）。 */
+const TOLERANCE = Number(readArg('tolerance', 2.0));
+const BASELINE_PATH = readArg('baseline', path.resolve(__dirname, 'baselines', 'render.json'));
+
+const TARGET_N = parseInt(positionals[0] || '1000', 10);
+const distPath = positionals[1] || path.resolve(__dirname, '..', 'dist', 'index.cjs');
 
 const iceMod = require(distPath);
 const { ICE, ICEGroup, ICERect, ICECircle, ICEStar, ICEText, EventBus } = iceMod;
@@ -293,3 +328,84 @@ console.log('');
 console.log('等效帧率上限 (sceneA 稳态): ' + (1000 / aSteady.median).toFixed(0) + ' fps (仅引擎 JS 开销, 不含光栅化)');
 console.log('等效帧率上限 (sceneB 动画): ' + (1000 / bAnim.median).toFixed(0) + ' fps (仅引擎 JS 开销, 不含光栅化)');
 console.log('========================================================');
+
+// ===================== 基线判定（--check / --update-baseline） =====================
+//
+// 为什么需要：本脚本此前只打印数字 —— "性能有没有退化"完全依赖人记得跑、并且记得上次是多少。
+// 现在把某一台参考机的实测值存成基线，`--check` 用**宽松倍数**（默认 2.0）判定：
+// 它挡的是"机制被改坏"这类数量级退化（比如写值通道退回 setState、缓存复用失效），
+// 而不是几个百分点的抖动 —— 跨机器/跨负载只要量级对就算过。
+const measured = {
+  sceneA: aSteady.median,
+  sceneB: bAnim.median,
+  refreshQueue: q.median,
+  textStatic: cTextStatic.median,
+  textAnimated: dTextAnim.median,
+  textCacheSpeedup: dTextAnim.median / cTextStatic.median,
+};
+const round = (x) => Math.round(x * 1000) / 1000;
+
+if (UPDATE_BASELINE) {
+  const fs = require('fs');
+  const current = fs.existsSync(BASELINE_PATH) ? JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf8')) : {};
+  const cases = current.cases || {};
+  cases[String(TARGET_N)] = Object.fromEntries(Object.entries(measured).map(([k, v]) => [k, round(v)]));
+  const next = {
+    _meta: {
+      updated: new Date().toISOString().slice(0, 10),
+      machine: `${require('os').cpus()[0].model} / Node ${process.version} / ${process.platform}-${process.arch}`,
+      note: '用 npm run bench <N> -- --update-baseline 刷新；判定为「实测 ≤ 基线 × tolerance」',
+      tolerance: TOLERANCE,
+    },
+    cases,
+  };
+  fs.mkdirSync(path.dirname(BASELINE_PATH), { recursive: true });
+  fs.writeFileSync(BASELINE_PATH, JSON.stringify(next, null, 2) + '\n');
+  console.log(`[bench] 基线已更新：${BASELINE_PATH}  N=${TARGET_N}`);
+}
+
+if (CHECK) {
+  const fs = require('fs');
+  const baseline = fs.existsSync(BASELINE_PATH) ? JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf8')) : null;
+  const base = baseline && baseline.cases ? baseline.cases[String(TARGET_N)] : null;
+  if (!base) {
+    console.log(`[bench] ⚠️ 没有 N=${TARGET_N} 的基线（${BASELINE_PATH}）——本次跳过判定。`);
+    console.log(`        要建立基线：npm run bench ${TARGET_N} -- --update-baseline`);
+    process.exit(0);
+  }
+
+  const rows = [
+    ['sceneA 静态重绘', measured.sceneA, base.sceneA, 'lower'],
+    ['sceneB 动画', measured.sceneB, base.sceneB, 'lower'],
+    ['refreshQueue', measured.refreshQueue, base.refreshQueue, 'lower'],
+    ['textStatic 文本缓存命中', measured.textStatic, base.textStatic, 'lower'],
+    ['textAnimated 文本每帧重建', measured.textAnimated, base.textAnimated, 'lower'],
+    // 加速比是"越大越好"：写值通道/缓存机制被改坏时它会塌掉
+    ['textCacheSpeedup 缓存加速比', measured.textCacheSpeedup, base.textCacheSpeedup, 'higher'],
+  ];
+
+  console.log('');
+  console.log(`基线判定（N=${TARGET_N}，tolerance=${TOLERANCE}×；基线更新于 ${baseline._meta && baseline._meta.updated}）`);
+  console.log('指标                            实测        基线        倍数   判定');
+  console.log('---------------------------------------------------------------------');
+  let failed = 0;
+  for (const [label, value, baseValue, direction] of rows) {
+    const ratio = baseValue ? value / baseValue : 0;
+    const ok = direction === 'lower' ? value <= baseValue * TOLERANCE : value >= baseValue / TOLERANCE;
+    if (!ok) failed++;
+    console.log(
+      label.padEnd(30) +
+        String(round(value)).padStart(10) +
+        String(baseValue).padStart(12) +
+        (ratio.toFixed(2) + '×').padStart(9) +
+        '   ' +
+        (ok ? '✓' : '✗')
+    );
+  }
+  console.log('---------------------------------------------------------------------');
+  if (failed) {
+    console.log(`[bench] ✗ ${failed} 项超出基线 ${TOLERANCE}× —— 性能出现数量级退化，请检查最近改动。`);
+    process.exit(1);
+  }
+  console.log('[bench] 全部达标 ✓');
+}
