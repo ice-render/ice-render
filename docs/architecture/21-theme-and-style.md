@@ -145,6 +145,23 @@ new ICERect({ preset: 'app:my-card' });
   要覆盖必须显式 `{ overwrite: true }`；`unregisterPreset` 只能注销应用层预设；
 - 应用层预设建议带 `app:` 命名空间，便于区分来源。
 
+## 8.5 外观入口的边界（新增字段前必读）
+
+「外观只有一个容器」这条要落到可执行的规则上：
+
+- **`style` = 外观**：ctx 属性 + 引擎的样式糖（`shadow` / `fillGradient` / `strokeGradient`）+
+  子元素外观（`style.label`）。它在**绘制那一刻**解析，因此可以引用主题 token、可以被 `props.states` 覆盖。
+  新增外观字段一律进 `style`（子元素用 `style.<元素名>` 这一层嵌套，别新开一个 `xxxStyle` 容器）。
+- **顶层 props = 动画可写通道 + 几何 / 缓存签名参数**（`lineDash` / `lineDashOffset` /
+  `lineBorder*` / `opacity` / `left` / `width` …）。它们**不是"漏进 props 的外观"**，理由有两条：
+  ① 引擎的动画按顶层 key 写值（`state[key]`），`lineDashOffset` 这类"蚂蚁线相位"就是被动画驱动的；
+  ② `ObjectCache` 的内容签名与脏矩形外扩量直接读这些 key —— 挪进 `style` 会让**动画与缓存刷新同时失效**。
+  要挪，得先让动画支持嵌套路径并同步改缓存签名，那是独立一轮的事。
+- 例外与收口：这些 props 里凡是**颜色**（如 `lineBorderColor`）都必须支持主题引用，
+  并在读值处过 `resolveThemeValue(..., themeOf())` —— 颜色归主题，几何量归 props。
+- 曾经的违规项 `labelStyle`（连线标签的第二个样式容器）已归并：规范位置是 `style.label`，
+  老的顶层 `labelStyle` 在构造时**单向并入**（弃用别名，一处归一化），不再有第二个入口。
+
 ## 9. 默认样式与容器
 
 - 叶子组件没写 `style` 时，默认样式**来自主题**（`fillStyle = semantic.primary`、
@@ -170,6 +187,8 @@ new ICERect({ preset: 'app:my-card' });
 - **阴影的几何（blur / offset）归引擎**，主题只能改颜色：脏矩形外扩量是按那几个数字算的
   （`renderer/dirty-rect-util`），主题改几何会让局部重绘切边。要新的阴影形态就加一个新的
   命名预设（引擎侧），别让主题改数值。
+- **`style.label` 是子元素外观的范式**：连线标签过去有自己的 `labelStyle` 容器，于是"标签色能不能用主题"
+  有过两种答案；现在归一到一个容器、一条解析路径（老名字在构造时并入）。
 - **状态样式压过运行时 `state.style`**：状态是"当前交互反馈"，按定义应该可见；
   需要更强的优先级时，在状态回调里自己写样式或清掉状态。
 - 主题作用域的补丁是**浅语义**的：它不参与「组件类型的默认值」这一层（那层由 preset 负责）。

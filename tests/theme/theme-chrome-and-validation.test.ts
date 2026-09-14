@@ -99,7 +99,8 @@ describe('交互外壳 token', () => {
       ],
       label: 'x',
     } as any);
-    const style: any = line.props.labelStyle;
+    // 标签外观的规范位置是 style.label（`labelStyle` 是已弃用别名，构造时被并入）
+    const style: any = line.props.style.label;
     expect(resolveThemeValue(style.fillStyle, DEFAULT_THEME)).toBe(DEFAULT_THEME.semantic.chrome.linkLabel.fill);
     expect(resolveThemeValue(style.backgroundColor, DARK_THEME)).toBe(DARK_THEME.semantic.chrome.linkLabel.background);
   });
