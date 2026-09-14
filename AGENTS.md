@@ -149,12 +149,40 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 ## git 约定
 
 - 核心引擎在 `dev` 分支开发，远程 `origin/dev`（Gitee）+ `github-origin/dev`（GitHub），两处都要推。
+- **分支与发版铁律（2026-09-13 确立）**：开发一律在 `dev`（或从它切出来的临时分支）上做，
+  `master` 只做集成与发版；**发版前必须先把 `dev` 合并进 `master`，再从 `master` 发版**
+  （`git checkout master && git merge --no-ff dev` → 跑门禁 → `npm publish`）。
+  **禁止**直接在 `master` 上写实现，也禁止只更新 `dev` 而让 `master` 停在旧版本 ——
+  本仓 2026-09-13 就踩过：远端默认分支是 `master`，而 2.x 全发在 `dev` 上，
+  仓库首页长期显示 1.4.10 时代的代码（后来才补上快进）。远端默认分支必须指向 `master`，
+  且发版后它与 `dev` 内容一致。
 - 提交信息遵循 `@commitlint/config-conventional`（已在 devDeps）。
 - **破坏性变更写在 CHANGELOG 的「### 变更（破坏性：…）」小节，提交信息不要用 `!` 标记**
   （2026-09-13 确立：本仓历史上从未用过 `!`，破坏性靠 CHANGELOG 小节 + 版本号表达；
   用 `!` 会与"按真实影响定版本"的做法打架——例如内部字段语义调整但无消费者读取，属修复级）。
 - **版本号按「对真实消费者是否有影响」判断**：改 API / 数据格式且下游会受影响 → 主/次版本；
   只是内部字段语义或元信息调整、没有消费者依赖 → 修复级（例：`2.0.1` 的 `createTime` 语义调整）。
+
+### 连线端点手柄与拖拽归属（2026-09-13 确立）
+
+- **端点手柄 ≠ 变换手柄**：线条型组件的控制面板是 `LineControlPanel`（两端 `ICELinkHook`），
+  语义是"拖动端点改变连接关系"，由组件 state 的 **`linkEditable`（默认 true）** 单独控制；
+  `transformable` 只管旋转/缩放手柄。**应用层"记法不可变换"只能写 `transformable: false`**，
+  用它去关端点手柄会让 hook / slot 一起消失（ice-entity-designer 8 个域包踩过）；真要禁止改连接写 `linkEditable: false`。
+  回归：`tests/control-panel/control-panel-selection-gate.test.ts`。
+- **拖拽归属**：`DOMEventDispatcher` 在按下时记住 drag owner，抬起时**先补派给它**再按命中结果派发
+  （总线仍只触发一次）。没有这条，"按下 A → 拖到 B 上松手"时 A 收不到 mouseup —— 端点手柄正是靠
+  `mouseup → HOOK_MOUSEUP → ICELinkSlotManager` 才把连线改接到落点插槽，丢了就"拖得动、放不下"。
+  回归：`tests/event/DOMEventDispatcher.drag-owner.test.ts`。
+- 两者合起来才是完整用户路径：**点连线 → 出端点手柄 → 拖到别的组件上出插槽 → 松手改接**
+  （ice-entity-designer 的 `e2e/link-hooks.spec.ts` 钉住整条链路）。
+- **定位铁律（2026-09-13 实测 bpmn-editor 后确立）**：① `LineControlPanel` 自身必须落在原点
+  （两个端点手柄是它的子组件，面板一带偏移手柄就整体偏离端点）；② `ICELinkSlot` 的
+  `hostComponent` setter **必须立刻 `updatePosition()`** —— 只订阅新宿主的 `AFTER_RENDER`
+  会让插槽沿用**上一个宿主**的位置（钩子掠过大泳道再落到小任务上时，插槽留在泳道边上）。
+  回归：`tests/control-panel/line-control-panel.test.ts`、`tests/link/link-slot.test.ts`、
+  ice-entity-designer 的 `e2e/link-hooks-bpmn.spec.ts`。
+
 
 ## 提交前自检
 

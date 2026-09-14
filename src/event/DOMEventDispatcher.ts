@@ -49,6 +49,14 @@ class DOMEventDispatcher {
 
   start() {
     let componentCache = null; //缓存上次被点击的组件
+    /**
+     * 本次按下的组件 = **拖拽 owner**。
+     *
+     * 为什么需要：抬起事件按当前位置重新命中检测，于是"按下 A → 拖到 B 上松手"时 A 收不到 mouseup。
+     * 对连线端点手柄（ICELinkHook）是致命的：它的 mouseup → HOOK_MOUSEUP → ICELinkSlotManager
+     * 才去把连线改接到落点插槽，收不到就"拖得动、放不下"。
+     */
+    let pressedComponent: any = null;
     const hasPointerEvent = typeof root.PointerEvent === 'function';
     const domEvts = buildDomEventList(hasPointerEvent);
     for (let i = 0; i < domEvts.length; i++) {
@@ -66,6 +74,7 @@ class DOMEventDispatcher {
         const isKeyboardEvt = iceEvtName.indexOf('KEY') !== -1;
         const isWheelEvt = iceEvtName === 'ICE_WHEEL';
         const isPressEvt = /DOWN|START/.test(iceEvtName);
+        const isReleaseEvt = /UP|END|CANCEL/.test(iceEvtName);
 
         //0) **事件归属**（同页多 ICE 实例 / 分层渲染的前提）：
         //   全局拦截器把原生事件广播给所有总线，若不做归属过滤，按住上层画布会同时驱动下层实例
@@ -103,6 +112,20 @@ class DOMEventDispatcher {
           dispatchTarget = null;
         } else if (isKeyboard && this.focusedComponent) {
           dispatchTarget = this.focusedComponent;
+        }
+        // 拖拽归属：抬起事件先回到"按下的那个组件"，再按命中结果派发（总线仍只触发一次）
+        if (isPressEvt) {
+          pressedComponent = componentCache;
+        } else if (isReleaseEvt) {
+          if (pressedComponent && pressedComponent !== dispatchTarget) {
+            const rawTarget = evt.target;
+            this.__dispatchToComponentOnly(nativeEvtName, evt, pressedComponent);
+            if (legacyMouseName && legacyMouseName !== nativeEvtName) {
+              this.__dispatchToComponentOnly(legacyMouseName, evt, pressedComponent);
+            }
+            evt.target = rawTarget; // 总线事件仍按"命中组件"语义，不受这次补派影响
+          }
+          pressedComponent = null;
         }
         //2) 原生名派发（新代码可用 pointerdown/pointermove/... 或 touchstart/...）
         this.__dispatch(nativeEvtName, evt, dispatchTarget);
@@ -164,6 +187,12 @@ class DOMEventDispatcher {
     }
     //this.ice.evtBus 本身一定会触发一次鼠标和键盘事件。
     this.ice.evtBus.trigger(evtName, evt, { component: componentCache });
+  }
+
+  /** 只派发给指定组件（不触发总线）——"拖拽归属"补派抬起事件用。 */
+  private __dispatchToComponentOnly(evtName: string, evt: any, component: any): void {
+    evt.target = component;
+    component.trigger(evtName, evt);
   }
 
   /**
