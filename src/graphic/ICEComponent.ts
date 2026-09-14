@@ -202,8 +202,9 @@ abstract class ICEComponent extends ICEEventTarget {
    * 本组件是否**已经真正绘制过一次**（`__renderCore` 走完了 doRender 才会置真）。
    *
    * 存在的意义：`dirty` 同时承担两个语义 —— 「本帧要重绘」和「几何缓存（`ICEPath.createPathObject`）
-   * 是否有效」。后者只在 doRender 里以 `if (this.dirty)` 的形式被消费，因此**从未渲染过的组件
-   * 一旦被置干净，它的路径缓存就永远不会被建立**，首次上屏是空的（见 `__applyDirty`）。
+   * 是否该建立」。后者只在 doRender 里以 `if (this.dirty)` 的形式被消费（会不会真的重建另由几何
+   * 签名决定，见 `ICEPath.__pathStale`），因此**从未渲染过的组件一旦被置干净，它的路径缓存就永远
+   * 不会被建立**，首次上屏是空的（见 `__applyDirty`）。
    */
   protected __everRendered: boolean = false;
 
@@ -237,6 +238,16 @@ abstract class ICEComponent extends ICEEventTarget {
    * 统一由 `refreshParams()` 读取与清理，不要在别处手工维护。
    */
   protected __paramsDirty: boolean = true;
+
+  /**
+   * 派生参数的**重算代次**：`refreshParams()` 每真正重算一次就 +1。
+   *
+   * 为什么需要它：`paramsDirty` 是个「脏了就清」的布尔量，消费掉之后就看不出
+   * 「这一帧到底重算过没有」。而几何缓存（`ICEPath` 的命令流）恰恰要问这个 ——
+   * 重算过就必须重建命令流。用自增计数就能在**时序无关**的前提下回答它：
+   * 无论 `refreshParams()` 在何时被调用，比较两个代次即可。
+   */
+  private __paramsRev: number = 0;
 
   //@perf: 复用矩阵计算的临时缓冲，避免每帧为每个组件 / 每层祖先分配新数组（降低 GC 压力）。
   private __absScratchA: any = null;
@@ -742,9 +753,15 @@ abstract class ICEComponent extends ICEEventTarget {
     }
     this.calcComponentParams();
     this.__paramsDirty = false;
+    this.__paramsRev++;
     // 样式可能一起变了：渐变按描述对象引用缓存，这里失效一次即可（重建只发生一次）
     this.__gradCache.fill = undefined;
     this.__gradCache.stroke = undefined;
+  }
+
+  /** 派生参数的重算代次（只读）。几何缓存用它判断「重算过没有」，见 `__paramsRev`。 */
+  public get paramsRev(): number {
+    return this.__paramsRev;
   }
 
   /**
@@ -1422,7 +1439,7 @@ abstract class ICEComponent extends ICEEventTarget {
    *
    * `markDirty = false` 的含义是「这次操作**不要**主动把组件标记为要重绘」（批量挂载时的性能优化），
    * 而**不是**「把它强制置干净」：对从未绘制过的组件置干净会让几何缓存永不建立，首次上屏画不出
-   * 自身的路径（`ICEPath.doRender` 只在 dirty 时调用 `createPathObject`）。
+   * 自身的路径（`ICEPath.doRender` 只在 dirty 时才可能调用 `createPathObject`）。
    *
    * 例：`UIButton` 构造函数里 `addChild(this.label, false)` 会把自己置干净，导致按钮的圆角矩形
    * 背景/边框在首帧是空路径 —— 页面上表现为「白底白字、完全看不见的按钮」。

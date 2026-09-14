@@ -9,6 +9,24 @@
 
 ### 变更
 
+- **每组件热路径去掉两处重复计算：命令流重建 + 内容指纹（2026-09-14 性能）**：
+  ① `ICEPath` 原先以 `dirty` 决定是否重建命令流，而 `dirty` 的语义是"本帧要重绘" ——
+  **平移动画每帧都置脏，几何却一动没动**，每帧白重建 `Path2D` + 重放整条命令流。
+  改为双信号判据：派生参数重算过（`refreshParams()` 消费掉一次 `paramsDirty`）**或**几何签名
+  （`__pathSignature()`：宽高/半径/本地原点/dots·points 内容/closePath/curveType）变了才重建。
+  签名**默认保守**（未覆盖签名的类维持旧行为），只有读的 state 字段封闭的 4 个内置 builder 声明精确签名，
+  因此自定义子类（BPMN 形状 / 进度环 / Spinner 等自己实现 `createPathObject()`）语义不变。
+  ② `ObjectCache.render()` 原先每帧给每个已缓存组件拼一个 40 段字符串再 `!==`，
+  改为**向量采样 + 逐项比较**（`contentKeyVector()` + `keyEquals()`），字符串形态只在真要重建位图时拼；
+  判定口径**严于**原字符串比较（判"不同"只会多重一次位图，不会贴旧位图）。
+  同机真实浏览器 A/B：10,000 矩形全动画 **11.2 → 9.9ms（−11%）**、全量写 `left` **10.6 → 9.5ms（−10%）**、
+  2,000 文本全动画 **5.8 → 5.4ms（−9%）**；四套基准门禁同步复核全部快于基线
+  （场景 B 0.94×、文本静态 0.87×、文本动画 0.82×）。回归：
+  `tests/renderer/path-rebuild-signal.test.ts`、`tests/renderer/offscreen-content-key-fastpath.test.ts`，
+  以及 `ObjectCache.test.ts` 新增的"廉价前置判断"等价性用例；
+  文档见 [04](docs/architecture/04-rendering-performance.md) 的「每组件热路径」小节与 `AGENTS.md` 的
+  「路径命令流重建信号铁律」。
+
 - **`AnimationTimeline` 播完之后 `play()` 成了空操作（2026-09-14 修）**：时间轴跑完后 `playing` 仍是 `true`，
   于是再次 `play()` 会被开头那句 `if (this.playing && !this.paused) return this;`（"已经在播就不重复启动"）
   吞掉 —— **"重播"按钮点了没反应**，`isPlaying()` 也一直说谎（示例页的"暂停/继续"按钮因此永远走 pause 分支）。

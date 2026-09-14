@@ -829,6 +829,17 @@ class ICEPolyLine extends ICEDotPath {
 
   /**
    * @overwrite
+   * 在 `ICEDotPath`（`dots` 内容）之上补一个 `curveType`：它决定命令流是折线还是贝塞尔曲线
+   * （见 `createPathObject`），不补就会被漏判成「几何没变」。
+   */
+  protected __pathSignature(out: any[]): any[] | null {
+    super.__pathSignature(out);
+    out.push(this.state.curveType);
+    return out;
+  }
+
+  /**
+   * @overwrite
    * 支持贝塞尔曲线：curveType 为 quadratic/cubic 时用曲线连接，否则继承直线折线。
    */
   protected createPathObject(): any {
