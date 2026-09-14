@@ -10,6 +10,7 @@ import ICEEvent from '../event/ICEEvent';
 import ICEEventTarget from '../event/ICEEventTarget';
 import ICE from '../ICE';
 import { flattenTree } from '../util/data-util';
+import root from '../cross-platform/root';
 import {
   stylePaintPad,
   unionBoxes,
@@ -34,6 +35,31 @@ const FULL_FALLBACK_AREA_RATIO = 0.35;
  * 每块区都要独立跑一遍组件 pass，太多反而亏；超出的块按下述策略并成代价最小的一组。
  */
 const MAX_DIRTY_REGIONS = 6;
+
+/**
+ * 静态层位图的下限：连续干净段至少这么多成员才值得做成一层。
+ * 一层的固定开销是「清屏 + 贴一张位图」（1600×1000 下约 0.2~0.4ms），
+ * 而每个成员逐组件重画约 1.5~2µs —— 少于 256 个时两者打平，不划算。
+ */
+const MIN_LAYER_MEMBERS = 256;
+
+/** 静态层位图的运行时状态。 */
+interface StaticLayer {
+  canvas: any;
+  ctx: any;
+  /** 贴图落点（整数设备像素）。 */
+  dx: number;
+  dy: number;
+  /** 位图尺寸（设备像素，四周各留 1px 余量，与离屏缓存同口径）。 */
+  pw: number;
+  ph: number;
+  /** 建位图时的渲染视口；视口一变即失效。 */
+  rs: number;
+  ox: number;
+  oy: number;
+  /** 这一层包含的组件（队列里的连续一段，顺序即 z 序）。 */
+  members: any[];
+}
 
 /**
  * @class CanvasRenderer Canvas 渲染器
@@ -72,6 +98,15 @@ class CanvasRenderer extends ICEEventTarget {
   private cache: ObjectCache;
   /** @internal 上一帧被视口裁剪掉的组件数（仅供性能观测与测试断言）。 */
   public __lastFrameCulled = 0;
+  /** @internal 静态层位图的构建次数（仅供性能观测与测试断言）。 */
+  public __layerBuilds = 0;
+  /**
+   * 静态层位图：把「本帧不需要重画」的**连续一段**组件整体光栅化成一张位图，
+   * 之后每帧只清屏 + 贴一张图 + 画剩下的那几个（脏的）。见 `__renderWithStaticLayer`。
+   */
+  private __layer: StaticLayer | null = null;
+  /** @internal 静态层开关（默认开）；关掉即完全回到「逐组件重画」的旧行为，供 A/B 与像素对比。 */
+  private __layerEnabled = true;
 
   constructor(ice: ICE, options: { renderMode?: 'full' | 'dirty-rect' } = {}) {
     super();
@@ -125,8 +160,30 @@ class CanvasRenderer extends ICEEventTarget {
           return;
         }
       }
+      // 局部重绘不成立（例如脏区分散成一堆小块、被合并预算 / 面积门挡下）时，
+      // 先用「静态层位图」兜一层：把连续一大段不需要重画的组件整层贴回去，
+      // 只逐组件重画剩下的那几个。这一条把「1 万静态 + 少量分散动画」从全量重绘里救出来。
+      if (this.__renderWithStaticLayer()) {
+        return;
+      }
       this.doRenderFull();
     }
+  }
+
+  /**
+   * @internal 开关静态层位图（默认开）。关掉后完全回到「逐组件重画」的旧行为，
+   * 供像素对比测试与 A/B 性能对比使用。
+   */
+  public setStaticLayerEnabled(enabled: boolean): void {
+    this.__layerEnabled = !!enabled;
+    if (!this.__layerEnabled) {
+      this.__layer = null;
+    }
+  }
+
+  /** @internal 静态层位图当前是否开启。 */
+  public isStaticLayerEnabled(): boolean {
+    return this.__layerEnabled;
   }
 
   private refreshQueue() {
@@ -155,6 +212,8 @@ class CanvasRenderer extends ICEEventTarget {
     // 结构变了：快照整体失效，下一次渲染必须先全量 prime。
     this.__snap = new WeakMap();
     this.__primed = false;
+    // 结构变了：静态层的成员集合/次序也失效（成员是队列里的连续一段）。
+    this.__layer = null;
   }
 
   /**
@@ -244,6 +303,208 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   // ===================== 脏矩形局部重绘路径 =====================
+
+  // ===================== 静态层位图路径 =====================
+
+  /**
+   * 组件能否进静态层。
+   *
+   * 保守判据（任一不满足就排除在层外，回到逐组件重画）：
+   * - 本帧不脏（脏组件必须现画，且它一动整层就得重建）；
+   * - 可见（`display:false` 的组件在上屏快照里有旧墨迹要擦，不能打进层里）；
+   * - 没有 `clipChildren` 祖先 —— 位图里没有那层裁剪，除非祖先也在同一层内（这里不做特判，一律排除）；
+   * - 落墨不是 `globalCompositeOperation` 混合模式：位图会先与层内的透明底合成，
+   *   再整体贴回主画布，`destination-out` 这类依赖「画布已有内容」的算子会算出不同结果。
+   */
+  private __layerEligible(c: any): boolean {
+    if (c.dirty || !c.isEffectivelyVisible()) return false;
+    const style = c.state && c.state.style;
+    const op = style && style.globalCompositeOperation;
+    if (op && op !== 'source-over') return false;
+    if (typeof c.hasClippingAncestor === 'function' && c.hasClippingAncestor()) return false;
+    return true;
+  }
+
+  /**
+   * 在 z 序队列里挑出**最长的一段连续可入层组件**。
+   *
+   * 为什么必须是「连续」：队列是全局 zIndex 排序，位图只能整层贴回；
+   * 成员与非成员在 z 序上交错的话，叠放次序会变（画错）。所以只认连续段。
+   */
+  private __pickLayerRun(queue: any[]): { start: number; end: number } | null {
+    let bestStart = 0;
+    let bestEnd = 0;
+    let i = 0;
+    while (i < queue.length) {
+      if (!this.__layerEligible(queue[i])) {
+        i++;
+        continue;
+      }
+      let j = i;
+      while (j < queue.length && this.__layerEligible(queue[j])) {
+        j++;
+      }
+      if (j - i > bestEnd - bestStart) {
+        bestStart = i;
+        bestEnd = j;
+      }
+      i = j;
+    }
+    if (bestEnd - bestStart < MIN_LAYER_MEMBERS) return null;
+    return { start: bestStart, end: bestEnd };
+  }
+
+  /**
+   * 静态层位图路径：命中并渲染成功返回 true（调用方直接结束本帧）。
+   *
+   * 收益量级：1 万个静态组件逐组件重画约 20ms，整层贴回约 0.3ms —— 实测这一档场景 24ms → 1.3ms。
+   * 只在「局部重绘不成立」之后才走这里：小范围损伤时脏矩形仍然是更便宜的那条路。
+   */
+  private __renderWithStaticLayer(): boolean {
+    if (!this.__layerEnabled || this.__forceFullRender) return false;
+    const run = this.__pickLayerRun(this.componentQueue);
+    if (!run) return false;
+
+    const vp = this.__renderViewport();
+    const rs = vp.scale;
+    const ox = vp.tx;
+    const oy = vp.ty;
+    if (!(rs > 0)) return false;
+
+    const queue = this.componentQueue;
+    let layer = this.__layer;
+    let sameMembers = !!layer && layer.members.length === run.end - run.start;
+    if (sameMembers && layer) {
+      for (let i = run.start; i < run.end; i++) {
+        if (layer.members[i - run.start] !== queue[i]) {
+          sameMembers = false;
+          break;
+        }
+      }
+    }
+    if (!layer || !sameMembers || layer.rs !== rs || layer.ox !== ox || layer.oy !== oy) {
+      layer = this.__buildLayer(queue, run, rs, ox, oy);
+      if (!layer) {
+        this.__layer = null;
+        return false;
+      }
+      this.__layer = layer;
+      this.__layerBuilds++;
+    }
+    this.__compositeLayer(layer, run);
+    return true;
+  }
+
+  /** 把成员整体光栅化到一张离屏位图（栅格对齐纪律与 `ObjectCache.build` 完全一致）。 */
+  private __buildLayer(
+    queue: any[],
+    run: { start: number; end: number },
+    rs: number,
+    ox: number,
+    oy: number
+  ): StaticLayer | null {
+    const members: any[] = [];
+    const box: number[] = [Infinity, Infinity, -Infinity, -Infinity];
+    const tmp: number[] = [0, 0, 0, 0];
+    for (let i = run.start; i < run.end; i++) {
+      const c = queue[i];
+      c.__paintWorldBox(tmp);
+      const pad = stylePaintPad(c.state);
+      tmp[0] -= pad;
+      tmp[1] -= pad;
+      tmp[2] += pad;
+      tmp[3] += pad;
+      unionBoxes(box, tmp);
+      members.push(c);
+    }
+    if (!isFiniteBox(box)) return null;
+
+    // 贴图落点取整到设备像素栅格，四周各留 1px 余量（与离屏缓存同口径）。
+    const dx = Math.floor(box[0] * rs + ox) - 1;
+    const dy = Math.floor(box[1] * rs + oy) - 1;
+    const pw = Math.max(1, Math.ceil(box[2] * rs + ox) - dx + 1);
+    const ph = Math.max(1, Math.ceil(box[3] * rs + oy) - dy + 1);
+    // 位图预算：允许到「画布设备像素的 2 倍」与 4M 像素的较大者；超了就退回逐组件重画。
+    const canvasPx = (Number(this.ice.canvasWidth) || 0) * (Number(this.ice.canvasHeight) || 0);
+    if (pw * ph > Math.max(4 * 1024 * 1024, canvasPx * 2)) return null;
+
+    let off: { canvas: any; ctx: any };
+    try {
+      off = root.createOffscreenCanvas(pw, ph);
+    } catch (err) {
+      return null; // 运行时没有离屏 canvas（小程序老基础库）：静默退回逐组件重画
+    }
+    const base = [rs, 0, 0, rs, ox - dx, oy - dy];
+    try {
+      for (let i = 0; i < members.length; i++) {
+        const c = members[i];
+        c.renderTo(off.ctx, base);
+        // 位图建好了：这些组件的「上屏快照」正好是这一帧的盒子（供下一帧的裁剪/相交判定用）。
+        this.__capture(c);
+      }
+    } catch (err) {
+      // 渲染进离屏位图时抛异常 —— 原因是这个运行时的离屏 ctx 能力不全（小程序 2D 子集 /
+      // 测试替身缺方法）。**绝不能把异常抛出去**：这里在帧回调里，抛出去就是未捕获异常，
+      // 在小程序里直接表现为白屏。整个会话关掉静态层，退回逐组件重画（与 ObjectCache
+      // 遇到 `createOffscreenCanvas` 不可用时的降级口径一致）。
+      this.__layerEnabled = false;
+      this.__layer = null;
+      return null;
+    }
+    return { canvas: off.canvas, ctx: off.ctx, dx, dy, pw, ph, rs, ox, oy, members };
+  }
+
+  /** 清屏 → 在位图对应的 z 位置整层贴回 → 逐组件画非成员（脏组件与段外组件）。 */
+  private __compositeLayer(layer: StaticLayer, run: { start: number; end: number }): void {
+    const ctx = this.ice.ctx;
+    // 清屏前回到单位变换：上一帧残留的 CTM 会让 clearRect 擦不干净。
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, this.ice.canvasWidth, this.ice.canvasHeight);
+    const visible = this.__visibleWorldRect();
+    const queue = this.componentQueue;
+    let culled = 0;
+
+    for (let i = 0; i < queue.length; i++) {
+      if (i === run.start) {
+        // 整数设备像素 1:1 贴回，零重采样（与离屏缓存同口径）。
+        // 注意：位图的 dx/dy 是**设备像素**偏移，贴之前必须把 CTM 归回单位变换 ——
+        // 组件渲染不会还原 CTM（每个组件自己 setTransform），沿用上一个组件的矩阵会把整层画歪。
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.drawImage(layer.canvas, layer.dx, layer.dy);
+      }
+      if (i >= run.start && i < run.end) continue; // 成员已经在位图里
+      const component = queue[i];
+      if (visible && component.isEffectivelyVisible() && !component.dirty) {
+        const snap = this.__snap.get(component);
+        if (snap && !intersects(snap as any, visible)) {
+          culled++;
+          continue;
+        }
+      }
+      this.__ensureContext(component);
+      this.__renderComponent(component);
+      if (component.isEffectivelyVisible()) {
+        this.__capture(component);
+      }
+    }
+    this.__lastFrameCulled = culled;
+
+    for (let i = 0; i < this.toolsQueue.length; i++) {
+      const tool = this.toolsQueue[i];
+      this.__ensureContext(tool);
+      tool.render();
+      if (tool.isEffectivelyVisible()) {
+        this.__capture(tool);
+      }
+    }
+
+    this.__invokePluginRender(null);
+    this.__finalizeHidden(this.componentQueue);
+    this.__finalizeHidden(this.toolsQueue);
+    this.__primed = true;
+    this.ice.dirty = false;
+    this.ice.evtBus.trigger(ICE_EVENT_NAME_CONSTS.ROUND_FINISH);
+  }
 
   /**
    * 收集脏区域并做局部重绘可行性判定。

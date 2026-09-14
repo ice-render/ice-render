@@ -37,6 +37,10 @@ global.Path2D = class {
 
 // 离屏缓存需要 document.createElement('canvas') 得到可用的 2d ctx；
 // ICEText.measureText 需要 document.createElement('div') 得到可量测的 DOM 节点。
+// 离屏 ctx 桩：必须覆盖引擎在离屏通道里会用到的**完整 2D 子集** ——
+// 组件（含静态层位图里的任意图形）会在这里重放整条路径命令流，
+// 少一个方法就会在帧回调里抛异常（历史上静态层第一次接进来就是被这个桩打出来的：
+// `ICEPath.replayPath` 重放到 `ctx.rect`/`ctx.closePath` 时 method 不存在）。
 const benchOffCtx = () => ({
   scale: () => {},
   setTransform: () => {},
@@ -46,13 +50,29 @@ const benchOffCtx = () => ({
   save: () => {},
   restore: () => {},
   beginPath: () => {},
+  closePath: () => {},
   moveTo: () => {},
   lineTo: () => {},
+  rect: () => {},
+  arc: () => {},
+  arcTo: () => {},
+  ellipse: () => {},
+  roundRect: () => {},
+  bezierCurveTo: () => {},
+  quadraticCurveTo: () => {},
+  addPath: () => {},
   stroke: () => {},
   fill: () => {},
+  clip: () => {},
+  clearRect: () => {},
+  drawImage: () => {},
+  measureText: (t) => ({ width: String(t).length * 7 }),
+  createLinearGradient: () => ({ addColorStop: () => {} }),
+  createRadialGradient: () => ({ addColorStop: () => {} }),
   lineWidth: 1,
   fillStyle: '',
   strokeStyle: '',
+  globalAlpha: 1,
 });
 const benchDocument = {
   getElementById: () => null,
