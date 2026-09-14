@@ -47,6 +47,20 @@ import { assertTypeId } from './util/type-id';
 import { ICE_ERROR_CODES, iceError } from './util/errors';
 
 /**
+ * 一次主题变更的说明（`ice.onThemeChange(fn)` 的回调入参）。
+ *
+ * - `kind: 'theme'` —— 来自 `setTheme()`（语义色 / palette / motion 等整体变了）
+ * - `kind: 'chrome'` —— 来自 `setChrome()`（只有交互外壳那组 token 变了）
+ */
+export interface ICEThemeChangeInfo {
+  /** 变更**之后**的主题（就是此刻 `ice.getTheme()` 的那一份）。 */
+  theme: ICETheme;
+  /** 变更之前的主题。 */
+  previous: ICETheme;
+  kind: 'theme' | 'chrome';
+}
+
+/**
  * 给 `ctx.createXxxGradient()` 的产物挂一份**可序列化的描述**。
  *
  * 原生 `CanvasGradient` 是不透明的（拿不到颜色停靠点），于是「命令式创建的渐变」没法进快照、
@@ -136,6 +150,8 @@ class ICE {
   private __themeBaseName = 'default';
   /** 有没有动过主题（没动过就不往快照里写 theme 字段）。 */
   private __themeTouched = false;
+  /** 订阅者抛错的提示只打一次（见 __warnThemeListenerOnce）。 */
+  private __themeListenerWarned = false;
   /** 累积的主题补丁（内部记录；快照实际写的是 diff，见 themeSnapshot()）。 */
   private __themePatch: any = null;
   private __interactionStatesEnabled = false;
@@ -290,7 +306,10 @@ class ICE {
     }
 
     //启动当前 ICE 实例上的所有 Manager，有顺序
-    this.evtBus = new EventBus(); //后续所有 Manager 都依赖事件总线，所以 this.evtBus 需要最先初始化。
+    // 后续所有 Manager 都依赖事件总线，所以 this.evtBus 需要最先初始化。
+    // `||` 是给「init 之前就订阅过」的场景留的：订阅事件先建了总线（见 __themeBus），
+    // 这里再 new 一个会把订阅悄悄丢掉。
+    this.evtBus = this.evtBus || new EventBus();
     FrameManager.registerEvtBus(this.evtBus, this);
     FrameManager.start();
 
@@ -856,6 +875,7 @@ class ICE {
    *   ② 用了 `preset` 与「没写 style」的：重新 resolve 一次默认值。
    */
   public setTheme(theme: ICEThemeInput): this {
+    const previous = this.theme;
     // 实例级：不修改模块级默认主题，因此多个 ICE 实例可以有各自的主题（多品牌/多租户）
     this.theme = resolveTheme(theme, this.theme);
     this.__themeTouched = true;
@@ -871,6 +891,7 @@ class ICE {
     // 主题版本号：组件的作用域主题缓存靠它失效
     this.__themeRevision++;
     this.__reapplyPresets();
+    this.__notifyThemeChange(previous, 'theme');
     return this;
   }
 
@@ -886,18 +907,88 @@ class ICE {
    */
   public setChrome(patch: Partial<ICEChromeTheme>): this {
     if (!patch || typeof patch !== 'object') return this;
+    const previous = this.theme;
     this.theme = mergeThemes(this.theme, { semantic: { chrome: patch } as any });
     this.__themeTouched = true;
     const patchRecord: any = { chrome: patch };
     this.__themePatch = this.__themePatch ? deepMerge(this.__themePatch, patchRecord) : patchRecord;
     this.__themeRevision++;
     this.__reapplyPresets();
+    this.__notifyThemeChange(previous, 'chrome');
     return this;
   }
 
   /** 当前采用的主题（含设置的 chrome / 作用域之外的实例主题）。 */
   public getTheme(): ICETheme {
     return this.theme;
+  }
+
+  /**
+   * 订阅**主题变更**（`setTheme` / `setChrome` 应用完成之后触发）。
+   *
+   * 为什么需要它：`setTheme` 以前不发任何信号，应用层只有"自己是调用方"时才知道主题变了。
+   * 被动跟随的场景（图表 `theme:'auto'` 跟随引擎明暗、设计器外壳从引擎主题派生、
+   * 自己维护一套画布配色）因此只能等下一次重建 —— 这是"引擎换了主题、上层纹丝不动"的根因。
+   *
+   * ```ts
+   * const off = ice.onThemeChange(({ theme, previous, kind }) => {
+   *   if (kind !== 'theme') return;      // 'chrome' 只代表交互外壳变了
+   *   repaintChrome(theme.semantic.primary);
+   * });
+   * off();                              // 退订
+   * ```
+   *
+   * 约定：
+   * - 通知发生在**主题已经应用、缓存已经失效**之后，所以回调里读 `ice.getTheme()` 拿到的是新值；
+   * - **每个订阅者互相隔离**：某个回调抛异常会被忽略并 `console.warn` 一次，不影响主题应用、也不影响其它订阅者；
+   * - 订阅者若自己再调 `setChrome`（例如按新主题重算外壳），会收到一条 `kind:'chrome'` 的通知 ——
+   *   按 kind 过滤即可，不会互相打架。
+   */
+  public onThemeChange(listener: (info: ICEThemeChangeInfo) => void, scope: any = this): () => void {
+    const bus: any = this.__themeBus();
+    const guard = (evt: any) => {
+      const info: ICEThemeChangeInfo = (evt && evt.param) || { theme: this.theme, previous: this.theme, kind: 'theme' };
+      try {
+        listener.call(scope, info);
+      } catch (err) {
+        this.__warnThemeListenerOnce(err);
+      }
+    };
+    bus.on(ICE_EVENT_NAME_CONSTS.THEME_CHANGE, guard, scope);
+    return () => bus.off(ICE_EVENT_NAME_CONSTS.THEME_CHANGE, guard, scope);
+  }
+
+  /**
+   * 广播主题变更。
+   *
+   * 兜一层 try/catch 是为了"主题应用已经完成"这个不变量：订阅者（哪怕是绕过 `onThemeChange`
+   * 直接挂在 evtBus 上的）抛异常，也不该让 `setTheme` 半路炸掉、把调用方搞懵。
+   */
+  private __notifyThemeChange(previous: ICETheme, kind: 'theme' | 'chrome'): void {
+    const bus: any = this.__themeBus();
+    try {
+      bus.trigger(ICE_EVENT_NAME_CONSTS.THEME_CHANGE, null, { theme: this.theme, previous, kind });
+    } catch (err) {
+      this.__warnThemeListenerOnce(err);
+    }
+  }
+
+  /**
+   * 主题通知用的总线：**懒建**。
+   *
+   * `evtBus` 原本只在 `init()` 里创建，于是 `new ICE()` → `onThemeChange(fn)` → `init()` 这条
+   * 常见顺序会把订阅静默丢掉。这里按需建一条，`init()` 里改成复用已有的那条。
+   */
+  private __themeBus(): any {
+    if (!this.evtBus) this.evtBus = new EventBus();
+    return this.evtBus;
+  }
+
+  /** 订阅者抛错只提示一次，避免每帧 / 每次切主题刷屏。 */
+  private __warnThemeListenerOnce(err: unknown): void {
+    if (this.__themeListenerWarned) return;
+    this.__themeListenerWarned = true;
+    console.warn('[ICE] onThemeChange 订阅者抛异常，已忽略（不影响主题应用）：', err);
   }
 
   /**
@@ -1447,8 +1538,8 @@ class ICE {
   /**
    * 注册命名主题（运行时注入，如多品牌 / 多租户 / 暗色主题）。
    */
-  public registerTheme(name: string, theme: ICETheme): this {
-    registerTheme(name, theme);
+  public registerTheme(name: string, theme: ICETheme, options: { overwrite?: boolean } = {}): this {
+    registerTheme(name, theme, options);
     return this;
   }
 

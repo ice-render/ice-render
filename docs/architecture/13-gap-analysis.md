@@ -288,6 +288,15 @@
 - ✅ **preset 按所属实例的主题解析**：组件构造时仍用模块级默认主题（构造函数阶段还不知道归属哪个 ICE），加入实例时由 `addChild`/`addTool` 调 `__reapplyPreset(this.theme)` 纠正 —— 用户显式传入的样式仍优先。
 - ✅ `AnimationManager` 的 motion token（`duration`/`easing` 语义名）也改用实例主题。
 - ✅ 新增 `resolveTheme()`：解析主题但不修改任何全局状态（实例级主题的基础）。
+- ✅ **主题变更通知（2026-09-14）**：`setTheme` / `setChrome` 应用完成后广播 `THEME_CHANGE`
+  （`ice.onThemeChange(fn)` 是封装，自带订阅者隔离与退订）。此前引擎换主题**不发任何信号**，
+  应用层"被动跟随"的场景（图表 `theme:'auto'`、设计器外壳派生）只能等下一次重建 ——
+  这是"引擎换了主题、上层纹丝不动"的根因。
+- ✅ **注册表护栏对齐（2026-09-14）**：`registerTheme` 以前是裸赋值（应用能把内置 `dark` 静默换掉），
+  现在与 `registerPreset` / `registerType` 一致 —— 内置名不可覆盖、重复注册抛错、要覆盖须显式 `{ overwrite: true }`。
+- ✅ **校验器认得应用词汇（2026-09-14）**：`validateTheme` 以前把所有不认识的 semantic 键都判成
+  "未知 token，引擎不会读它"（**文案本身是错的**：`token('app.highlight')` 是能解析的）。
+  现在只在疑似拼错内置名时报警告（并给候选名字），应用自带词汇降为 `info`。
 
 - ✅ **家族品牌基线已定（2026-09-14，方案① Bootstrap 5）**：引擎默认语义色从 Tailwind 值
   （`#3B82F6`）换成 Bootstrap 5 值（`#0D6EFD` 等），数据系列配色抽成唯一来源 `FAMILY_PALETTE`

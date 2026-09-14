@@ -3,6 +3,52 @@
 本文件记录所有值得注意的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.6.0] - 2026-09-14
+
+本轮：**把主题机制的边界补齐** —— 一边给应用层让路（自带词汇别再被误报成问题），
+一边把护栏立起来（注册表与 preset / type 对齐），再补上**主题变更通知**这个一直缺的信号。
+
+### 新增
+
+- **主题变更通知**：`ice.onThemeChange(fn): () => void`（返回的函数即退订）。
+  `setTheme` / `setChrome` 应用完成、缓存失效之后广播一次，
+  回调拿到 `{ theme, previous, kind }`（`kind: 'theme' | 'chrome'`）。
+  - **为什么需要它**：以前 `setTheme` **不发任何信号**，应用层只有"自己是调用方"时才知道主题变了 ——
+    图表 `theme:'auto'`（跟随引擎明暗）、设计器外壳（从引擎主题派生）这类**被动跟随**的场景
+    只能等下一次重建。这是"引擎换了主题、上层纹丝不动"的根因，三条桥不必再各自发明同步时机。
+  - 每个订阅者**互相隔离**：某个回调抛异常会被忽略并 `console.warn` 一次，不影响主题应用、也不影响其它订阅者。
+  - 底层是 `ice.evtBus` 上的 `ICE_EVENT_NAME_CONSTS.THEME_CHANGE`；该常量与 `EventBus` 一样从包入口导出，
+    不必硬编码字符串。`evtBus` 会在首次订阅时**按需创建**（`init()` 改为复用已有的那一条），
+    因此 `new ICE()` → `onThemeChange()` → `init()` 这条顺序不会把订阅悄悄丢掉。
+- 导出 `BUILTIN_THEME_NAMES`（内置主题名清单，与 `BUILTIN_PRESET_NAMES` 对齐）
+  与 `ICE_EVENT_NAME_CONSTS`；新增类型 `ICEThemeChangeInfo`。
+
+### 变更（破坏性：命名主题注册收紧）
+
+- **`registerTheme(name, theme, options?)` 不再是裸赋值**，与 `registerPreset` / `registerType` 对齐：
+  内置主题名（`default` / `dark`）**不允许覆盖**；同一个名字**重复注册抛错**，
+  要覆盖须显式 `registerTheme(name, theme, { overwrite: true })`；名字非字符串 / 主题不是对象也明确抛错。
+  **动机**：以前一个应用可以把内置 `dark` 静默换掉，整个页面跟着变；而 `themeSnapshot()` 存的是
+  "相对命名主题的差异"，基线被悄悄替换会让已存快照还原出另一个样子。家族内没有依赖旧行为的用法。
+
+### 变更：校验器不再把"应用自带词汇"当成错误
+
+- `validateTheme()` 以前把所有不认识的 `semantic` 顶层键都判成
+  「未知的语义 token「x」，**引擎不会读它**」——**这句文案本身就是错的**：
+  `token('app.highlight')` 是能被解析的（`tokenValue` 按路径取，不限于内置名单）。
+  现在分两类：
+  - **疑似打错内置名** → `warning` / `unknown-semantic-token`，并给出候选名字
+    （`primry` → "是不是想写 `primary`？"）。判定：归一化后同名，或**首字母相同且编辑距离 ≤ 2**
+    —— `kind`（之于 `hint`）这类只差首字母的名字不会被误报；
+  - **应用自带词汇** → `info` / `custom-semantic-token`（`ThemeDiagnostic.severity` 因此多了 `'info'`）。
+  消费诊断时按 severity 过滤即可：`error` / `warning` 是要修的问题，`info` 只是说明。
+
+### 验证
+
+- `verify:full` 全绿：**1054** 单测（+16：注册表护栏 / 应用词汇 / 变更通知）+ 100 浏览器用例 + 4 套基准 + 包检查。
+- 真实浏览器（`examples/theme/theme.html`）实测：`setTheme('dark')` 与 `setChrome(...)` 各触发一次通知
+  （`kind` 分别为 `theme` / `chrome`，`previous` 正确），退订后不再收到，页面零报错。
+
 ## [2.5.1] - 2026-09-14
 
 补一个**遗漏的公共导出**：2.5.0 新增的家族色板常量只在模块内可见，应用层（`ice-chart`）

@@ -25,6 +25,7 @@ const ICE_EVENT_NAME_CONSTS = {
   AFTER_ROTATE: 'AFTER_ROTATE',
   BEFORE_MOVE: 'BEFORE_MOVE',
   AFTER_MOVE: 'AFTER_MOVE',
+  THEME_CHANGE: 'THEME_CHANGE', //setTheme() / setChrome() 应用完成之后触发（见 ICE.onThemeChange）
 };
 
 export default ICE_EVENT_NAME_CONSTS;
