@@ -100,6 +100,7 @@ export {
   registerPreset,
   unregisterPreset,
   BUILTIN_PRESET_NAMES,
+  BUILTIN_THEME_NAMES,
   token,
   palette,
   isTokenRef,
@@ -126,6 +127,13 @@ export type {
   ThemeDiagnostic,
 } from './theme/ICETheme';
 export { default as ICE } from './ICE';
+export type { ICEThemeChangeInfo } from './ICE';
+/**
+ * 引擎自造的事件名（挂在 `ice.evtBus` 上）。应用层监听引擎事件时从这里取常量，别硬编码字符串 ——
+ * 例如 `ice.evtBus.on(ICE_EVENT_NAME_CONSTS.THEME_CHANGE, fn)` 等价于 `ice.onThemeChange(fn)`
+ * （后者更好用：自带订阅者隔离与退订函数）。
+ */
+export { default as ICE_EVENT_NAME_CONSTS } from './consts/ICE_EVENT_NAME_CONSTS';
 export { default as CanvasRenderer } from './renderer/CanvasRenderer';
 // SVG 导出：把同一份场景重新生成矢量描述（组件树 + 路径命令流），不依赖 canvas。
 export { exportSvg, exportSvgResult } from './export/SvgExporter';

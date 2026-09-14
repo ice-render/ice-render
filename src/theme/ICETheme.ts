@@ -387,12 +387,32 @@ export const DARK_THEME: ICETheme = {
 
 // ============ 注册表 + 切换 ============
 const themeRegistry: { [name: string]: ICETheme } = { default: DEFAULT_THEME, dark: DARK_THEME };
+/** 内置主题名（不允许覆盖，也不参与"重复注册"判定之外的任何写入）。 */
+export const BUILTIN_THEME_NAMES: string[] = Object.keys(themeRegistry);
 let currentTheme: ICETheme = DEFAULT_THEME;
 
 /**
- * 注册命名主题（运行时注入，如多品牌 / 多租户）。
+ * 注册命名主题（运行时注入，如多品牌 / 多租户）—— **写主题表的唯一入口**。
+ *
+ * - 内置主题（`default` / `dark`）不允许覆盖：它们是引擎的基线，
+ *   `themeSnapshot()` 存的就是"相对命名主题的差异"，基线被悄悄换掉会让已存快照的还原结果漂移；
+ * - 应用层主题建议带命名空间（`app:brand-a`），避免与引擎内置或其它库撞名；
+ * - 重复注册同一个名字会**明确抛错**（与 `registerPreset` / `registerType` 一致），
+ *   要覆盖请显式传 `{ overwrite: true }` —— 以前这里是裸赋值，一个应用能把内置 `dark` 静默换掉。
  */
-export function registerTheme(name: string, theme: ICETheme): void {
+export function registerTheme(name: string, theme: ICETheme, options: { overwrite?: boolean } = {}): void {
+  if (!name || typeof name !== 'string') {
+    throw new Error('[ice-render] registerTheme: 主题名必须是非空字符串。');
+  }
+  if (!theme || typeof theme !== 'object') {
+    throw new Error(`[ice-render] registerTheme: 主题「${name}」必须是一个主题对象（{ base, semantic }）。`);
+  }
+  if (BUILTIN_THEME_NAMES.indexOf(name) >= 0) {
+    throw new Error(`[ice-render] registerTheme: 「${name}」是内置主题，不允许覆盖。`);
+  }
+  if (!options.overwrite && Object.prototype.hasOwnProperty.call(themeRegistry, name)) {
+    throw new Error(`[ice-render] registerTheme: 主题「${name}」已注册；要覆盖请显式传 { overwrite: true }。`);
+  }
   themeRegistry[name] = theme;
 }
 
@@ -714,7 +734,13 @@ export function deepDiff(base: any, target: any): any {
 }
 
 export interface ThemeDiagnostic {
-  severity: 'error' | 'warning';
+  /**
+   * `error` / `warning` 是"引擎认为这里有毛病"，`info` 是"引擎不认识，但这是合法用法"。
+   *
+   * 为什么要有 info：应用层可以往 semantic 里塞自己的词汇（`token('app.highlight')` 能被引用解析），
+   * 那类 token 不该被当成问题报出来。
+   */
+  severity: 'error' | 'warning' | 'info';
   code: string;
   message: string;
   path?: string;
@@ -763,9 +789,68 @@ export function contrastRatio(foreground: string, background: string): number | 
  * 引擎里动画、DSL 都有诊断体系，主题这块以前是空白 —— 写错 token 名只会静默失效。
  * 应用层可以在自己的设置面板里跑它，给用户提示（而不是让人对着"没变化"发呆）。
  */
+
+/** 引擎预置的语义 token（`semantic` 的顶层键）。 */
+const KNOWN_SEMANTIC_TOKENS = [
+  'primary',
+  'success',
+  'warning',
+  'danger',
+  'info',
+  'text',
+  'muted',
+  'hint',
+  'border',
+  'background',
+  'palette',
+  'chrome',
+  'motion',
+];
+
+/** 归一化：忽略大小写与分隔符，所以 `BackGround` / `text-color` 都算同一个词。 */
+function normalizeTokenName(name: string): string {
+  return String(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+/** 编辑距离（只在 13 个内置名上做，纯冷路径，不必优化）。 */
+function editDistance(a: string, b: string): number {
+  const prev = new Array(b.length + 1);
+  const cur = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    cur[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = cur[j];
+  }
+  return prev[b.length];
+}
+
+/**
+ * 这个顶层键是不是"打错了内置 token"？是就返回最像的那个内置名。
+ *
+ * 判定刻意保守：**首字母必须相同**且编辑距离 ≤ 2（或归一化后完全相同）。
+ * 只差首字母的名字（例如自定义的 `kind` 之于 `hint`）交给"应用词汇"分支，不误报。
+ */
+function suggestSemanticToken(key: string): string | null {
+  const nk = normalizeTokenName(key);
+  if (!nk) return null;
+  for (const known of KNOWN_SEMANTIC_TOKENS) {
+    const names = normalizeTokenName(known);
+    if (names === nk) return known;
+    if (names.charAt(0) !== nk.charAt(0)) continue;
+    if (editDistance(names, nk) <= 2) return known;
+  }
+  return null;
+}
+
 export function validateTheme(theme: any): ThemeDiagnostic[] {
   const out: ThemeDiagnostic[] = [];
-  const push = (severity: 'error' | 'warning', code: string, message: string, path?: string) =>
+  const push = (severity: 'error' | 'warning' | 'info', code: string, message: string, path?: string) =>
     out.push({ severity, code, message, path });
   if (!theme || typeof theme !== 'object' || Array.isArray(theme)) {
     push('error', 'invalid-theme', '主题必须是普通对象。');
@@ -776,26 +861,27 @@ export function validateTheme(theme: any): ThemeDiagnostic[] {
     push('error', 'invalid-semantic', '主题的 semantic 段必须是对象。', 'semantic');
     return out;
   }
-  // 未知的顶层 semantic 字段（拼错 token 名最常见的形态）
-  const knownSemantic = [
-    'primary',
-    'success',
-    'warning',
-    'danger',
-    'info',
-    'text',
-    'muted',
-    'hint',
-    'border',
-    'background',
-    'palette',
-    'chrome',
-    'motion',
-  ];
+  // 顶层 semantic 字段分两种：**拼错内置名**（要报）与**应用自带词汇**（要放行）
   for (const key of Object.keys(semantic)) {
-    if (knownSemantic.indexOf(key) < 0) {
-      push('warning', 'unknown-semantic-token', `未知的语义 token「${key}」，引擎不会读它。`, `semantic.${key}`);
+    if (KNOWN_SEMANTIC_TOKENS.indexOf(key) >= 0) continue;
+    const suggestion = suggestSemanticToken(key);
+    if (suggestion) {
+      push(
+        'warning',
+        'unknown-semantic-token',
+        `未知的语义 token「${key}」，是不是想写「${suggestion}」？`,
+        `semantic.${key}`
+      );
+      continue;
     }
+    // 应用自带词汇：引擎不认识它，但样式里的 `$${key}.xxx` 引用会在绘制那一刻按它解析 ——
+    // 这是受支持的用法，所以只给 info（以前这里报 warning，还把消息写成"引擎不会读它"，是错的）。
+    push(
+      'info',
+      'custom-semantic-token',
+      `「${key}」不是引擎预置的语义 token；引擎不把它当内置语义色，但样式里的 $${key}.* 引用会按它解析。`,
+      `semantic.${key}`
+    );
   }
   for (const key of [
     'primary',

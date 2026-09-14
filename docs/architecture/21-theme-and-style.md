@@ -21,9 +21,17 @@ import { token, registerTheme, DEFAULT_THEME, DARK_THEME, mergeThemes } from 'ic
 
 // 命名主题（可注册多套，多品牌 / 多租户）
 ice.setTheme('dark');
-ice.registerTheme('my-brand', mergeThemes(DEFAULT_THEME, { semantic: { primary: '#0d6efd' } }));
+ice.registerTheme('app:my-brand', mergeThemes(DEFAULT_THEME, { semantic: { primary: '#0d6efd' } }));
 ice.setTheme('my-brand');
 ```
+
+**注册的写法约束**（与 `registerPreset` / `registerType` 对齐，2026-09-14 收紧）：
+
+- 内置主题名（`default` / `dark`，见导出的 `BUILTIN_THEME_NAMES`）**不允许覆盖** ——
+  快照存的是"相对命名主题的差异"，基线被悄悄换掉会让已存快照还原出另一个样子；
+- 同一个名字**重复注册会抛错**，要覆盖请显式 `registerTheme(name, theme, { overwrite: true })`
+  （以前这里是裸赋值：一个应用能把内置 `dark` 静默换掉，整个页面跟着变）；
+- 应用主题**建议带命名空间**（`app:brand-a`），避免与引擎内置或同页其它产品撞名。
 
 ```ts
 // 部分主题：深合并（只写要改的那几处）
@@ -44,6 +52,32 @@ ice.setChrome({ handle: { fill: '#0d6efd', stroke: '#0d6efd' }, slot: { hoverFil
 1. **深合并**：`{ motion: { duration: { fast: 50 } } }` 之后 `motion.easing` 必须还在 ——
    浅合并会把它变成 `undefined`，动画路径读 `motion.easing[名]` 会直接抛 TypeError。
 2. **不改原主题**：合并返回新对象，`DEFAULT_THEME` / 已注册主题不会被就地污染。
+
+### 主题变更通知（被动跟随的唯一时机）
+
+`setTheme` / `setChrome` 应用完成之后会广播一次变更；订阅用 `ice.onThemeChange(fn)`，
+返回的函数就是退订：
+
+```ts
+const off = ice.onThemeChange(({ theme, previous, kind }) => {
+  if (kind !== 'theme') return;              // 'chrome' 表示只有交互外壳那组 token 变了
+  repaintMyChrome(theme.semantic.primary);   // 此刻 ice.getTheme() 已经是新主题
+});
+off();
+```
+
+约定（都有回归测试）：
+
+- 通知发生在**主题已应用、作用域缓存已失效**之后，回调里读 `ice.getTheme()` 拿到的是新值；
+- **每个订阅者互相隔离**：某个回调抛错会被忽略并 `console.warn` 一次（不刷屏、不影响主题应用、不影响其它订阅者）；
+- `setChrome` 也发通知（外壳是主题的一部分），只是 `kind` 为 `'chrome'` —— 订阅者里再调 `setChrome`
+  重算外壳时按 `kind` 过滤即可，不会来回打架；
+- 底层就是 `ice.evtBus` 上的 `ICE_EVENT_NAME_CONSTS.THEME_CHANGE`（该常量已从包入口导出），
+  `onThemeChange` 是更省事的封装；`evtBus` 会在首次订阅时按需创建，因此 `init()` 之前订阅也不会丢。
+
+**为什么要有它**：应用层"被动跟随"引擎主题的场景（图表 `theme:'auto'` 跟随明暗、设计器外壳从主题派生、
+自维护一套画布配色）以前只能等下一次重建 —— 引擎换了主题、上层纹丝不动，根因就是这里没有信号。
+各产品**不需要**再发明同步时机。
 
 ## 3. 主题引用：样式在 **paint 时** 解析
 
@@ -119,8 +153,20 @@ const diagnostics = ice.validateTheme();
 // [{ severity: 'error', code: 'low-contrast', message: 'semantic.hint 与背景的对比度只有 2.54:1 …' }]
 ```
 
-覆盖：未知语义 token（警告）、颜色类型不对 / palette 为空 / motion 缺 duration 或 easing（错误）、
+覆盖：颜色类型不对 / palette 为空 / motion 缺 duration 或 easing（错误）、
 `text` / `muted` / `hint` 与背景的 **WCAG 对比度**（< 3 报错、< 4.5 警告）。
+
+顶层的 semantic 键分两类处理（2026-09-14 修正，此前一律报 warning 且文案写错）：
+
+- **疑似打错内置名** → `warning` / `unknown-semantic-token`，并把候选名字指出来
+  （`primry` → "是不是想写 `primary`？"）。判定保守：归一化后同名，或**首字母相同且编辑距离 ≤ 2**
+  —— 所以自定义的 `kind`（之于 `hint`）不会被误报；
+- **应用自带词汇** → `info` / `custom-semantic-token`。引擎不认识它，但**样式里的
+  `$app.highlight` 引用是能被解析的**（`tokenValue` 按路径取，不限于内置名单），
+  所以这是受支持的用法，不该报成问题。
+
+> 消费诊断时按 severity 过滤：把 `error` / `warning` 当成"要修的问题"，`info` 只作说明。
+> `ice.validateTheme()` 返回的就是这份数组。
 
 > 这条检查第一次跑就抓到了引擎自己的默认主题：`hint`（gray-400）在纯白上只有 2.54:1。
 > 现在默认主题走 Bootstrap 5 值，灰阶阶梯刻意比 Bootstrap 默认更深一档：
@@ -179,7 +225,9 @@ new ICERect({ preset: 'app:my-card' });
 3. **每个应用一条桥，放在应用仓、带单测**。现有三条：
    `ice-web-components/core/ICEThemeBridge.ts`（UI token → 引擎，7 条单测）、
    `ice-chart/theme/chartEngineBridge.ts`（图表主题 → 引擎，5 条单测）、
-   `ice-entity-designer/theme/designerTheme.ts`（`DESIGNER_CHROME` 外壳补丁）。
+   `ice-entity-designer/theme/designerTheme.ts`（外壳配色**从引擎主题派生**：
+   `designerChromeFromTheme()`；想要固定旧观感的宿主显式 `setChrome(DESIGNER_CHROME_ANTD)`）。
+   桥要"被动跟随"引擎主题时，用上面的 `ice.onThemeChange(fn)`，别再各自发明同步时机。
 4. **不要在应用里再实现一套主题解析**（优先级链 / 作用域 / 状态样式 / 序列化）——
    那些是引擎的职责，应用只负责"我的 token 叫什么、默认值是多少"。
 5. **DSL 里能不能用 token 引用，取决于"谁在画"**：引擎绘制的图元（设计器的节点 / 连线样式、
