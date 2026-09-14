@@ -3,6 +3,16 @@
 本文件记录所有值得注意的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.5.1] - 2026-09-14
+
+补一个**遗漏的公共导出**：2.5.0 新增的家族色板常量只在模块内可见，应用层（`ice-chart`）
+拿不到，就没法真正做到"共用一份色板"。纯增量，无行为变更。
+
+### 新增
+
+- 公共入口新增导出 `FAMILY_PALETTE` / `FAMILY_PALETTE_DARK` / `BOOTSTRAP_BASELINE`。
+  `ice-chart` 直接 import 它们作为**唯一色板来源**，不再各存一份。
+
 ## [2.5.0] - 2026-09-14
 
 本轮：**家族品牌基线落地为 Bootstrap 5**。这是一次**改变默认观感**的版本（语义色与数据系列配色都换了值），
