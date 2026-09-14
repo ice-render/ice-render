@@ -150,6 +150,23 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   ④ 编辑态不截断：caret / 选区是按原始文本算的。
   回归见 `tests/graphic/text-overflow.test.ts`。
 
+- **布局铁律（2026-09-14 确立，D 组）**：设计思想是 Java Swing 的 `LayoutManager`（策略模式）——
+  容器持有策略、策略只算位置。定死这几条口径，新增布局必须照办：
+  ① **策略只摆位置**：`layoutContainer(container)` 里写子项的位置/尺寸；"什么时候排"归 `ICEGroup`
+  （`setLayout` / 增删子项立即排、子项改尺寸合并到下一帧、布局期间不自激）。
+  ② **尺寸协商只有一条路**：容器 `fitContent: true` 时由**它自己**在测量趟里 `doLayout()` 把尺寸量成
+  内容大小（递归、自底向上），父布局随后读它的盒子。**不要**在布局里调 `child.getPreferredSize()`
+  去覆盖调用方显式给的尺寸。
+  ③ **内外距只有一套实现**：容器的 `padding`、子项的 `margin` 一律走
+  `contentBox()` / `outerSizeOf()` / `placeChild()` / `placeChildSized()`，新布局不许自己再算一遍
+  （否则「屏幕上是 8px、盒子按 0 算」这类漂移一定会出现）。
+  ④ **每个布局都要实现 `getPreferredSize(container)`**（内容首选尺寸，含 padding/margin），
+  否则 `fitContent` 对它无效；返回 `[0,0]` 表示"我对尺寸没有意见"，容器会保留调用方给的尺寸。
+  ⑤ **构造参数取默认值用 `??` 不用 `||`** —— `gap: 0` / `currentIndex: 0` 必须能表达。
+  ⑥ 子项上的布局声明（`margin` / `grow` / `gridSpan` / `layoutConstraint`）放 `state`
+  （随快照走），非法约束值要**提示一次**而不是静默落默认值。
+  回归见 `tests/layout/`（含 `layout-composition.test.ts`）、`e2e/visual/visual.spec.ts` 的 golden 图。
+
 ## 已知技术债（严重度）
 
 > 复核日期 **2026-09-11**。此前本节长期停留在「8 suite / 36 用例」等早期口径，与仓库实际严重脱节，已按实测重写。

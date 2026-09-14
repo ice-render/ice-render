@@ -38,8 +38,8 @@ class ICELayeredLayout extends ICELayoutManager {
 
   constructor(props: { gapX?: number; gapY?: number } = {}) {
     super();
-    this.gapX = props.gapX || 80;
-    this.gapY = props.gapY || 40;
+    this.gapX = props.gapX ?? 80;
+    this.gapY = props.gapY ?? 40;
   }
 
   /**
@@ -47,6 +47,7 @@ class ICELayeredLayout extends ICELayoutManager {
    * 读容器里的节点（非连线组件）+ 边（ICEPolyLine 的 links），分层布局后 setState 落位。
    */
   layoutContainer(container: ICEGroup): void {
+    const box = this.contentBox(container);
     const children = container.childNodes || [];
     const nodeList: GraphNode[] = [];
     const edgeList: Array<{ from: string | null; to: string | null; component: any }> = [];
@@ -73,7 +74,49 @@ class ICELayeredLayout extends ICELayoutManager {
 
     this.assignRanks(nodeList, edges);
     this.assignOrders(nodeList, edges, nodeById);
-    this.assignCoords(nodeList, edges, nodeById);
+    this.assignCoords(nodeList, edges, nodeById, { left: box.left, top: box.top });
+  }
+
+  /**
+   * 内容首选尺寸：分层排完之后节点占据的包围盒（再补上容器 padding）。
+   *
+   * 算法只在节点之间用相对间距，所以这里按"每层最宽 + gapX、每层节点高之和 + gapY"推一遍，
+   * 不依赖节点当前落点 —— 首次布局（还没排过）也能给出正确的首选尺寸。
+   */
+  getPreferredSize(container: ICEGroup): [number, number] {
+    const pad = this.paddingOf(container);
+    const children = (container.childNodes || []).filter((c: any) => !c.isLine);
+    if (!children.length) {
+      return [pad.left + pad.right, pad.top + pad.bottom];
+    }
+    const nodes = children.map((component: any) => ({ id: component.props.id, component, rank: 0 }) as GraphNode);
+    const edges = (container.childNodes || [])
+      .filter((c: any) => c.isLine && c.getLinkFromId && c.getLinkToId)
+      .map((c: any) => ({ from: c.getLinkFromId(), to: c.getLinkToId() }));
+    const nodeById: { [id: string]: GraphNode } = {};
+    nodes.forEach((n) => (nodeById[n.id] = n));
+    const validEdges = edges.filter((e: any) => e.from && e.to && nodeById[e.from] && nodeById[e.to]);
+    this.assignRanks(nodes, validEdges);
+
+    const layers: { [rank: number]: GraphNode[] } = {};
+    nodes.forEach((n) => {
+      (layers[n.rank] = layers[n.rank] || []).push(n);
+    });
+    const rankList = Object.keys(layers)
+      .map(Number)
+      .sort((a, b) => a - b);
+    let width = 0;
+    let height = 0;
+    rankList.forEach((r, index) => {
+      const layer = layers[r];
+      const maxW = Math.max(...layer.map((n) => Number(n.component.state.width) || 0));
+      const columnH =
+        layer.reduce((sum, n) => sum + (Number(n.component.state.height) || 0), 0) +
+        Math.max(0, layer.length - 1) * this.gapY;
+      width += maxW + (index > 0 ? this.gapX : 0);
+      height = Math.max(height, columnH);
+    });
+    return [width + pad.left + pad.right, height + pad.top + pad.bottom];
   }
 
   /**
@@ -135,7 +178,12 @@ class ICELayeredLayout extends ICELayoutManager {
    * 算坐标（LR 方向）：rank 递增 → left 递增；层内按 order 垂直排列。
    * 节点落位后，把每条边（连线）的端点对齐到源/目标节点的插槽（全局坐标）。
    */
-  private assignCoords(nodes: GraphNode[], edges, nodeById): void {
+  private assignCoords(
+    nodes: GraphNode[],
+    edges,
+    nodeById,
+    origin: { left: number; top: number } = { left: 0, top: 0 }
+  ): void {
     const layers: { [rank: number]: GraphNode[] } = {};
     nodes.forEach((n) => {
       (layers[n.rank] = layers[n.rank] || []).push(n);
@@ -146,11 +194,11 @@ class ICELayeredLayout extends ICELayoutManager {
 
     const gapX = this.gapX;
     const gapY = this.gapY;
-    let x = 0;
+    let x = origin.left;
     rankList.forEach((r) => {
       const layer = layers[r];
       const maxW = Math.max(...layer.map((n) => n.component.state.width));
-      let y = 0;
+      let y = origin.top;
       layer.forEach((n) => {
         n.component.setState({ left: x, top: y });
         y += n.component.state.height + gapY;

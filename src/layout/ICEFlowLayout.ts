@@ -22,25 +22,27 @@ class ICEFlowLayout extends ICELayoutManager {
 
   constructor(props: { gap?: number; align?: 'left' | 'center' | 'right' } = {}) {
     super();
-    this.gap = props.gap || 10;
+    this.gap = props.gap ?? 10;
     this.align = props.align || 'left';
   }
 
   /**
    * @overwrite
-   * 从左到右排列子组件，超出容器宽度则换行。
+   * 从左到右排列子组件，超出内容盒宽度则换行；`fitContent` 的容器排成一行
+   * （它的宽度本来就由内容决定，按宽度换行会在 0 宽上无限换行）。
    */
   layoutContainer(container: ICEGroup): void {
     const children = container.childNodes;
-    const containerWidth = container.state.width;
+    const box = this.contentBox(container);
+    const wrapWidth = (container.state as any).fitContent ? Infinity : box.width;
     const gap = this.gap;
 
     // 先按行分组（换行）
     const rows: Array<Array<any>> = [[]];
     let rowWidth = 0;
     for (const child of children) {
-      const w = child.state.width;
-      const needWrap = rowWidth > 0 && rowWidth + gap + w > containerWidth;
+      const w = this.outerSizeOf(child)[0];
+      const needWrap = rowWidth > 0 && rowWidth + gap + w > wrapWidth;
       if (needWrap) {
         rows.push([]);
         rowWidth = 0;
@@ -50,30 +52,51 @@ class ICEFlowLayout extends ICELayoutManager {
     }
 
     // 逐行落位
-    let y = 0;
+    let y = box.top;
     for (const row of rows) {
       let rowTotal = 0;
       let rowMaxH = 0;
       for (const child of row) {
-        rowTotal += child.state.width;
-        rowMaxH = Math.max(rowMaxH, child.state.height);
+        const [w, h] = this.outerSizeOf(child);
+        rowTotal += w;
+        rowMaxH = Math.max(rowMaxH, h);
       }
       rowTotal += gap * (row.length - 1);
 
       // 计算本行起始 x（对齐）
-      let x = 0;
+      let x = box.left;
       if (this.align === 'center') {
-        x = (containerWidth - rowTotal) / 2;
+        x = box.left + (box.width - rowTotal) / 2;
       } else if (this.align === 'right') {
-        x = containerWidth - rowTotal;
+        x = box.left + box.width - rowTotal;
       }
 
       for (const child of row) {
-        child.setState({ left: x, top: y });
-        x += child.state.width + gap;
+        this.placeChild(child, x, y);
+        x += this.outerSizeOf(child)[0] + gap;
       }
       y += rowMaxH + gap;
     }
+  }
+
+  /**
+   * 内容首选尺寸：**排成一行**（不换行）时的宽度 + 最高子项的高度，再加上容器 padding。
+   *
+   * 与 `fitContent` 的语义一致：先问"内容想占多大"，再决定容器多大；换行只发生在容器
+   * 已经有确定宽度的时候。
+   */
+  getPreferredSize(container: ICEGroup): [number, number] {
+    const pad = this.paddingOf(container);
+    let width = 0;
+    let height = 0;
+    const children = container.childNodes;
+    for (let i = 0; i < children.length; i++) {
+      const [w, h] = this.outerSizeOf(children[i]);
+      width += w;
+      if (i > 0) width += this.gap;
+      height = Math.max(height, h);
+    }
+    return [width + pad.left + pad.right, height + pad.top + pad.bottom];
   }
 }
 

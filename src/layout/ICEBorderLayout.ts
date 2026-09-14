@@ -27,16 +27,19 @@ class ICEBorderLayout extends ICELayoutManager {
 
   constructor(props: { gap?: number } = {}) {
     super();
-    this.gap = props.gap || 5;
+    this.gap = props.gap ?? 5;
   }
 
   /**
    * @overwrite
+   * 五区落位。方位从 `constraintOf()` 读（非法值会提示一次并落到 center）。
+   * 五个区域都在**内容盒**里排（容器 `padding` 之内），north/south 横向拉满、east/west 纵向拉满。
    */
   layoutContainer(container: ICEGroup): void {
     const children = container.childNodes;
-    const W = container.state.width;
-    const H = container.state.height;
+    const box = this.contentBox(container);
+    const W = box.width;
+    const H = box.height;
 
     let north: any = null;
     let south: any = null;
@@ -44,7 +47,7 @@ class ICEBorderLayout extends ICELayoutManager {
     let west: any = null;
     let center: any = null;
     children.forEach((child: any) => {
-      const pos = child.state.layoutConstraint || 'center';
+      const pos = this.constraintOf(child);
       if (pos === 'north') north = child;
       else if (pos === 'south') south = child;
       else if (pos === 'east') east = child;
@@ -58,24 +61,53 @@ class ICEBorderLayout extends ICELayoutManager {
     let right = W;
 
     if (north) {
-      north.setState({ left: 0, top: 0, width: W });
+      this.placeChildSized(north, box.left, box.top, W);
       top = north.state.height + this.gap;
     }
     if (south) {
-      south.setState({ left: 0, top: H - south.state.height, width: W });
+      this.placeChildSized(south, box.left, box.top + H - south.state.height, W);
       bottom = H - south.state.height - this.gap;
     }
     if (east) {
-      east.setState({ left: W - east.state.width, top, height: bottom - top });
+      this.placeChildSized(east, box.left + W - east.state.width, box.top + top, undefined, bottom - top);
       right = W - east.state.width - this.gap;
     }
     if (west) {
-      west.setState({ left: 0, top, height: bottom - top });
+      this.placeChildSized(west, box.left, box.top + top, undefined, bottom - top);
       left = west.state.width + this.gap;
     }
     if (center) {
-      center.setState({ left, top, width: right - left, height: bottom - top });
+      this.placeChildSized(center, box.left + left, box.top + top, right - left, bottom - top);
     }
+  }
+
+  /** 内容首选尺寸：南北叠高 × （西 + 中 + 东）取宽。 */
+  getPreferredSize(container: ICEGroup): [number, number] {
+    const pad = this.paddingOf(container);
+    let north = 0;
+    let south = 0;
+    let west = 0;
+    let east = 0;
+    let centerW = 0;
+    let centerH = 0;
+    for (const child of container.childNodes) {
+      const [w, h] = this.outerSizeOf(child);
+      const pos = this.constraintOf(child);
+      if (pos === 'north') north = Math.max(north, h);
+      else if (pos === 'south') south = Math.max(south, h);
+      else if (pos === 'west') west = Math.max(west, w);
+      else if (pos === 'east') east = Math.max(east, w);
+      else {
+        centerW = Math.max(centerW, w);
+        centerH = Math.max(centerH, h);
+      }
+    }
+    const width = Math.max(
+      west + centerW + east + (west && centerW ? this.gap : 0) + (centerW && east ? this.gap : 0),
+      0
+    );
+    const height = north + centerH + south + (north && centerH ? this.gap : 0) + (centerH && south ? this.gap : 0);
+    return [width + pad.left + pad.right, height + pad.top + pad.bottom];
   }
 }
 

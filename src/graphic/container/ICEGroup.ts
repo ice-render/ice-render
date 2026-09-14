@@ -31,6 +31,13 @@ class ICEGroup extends ICERect {
   private __layoutRequested = false;
   /** 正在执行布局：期间子项的位置/尺寸变化不再反向请求重排，避免自激循环。 */
   private __layingOut = false;
+  /**
+   * 布局接管时是否禁用后代的手动变换 / 拖动（默认 true，保持历史行为）。
+   *
+   * 编辑器类场景可以传 `setLayout(manager, { disableTransform: false })`：布局照常摆位置，
+   * 但用户仍能拖动 —— 代价是"拖完下次重排会被拉回去"，由应用自己决定要不要接受。
+   */
+  private __layoutDisablesTransform = true;
 
   constructor(props) {
     super(props);
@@ -51,15 +58,25 @@ class ICEGroup extends ICERect {
 
   /**
    * 设置布局策略（对齐 Swing 的 container.setLayout）。
+   *
    * 设置后立即执行一次布局，并把布局传播给「未显式设置布局」的容器型子组件（子容器默认继承父层布局）。
+   *
+   * @param options.disableTransform 布局接管时是否禁用后代的手动变换 / 拖动（默认 `true`，
+   *   与历史行为一致）。传 `false` 时布局照常摆位置，但用户仍可拖动 —— 适用于"布局打底 + 允许微调"
+   *   的场景；注意拖完之后下次重排会把子项拉回布局算出的位置。
    */
-  public setLayout(manager: ICELayoutManager): void {
+  public setLayout(manager: ICELayoutManager, options: { disableTransform?: boolean } = {}): void {
     this.layoutManager = manager;
     this.__layoutExplicit = true;
+    if (options && options.disableTransform !== undefined) {
+      this.__layoutDisablesTransform = options.disableTransform !== false;
+    }
     if (manager) {
       this.doLayout();
-      // 布局接管：设定了具体 layout 后，内部所有后代组件禁止手动变换（transformable=false），位置由代码接管
-      this.__disableTransformRecursively(this);
+      // 布局接管：设定了具体 layout 后，内部所有后代组件默认禁止手动变换（transformable=false），位置由代码接管
+      if (this.__layoutDisablesTransform) {
+        this.__disableTransformRecursively(this);
+      }
     }
     this.__propagateLayout(manager);
   }
@@ -100,10 +117,16 @@ class ICEGroup extends ICERect {
   private __inBatch = false;
 
   /**
-   * 执行布局：先测量子组件，再交给布局策略排布。
+   * 执行布局：**先自底向上测量，再自顶向下摆位**。
    *
-   * 测量这一步是必要的：布局策略读的是 `child.state.width/height`，而它们要等首次渲染
-   * 才算出来（文本更是要量测字形）。旧实现不做测量，于是「首次布局拿到的全是 0/哨兵值」。
+   * ① 测量趟：对每个子项 `measure()`（布局读的是 `state.width/height`，而它们要等首次渲染
+   *    才算出来，文本更要量测字形）；子容器会借 `getPreferredSize()` 把自己的「内容尺寸」
+   *    报上来 —— 所以父布局嵌一个子容器时能拿到**自然尺寸**，而不是它当前那个空盒子。
+   * ② 排布趟：布局策略落位；子容器若也被 `setLayout` 管着，它自己的 `doLayout` 会在它拿到
+   *    尺寸之后执行（`layoutContainer` 里 setState 触发的重排会合并到下一帧，下一帧排的是
+   *    最终尺寸，因此不会出现"子容器按旧宽度排完就不动了"）。
+   * ③ `fitContent`：容器可选择按内容自适应 —— 摆完之后把自身尺寸设成
+   *    `layoutManager.getPreferredSize()`（尺寸真的变了才写，避免每帧抖动）。
    */
   public doLayout(): void {
     if (!this.layoutManager) {
@@ -116,12 +139,50 @@ class ICEGroup extends ICERect {
         if (typeof child.measure === 'function') {
           child.measure();
         }
+        // 自底向上：`fitContent` 的子容器先把自己量成"内容尺寸"（它自己的子项也会被排好），
+        // 于是下面这一趟布局读到的就是它的自然尺寸，而不是未定的空盒子。
+        if (
+          child &&
+          child.layoutManager &&
+          child.state &&
+          child.state.fitContent &&
+          typeof child.doLayout === 'function'
+        ) {
+          child.doLayout();
+        }
       }
       this.layoutManager.layoutContainer(this);
+      this.__fitContent();
     } finally {
       this.__layingOut = false;
       this.__layoutRequested = false;
     }
+  }
+
+  /**
+   * 按内容自适应尺寸（`props.fitContent: true`）。
+   *
+   * 只监听"内容尺寸"，不覆盖调用方显式设的 padding：`getPreferredSize()` 里各布局已经把
+   * padding / margin 算进去了，这里取的是最终外框。
+   */
+  private __fitContent(): void {
+    if (!this.state.fitContent || !this.layoutManager) {
+      return;
+    }
+    const [w, h] = this.layoutManager.getPreferredSize(this);
+    const width = Math.max(0, Math.round(w));
+    const height = Math.max(0, Math.round(h));
+    if (!(width > 0) && !(height > 0)) {
+      return; // 布局没实现 getPreferredSize → 不动调用方给的尺寸
+    }
+    const changed =
+      Math.abs((Number(this.state.width) || 0) - width) > 0.5 ||
+      Math.abs((Number(this.state.height) || 0) - height) > 0.5;
+    if (!changed) {
+      return;
+    }
+    // 尺寸变化会让父容器重排（走 requestLayout 的下一帧合并），这里直接写值即可
+    this.setState({ width, height });
   }
 
   /**
@@ -144,7 +205,13 @@ class ICEGroup extends ICERect {
     }
   }
 
-  /** 容器内容的首选尺寸（转发布局策略；未设置布局时返回 [0,0]）。 */
+  /**
+   * 容器内容的首选尺寸（设计思想同 Swing 的 `preferredLayoutSize`）。
+   *
+   * **没设布局时返回 `[0,0]`**（保持既有契约：此时容器对自己要多大没有意见，它就是一个普通盒子）；
+   * 设了布局就问策略要内容尺寸。`props.fitContent: true` 的容器会用它把自己的尺寸调成内容大小，
+   * 见 `doLayout()` —— 嵌套容器的"自然尺寸"就是这么来的（先自底向上量，再自顶向下摆）。
+   */
   public getPreferredSize(): [number, number] {
     return this.layoutManager ? this.layoutManager.getPreferredSize(this) : [0, 0];
   }
@@ -201,7 +268,8 @@ class ICEGroup extends ICERect {
     bumpVisibilityEpoch();
 
     // 布局接管：父容器已设定 layout 时，新加入的子组件（及其后代）禁止手动变换和拖动
-    if (this.layoutManager) {
+    // （`setLayout(manager, { disableTransform: false })` 时不接管交互，只摆位置）
+    if (this.layoutManager && this.__layoutDisablesTransform) {
       child.state.transformable = false;
       child.state.draggable = false;
       this.__disableTransformRecursively(child);

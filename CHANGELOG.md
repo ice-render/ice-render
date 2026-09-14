@@ -3,6 +3,51 @@
 本文件记录所有值得注意的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.7.0] - 2026-09-14
+
+本轮主题：**把布局系统从「叶子排列」提升到「可组合排版」** —— 补上尺寸协商、内外距、
+交互共存，以及网格 / 箱式的常用能力。设计思想仍是 Java Swing 的 `LayoutManager`（策略模式）。
+
+### 新增
+
+- **容器按内容自适应（`fitContent: true`）**，并带来**两趟布局**：
+  父容器 `doLayout()` 的测量趟会先让 `fitContent` 的子容器把自己量成内容尺寸
+  （递归、自底向上），排布趟再自顶向下落位 —— 于是**嵌套容器有自然尺寸**，
+  父布局读到的不再是它那个还没定/默认 10 的盒子。
+- **内外距**：容器 `padding`、子项 `margin`（`number` = 四边等距，或 `{top,right,bottom,left}`）。
+  七个布局统一用同一套口径（内容盒 / 占位尺寸 / 落位偏移），不再各自为政。
+- **布局与交互可以共存**：`setLayout(manager, { disableTransform: false })`。
+  默认仍是「布局接管后禁用后代拖拽/变换」（历史行为不变）；传 `false` 时布局照常摆位置，
+  但用户仍能拖动 —— 适合"布局打底 + 允许微调"的场景。
+- **`ICEGridLayout` 支持 `rows` 与跨格**：只给 `rows` 时按子项数量反推列数；
+  子项写 `gridSpan: { colSpan, rowSpan }` 可跨格（表头通栏、侧栏跨行这类版式不必再手算宽度）。
+- **`ICEBoxLayout` 支持 `grow`**：声明了 `grow` 的子项按权重瓜分**剩余空间**
+  （容器比内容宽时才分配；容器更小则保持原尺寸、不压缩）—— 定宽侧栏 + 自适应内容区一行搞定。
+- **七个布局都实现了 `getPreferredSize()`**（内容首选尺寸），`ICELayeredLayout` 也按
+  "每层最宽 + 间距"推得，因此首次布局（还没排过）就能给出正确结果。
+- 导出布局相关类型：`ICELayoutInsets` / `ICELayoutInsetsValue` / `ICELayoutConstraint` /
+  `ICELayoutBox` / `ICEGridSpan`。
+
+### 变更（破坏性：网格现在按列对齐）
+
+- **`ICEGridLayout` 的列宽改为「全局对齐」**（每列宽 = 该列最宽子项 + `gapX`）。
+  旧实现是逐行各自累加，同一列在不同行里会错开 —— 那既不叫网格，也让跨格无从谈起。
+  受影响的只是"同一列里子项宽度不一致"的版式，`e2e/visual` 的 `grid-layout` 基准图已按新语义更新。
+
+### 修复
+
+- **布局参数用 `||` 取默认值，导致 `gap: 0` / `gapX: 0` 无法表达**（会被当成未设置而套默认值）。
+  七个布局统一改成 `??`：显式给 0 就是 0。`currentIndex: 0` 同理。
+- `ICEBorderLayout` 的方位约束（`layoutConstraint`）不再裸字符串比较：非法值（`'top'` / `'North'`）
+  会 `console.warn` 一次并落到 `center`，不再静默摆错位置。
+
+### 验证
+
+- `verify:full` 全绿：**1078** 单测（+12：自适应 / 内外距 / 交互共存 / 网格跨格 / grow / 约束校验）
+  + 100 浏览器用例（29 张 golden，`grid-layout` 基准按列对齐更新）+ 4 套基准 + 包检查。
+- 新增示例 `examples/layout/layout-composition.html`（五项能力一页演示，已进 examples 冒烟），
+  并在真实浏览器里目视确认。
+
 ## [2.6.0] - 2026-09-14
 
 本轮：**把主题机制的边界补齐** —— 一边给应用层让路（自带词汇别再被误报成问题），
