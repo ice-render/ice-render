@@ -160,6 +160,7 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   本仓 2026-09-13 就踩过：远端默认分支是 `master`，而 2.x 全发在 `dev` 上，
   仓库首页长期显示 1.4.10 时代的代码（后来才补上快进）。远端默认分支必须指向 `master`，
   且发版后它与 `dev` 内容一致。
+- **引擎升版后的应用侧验证铁律（2026-09-14 确立）**：升级引擎版本的应用工程，"对齐 devDependency + 跑门禁"只是及格线，还必须做两件事 —— ① **全部示例页逐页冒烟**（判据：无 pageerror + `window.ICE` 存在 + 画布**内容像素占比** > 2%；导航页无画布列外）；② **按引擎改动类型做定向检查**（静态层读 `renderer.__layerBuilds` 确认是否真参与 + 层开/层关像素对照；hover/命中路径跑悬停探针；动了持久化就做 save→load 往返）。像素对照的**两档口径**、**归因顺序**（先量噪声底线 → 再切组件缓存 → 单组件 → 主画布 vs 离屏 → 裁剪/陈旧）与六个发布踩坑（npm 本地缓存假报版本不存在、第二远端名 `github-origin`/`origin-github` 并存、推送瞬时失败先 fetch 再重试、CHANGELOG 约定各仓不同、历史未打 tag）全部见 `docs/architecture/20-engine-upgrade-verification.md`。
 - 提交信息遵循 `@commitlint/config-conventional`（已在 devDeps）。
 - **破坏性变更写在 CHANGELOG 的「### 变更（破坏性：…）」小节，提交信息不要用 `!` 标记**
   （2026-09-13 确立：本仓历史上从未用过 `!`，破坏性靠 CHANGELOG 小节 + 版本号表达；
