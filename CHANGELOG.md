@@ -3,6 +3,76 @@
 本文件记录所有值得注意的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [2.4.0] - 2026-09-14
+
+本轮主题：**把主题与样式机制补完** —— 让「主题」真正能覆盖引擎画出来的每一层，
+而不只是用了 `preset` 的那些组件；顺带堵掉两处入口不一致。
+
+**这是 2.x 里第一个有视觉变更的版本**，升级前值得看一眼下面的「变更」小节（应用层不需要改代码，
+但观感会变；两处是刻意收紧的行为）。本轮也刻意**不做旧写法兼容**——家族仍在发布初期，
+能一次做干净就不留历史包袱。
+
+### 新增
+
+- **主题引用：样式在 paint 时解析**。`style: { fillStyle: token('primary') }`（或字符串简写
+  `'$primary'` / `'$palette.2'` / `'$chrome.slot.fill'` / `'$base.radius.md'`）在**绘制那一刻**解析，
+  因此 `setTheme()` 之后**任意组件**都会跟着换 —— 以前只有用了 `preset` 的组件能跟，
+  自定义组件的颜色永远停在创建那一刻。token 名写错时**跳过赋值**保留 ctx 原值
+  （赋成 `undefined` 会让整块画布消失）。渐变 stops 与 `shadow: 'md'` 的颜色也走同一条解析。
+- **交互状态样式**：`props.states = { focus, hover, active, selected, disabled }` +
+  `setInteractionState()` / `clearInteractionStates()`。叠加顺序 focus → hover → active →
+  selected → disabled（越靠后越优先），刻意排在 `state.style` **之后**（后者在构造时是
+  `props.style` 的副本，排前面会把状态补丁原样盖掉）。自动驱动 `ice.enableInteractionStates()`
+  **默认关闭**：引擎的 mousemove 本来不做命中检测，打开等于每次移动加一次场景命中测试。
+- **交互外壳 token（`semantic.chrome`）**：选中框 / 变换手柄 / 连线端点 / 连接插槽 / 对齐引导线 /
+  连线标签 / 文本选区 / 阴影色 / 调试框 / 蚂蚁线管壁色，从**写死在 11 个文件里的 ~45 处色值**
+  收进主题；配套 `ice.setChrome(patch)` 只改外壳。深色主题给了一套协调值。
+- **主题作用域**：`new ICEGroup({ theme: {...} })` 只影响子树（分屏大屏 / 暗底卡片），
+  合并结果按「主题版本 + 参与作用域的组件身份」缓存，无作用域时是零分配快路径。
+- **主题进快照**：`{ theme: { name, patch? } }`。`patch` 是**相对命名主题的真实差异**
+  （`deepDiff`），所以「当初怎么设置的」（整份主题对象 / 部分补丁 / `setChrome`）不影响存下来的内容；
+  与命名主题一致时只写 `{ name }`；没动过主题不写该字段（旧快照格式不变）。
+- **主题校验 `validateTheme()` / `ice.validateTheme()`**：未知语义 token（警告）、颜色类型不对、
+  palette 为空、motion 缺 duration 或 easing（错误）、`text` / `muted` / `hint` 与背景的
+  **WCAG 对比度**（< 3 报错、< 4.5 警告）。配套 `contrastRatio`。
+- **预设注册 `registerPreset` / `unregisterPreset`**（与 `registerType` 同一套纪律）；
+  **深合并工具** `mergeThemes` / `deepMerge` / `deepDiff` / `deepEqual`；
+  **主题查询** `listThemes` / `getRegisteredTheme` / `resolveTheme`。
+- **文档《21 · 主题与样式机制》**：四层 token、引用解析、状态样式、作用域、快照、校验、
+  预设纪律、**热路径性能约束**与已知取舍。
+
+### 变更（观感 / 行为，升级前请过一遍）
+
+- **容器默认不再画自己的盒子**。`ICEGroup` 继承自 `ICERect`，历史上因为默认样式写死 `red/blue`，
+  任何没显式给 `style` 的容器都会画一个**不透明红块**（引擎自己的叠层示例里"混出来的紫色"
+  就是这么来的）。现在容器默认样式是**透明**：要背景 / 边框就显式给 `style` 或用 `preset`。
+- **默认样式来自主题**：没写 `style` 的叶子图元默认 `fillStyle = semantic.primary`、
+  `strokeStyle = semantic.border`，并随 `setTheme` 刷新（不再是写死的 red/blue）。
+- **`STYLE_PRESETS` 变成只读视图**：读照常，写与删除**抛错**并指向 `registerPreset` /
+  `unregisterPreset`。以前 `STYLE_PRESETS.card = fn` 能在实例上生成同名属性盖掉原型里的内置预设，
+  「内置不可覆盖」一行赋值就绕过去了。
+- **默认主题的 `muted` / `hint` 调深一档**（gray-600 / gray-500）：旧值（gray-500 / gray-400）
+  在纯白上分别只有 4.83:1 与 2.54:1，后者连 WCAG AA 的一半都不到 —— 这是 `validateTheme()`
+  上线后第一次跑就抓到的自家问题。
+- **主题合并改深合并**：`{ motion: { duration: { fast: 50 } } }` 不再抹掉 `motion.easing`
+  （旧实现下动画路径读 `motion.easing[名]` 会直接抛 TypeError）；`{ base: {...} }` 现在真的生效
+  （旧实现忽略它、还会污染成 `semantic.base`）。平铺 semantic 的历史写法继续支持。
+- **还原顺序修正**：先切命名主题 → 再叠补丁 → 最后建组件（旧实现先叠补丁再切命名主题，
+  补丁会被随后的命名主题整份覆盖）。
+
+### 性能
+
+`applyStyleToCtx()` 是每帧每组件都跑的热路径，新增机制必须不付代价：
+样式里没有主题引用、也没有激活状态时走**快路径**（与加机制之前逐字同构），
+微基准 **0.98× 基线**（`npm run bench:micro -- --check`）。
+第一版用闭包实现时实测 1.88×、去掉闭包后 1.27×，最终按「快路径 + 原始应用方法」拆回来。
+
+### 验证
+
+- 单测 975 → **1032**；`verify:full` 全绿：单测 + 100 条浏览器用例（含像素快照）+ 4 套基准 + 包检查。
+- 应用侧回归：`ice-chart`（367 单测 + 36 浏览器用例）、`ice-entity-designer`（350 + 78）、
+  `ice-web-components`（1289 + 9）、`ice-smart-water`（83 + 35）全部在新引擎上通过。
+
 ## [Unreleased]
 
 > 暂无（下一个版本发布前在这里累积）。
