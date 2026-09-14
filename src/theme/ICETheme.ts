@@ -257,9 +257,9 @@ export const BOOTSTRAP_BASELINE = {
   info: '#0DCAF0',
   /** 正文（= Bootstrap `--bs-body-color`）。对白底 15.4:1。 */
   text: '#212529',
-  /** 次要文字（gray-700）。对白底 7.0:1。 */
+  /** 次要文字（gray-700）。对白底 8.2:1。 */
   muted: '#495057',
-  /** 提示文字（gray-600）。对白底 4.68:1 —— 刚好过 AA。 */
+  /** 提示文字（gray-600）。对白底 4.7:1 —— 刚好过 AA。 */
   hint: '#6C757D',
   border: '#DEE2E6',
   background: '#ffffff',
@@ -351,7 +351,7 @@ export const DARK_THEME: ICETheme = {
     warning: '#ffda6a',
     danger: '#ea868f',
     info: '#6edff6',
-    // 灰阶同样三档且全过 AA：正文 17:1 / 次要 12.5:1 / 提示 8.5:1（对 #212529 底）
+    // 灰阶同样三档且全过 AA：正文 11.9:1 / 次要 10.3:1 / 提示 7.4:1（对 #212529 底）
     text: '#dee2e6',
     muted: '#ced4da',
     hint: '#adb5bd',

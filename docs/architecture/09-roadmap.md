@@ -97,7 +97,8 @@ Bootstrap 也是这些库最常见的使用环境（宿主页面往往本身就�
 
 - `semantic` 的 9 个颜色 token 全量换成 Bootstrap 5 值；灰阶阶梯**刻意比 Bootstrap 默认更深一档**，
   保证 `text > muted > hint` 三档全部通过 WCAG AA（`gray-500 #ADB5BD` 在白底仅 2.1:1，
-  `validateTheme()` 会直接判 error，因此 `hint` 取 gray-600 `#6C757D`，4.68:1）。
+  `validateTheme()` 会直接判 error，因此 `hint` 取 gray-600 `#6C757D`，4.7:1）。
+  实测：`text #212529` 15.4:1 / `muted #495057` 8.2:1 / `hint #6C757D` 4.7:1（对白底）。
 - 数据系列配色抽出唯一来源 `FAMILY_PALETTE` / `FAMILY_PALETTE_DARK`，引擎与 `ice-chart` 共用同一份
   （此前两者各有一套 8 色，同一份数据在两个产物里会得到不同颜色）。
 - `DARK_THEME` 换成 Bootstrap 5.3 的深色变体（`#212529` 底 + `#dee2e6` 正文）。
