@@ -69,6 +69,21 @@ const LEAKY_CTX_PROPS: Array<[string, any]> = [
 /** `lineDash` 不进 `LEAKY_CTX_PROPS`（它要调用 `setLineDash`），单独占一个位。 */
 const LEAKY_LINE_DASH_BIT = 1 << LEAKY_CTX_PROPS.length;
 
+/**
+ * 泄漏属性名 → 位下标 的查表（由 `LEAKY_CTX_PROPS` 生成，两者不可能漂移）。
+ *
+ * `__leakyIndex()` 原先是一个 21 分支的**字符串 switch**，而它在 `__resetLeakyCtxState()` 里
+ * 对每个组件的每个 style 键各调一次（每帧两次 for...in 扫描 × N 个组件）。
+ * 字符串 switch 编译出来是一串比较，查表是一次哈希查找 —— 语义完全一致，只是更快。
+ */
+const LEAKY_INDEX: Record<string, number> = (() => {
+  const map: Record<string, number> = Object.create(null);
+  for (let i = 0; i < LEAKY_CTX_PROPS.length; i++) {
+    map[LEAKY_CTX_PROPS[i][0]] = i;
+  }
+  return map;
+})();
+
 /** 单位矩阵（gl-matrix mat2d 布局）；`__activeWorldMatrix` 为空时代表世界→设备是恒等变换。 */
 const IDENTITY_MATRIX = Object.freeze([1, 0, 0, 1, 0, 0]) as unknown as number[];
 import { skew } from '../util/gl-matrix-skew';
@@ -1625,52 +1640,8 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   private __leakyIndex(k: string): number {
-    switch (k) {
-      case 'shadowColor':
-        return 0;
-      case 'shadowBlur':
-        return 1;
-      case 'shadowOffsetX':
-        return 2;
-      case 'shadowOffsetY':
-        return 3;
-      case 'globalAlpha':
-        return 4;
-      case 'globalCompositeOperation':
-        return 5;
-      case 'lineCap':
-        return 6;
-      case 'lineJoin':
-        return 7;
-      case 'miterLimit':
-        return 8;
-      case 'textAlign':
-        return 9;
-      case 'textBaseline':
-        return 10;
-      case 'direction':
-        return 11;
-      case 'letterSpacing':
-        return 12;
-      case 'wordSpacing':
-        return 13;
-      case 'fontKerning':
-        return 14;
-      case 'fontStretch':
-        return 15;
-      case 'fontVariantCaps':
-        return 16;
-      case 'textRendering':
-        return 17;
-      case 'filter':
-        return 18;
-      case 'imageSmoothingEnabled':
-        return 19;
-      case 'imageSmoothingQuality':
-        return 20;
-      default:
-        return -1;
-    }
+    const i = LEAKY_INDEX[k];
+    return i === undefined ? -1 : i;
   }
 
   /**
