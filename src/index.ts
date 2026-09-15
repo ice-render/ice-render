@@ -83,6 +83,8 @@ export type {
 } from './layout/ICELayoutManager';
 export type { ICEBoxAlign } from './layout/ICEBoxLayout';
 export type { ICEFlowCrossAlign } from './layout/ICEFlowLayout';
+export { computeLayeredLayout } from './layout/layered-core';
+export type { ICELayeredNode, ICELayeredEdge, ICELayeredCoreOptions, ICELayeredPosition } from './layout/layered-core';
 export {
   /**
    * 主题工具包（`baseTokens` / `DEFAULT_THEME` / `registerTheme` / `token` … 的集合）。

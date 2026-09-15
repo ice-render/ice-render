@@ -7,6 +7,21 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+## [2.9.0] - 2026-09-15
+
+### 新增
+
+- **分层图布局的纯内核 `computeLayeredLayout`**（公开导出）：给定节点与边，算出
+  `{ left, top, rank, order }` —— 分层（最长路径法、环安全）、层内排序（重心法 4 轮）、
+  方向（`horizontal` / `vertical`）、交叉轴对齐（`start` / `center`）都在里面，
+  **不碰组件、没有 ctx、纯函数**。
+  用途：应用层的编译器（`ice-entity-designer-dsl` 的 UML / 流程图 / BPMN 自动布局）直接调它
+  "算好坐标写进文档"；引擎的 `ICELayeredLayout` 调它"写回组件 + 对齐连线端点"。
+  此前两边各写一份分层算法（DSL 那份 148 行），口径会漂 —— 现在共用一份。
+- **`ICELayeredLayout` 新增 `direction` 与 `crossAlign`**：`direction: 'vertical'` 让层自上而下
+  （面向流程图/类图的观感），`crossAlign: 'center'` 让层内节点块居中。默认值
+  （`horizontal` / `start`）与历史行为**逐像素一致**（`layered-layout` / `git-commit-graph` 基准图未变）。
+
 ## [2.8.0] - 2026-09-15
 
 本轮主题：**布局机制回归 Java Swing 的三条口径** —— 不继承、自顶向下校验、尺寸协商问子项。
