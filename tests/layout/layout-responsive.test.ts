@@ -92,18 +92,20 @@ describe('布局响应式重排', () => {
     expect((group as any).__layoutRequested).toBe(false);
   });
 
-  it('没有布局策略时 requestLayout 是空操作，不会置脏', () => {
+  it('没有布局策略时 requestLayout 不会改变子项位置（失效标记仍沿父链上浮）', () => {
+    // 对齐 Swing：invalidate() 会标自己 + 祖先，但 layout() 在没有 layoutMgr 时什么也不做。
     const group = new ICEGroup({ width: 400, height: 300 });
-    const a = new ICERect({ width: 10, height: 10 });
+    const a = new ICERect({ left: 20, top: 30, width: 10, height: 10 });
     group.addChild(a);
-    expect((group as any).__layoutRequested).toBe(false);
     a.setState({ width: 20 });
-    expect((group as any).__layoutRequested).toBe(false);
+    group.doLayout();
+    expect(a.state.left).toBe(20); // 没有策略 → 位置原样
+    expect(a.state.top).toBe(30);
   });
 
-  it('getPreferredSize 转发布局策略（未设置布局时为 [0,0]）', () => {
+  it('getPreferredSize 转发布局策略；没有布局策略时回落到自己的盒子（Swing 的 getSize 兜底）', () => {
     const group = new ICEGroup({ width: 400, height: 300 });
-    expect(group.getPreferredSize()).toEqual([0, 0]);
+    expect(group.getPreferredSize()).toEqual([400, 300]);
 
     class FakeLayout extends ICELayoutManager {
       layoutContainer(): void {}

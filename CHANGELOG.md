@@ -3,6 +3,51 @@
 本文件记录所有值得注意的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+本轮主题：**布局机制回归 Java Swing 的三条口径** —— 不继承、自顶向下校验、尺寸协商问子项。
+起因是 `ice-web-components` 全库 80+ 组件只有 `ICETabs` 一处敢用引擎布局：父容器设布局会把策略
+递归灌进所有后代容器，而组件库每个组件都是 `ICEGroup` 子类、内部零件（按钮文字、输入框前后缀 /
+清除按钮）都在同一个 `childNodes` 里 —— 于是一次 `setLayout()` 等于把整个界面的内部零件重摆一遍。
+
+### 变更（破坏性：布局继承语义）
+
+- **删掉布局继承**：`setLayout()` 不再把策略传播给「未显式设置布局」的子容器，`addChild()` 也
+  不再让新子容器继承父层策略。对齐 Swing 的 `Container.setLayout()` / `layout()`：父布局只负责
+  给子容器摆位置，子容器用**自己的**策略排自己的子项（要自动排布就自己 `setLayout()`）。
+  **受影响**：此前依赖「子容器自动继承父层布局」的代码，需给每个要自动排布的容器显式 `setLayout()`。
+  旧实现删掉了 `__propagateLayout` 与 `__layoutExplicit` 两个内部成员。
+- **新增自顶向下校验（对齐 Swing `Container.validateTree()`）**：`doLayout()` 在排布趟之后继续
+  向下，谁失效（被改了尺寸 / 请求过重排）就重排谁并递归其子树，没失效的子树整棵跳过；中间层容器
+  即使没有布局也要穿过去。此前内层容器被父布局改尺寸后不会重排自己的子树，只能靠 `fitContent`
+  或继承 hack 兜底。
+- **`requestLayout()` 语义对齐 `Component.invalidate()`**：除了标自己失效，还会**沿父链向上冒泡**
+  （此前在没有布局策略的容器上直接 return，失效请求会断在中间层）；仍然合并到下一帧只排一次。
+- **尺寸协商改为问子项**：`ICELayoutManager.preferredSizeOf()` 从「直接读 `state.width/height`」
+  改为调用 `child.getPreferredSize()`（对齐 `BorderLayout.preferredLayoutSize`）。配套：
+  - `ICEComponent` 新增 `setPreferredSize(size)` / `isPreferredSizeSet()`（Swing 同名 API）；
+  - `ICEGroup.getPreferredSize()`：`setPreferredSize()` 声明过 → 报声明值；否则有布局 → 报策略算出的
+    **内容尺寸**；都没有 → 报自己的盒子（Swing `getSize()` 兜底）。**构造期给的 `width/height`
+    是边界（`setBounds` 语义），不再是首选尺寸** —— 要让父布局按你给的尺寸留位，请调 `setPreferredSize()`。
+  - 收益：嵌套容器**不需要 `fitContent`** 就能对外报自然尺寸（`fitContent` 回归它本来的语义：
+    把自身尺寸调成内容尺寸）。
+- **不可见子项口径对齐 Swing**：`ICEFlowLayout` / `ICEBoxLayout` / `ICEBorderLayout` /
+  `ICEOverlayLayout` 跳过 `display:false` 的子项（用 `ICELayoutManager.layoutChildren()`）；
+  **`ICEGridLayout` 不跳过**（不可见项照样占一格，与 Swing 的 `GridLayout` 一致）。
+
+### 修复
+
+- **父容器布局会破坏子组件内部几何**：给面板设布局后，子组件继承同一策略、下一次自己
+  `requestLayout()` 时按父层的规则重摆自己的内部节点（实测 `ICETextField(prefix, allowClear)`
+  的文本 `12 → 0`、清除按钮 `(170,6) → (316,0)`）。删除继承后不再发生。
+
+### 验证
+
+- 新增 `tests/layout/layout-swing-semantics.test.ts`（不继承 / validateTree / 尺寸协商 /
+  `setPreferredSize` / 不可见子项 15 例），改写 `flow-layout`、`layout-reflow`、`layout-responsive`
+  里依赖旧继承语义的用例。
+- `npx jest` 全绿：**132 suite / 1093 用例**；`npm run types:check` 与 `npm run build` 零错误。
+
 ## [2.7.0] - 2026-09-14
 
 本轮主题：**把布局系统从「叶子排列」提升到「可组合排版」** —— 补上尺寸协商、内外距、

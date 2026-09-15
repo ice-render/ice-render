@@ -36,7 +36,7 @@ class ICEBorderLayout extends ICELayoutManager {
    * 五个区域都在**内容盒**里排（容器 `padding` 之内），north/south 横向拉满、east/west 纵向拉满。
    */
   layoutContainer(container: ICEGroup): void {
-    const children = container.childNodes;
+    const children = this.layoutChildren(container);
     const box = this.contentBox(container);
     const W = box.width;
     const H = box.height;
@@ -90,7 +90,7 @@ class ICEBorderLayout extends ICELayoutManager {
     let east = 0;
     let centerW = 0;
     let centerH = 0;
-    for (const child of container.childNodes) {
+    for (const child of this.layoutChildren(container)) {
       const [w, h] = this.outerSizeOf(child);
       const pos = this.constraintOf(child);
       if (pos === 'north') north = Math.max(north, h);

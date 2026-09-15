@@ -32,7 +32,7 @@ class ICEFlowLayout extends ICELayoutManager {
    * （它的宽度本来就由内容决定，按宽度换行会在 0 宽上无限换行）。
    */
   layoutContainer(container: ICEGroup): void {
-    const children = container.childNodes;
+    const children = this.layoutChildren(container);
     const box = this.contentBox(container);
     const wrapWidth = (container.state as any).fitContent ? Infinity : box.width;
     const gap = this.gap;
@@ -89,7 +89,7 @@ class ICEFlowLayout extends ICELayoutManager {
     const pad = this.paddingOf(container);
     let width = 0;
     let height = 0;
-    const children = container.childNodes;
+    const children = this.layoutChildren(container);
     for (let i = 0; i < children.length; i++) {
       const [w, h] = this.outerSizeOf(children[i]);
       width += w;

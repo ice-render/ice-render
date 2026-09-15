@@ -34,7 +34,7 @@ class ICEBoxLayout extends ICELayoutManager {
    */
   layoutContainer(container: ICEGroup): void {
     const box = this.contentBox(container);
-    const children = container.childNodes;
+    const children = this.layoutChildren(container);
     const horizontal = this.axis === 'x';
 
     // 先算总占位，才能知道"剩余空间"有多少
@@ -83,7 +83,7 @@ class ICEBoxLayout extends ICELayoutManager {
   /** 内容首选尺寸：单轴累加（不分配剩余空间），交叉轴取最大。 */
   getPreferredSize(container: ICEGroup): [number, number] {
     const pad = this.paddingOf(container);
-    const children = container.childNodes;
+    const children = this.layoutChildren(container);
     let main = 0;
     let cross = 0;
     for (let i = 0; i < children.length; i++) {

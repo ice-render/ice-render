@@ -114,15 +114,45 @@ abstract class ICELayoutManager {
   }
 
   /**
-   * 子项的**内容尺寸** = 它当前的 `state.width/height`。
+   * 子项**想要的尺寸**：问它自己的 `getPreferredSize()`（对齐 Swing 的
+   * `BorderLayout.preferredLayoutSize` —— 对每个子项调 `comp.getPreferredSize()`）。
    *
-   * 为什么不在这里调 `child.getPreferredSize()`：容器的"内容尺寸"由**它自己**先算好
-   * （`fitContent` 的容器在父容器的测量趟里已经 `doLayout()` 把自己量成内容大小了，
-   * 见 `ICEGroup.doLayout`），父布局读它的盒子即可。这样既拿到了自然尺寸，
-   * 又不会让"显式给了尺寸的容器"被内容尺寸覆盖。
+   * 三种子项各有各的答案，但布局不需要知道区别（这正是 Swing 尺寸协议的价值）：
+   * - 叶子图元：显式声明的尺寸，或当前盒子（`ICEComponent.getPreferredSize()`）；
+   * - 文本类组件：量测后的字形尺寸；
+   * - 子容器：**没显式声明尺寸**时由它自己的布局算出的内容尺寸
+   *   （显式给了尺寸的容器仍报自己的盒子，等价于 Swing 的 `setPreferredSize`，见 `ICEGroup`）。
+   *
+   * 兜底：子项没实现 / 报 `[0,0]`（例如布局没实现 `getPreferredSize`）时回落到它的盒子。
    */
   protected preferredSizeOf(child: any): [number, number] {
+    if (child && typeof child.getPreferredSize === 'function') {
+      const size = child.getPreferredSize();
+      if (size && ((Number(size[0]) || 0) > 0 || (Number(size[1]) || 0) > 0)) {
+        return [Number(size[0]) || 0, Number(size[1]) || 0];
+      }
+    }
     return [Number(child.state.width) || 0, Number(child.state.height) || 0];
+  }
+
+  /**
+   * 参与排布的子项（跳过不可见子项）。
+   *
+   * 对齐 Swing：`FlowLayout` / `BorderLayout` / `BoxLayout` 都跳过不可见子项，
+   * **`GridLayout` 不跳过**（不可见子项照样占一个格子），所以网格布局不要用它。
+   * 判据用 `isEffectivelyVisible()`：父容器 `display:false` 时整棵子树都不参与排布。
+   */
+  protected layoutChildren(container: ICEGroup): any[] {
+    const children = container.childNodes;
+    const visible: any[] = [];
+    for (let i = 0; i < children.length; i++) {
+      const child: any = children[i];
+      if (typeof child.isEffectivelyVisible === 'function' && !child.isEffectivelyVisible()) {
+        continue;
+      }
+      visible.push(child);
+    }
+    return visible;
   }
 
   /** 子项的**占位尺寸**：内容尺寸 + 外边距（布局推进时用这个）。 */

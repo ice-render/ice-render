@@ -23,7 +23,7 @@ class ICEOverlayLayout extends ICELayoutManager {
    */
   layoutContainer(container: ICEGroup): void {
     const box = this.contentBox(container);
-    for (const child of container.childNodes) {
+    for (const child of this.layoutChildren(container)) {
       this.placeChild(child, box.left, box.top);
     }
   }
@@ -33,7 +33,7 @@ class ICEOverlayLayout extends ICELayoutManager {
     const pad = this.paddingOf(container);
     let width = 0;
     let height = 0;
-    for (const child of container.childNodes) {
+    for (const child of this.layoutChildren(container)) {
       const [w, h] = this.outerSizeOf(child);
       width = Math.max(width, w);
       height = Math.max(height, h);

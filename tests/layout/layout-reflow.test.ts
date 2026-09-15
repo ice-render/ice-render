@@ -7,7 +7,8 @@
  * - `addChildren` / `removeChildren` 批量操作只在结束后排一次（避免逐个重排的 O(n²)）
  * - 排布前先测量子组件：布局读的是 `child.state.width/height`，而它们要等首次渲染才算出来
  *   （文本更要量测字形），旧实现不测量 → 首次布局拿到的全是 0/哨兵值
- * - 新增的容器型子组件继承父层布局（与 setLayout 的传播规则一致）
+ * - 布局**不继承**（对齐 Swing）：子容器要自动排布得自己 setLayout；父布局只给它摆位置
+ * - 被父布局改了尺寸的子容器，会在同一次校验里重排自己的子树（对齐 Swing 的 validateTree）
  * - 未设置布局时增删不改变子组件位置
  */
 jest.mock('../../src/cross-platform/root', () => {
@@ -20,6 +21,8 @@ import ICERect from '../../src/graphic/shape/ICERect';
 import ICEText from '../../src/graphic/text/ICEText';
 import ICEBoxLayout from '../../src/layout/ICEBoxLayout';
 import ICEGridLayout from '../../src/layout/ICEGridLayout';
+import ICEFlowLayout from '../../src/layout/ICEFlowLayout';
+import ICEBorderLayout from '../../src/layout/ICEBorderLayout';
 
 function makeGroup(width = 400, height = 200) {
   return new ICEGroup({ left: 0, top: 0, width, height });
@@ -124,11 +127,11 @@ describe('布局前测量', () => {
   });
 });
 
-describe('嵌套容器继承布局', () => {
-  it('setLayout 时传播给已有子容器，且子容器内的子组件被排布', () => {
+describe('嵌套容器：各持策略 + 自顶向下校验', () => {
+  it('子容器自己有布局时才排内部（父层布局不替它排）', () => {
     const outer: any = makeGroup(600, 300);
     const inner: any = makeGroup(200, 100);
-    outer.addChild(inner); // 先加，后设布局
+    outer.addChild(inner);
 
     outer.setLayout(new ICEBoxLayout({ axis: 'x', gap: 10 }));
 
@@ -136,12 +139,16 @@ describe('嵌套容器继承布局', () => {
     const b: any = new ICERect({ width: 20, height: 10 });
     inner.addChildren([a, b] as any);
 
-    expect(inner.layoutManager).toBe(outer.layoutManager);
+    // 父层策略不下灌
+    expect(inner.layoutManager).toBe(null);
+
+    // 内层自己声明策略后，内部才被排布
+    inner.setLayout(new ICEBoxLayout({ axis: 'x', gap: 10 }));
     expect(a.state.left).toBe(0);
     expect(b.state.left).toBe(40); // 30 + 10
   });
 
-  it('setLayout 之后新增的子容器也继承布局，其子组件被排布', () => {
+  it('setLayout 之后新增的子容器同样不继承布局', () => {
     const outer: any = makeGroup(600, 300);
     outer.setLayout(new ICEGridLayout({ cols: 2, gapX: 10, gapY: 10 }));
 
@@ -151,9 +158,7 @@ describe('嵌套容器继承布局', () => {
     const a: any = new ICERect({ width: 30, height: 10 });
     later.addChild(a);
 
-    expect(later.layoutManager).toBe(outer.layoutManager);
-    expect(a.state.left).toBe(0);
-    expect(a.state.top).toBe(0);
+    expect(later.layoutManager).toBe(null);
   });
 
   it('子容器显式设置自己的布局时不被父层覆盖', () => {
@@ -165,5 +170,20 @@ describe('嵌套容器继承布局', () => {
     outer.setLayout(new ICEBoxLayout({ axis: 'y' }));
 
     expect(inner.layoutManager).toBe(ownLayout);
+  });
+
+  it('父布局改了内层容器的尺寸 → 内层容器重排自己的子树（validateTree 语义）', () => {
+    const outer: any = makeGroup(600, 300);
+    const inner: any = new ICEGroup({ width: 10, height: 10 });
+    const card: any = new ICERect({ width: 5, height: 5 });
+    inner.addChild(card);
+    inner.setLayout(new ICEBorderLayout({ gap: 0 })); // card 落 center → 跟着容器拉伸
+    outer.addChild(inner);
+
+    outer.setLayout(new ICEBorderLayout({ gap: 0 })); // inner 落 center → 被外层拉满
+
+    expect(inner.state.width).toBe(600);
+    expect(card.state.width).toBe(600);
+    expect(card.state.height).toBe(300);
   });
 });

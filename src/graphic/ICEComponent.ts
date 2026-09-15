@@ -289,6 +289,8 @@ abstract class ICEComponent extends ICEEventTarget {
   /** 可见性缓存（代际号 + 值）：见 `isEffectivelyVisible` 的说明。 */
   private __visEpoch = -1;
   private __visValue = true;
+  /** `setPreferredSize()` 显式声明的首选尺寸（null = 没声明，见 `getPreferredSize()`）。 */
+  private __preferredSize: [number, number] | null = null;
   /** 本帧是否因为子树不透明度过 ctx.globalAlpha（见 __renderCore / __resetLeakyCtxState）。 */
   private __opacityApplied = false;
   /** 声明式渐变缓存：按描述对象引用判定，`refreshParams()` 里失效（setState 必然触发它）。 */
@@ -1086,12 +1088,48 @@ abstract class ICEComponent extends ICEEventTarget {
   /**
    * 组件**想要多大**（布局用）。
    *
-   * 默认就是当前 `width/height`：对叶子图元来说"想要的尺寸 = 自己的盒子"，文本则在量测后
-   * 已经是字形实际尺寸。容器（`ICEGroup`）会覆写它，改为向自己的布局策略要「内容尺寸」——
-   * 这样父布局嵌一个子容器时，读到的是子容器的**自然尺寸**，而不是它当前的（可能是 0 / 默认 10 的）盒子。
+   * 对齐 Swing 的 `Component.getPreferredSize()`：
+   * - 调用方用 `setPreferredSize()` 显式声明过 → 用声明值；
+   * - 否则就是当前 `width/height`（Swing 的兜底语义也是 `getSize()`）：对叶子图元来说
+   *   "想要的尺寸 = 自己的盒子"，文本则在量测后已经是字形实际尺寸。
+   *
+   * 容器（`ICEGroup`）会覆写它：**没**显式声明尺寸的容器改为向自己的布局策略要「内容尺寸」，
+   * 于是父布局嵌一个子容器时读到的是它的**自然尺寸**（对齐 Swing 的 `preferredLayoutSize`）。
    */
   public getPreferredSize(): [number, number] {
+    if (this.__preferredSize) {
+      return [this.__preferredSize[0], this.__preferredSize[1]];
+    }
     return [Number(this.state.width) || 0, Number(this.state.height) || 0];
+  }
+
+  /**
+   * 显式声明「我想要多大」（Swing 同名 API）。
+   *
+   * 布局在算剩余空间 / 摆位时会先问它（见 `ICELayoutManager.preferredSizeOf`）。
+   * 声明后即使容器自己算出了内容尺寸，也以这个值为准 —— 等价于 Swing 的
+   * `isPreferredSizeSet() == true` 时 `Container.getPreferredSize()` 不再问布局。
+   */
+  public setPreferredSize(size: [number, number] | { width: number; height: number }): this {
+    const width = Array.isArray(size) ? size[0] : size.width;
+    const height = Array.isArray(size) ? size[1] : size.height;
+    this.__preferredSize = [Number(width) || 0, Number(height) || 0];
+    // 尺寸声明变了 → 让父容器重排（对齐 Swing setPreferredSize() 里的 revalidate()）
+    if (this.parentNode && typeof this.parentNode.requestLayout === 'function') {
+      this.parentNode.requestLayout();
+    }
+    return this;
+  }
+
+  /**
+   * 调用方是否显式声明过首选尺寸。
+   *
+   * **只有 `setPreferredSize()` 才算**（Swing 的 `isPreferredSizeSet()` 就是这个语义）：
+   * 构造期给的 `width/height` 是**当前边界**（Swing 的 `setBounds`），不参与"想要多大"的协商。
+   * 容器因此能把"我被摆成多大"和"我内容想多大"分开报 —— 这正是 Swing 尺寸协议的关键。
+   */
+  public isPreferredSizeSet(): boolean {
+    return this.__preferredSize !== null;
   }
 
   /**

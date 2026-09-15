@@ -150,22 +150,33 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   ④ 编辑态不截断：caret / 选区是按原始文本算的。
   回归见 `tests/graphic/text-overflow.test.ts`。
 
-- **布局铁律（2026-09-14 确立，D 组）**：设计思想是 Java Swing 的 `LayoutManager`（策略模式）——
-  容器持有策略、策略只算位置。定死这几条口径，新增布局必须照办：
+- **布局铁律（2026-09-14 确立 D 组，2026-09-15 对齐 Swing 修订）**：设计思想是 Java Swing 的
+  `LayoutManager`（策略模式）—— 容器持有策略、策略只算位置。定死这几条口径，新增布局必须照办：
   ① **策略只摆位置**：`layoutContainer(container)` 里写子项的位置/尺寸；"什么时候排"归 `ICEGroup`
   （`setLayout` / 增删子项立即排、子项改尺寸合并到下一帧、布局期间不自激）。
-  ② **尺寸协商只有一条路**：容器 `fitContent: true` 时由**它自己**在测量趟里 `doLayout()` 把尺寸量成
-  内容大小（递归、自底向上），父布局随后读它的盒子。**不要**在布局里调 `child.getPreferredSize()`
-  去覆盖调用方显式给的尺寸。
-  ③ **内外距只有一套实现**：容器的 `padding`、子项的 `margin` 一律走
+  ② **尺寸协商只有一条路：问子项的 `getPreferredSize()`**（`preferredSizeOf`），不要直接读
+  `state.width/height`（旧口径，已废）。子项怎么答：叶子 = 显式尺寸或当前盒子；容器 = 有布局就报
+  策略算出的**内容尺寸**（对齐 Swing `Container.getPreferredSize() → preferredLayoutSize`）；
+  `setPreferredSize()` 声明过就报声明值。**构造期给的 `width/height` 是边界（`setBounds` 语义），
+  不是首选尺寸**，所以"父布局不许顶掉调用方给的尺寸"这条旧顾虑要用 `setPreferredSize()` 表达。
+  ③ **没有 `fitContent` 也能嵌套**：`fitContent` 只是"把自身尺寸调成内容尺寸"的可选行为，不再是
+  子容器对外报自然尺寸的前提。
+  ④ **布局不继承**：父容器 `setLayout()` **不**下灌给子容器（对齐 Swing `Container.setLayout`：
+  父布局只给子容器摆位置）。子容器要自动排布就自己 `setLayout()`。重排由 `doLayout()` 末尾的
+  **自顶向下校验趟**驱动（对齐 `Container.validateTree()`：谁失效排谁，没失效的子树整棵跳过，
+  中间层容器没有布局也要穿过去）。
+  ⑤ **内外距只有一套实现**：容器的 `padding`、子项的 `margin` 一律走
   `contentBox()` / `outerSizeOf()` / `placeChild()` / `placeChildSized()`，新布局不许自己再算一遍
   （否则「屏幕上是 8px、盒子按 0 算」这类漂移一定会出现）。
-  ④ **每个布局都要实现 `getPreferredSize(container)`**（内容首选尺寸，含 padding/margin），
+  ⑥ **每个布局都要实现 `getPreferredSize(container)`**（内容首选尺寸，含 padding/margin），
   否则 `fitContent` 对它无效；返回 `[0,0]` 表示"我对尺寸没有意见"，容器会保留调用方给的尺寸。
-  ⑤ **构造参数取默认值用 `??` 不用 `||`** —— `gap: 0` / `currentIndex: 0` 必须能表达。
-  ⑥ 子项上的布局声明（`margin` / `grow` / `gridSpan` / `layoutConstraint`）放 `state`
+  ⑦ **不可见子项口径对齐 Swing**：`FlowLayout` / `BoxLayout` / `BorderLayout` / `OverlayLayout`
+  用 `layoutChildren()` 跳过不可见子项；**`GridLayout` 不跳过**（不可见项照样占格子）。
+  ⑧ **构造参数取默认值用 `??` 不用 `||`** —— `gap: 0` / `currentIndex: 0` 必须能表达。
+  ⑨ 子项上的布局声明（`margin` / `grow` / `gridSpan` / `layoutConstraint`）放 `state`
   （随快照走），非法约束值要**提示一次**而不是静默落默认值。
-  回归见 `tests/layout/`（含 `layout-composition.test.ts`）、`e2e/visual/visual.spec.ts` 的 golden 图。
+  回归见 `tests/layout/`（含 `layout-swing-semantics.test.ts` / `layout-composition.test.ts`）、
+  `e2e/visual/visual.spec.ts` 的 golden 图。
 
 ## 已知技术债（严重度）
 
