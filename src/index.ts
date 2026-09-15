@@ -81,6 +81,8 @@ export type {
   ICELayoutBox,
   ICEGridSpan,
 } from './layout/ICELayoutManager';
+export type { ICEBoxAlign } from './layout/ICEBoxLayout';
+export type { ICEFlowCrossAlign } from './layout/ICEFlowLayout';
 export {
   /**
    * 主题工具包（`baseTokens` / `DEFAULT_THEME` / `registerTheme` / `token` … 的集合）。
