@@ -23,6 +23,77 @@ export interface SnapBox {
   centerY: number;
 }
 
+/**
+ * 候选线在**源盒**上的锚点。
+ *
+ * 粘性目标（见 `computeSnap` 的 `locked` 参数）靠它每帧重算 delta：
+ * 记住"这条线对的是源盒的哪条边"，就能在源盒移动后继续用同一条目标线，
+ * 而不是重新去全局挑一条最近的。
+ */
+export type SnapAnchor = 'minX' | 'maxX' | 'centerX' | 'minY' | 'maxY' | 'centerY';
+
+/** 某一轴上的源盒锚点候选（顺序即"优先匹配"顺序）。 */
+function anchorsOf(axis: 'x' | 'y'): SnapAnchor[] {
+  return axis === 'x' ? ['minX', 'maxX', 'centerX'] : ['minY', 'maxY', 'centerY'];
+}
+
+/**
+ * 从候选自身的 `delta` / `guideValue` 反推「源盒锚点 + 目标盒」，供粘性目标逐帧重算。
+ *
+ * 为什么反推而不是让每个候选显式带上：候选是在 `computeSnap` 里批量生成的（每个目标 4 条边
+ * 候选 + 中心 + 等间距），显式传递要改十几处构造点；反推只依赖候选已有的三个数字，
+ * 且用两个 Map 缓存，实测开销可忽略（候选 ~400 个、目标 33 个）。
+ */
+function attachIdentity(
+  candidate: SnapResult,
+  source: SnapBox,
+  targets: SnapBox[],
+  anchorCache: Map<string, SnapAnchor>,
+  targetCache: Map<string, SnapBox | null>
+): void {
+  const axis = candidate.axis;
+  const anchors = anchorsOf(axis);
+
+  const anchorKey = `${axis}:${candidate.guideValue}:${candidate.delta}`;
+  let anchor = anchorCache.get(anchorKey);
+  if (!anchor) {
+    anchor = anchors.find((k) => Math.abs(candidate.guideValue - source[k] - candidate.delta) < 1e-6) || anchors[2];
+    anchorCache.set(anchorKey, anchor);
+  }
+  candidate.anchor = anchor;
+
+  const boxKey = `${axis}:${candidate.guideValue}`;
+  if (!targetCache.has(boxKey)) {
+    const keys = anchors;
+    let found: SnapBox | null = null;
+    for (const t of targets) {
+      if (keys.some((k) => Math.abs(t[k] - candidate.guideValue) < 1e-6)) {
+        found = t;
+        break;
+      }
+    }
+    targetCache.set(boxKey, found);
+  }
+  candidate.targetBox = targetCache.get(boxKey) || null;
+}
+
+/**
+ * 用**当前**源盒刷新一条已锁定的候选：目标线不动，delta 与提示线跨度跟着源盒重算。
+ * （提示线跨度永远覆盖"源盒 ∪ 目标盒"，所以拖到哪儿线都不会跟元素脱开。）
+ */
+function refreshSnap(held: SnapResult, source: SnapBox): SnapResult {
+  const anchor: SnapAnchor = held.anchor || anchorsOf(held.axis)[2];
+  const next: SnapResult = { ...held, delta: held.guideValue - source[anchor] };
+  const target = held.targetBox;
+  if (held.axis === 'x') {
+    next.guideStart = target ? Math.min(source.minY, target.minY) : Math.min(source.minY, held.guideStart);
+    next.guideEnd = target ? Math.max(source.maxY, target.maxY) : Math.max(source.maxY, held.guideEnd);
+  } else {
+    next.guideStart = target ? Math.min(source.minX, target.minX) : Math.min(source.minX, held.guideStart);
+    next.guideEnd = target ? Math.max(source.maxX, target.maxX) : Math.max(source.maxX, held.guideEnd);
+  }
+  return next;
+}
 export interface SnapResult {
   axis: 'x' | 'y';
   type: 'edge' | 'center' | 'spacing';
@@ -33,6 +104,10 @@ export interface SnapResult {
   /** 提示线在另一轴上的起点/终点（世界坐标）。 */
   guideStart: number;
   guideEnd: number;
+  /** 源盒锚点（粘性目标重算 delta 用；内部生成，不传则视为中心）。 */
+  anchor?: SnapAnchor;
+  /** 对齐目标盒（粘性目标重算提示线跨度用；等间距候选存的是两端盒的并集）。 */
+  targetBox?: SnapBox | null;
 }
 
 export interface SnapAxes {
@@ -49,8 +124,30 @@ export interface AlignmentGuideOptions {
   edge?: boolean;
   /** 中心对齐，默认 true。 */
   center?: boolean;
-  /** 等间距对齐，默认 true。 */
+  /**
+   * 等间距对齐，**默认 false**（2026-09-15 改）。
+   *
+   * 它生成的是「任意两个目标中心的中点」这种**全图级别**的候选线：数量随目标数平方增长，
+   * 且用户基本无法预期线会出现在哪儿。实测（34 个单元的工艺图、阈值 2 屏幕 px）：
+   * 边+中心是 36% 的吸附概率，把等间距也打开会涨到 49%（不限距离时 60% → 75%）。
+   * 需要它（例如"让 A 居中在 B 与 C 之间"）的应用显式打开即可。
+   */
   spacing?: boolean;
+  /**
+   * 「相关性门控」的半径（**屏幕像素**，**默认 0 = 关闭**）：只在**另一轴**上与源盒相距不超过它的目标之间找对齐。
+   *
+   * 目的：让候选线只来自"看起来跟当前元素有关系"的那些对象。工艺图那种几十个图元的密集版面里，
+   * 把全图所有图元的边/中心都当候选会让指针经常处在某条线的阈值内 ——
+   * 实测 34 个单元的工艺图（阈值 2 屏幕 px）：候选沿拖动路径"≤4 世界 px"的概率，
+   * **不限距离 44%（等于一直在吸附）**、门控 120 → 32%、**门控 80 → 23%**、门控 60 → 21%。
+   * 但它**默认关闭**，因为它会挡掉合法的远距离对齐 —— 实测两处真实用法都需要 ≥105 屏幕 px：
+   * 引擎 `examples/alignment/alignment-snap.html`（两个矩形 Y 相距 120px，缩放 1×）与
+   * `ice-entity-designer` 的流程图对齐回归（两节点 Y 相距 130px，缩放 1.232×）。
+   * 也就是说：只有在"版面极密、且确认不需要跨行对齐"的场景才值得打开（工艺图实测 80 → 吸附步数 11/24 → 7/24）。
+   * 关掉时它的收益由 threshold / spacing 两项承担，见上面两条。
+   * 传 0 表示不限距离（退回旧行为）。
+   */
+  proximity?: number;
   /** 提示线完整样式（透传给 canvas ctx），默认跟随主题的 chrome.guide.color。 */
   guideStyle?: Record<string, any>;
   /** 提示线 zIndex，默认在控制面板之上。 */
@@ -66,17 +163,46 @@ function toBox(minX: number, minY: number, maxX: number, maxY: number): SnapBox 
 /**
  * 纯几何吸附计算：X/Y 两轴各自返回 |delta| 最小的命中候选。
  * thresholdX / thresholdY 分别是两轴的世界坐标阈值（调用方按视口与滞回换算）。
+ *
+ * **粘性目标（`locked`）**：传入上一帧已吸附的候选时，只要它还在阈值内就**继续用它**，
+ * 不再回头去全局挑"当前最近"的那条。这是"密集场景下引导线与图元乱跳"的根因修复：
+ * 目标一多，候选线就密（实测 34 个单元的工艺图上有 102 条 X 候选线、中位间距仅 2px，
+ * 而阈值折合 12px），"每帧重挑最近"会让选中的目标线每步换一条 —— 引导线跳几十像素、
+ * 图元被正负交替地拽 ±8px。
  */
 export function computeSnap(
   source: SnapBox,
   targets: SnapBox[],
   thresholdX: number,
   thresholdY: number,
-  options: Required<AlignmentGuideOptions>
+  options: Required<AlignmentGuideOptions>,
+  locked?: SnapAxes | null,
+  proximity: { x: number; y: number } = { x: Infinity, y: Infinity }
 ): SnapAxes {
   const result: SnapAxes = { x: null, y: null };
+
+  // ① 粘性：已吸附的轴先看"还锁得住吗"，锁得住就定了（下面的全局挑选会跳过该轴）
+  if (locked) {
+    (['x', 'y'] as const).forEach((axis) => {
+      const held = locked[axis];
+      if (!held) return;
+      const refreshed = refreshSnap(held, source);
+      const threshold = axis === 'x' ? thresholdX : thresholdY;
+      if (Math.abs(refreshed.delta) <= threshold) {
+        result[axis] = refreshed;
+      }
+    });
+  }
+
+  const anchorCache = new Map<string, SnapAnchor>();
+  const targetCache = new Map<string, SnapBox | null>();
+  // 注意：粘性锁定与"该轴已选中"是两件事 —— 下面的 consider 仍要按 |delta| 最小挑，
+  // 只有**已被粘性锁定**的轴才跳过全局挑选（否则会退化成"第一条候选胜出"）。
+  const stickyLocked = { x: !!result.x, y: !!result.y };
   const consider = (candidate: SnapResult | null) => {
     if (!candidate) return;
+    if (stickyLocked[candidate.axis]) return;
+    attachIdentity(candidate, source, targets, anchorCache, targetCache);
     const slot = result[candidate.axis];
     if (!slot || Math.abs(candidate.delta) < Math.abs(slot.delta)) {
       result[candidate.axis] = candidate;
@@ -84,89 +210,64 @@ export function computeSnap(
   };
 
   for (const t of targets) {
+    // 相关性门控：X 轴对齐只考虑"在 Y 上与源盒相近"的目标，Y 轴对齐同理。
+    // 没有这道门控，图上另一头、与当前元素毫无关系的单元也会贡献候选线 ——
+    // 实测 34 个单元的工艺图上有 102 条 X 候选线（中位间距仅 2px），而阈值折合 12px，
+    // 于是指针**每一步**都会经过另一条候选线的窗口，元素被一颗颗"钉子"挨个吸住。
+    const nearForX = t.maxY >= source.minY - proximity.y && t.minY <= source.maxY + proximity.y;
+    const nearForY = t.maxX >= source.minX - proximity.x && t.maxX <= source.maxX + proximity.x;
     if (options.edge) {
-      consider({
-        axis: 'x',
-        type: 'edge',
-        delta: t.minX - source.minX,
-        guideValue: t.minX,
-        guideStart: Math.min(source.minY, t.minY),
-        guideEnd: Math.max(source.maxY, t.maxY),
-      });
-      consider({
-        axis: 'x',
-        type: 'edge',
-        delta: t.maxX - source.minX,
-        guideValue: t.maxX,
-        guideStart: Math.min(source.minY, t.minY),
-        guideEnd: Math.max(source.maxY, t.maxY),
-      });
-      consider({
-        axis: 'x',
-        type: 'edge',
-        delta: t.minX - source.maxX,
-        guideValue: t.minX,
-        guideStart: Math.min(source.minY, t.minY),
-        guideEnd: Math.max(source.maxY, t.maxY),
-      });
-      consider({
-        axis: 'x',
-        type: 'edge',
-        delta: t.maxX - source.maxX,
-        guideValue: t.maxX,
-        guideStart: Math.min(source.minY, t.minY),
-        guideEnd: Math.max(source.maxY, t.maxY),
-      });
-      consider({
-        axis: 'y',
-        type: 'edge',
-        delta: t.minY - source.minY,
-        guideValue: t.minY,
-        guideStart: Math.min(source.minX, t.minX),
-        guideEnd: Math.max(source.maxX, t.maxX),
-      });
-      consider({
-        axis: 'y',
-        type: 'edge',
-        delta: t.maxY - source.minY,
-        guideValue: t.maxY,
-        guideStart: Math.min(source.minX, t.minX),
-        guideEnd: Math.max(source.maxX, t.maxX),
-      });
-      consider({
-        axis: 'y',
-        type: 'edge',
-        delta: t.minY - source.maxY,
-        guideValue: t.minY,
-        guideStart: Math.min(source.minX, t.minX),
-        guideEnd: Math.max(source.maxX, t.maxX),
-      });
-      consider({
-        axis: 'y',
-        type: 'edge',
-        delta: t.maxY - source.maxY,
-        guideValue: t.maxY,
-        guideStart: Math.min(source.minX, t.minX),
-        guideEnd: Math.max(source.maxX, t.maxX),
-      });
+      if (nearForX) {
+        // 4 种"边对边"关系：目标左/右边 × 源左/右边（语义与历史一致）
+        for (const targetEdge of [t.minX, t.maxX]) {
+          for (const sourceEdge of [source.minX, source.maxX]) {
+            consider({
+              axis: 'x',
+              type: 'edge',
+              delta: targetEdge - sourceEdge,
+              guideValue: targetEdge,
+              guideStart: Math.min(source.minY, t.minY),
+              guideEnd: Math.max(source.maxY, t.maxY),
+            });
+          }
+        }
+      }
+      if (nearForY) {
+        for (const targetEdge of [t.minY, t.maxY]) {
+          for (const sourceEdge of [source.minY, source.maxY]) {
+            consider({
+              axis: 'y',
+              type: 'edge',
+              delta: targetEdge - sourceEdge,
+              guideValue: targetEdge,
+              guideStart: Math.min(source.minX, t.minX),
+              guideEnd: Math.max(source.maxX, t.maxX),
+            });
+          }
+        }
+      }
     }
     if (options.center) {
-      consider({
-        axis: 'x',
-        type: 'center',
-        delta: t.centerX - source.centerX,
-        guideValue: t.centerX,
-        guideStart: Math.min(source.minY, t.minY),
-        guideEnd: Math.max(source.maxY, t.maxY),
-      });
-      consider({
-        axis: 'y',
-        type: 'center',
-        delta: t.centerY - source.centerY,
-        guideValue: t.centerY,
-        guideStart: Math.min(source.minX, t.minX),
-        guideEnd: Math.max(source.maxX, t.maxX),
-      });
+      if (nearForX) {
+        consider({
+          axis: 'x',
+          type: 'center',
+          delta: t.centerX - source.centerX,
+          guideValue: t.centerX,
+          guideStart: Math.min(source.minY, t.minY),
+          guideEnd: Math.max(source.maxY, t.maxY),
+        });
+      }
+      if (nearForY) {
+        consider({
+          axis: 'y',
+          type: 'center',
+          delta: t.centerY - source.centerY,
+          guideValue: t.centerY,
+          guideStart: Math.min(source.minX, t.minX),
+          guideEnd: Math.max(source.maxX, t.maxX),
+        });
+      }
     }
   }
 
@@ -178,28 +279,37 @@ export function computeSnap(
         const minX = Math.min(a.centerX, b.centerX);
         const maxX = Math.max(a.centerX, b.centerX);
         if (source.centerX > minX && source.centerX < maxX) {
-          const midX = (a.centerX + b.centerX) / 2;
-          consider({
-            axis: 'x',
-            type: 'spacing',
-            delta: midX - source.centerX,
-            guideValue: midX,
-            guideStart: Math.min(source.minY, a.minY, b.minY),
-            guideEnd: Math.max(source.maxY, a.maxY, b.maxY),
-          });
+          // 等间距候选同样过门控：两端都要与源盒在 Y 上相近，否则那是"全图中点"，没有指导意义
+          const pairTop = Math.min(a.minY, b.minY);
+          const pairBottom = Math.max(a.maxY, b.maxY);
+          if (pairBottom >= source.minY - proximity.y && pairTop <= source.maxY + proximity.y) {
+            const midX = (a.centerX + b.centerX) / 2;
+            consider({
+              axis: 'x',
+              type: 'spacing',
+              delta: midX - source.centerX,
+              guideValue: midX,
+              guideStart: Math.min(source.minY, a.minY, b.minY),
+              guideEnd: Math.max(source.maxY, a.maxY, b.maxY),
+            });
+          }
         }
         const minY = Math.min(a.centerY, b.centerY);
         const maxY = Math.max(a.centerY, b.centerY);
         if (source.centerY > minY && source.centerY < maxY) {
-          const midY = (a.centerY + b.centerY) / 2;
-          consider({
-            axis: 'y',
-            type: 'spacing',
-            delta: midY - source.centerY,
-            guideValue: midY,
-            guideStart: Math.min(source.minX, a.minX, b.minX),
-            guideEnd: Math.max(source.maxX, a.maxX, b.maxX),
-          });
+          const pairLeft = Math.min(a.minX, b.minX);
+          const pairRight = Math.max(a.maxX, b.maxX);
+          if (pairRight >= source.minX - proximity.x && pairLeft <= source.maxX + proximity.x) {
+            const midY = (a.centerY + b.centerY) / 2;
+            consider({
+              axis: 'y',
+              type: 'spacing',
+              delta: midY - source.centerY,
+              guideValue: midY,
+              guideStart: Math.min(source.minX, a.minX, b.minX),
+              guideEnd: Math.max(source.maxX, a.maxX, b.maxX),
+            });
+          }
         }
       }
     }
@@ -213,11 +323,26 @@ export function computeSnap(
 class AlignmentGuideManager {
   private ice: ICE;
   private options: Required<AlignmentGuideOptions> = {
+    /**
+     * 磁吸阈值（屏幕像素），默认 3。
+     *
+     * 阈值是**吸附半径**：它必须明显小于"候选线沿拖动路径的间距"，否则指针永远处在某条线的
+     * 吸附带里（实测 34 个单元的水务工艺图：X 候选线沿路径间距约 14 世界 px，而阈值 6 屏幕 px
+     * 在 0.5× 缩放下是 12 世界 px → 24 步里 19 步在吸附、相邻步位移变化最大 18px）。
+     * 密集版面（领域设计器那种）请由应用显式收紧到 2，见 `ice-entity-designer` 的
+     * `enableDesignerAlignmentGuides()`；**引擎默认值不动**（改成 2 会打破既有示例的合法吸附距离）。
+     */
     threshold: 3,
+    /**
+     * 脱离阈值 = threshold + hysteresis：比进入阈值大一点，避免刚吸附就掉。
+     * 保持 1（合计 3 屏幕 px）：这个"合计值"才是**拖动时元素最多偏离指针多少**，
+     * 它直接决定"跳"的幅度 —— 实测 6 屏幕 px 合计时相邻步位移变化 18 世界 px，收到 3 屏幕 px 后是 6 世界 px。
+     */
     hysteresis: 1,
     edge: true,
     center: true,
-    spacing: true,
+    spacing: false,
+    proximity: 0,
     guideStyle: { fillStyle: token('chrome.guide.color') },
     guideZIndex: 10000010,
     guideWidth: 1,
@@ -230,6 +355,14 @@ class AlignmentGuideManager {
   private cachedTargets: SnapBox[] = [];
   private engagedX = false;
   private engagedY = false;
+  /**
+   * 当前**锁定的**对齐候选（每轴一条）：粘性目标的载体。
+   *
+   * 命中后一直沿用它，直到源盒移出 `threshold + hysteresis` —— 这样"哪条线"在拖动过程中是稳定的，
+   * 不会因为旁边又出现一条更近的线就改主意（那正是密集场景下乱跳的来源）。
+   */
+  private lockedX: SnapResult | null = null;
+  private lockedY: SnapResult | null = null;
   private guideX: ICERect | null = null;
   private guideY: ICERect | null = null;
 
@@ -299,26 +432,37 @@ class AlignmentGuideManager {
     // 滞回：已吸附轴用更大的脱离阈值，避免边界抖动。
     const enter = this.options.threshold / scale;
     const exit = (this.options.threshold + this.options.hysteresis) / scale;
-    // 滞回：未吸附轴用进入阈值(threshold)，已吸附轴用更大的脱离阈值(threshold+hysteresis)。
+    // 未吸附轴用进入阈值(threshold)，已吸附轴用更大的脱离阈值(threshold+hysteresis)；
+    // 并把上一帧锁定的候选传进去 —— 只要它还在这条线上，就继续用它（粘性目标）。
     const snap = computeSnap(
       source,
       this.cachedTargets,
       this.engagedX ? exit : enter,
       this.engagedY ? exit : enter,
-      this.options
+      this.options,
+      { x: this.engagedX ? this.lockedX : null, y: this.engagedY ? this.lockedY : null },
+      // 相关性门控半径：屏幕像素 → 世界坐标（与阈值同一套换算口径）
+      this.options.proximity > 0
+        ? { x: this.options.proximity / scale, y: this.options.proximity / scale }
+        : { x: Infinity, y: Infinity }
     );
 
     if (snap.x || snap.y) {
-      // delta 取整：中心/等间距候选可能产生 0.5 之类的浮点，取整避免亚像素抖动。
-      const snappedLeft = this.intentLeft + (snap.x ? Math.round(snap.x.delta) : 0);
-      const snappedTop = this.intentTop + (snap.y ? Math.round(snap.y.delta) : 0);
+      // 直接用连续 delta：以前这里 `Math.round()`（本意是防亚像素抖动）会把连续的目标切换
+      // 放大成整数级跳变（实测修正量在 8 / -4 / 4 / -2 之间反复），是"图元跳来跳去"的第二个来源。
+      const snappedLeft = this.intentLeft + (snap.x ? snap.x.delta : 0);
+      const snappedTop = this.intentTop + (snap.y ? snap.y.delta : 0);
       this.active.setState({ left: snappedLeft, top: snappedTop });
       this.engagedX = !!snap.x;
       this.engagedY = !!snap.y;
+      this.lockedX = snap.x;
+      this.lockedY = snap.y;
       this.__updateGuides(snap);
     } else {
       this.engagedX = false;
       this.engagedY = false;
+      this.lockedX = null;
+      this.lockedY = null;
       this.__hideGuides();
     }
   }
@@ -337,6 +481,8 @@ class AlignmentGuideManager {
     this.cachedTargets = [];
     this.engagedX = false;
     this.engagedY = false;
+    this.lockedX = null;
+    this.lockedY = null;
     this.__hideGuides();
   }
 
