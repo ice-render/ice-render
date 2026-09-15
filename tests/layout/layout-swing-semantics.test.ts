@@ -20,6 +20,8 @@ import ICEFlowLayout from '../../src/layout/ICEFlowLayout';
 import ICEBoxLayout from '../../src/layout/ICEBoxLayout';
 import ICEBorderLayout from '../../src/layout/ICEBorderLayout';
 import ICEGridLayout from '../../src/layout/ICEGridLayout';
+import ICELayeredLayout from '../../src/layout/ICELayeredLayout';
+import ICEPolyLine from '../../src/graphic/link/ICEPolyLine';
 
 /** 自己报首选尺寸的组件：用来证明布局问的是 `getPreferredSize()` 而不是盒子。 */
 class SizedLeaf extends ICERect {
@@ -376,5 +378,27 @@ describe('GridLayout 等分模式（对齐 Swing GridLayout 的等宽等高）',
 
     expect(group.getPreferredSize()).toEqual([0, 0]); // 布局不表态
     expect(tail.state.left).toBe(310); // 父布局用的是 group 自己的盒子 300 + gap10
+  });
+});
+
+describe('LayeredLayout 与其余布局同口径（认 margin）', () => {
+  it('子项 margin 计入占位与落位（未设 margin 时行为不变）', () => {
+    const group = new ICEGroup({ width: 400, height: 200 });
+    const a = new ICERect({ width: 40, height: 20, margin: 6 });
+    const b = new ICERect({ width: 40, height: 20 });
+    const line = new ICEPolyLine({
+      points: [
+        [0, 0],
+        [10, 0],
+      ],
+      links: { start: { id: a.props.id, position: 'R' }, end: { id: b.props.id, position: 'L' } },
+    });
+    group.addChildren([a, b, line]);
+    group.setLayout(new ICELayeredLayout({ gapX: 20, gapY: 10 }));
+    // 第 0 层只有 a：落位 = margin 偏移（6,6）；占位尺寸 = 40+12
+    expect(a.state.left).toBe(6);
+    expect(a.state.top).toBe(6);
+    // 第 1 层的 x = 0 + (40+12) + gapX20 = 72
+    expect(b.state.left).toBe(72);
   });
 });

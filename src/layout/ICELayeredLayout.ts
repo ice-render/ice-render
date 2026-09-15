@@ -114,10 +114,9 @@ class ICELayeredLayout extends ICELayoutManager {
     let height = 0;
     rankList.forEach((r, index) => {
       const layer = layers[r];
-      const maxW = Math.max(...layer.map((n) => Number(n.component.state.width) || 0));
+      const maxW = Math.max(...layer.map((n) => this.outerSizeOf(n.component)[0]));
       const columnH =
-        layer.reduce((sum, n) => sum + (Number(n.component.state.height) || 0), 0) +
-        Math.max(0, layer.length - 1) * this.gapY;
+        layer.reduce((sum, n) => sum + this.outerSizeOf(n.component)[1], 0) + Math.max(0, layer.length - 1) * this.gapY;
       width += maxW + (index > 0 ? this.gapX : 0);
       height = Math.max(height, columnH);
     });
@@ -202,11 +201,13 @@ class ICELayeredLayout extends ICELayoutManager {
     let x = origin.left;
     rankList.forEach((r) => {
       const layer = layers[r];
-      const maxW = Math.max(...layer.map((n) => n.component.state.width));
+      // 占位尺寸与落位都走基类口径（外层含 margin），与其余六个布局一致：
+      // 设了子项 margin 时，占位与落位会一起算进去（未设 margin 时与旧行为完全一致）
+      const maxW = Math.max(...layer.map((n) => this.outerSizeOf(n.component)[0]));
       let y = origin.top;
       layer.forEach((n) => {
-        n.component.setState({ left: x, top: y });
-        y += n.component.state.height + gapY;
+        this.placeChild(n.component, x, y);
+        y += this.outerSizeOf(n.component)[1] + gapY;
       });
       x += maxW + gapX;
     });
