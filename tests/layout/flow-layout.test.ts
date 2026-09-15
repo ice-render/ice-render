@@ -86,62 +86,55 @@ describe('ICEFlowLayout（对齐 Swing FlowLayout）', () => {
   });
 });
 
-describe('layout 继承（子容器默认继承父层布局）', () => {
-  it('子容器默认继承父层布局（同一实例）', () => {
+/**
+ * 布局**不继承**（2026-09-15 改，对齐 Java Swing 的 `Container.setLayout`）：
+ * 父容器设布局只影响自己怎么摆子项，子容器用**自己的**策略排自己的子项；
+ * 父布局只负责给子容器摆位置（Swing 里 `layout()` 只调 `layoutContainer(this)`）。
+ *
+ * 旧实现会把父层策略递归灌给所有后代，等于把父容器的排版规则套进子组件内部
+ * （按钮文字、输入框前后缀都会被重摆）—— 见 `layout-swing-semantics.test.ts`。
+ */
+describe('layout 不继承（各容器持自己的策略）', () => {
+  it('子容器不继承父层布局', () => {
     const parent = new ICEGroup({ width: 500, height: 200 });
     const child = new ICEGroup({ width: 400, height: 100 });
     parent.addChild(child);
 
-    const layout = new ICEFlowLayout({ gap: 10 });
-    parent.setLayout(layout);
+    parent.setLayout(new ICEFlowLayout({ gap: 10 }));
 
-    expect(child.layoutManager).toBe(layout); // 继承同一实例
+    expect(parent.layoutManager).toBeTruthy();
+    expect(child.layoutManager).toBe(null);
   });
 
-  it('子容器显式设置布局后，不继承父层', () => {
+  it('子容器要排自己的子项，得自己 setLayout', () => {
     const parent = new ICEGroup({ width: 500, height: 200 });
     const child = new ICEGroup({ width: 400, height: 100 });
+    const leaf = new ICERect({ width: 30, height: 10 });
+    const leaf2 = new ICERect({ width: 30, height: 10 });
     parent.addChild(child);
+    child.addChildren([leaf, leaf2]);
+    parent.setLayout(new ICEFlowLayout({ gap: 10 }));
 
-    const childLayout = new ICEFlowLayout({ gap: 30 });
-    child.setLayout(childLayout); // 子容器显式设置
+    // 父层布局只管摆 child 自己的位置，不会替它排内部
+    expect(leaf2.state.left).toBe(0);
 
-    const parentLayout = new ICEFlowLayout({ gap: 10 });
-    parent.setLayout(parentLayout); // 父设置，但子已显式，不覆盖
-
-    expect(child.layoutManager).toBe(childLayout); // 子保持自己的
-    expect(parent.layoutManager).toBe(parentLayout);
+    const childLayout = new ICEFlowLayout({ gap: 5 });
+    child.setLayout(childLayout);
+    expect(child.layoutManager).toBe(childLayout);
+    expect(leaf2.state.left).toBe(35);
   });
 
-  it('嵌套容器：孙容器默认递归继承祖父布局', () => {
+  it('嵌套容器：孙容器不继承祖父布局', () => {
     const grand = new ICEGroup({ width: 500, height: 300 });
     const parent = new ICEGroup({ width: 400, height: 200 });
     const child = new ICEGroup({ width: 300, height: 100 });
     grand.addChild(parent);
     parent.addChild(child);
 
-    const layout = new ICEFlowLayout({ gap: 10 });
-    grand.setLayout(layout);
+    grand.setLayout(new ICEFlowLayout({ gap: 10 }));
 
-    expect(parent.layoutManager).toBe(layout); // 父继承
-    expect(child.layoutManager).toBe(layout); // 孙递归继承
-  });
-
-  it('显式布局的子容器，其后代继承它的布局而非祖父的', () => {
-    const grand = new ICEGroup({ width: 500, height: 300 });
-    const parent = new ICEGroup({ width: 400, height: 200 });
-    const child = new ICEGroup({ width: 300, height: 100 });
-    grand.addChild(parent);
-    parent.addChild(child);
-
-    const parentLayout = new ICEFlowLayout({ gap: 30 });
-    parent.setLayout(parentLayout); // parent 显式
-
-    const grandLayout = new ICEFlowLayout({ gap: 10 });
-    grand.setLayout(grandLayout); // grand 设置，parent 已显式跳过
-
-    expect(parent.layoutManager).toBe(parentLayout); // parent 保持显式
-    expect(child.layoutManager).toBe(parentLayout); // child 继承 parent 的（而非 grand）
+    expect(parent.layoutManager).toBe(null);
+    expect(child.layoutManager).toBe(null);
   });
 });
 

@@ -150,6 +150,7 @@ export default class Deserializer {
 
     const instance = new Clazz(nodeData.state);
     parentNode.addChild(instance);
+    this.__restoreLayout(instance, nodeData.layout);
 
     // 复合组件的子节点由构造函数按 state 重建；即使旧文档里带了 childNodes 也不能再挂一遍
     // （否则重复）。这类组件通过 hasDerivedChildren() 声明自己，见 ICEComponent 的注释。
@@ -168,5 +169,27 @@ export default class Deserializer {
       }
     }
     return instance;
+  }
+
+  /**
+   * 还原容器的布局策略（`layout: { type, props }`）。
+   *
+   * 在挂上子节点**之前**恢复：这样后面 `addChild` 就会按策略立刻排一次，
+   * 读回来的版式与存盘时一致（子节点的坐标也在 state 里，即使布局类型缺失也不会散架）。
+   * 类型未注册 → 与组件同口径：记入 `unknownTypes` + 告警，容器保持"无布局"。
+   */
+  private __restoreLayout(instance: any, layoutData: any): void {
+    if (!layoutData || !layoutData.type || typeof instance.setLayout !== 'function') {
+      return;
+    }
+    const LayoutCtor = this.ice.getType(layoutData.type);
+    if (typeof LayoutCtor !== 'function') {
+      if (this._unknownTypes.indexOf(layoutData.type) === -1) {
+        this._unknownTypes.push(layoutData.type);
+      }
+      console.warn(`[ICE] 反序列化跳过未注册的布局类型：${layoutData.type}（请先 ice.registerType() 注册）`);
+      return;
+    }
+    instance.setLayout(new LayoutCtor(layoutData.props || {}));
   }
 }

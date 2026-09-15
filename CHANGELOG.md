@@ -3,6 +3,139 @@
 本文件记录所有值得注意的变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+> 下一个版本发布前，改动在这里累积。
+
+## [2.8.0] - 2026-09-15
+
+本轮主题：**布局机制回归 Java Swing 的三条口径** —— 不继承、自顶向下校验、尺寸协商问子项。
+起因是 `ice-web-components` 全库 80+ 组件只有 `ICETabs` 一处敢用引擎布局：父容器设布局会把策略
+递归灌进所有后代容器，而组件库每个组件都是 `ICEGroup` 子类、内部零件（按钮文字、输入框前后缀 /
+清除按钮）都在同一个 `childNodes` 里 —— 于是一次 `setLayout()` 等于把整个界面的内部零件重摆一遍。
+
+### 新增
+
+- **布局随快照往返（持久化）**：容器的策略写成 `layout: { type, props }`，读回时按类型重建。
+  布局是"怎么排"，和坐标一样属于文档内容 —— 旧行为下 `layoutManager` 完全不参与序列化，
+  「存盘再打开版式散了」。
+  - 七种内置布局在 `ICE` 构造时注册（`src/consts/LAYOUT_TYPE_MAPPING.ts`，`ice-render:ICEBoxLayout` …），
+    各自实现 `toJSON()` 报构造参数（`ICELayoutManager.toJSON()` 默认 `{}`）；
+  - 未注册的第三方布局：写出时回退类名并告警，读回时**跳过策略、保留坐标**、记入 `deserializer.unknownTypes`
+    （与未注册组件的容错口径一致，不炸整份数据）；
+  - 第三方布局只要 `ice.registerType('your-ns:MyLayout', MyLayout)` + 实现 `toJSON()` 即可往返。
+- **`ICEGridLayout` 新增 `cellSizing: 'equal'`**：各格等宽等分容器、并把子项摆成格子大小
+  （Swing `GridLayout` 的口径；默认仍是引擎原有的 `'content'` = 列宽取该列最宽子项）。
+  跨格时会带上中间的间距。`equal` 模式的 `getPreferredSize()` 返回 `[0,0]`（不表态）——
+  子项被拉成格子大小后再量它们等于量容器自己，父布局回落到容器自己的盒子。
+- **`ICEBoxLayout.align`：箱式布局的交叉轴对齐**（`start` 默认 / `center` / `end` / `stretch`）。
+  `stretch` 是 Swing BoxLayout 的默认口径（子项在交叉轴撑满容器），
+  「纵向堆叠 + 每项拉满宽度」的表单类版式不用再手算宽度；`grow`（主轴分剩余）与 `stretch` 可同时用。
+- **`ICEFlowLayout.crossAlign`：行内交叉轴对齐**（`start` 默认 / `center` / `end`）——
+  一行里高矮不一的子项可以居中 / 贴底（`ICESpace` 的 `align` 就映射到它）。
+- **`ICEFlowLayout.getPreferredSize()` 按 Swing 口径计入换行**：容器已有确定宽度时按该宽度分行，
+  报「最宽行宽度 × 各行高度之和」（Swing `FlowLayout.preferredLayoutSize` 用的就是 `target.getWidth()`）；
+  宽度未定（0）或 `fitContent` 时按单行报（旧实现在 0 宽上会把每个子项都换行）。
+- **显隐变化触发父容器重排**（对齐 Swing `Component.setVisible()` → `invalidateParent()`）：
+  `display` 变化现在和尺寸变化一样会请求父容器重排 —— 布局器跳过不可见子项，
+  「藏起侧栏让内容占满」这类版式因此可以完全交给布局（`ICELayout` 的侧栏收起就是这么实现的）。
+
+### 变更（破坏性：布局继承语义）
+
+- **删掉布局继承**：`setLayout()` 不再把策略传播给「未显式设置布局」的子容器，`addChild()` 也
+  不再让新子容器继承父层策略。对齐 Swing 的 `Container.setLayout()` / `layout()`：父布局只负责
+  给子容器摆位置，子容器用**自己的**策略排自己的子项（要自动排布就自己 `setLayout()`）。
+  **受影响**：此前依赖「子容器自动继承父层布局」的代码，需给每个要自动排布的容器显式 `setLayout()`。
+  旧实现删掉了 `__propagateLayout` 与 `__layoutExplicit` 两个内部成员。
+- **新增自顶向下校验（对齐 Swing `Container.validateTree()`）**：`doLayout()` 在排布趟之后继续
+  向下，谁失效（被改了尺寸 / 请求过重排）就重排谁并递归其子树，没失效的子树整棵跳过；中间层容器
+  即使没有布局也要穿过去。此前内层容器被父布局改尺寸后不会重排自己的子树，只能靠 `fitContent`
+  或继承 hack 兜底。
+- **`requestLayout()` 语义对齐 `Component.invalidate()`**：除了标自己失效，还会**沿父链向上冒泡**
+  （此前在没有布局策略的容器上直接 return，失效请求会断在中间层）；仍然合并到下一帧只排一次。
+- **尺寸协商改为问子项**：`ICELayoutManager.preferredSizeOf()` 从「直接读 `state.width/height`」
+  改为调用 `child.getPreferredSize()`（对齐 `BorderLayout.preferredLayoutSize`）。配套：
+  - `ICEComponent` 新增 `setPreferredSize(size)` / `isPreferredSizeSet()`（Swing 同名 API）；
+  - `ICEGroup.getPreferredSize()`：`setPreferredSize()` 声明过 → 报声明值；否则有布局 → 报策略算出的
+    **内容尺寸**；都没有 → 报自己的盒子（Swing `getSize()` 兜底）。**构造期给的 `width/height`
+    是边界（`setBounds` 语义），不再是首选尺寸** —— 要让父布局按你给的尺寸留位，请调 `setPreferredSize()`。
+  - 收益：嵌套容器**不需要 `fitContent`** 就能对外报自然尺寸（`fitContent` 回归它本来的语义：
+    把自身尺寸调成内容尺寸）。
+- **不可见子项口径对齐 Swing**：`ICEFlowLayout` / `ICEBoxLayout` / `ICEBorderLayout` /
+  `ICEOverlayLayout` 跳过 `display:false` 的子项（用 `ICELayoutManager.layoutChildren()`）；
+  **`ICEGridLayout` 不跳过**（不可见项照样占一格，与 Swing 的 `GridLayout` 一致）。
+
+### 修复
+
+- **父容器布局会破坏子组件内部几何**：给面板设布局后，子组件继承同一策略、下一次自己
+  `requestLayout()` 时按父层的规则重摆自己的内部节点（实测 `ICETextField(prefix, allowClear)`
+  的文本 `12 → 0`、清除按钮 `(170,6) → (316,0)`）。删除继承后不再发生。
+
+### 验证
+
+- **golden 图更新一张：`git-commit-graph`**（`e2e/visual/__snapshots__/.../git-commit-graph-darwin.png`）。
+  原因是那张基准图**记录的是"布局继承"这个 bug 的画法**：示例把 `ICELayeredLayout` 设在容器组上，
+  旧实现把策略递归灌进每个节点组，于是"节点内部的圆点与文字"被当成图节点排成了上下两行；
+  删掉继承后它们保持示例自己写的坐标 —— 也就是示例注释里写的「标签在圆点右边、垂直居中」。
+  即：**新渲染符合示例本意，是基准图过期**（本次 `--update-snapshots` 重新生成，其余 99 张与 92 个
+  示例页冒烟用例全部通过）。
+- 新增 `tests/layout/layout-swing-semantics.test.ts`（不继承 / validateTree / 尺寸协商 /
+  `setPreferredSize` / 不可见子项 / `BoxLayout.align` / `FlowLayout.crossAlign` 共 24 例），
+  改写 `flow-layout`、`layout-reflow`、`layout-responsive` 里依赖旧继承语义的用例。
+- 新增 `tests/persistence/layout-serialization.test.ts`（5 例：写法 / 无布局不写字段 / 往返一致 /
+  读回后仍会重排 / 未注册类型容错）。
+- `npm run verify` 全绿：**133 suite / 1107+ 用例** + lint（0 error）+ build + bench + pkg:check；
+  `e2e/visual/visual.spec.ts --grep layout` 8 张 golden 图与 `examples-smoke` 全过。
+- 家族 e2e 端口重新分配（见 AGENTS「家族 e2e 端口分配」）：各仓 `reuseExistingServer: false`，
+  `ice-smart-water` 的截图脚本从 8093 改回自己的 8092。
+- 组件库侧（`ice-web-components` 同分支）用它跑完了 1307 单测 + 9 个示例页 e2e，
+  `ICELayout` / `ICEForm` / `ICESpace` 已迁到引擎布局器（见该仓 CHANGELOG）。
+
+## [2.7.0] - 2026-09-14
+
+本轮主题：**把布局系统从「叶子排列」提升到「可组合排版」** —— 补上尺寸协商、内外距、
+交互共存，以及网格 / 箱式的常用能力。设计思想仍是 Java Swing 的 `LayoutManager`（策略模式）。
+
+### 新增
+
+- **容器按内容自适应（`fitContent: true`）**，并带来**两趟布局**：
+  父容器 `doLayout()` 的测量趟会先让 `fitContent` 的子容器把自己量成内容尺寸
+  （递归、自底向上），排布趟再自顶向下落位 —— 于是**嵌套容器有自然尺寸**，
+  父布局读到的不再是它那个还没定/默认 10 的盒子。
+- **内外距**：容器 `padding`、子项 `margin`（`number` = 四边等距，或 `{top,right,bottom,left}`）。
+  七个布局统一用同一套口径（内容盒 / 占位尺寸 / 落位偏移），不再各自为政。
+- **布局与交互可以共存**：`setLayout(manager, { disableTransform: false })`。
+  默认仍是「布局接管后禁用后代拖拽/变换」（历史行为不变）；传 `false` 时布局照常摆位置，
+  但用户仍能拖动 —— 适合"布局打底 + 允许微调"的场景。
+- **`ICEGridLayout` 支持 `rows` 与跨格**：只给 `rows` 时按子项数量反推列数；
+  子项写 `gridSpan: { colSpan, rowSpan }` 可跨格（表头通栏、侧栏跨行这类版式不必再手算宽度）。
+- **`ICEBoxLayout` 支持 `grow`**：声明了 `grow` 的子项按权重瓜分**剩余空间**
+  （容器比内容宽时才分配；容器更小则保持原尺寸、不压缩）—— 定宽侧栏 + 自适应内容区一行搞定。
+- **七个布局都实现了 `getPreferredSize()`**（内容首选尺寸），`ICELayeredLayout` 也按
+  "每层最宽 + 间距"推得，因此首次布局（还没排过）就能给出正确结果。
+- 导出布局相关类型：`ICELayoutInsets` / `ICELayoutInsetsValue` / `ICELayoutConstraint` /
+  `ICELayoutBox` / `ICEGridSpan`。
+
+### 变更（破坏性：网格现在按列对齐）
+
+- **`ICEGridLayout` 的列宽改为「全局对齐」**（每列宽 = 该列最宽子项 + `gapX`）。
+  旧实现是逐行各自累加，同一列在不同行里会错开 —— 那既不叫网格，也让跨格无从谈起。
+  受影响的只是"同一列里子项宽度不一致"的版式，`e2e/visual` 的 `grid-layout` 基准图已按新语义更新。
+
+### 修复
+
+- **布局参数用 `||` 取默认值，导致 `gap: 0` / `gapX: 0` 无法表达**（会被当成未设置而套默认值）。
+  七个布局统一改成 `??`：显式给 0 就是 0。`currentIndex: 0` 同理。
+- `ICEBorderLayout` 的方位约束（`layoutConstraint`）不再裸字符串比较：非法值（`'top'` / `'North'`）
+  会 `console.warn` 一次并落到 `center`，不再静默摆错位置。
+
+### 验证
+
+- `verify:full` 全绿：**1078** 单测（+12：自适应 / 内外距 / 交互共存 / 网格跨格 / grow / 约束校验）
+  + 100 浏览器用例（29 张 golden，`grid-layout` 基准按列对齐更新）+ 4 套基准 + 包检查。
+- 新增示例 `examples/layout/layout-composition.html`（五项能力一页演示，已进 examples 冒烟），
+  并在真实浏览器里目视确认。
+
 ## [2.6.0] - 2026-09-14
 
 本轮：**把主题机制的边界补齐** —— 一边给应用层让路（自带词汇别再被误报成问题），

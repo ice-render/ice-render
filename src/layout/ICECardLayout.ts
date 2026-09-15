@@ -22,18 +22,40 @@ class ICECardLayout extends ICELayoutManager {
 
   constructor(props: { currentIndex?: number } = {}) {
     super();
-    this.currentIndex = props.currentIndex || 0;
+    this.currentIndex = props.currentIndex ?? 0;
+  }
+
+  /** 序列化参数（`currentIndex` 是用户状态：切到第几张卡要跟着文档走）。 */
+  public toJSON(): any {
+    return { currentIndex: this.currentIndex };
   }
 
   /**
    * @overwrite
-   * 只显示当前卡片（display=true），其余隐藏（display=false），当前卡片对齐到左上角。
+   * 只显示当前卡片（display=true），其余隐藏（display=false），当前卡片对齐到内容盒左上角。
    */
   layoutContainer(container: ICEGroup): void {
     this.container = container;
+    const box = this.contentBox(container);
     container.childNodes.forEach((child, i) => {
-      child.setState({ display: i === this.currentIndex, left: 0, top: 0 });
+      const visible = i === this.currentIndex;
+      // 先摆位（placeChild 会带上 margin 偏移），再写可见性
+      this.placeChild(child, box.left, box.top);
+      if (child.state.display !== visible) {
+        child.setState({ display: visible });
+      }
     });
+  }
+
+  /** 内容首选尺寸 = 当前卡片的大小（卡片布局一次只显示一张）。 */
+  getPreferredSize(container: ICEGroup): [number, number] {
+    const pad = this.paddingOf(container);
+    const current = container.childNodes[this.currentIndex];
+    if (!current) {
+      return [pad.left + pad.right, pad.top + pad.bottom];
+    }
+    const [w, h] = this.outerSizeOf(current);
+    return [w + pad.left + pad.right, h + pad.top + pad.bottom];
   }
 
   /**

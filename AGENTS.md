@@ -150,6 +150,49 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   ④ 编辑态不截断：caret / 选区是按原始文本算的。
   回归见 `tests/graphic/text-overflow.test.ts`。
 
+- **布局铁律（2026-09-14 确立 D 组，2026-09-15 对齐 Swing 修订）**：设计思想是 Java Swing 的
+  `LayoutManager`（策略模式）—— 容器持有策略、策略只算位置。定死这几条口径，新增布局必须照办：
+  ① **策略只摆位置**：`layoutContainer(container)` 里写子项的位置/尺寸；"什么时候排"归 `ICEGroup`
+  （`setLayout` / 增删子项立即排、子项改尺寸合并到下一帧、布局期间不自激）。
+  ② **尺寸协商只有一条路：问子项的 `getPreferredSize()`**（`preferredSizeOf`），不要直接读
+  `state.width/height`（旧口径，已废）。子项怎么答：叶子 = 显式尺寸或当前盒子；容器 = 有布局就报
+  策略算出的**内容尺寸**（对齐 Swing `Container.getPreferredSize() → preferredLayoutSize`）；
+  `setPreferredSize()` 声明过就报声明值。**构造期给的 `width/height` 是边界（`setBounds` 语义），
+  不是首选尺寸**，所以"父布局不许顶掉调用方给的尺寸"这条旧顾虑要用 `setPreferredSize()` 表达。
+  ③ **没有 `fitContent` 也能嵌套**：`fitContent` 只是"把自身尺寸调成内容尺寸"的可选行为，不再是
+  子容器对外报自然尺寸的前提。
+  ④ **布局不继承**：父容器 `setLayout()` **不**下灌给子容器（对齐 Swing `Container.setLayout`：
+  父布局只给子容器摆位置）。子容器要自动排布就自己 `setLayout()`。重排由 `doLayout()` 末尾的
+  **自顶向下校验趟**驱动（对齐 `Container.validateTree()`：谁失效排谁，没失效的子树整棵跳过，
+  中间层容器没有布局也要穿过去）。
+  ⑤ **交叉轴对齐用布局自己的参数**：`ICEBoxLayout.align`（`start` / `center` / `end` / **`stretch`**）、
+  `ICEFlowLayout.crossAlign`（行内）。`stretch` 是 Swing BoxLayout 的默认口径（交叉轴撑满），
+  纵向堆叠 + 拉满宽度的场景不要自己在组件里写；`grow`（主轴）与 `stretch`（交叉轴）可以同时用。
+  ⑥ **首选尺寸要算上换行**：`ICEFlowLayout.getPreferredSize()` 在容器有确定宽度时按该宽度分行
+  （Swing `preferredLayoutSize` 用 `target.getWidth()` 就是这么算的）；容器宽度未定（0）视为单行，
+  别在 0 宽上无限换行。**显隐是布局输入**：`setState({display})` 会请求父容器重排
+  （对齐 `Component.setVisible()` → `invalidateParent()`），布局器统一用 `layoutChildren()` 跳过不可见子项。
+  ⑦ **内外距只有一套实现**：容器的 `padding`、子项的 `margin` 一律走
+  `contentBox()` / `outerSizeOf()` / `placeChild()` / `placeChildSized()`，新布局不许自己再算一遍
+  （否则「屏幕上是 8px、盒子按 0 算」这类漂移一定会出现）。
+  ⑧ **每个布局都要实现 `getPreferredSize(container)`**（内容首选尺寸，含 padding/margin），
+  否则 `fitContent` 对它无效；返回 `[0,0]` 表示"我对尺寸没有意见"，容器会保留调用方给的尺寸。
+  ⑨ **不可见子项口径对齐 Swing**：`FlowLayout` / `BoxLayout` / `BorderLayout` / `OverlayLayout`
+  用 `layoutChildren()` 跳过不可见子项；**`GridLayout` 不跳过**（不可见项照样占格子）。
+  ⑩ **布局要能被序列化**：新布局必须实现 `toJSON()`（报**构造参数**，运行时缓存别报），
+  并把类型登记进 `src/consts/LAYOUT_TYPE_MAPPING.ts`（`ice-render:XxxLayout`）。
+  布局是"怎么排"，属于文档内容 —— 不登记的话快照往返会丢策略（"存盘再打开版式散了"）。
+  读回时类型没注册 → 跳过策略但保留坐标 + 记入 `unknownTypes`（与组件同口径，不炸整份数据）。
+  ⑪ **`GridLayout` 有两种格宽口径**：`cellSizing: 'content'`（默认，列宽取该列最宽子项）与
+  `'equal'`（各格等分容器并把子项摆成格子大小 —— Swing `GridLayout` 的口径）。
+  `equal` 模式下 `getPreferredSize()` **返回 `[0,0]` 不表态**：子项被拉成格子大小后再量它们
+  等于量容器自己（自指反馈，容器只会越量越大），容器多大由调用方给的尺寸决定。
+  ⑫ **构造参数取默认值用 `??` 不用 `||`** —— `gap: 0` / `currentIndex: 0` 必须能表达。
+  ⑬ 子项上的布局声明（`margin` / `grow` / `gridSpan` / `layoutConstraint`）放 `state`
+  （随快照走），非法约束值要**提示一次**而不是静默落默认值。
+  回归见 `tests/layout/`（含 `layout-swing-semantics.test.ts` / `layout-composition.test.ts`）、
+  `e2e/visual/visual.spec.ts` 的 golden 图。
+
 ## 已知技术债（严重度）
 
 > 复核日期 **2026-09-11**。此前本节长期停留在「8 suite / 36 用例」等早期口径，与仓库实际严重脱节，已按实测重写。
@@ -176,6 +219,28 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 5. 用 `finishing-a-development-branch` 收尾。
 
 ## git 约定
+
+### 家族 e2e / 预览端口分配（2026-09-15 确立）
+
+六个仓常常在同一台机器上同时跑 e2e / 预览，**端口必须一仓一个、并写进各仓 config 注释**：
+
+| 仓 | 端口 | 用途 |
+|---|---|---|
+| `ice-render` | **8090** | `playwright.config.ts`（examples 冒烟 + 视觉基准） |
+| `ice-entity-designer` | **8091** | 端到端回归 |
+| `ice-smart-water` | **8092** | 端到端回归 + `scripts/shoot-screenshots.mjs` + `webpack devServer` |
+| `ice-web-components` | **8093** | examples 冒烟 |
+| `ice-render-dsl` | **8094** | 示例页 e2e |
+| `ice-entity-designer-react-demo` | **8095** | 静态预览（webpack dev 仍用 8080） |
+| `ice-chart` | **5177** | `scripts/serve-examples.cjs`（Vite 号段） |
+
+新增仓 / 新增服务时**先在这里登记**再写进配置（8096+ 留给后来者）。
+
+**`reuseExistingServer` 一律 `false`**：端口被别的仓的服务占着时要**响亮失败**。
+2026-09-15 踩过：`ice-smart-water/scripts/shoot-screenshots.mjs` 私自用了 8093，而
+`ice-web-components` 的 playwright 也是 8093 且 `reuseExistingServer: true` —— 于是
+web-components 的 e2e 静默复用了 smart-water 的服务目录，9 个用例全红（页面 404），
+看起来像组件库坏了，实际是端口串号。排查成本远高于少一次"复用自己 dev server"的便利。
 
 - 核心引擎在 `dev` 分支开发，远程 `origin/dev`（Gitee）+ `github-origin/dev`（GitHub），两处都要推。
 - **分支与发版铁律（2026-09-13 确立）**：开发一律在 `dev`（或从它切出来的临时分支）上做，

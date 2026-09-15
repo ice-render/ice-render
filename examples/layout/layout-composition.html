@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>ICERender-layout-composition</title>
+  <body>
+    <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
+      布局的「可组合」用法：容器 <code>padding</code> + 子项 <code>margin</code>（内外距）、
+      <code>fitContent</code>（按内容自适应，且自底向上先量好）、<code>grow</code>（按比例吃剩余空间）、
+      <code>gridSpan</code>（网格跨格）。
+    </div>
+    <canvas id="canvas-1" width="900" height="520" style="background-color: #f7f7f7;"></canvas>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    const ice = new ICE.ICE().init('canvas-1');
+    const BORDER = { strokeStyle: '#6B7280', fillStyle: 'transparent', lineWidth: 1 };
+    const CARD = { strokeStyle: '#3B82F6', fillStyle: '#F59E0B', lineWidth: 2 };
+
+    // ① 内外距：容器 padding 16 + 子项 margin 8 —— 落位自动带上偏移
+    const padded = new ICE.ICEGroup({ left: 40, top: 40, width: 260, height: 120, padding: 16, style: BORDER });
+    ice.addChild(padded);
+    for (let i = 0; i < 3; i++) {
+      padded.addChild(new ICE.ICERect({ width: 60, height: 30, margin: 8, style: CARD }));
+    }
+    padded.setLayout(new ICE.ICEFlowLayout({ gap: 0 }));
+
+    // ② fitContent：内层容器按内容把自己撑到 3×40 + 2×6 = 132 宽，外层再按这个自然尺寸排
+    const inner = new ICE.ICEGroup({ fitContent: true, padding: 6, style: BORDER });
+    inner.addChild(new ICE.ICERect({ width: 30, height: 24, style: CARD }));
+    inner.addChild(new ICE.ICERect({ width: 30, height: 24, style: CARD }));
+    inner.addChild(new ICE.ICERect({ width: 30, height: 24, style: CARD }));
+    inner.setLayout(new ICE.ICEBoxLayout({ axis: 'x', gap: 6 }));
+
+    const autoOuter = new ICE.ICEGroup({ left: 340, top: 40, width: 260, height: 120, padding: 10, style: BORDER });
+    ice.addChild(autoOuter);
+    autoOuter.addChild(new ICE.ICERect({ width: 120, height: 20, style: CARD }));
+    autoOuter.addChild(inner);
+    autoOuter.setLayout(new ICE.ICEBoxLayout({ axis: 'y', gap: 8 }));
+
+    // ③ grow：定宽侧栏 + 自适应内容区（容器比内容宽出来的部分按权重分配）
+    const row = new ICE.ICEGroup({ left: 40, top: 200, width: 560, height: 90, padding: 10, style: BORDER });
+    ice.addChild(row);
+    row.addChild(new ICE.ICERect({ width: 90, height: 60, style: { strokeStyle: '#6B7280', fillStyle: '#E5E7EB', lineWidth: 2 } }));
+    row.addChild(new ICE.ICERect({ width: 60, height: 60, grow: 1, style: CARD }));
+    row.addChild(new ICE.ICERect({ width: 60, height: 60, grow: 2, style: { strokeStyle: '#10B981', fillStyle: '#A7F3D0', lineWidth: 2 } }));
+    row.setLayout(new ICE.ICEBoxLayout({ axis: 'x', gap: 10 }));
+
+    // ④ gridSpan：表头占满一行，其余按 2 列填；列宽全局对齐
+    const grid = new ICE.ICEGroup({ left: 640, top: 40, width: 220, height: 250, padding: 10, style: BORDER });
+    ice.addChild(grid);
+    grid.addChild(new ICE.ICERect({ width: 120, height: 24, gridSpan: { colSpan: 2 }, style: { strokeStyle: '#111827', fillStyle: '#BFDBFE', lineWidth: 2 } }));
+    for (let i = 0; i < 5; i++) {
+      grid.addChild(new ICE.ICERect({ width: 70, height: 30, style: CARD }));
+    }
+    grid.setLayout(new ICE.ICEGridLayout({ cols: 2, gapX: 10, gapY: 10 }));
+
+    // ⑤ 布局 + 交互共存：disableTransform:false 时布局照常摆位，但子项仍能拖动
+    const draggable = new ICE.ICEGroup({ left: 620, top: 320, width: 240, height: 120, padding: 10, style: BORDER });
+    ice.addChild(draggable);
+    for (let i = 0; i < 3; i++) {
+      draggable.addChild(new ICE.ICERect({ width: 50, height: 40, draggable: true, style: { strokeStyle: '#EF4444', fillStyle: '#FECACA', lineWidth: 2 } }));
+    }
+    draggable.setLayout(new ICE.ICEFlowLayout({ gap: 10 }), { disableTransform: false });
+  </script>
+</html>

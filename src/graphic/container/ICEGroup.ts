@@ -26,11 +26,25 @@ class ICEGroup extends ICERect {
   //@perf: O(1) 去重，避免 addChild 每子组件 indexOf 导致的 O(n^2)。
   private __childSet = new WeakSet<any>();
   public layoutManager: ICELayoutManager = null; //布局策略（借鉴 Swing 的策略模式，setLayout 持有）
-  private __layoutExplicit = false; //是否显式设置了布局（用于区分「显式设置」与「从父层继承」）
   /** 挂起的重排请求（一帧内合并；`doRender` 时消费）。 */
   private __layoutRequested = false;
+  /**
+   * 布局是否失效（自己的尺寸变了 → 自己的布局要重跑）。
+   *
+   * 对齐 Swing 的 `Container.invalidate()` / `validateTree()`：失效只标自己，
+   * 重排由**持有者自顶向下**触发（见 `doLayout()` 末尾的校验趟），
+   * 不再靠「父容器把策略灌给子容器」来让子容器重排。
+   */
+  private __layoutInvalid = false;
   /** 正在执行布局：期间子项的位置/尺寸变化不再反向请求重排，避免自激循环。 */
   private __layingOut = false;
+  /**
+   * 布局接管时是否禁用后代的手动变换 / 拖动（默认 true，保持历史行为）。
+   *
+   * 编辑器类场景可以传 `setLayout(manager, { disableTransform: false })`：布局照常摆位置，
+   * 但用户仍能拖动 —— 代价是"拖完下次重排会被拉回去"，由应用自己决定要不要接受。
+   */
+  private __layoutDisablesTransform = true;
 
   constructor(props) {
     super(props);
@@ -51,17 +65,29 @@ class ICEGroup extends ICERect {
 
   /**
    * 设置布局策略（对齐 Swing 的 container.setLayout）。
-   * 设置后立即执行一次布局，并把布局传播给「未显式设置布局」的容器型子组件（子容器默认继承父层布局）。
+   *
+   * 设置后立即执行一次布局。**不把策略传播给子容器** —— 对齐 Swing：
+   * `Container.setLayout()` 只写自己的字段，父布局只负责给子容器摆位置，
+   * 子容器用自己的策略排自己的子项（子容器要自动排布就自己 `setLayout()`）。
+   * 旧实现会递归下灌策略，等于把父容器的排版规则套进子组件内部（按钮文字、
+   * 输入框前后缀都会被重摆），这是组件库用不了布局机制的直接原因。
+   *
+   * @param options.disableTransform 布局接管时是否禁用后代的手动变换 / 拖动（默认 `true`，
+   *   与历史行为一致）。传 `false` 时布局照常摆位置，但用户仍可拖动 —— 适用于"布局打底 + 允许微调"
+   *   的场景；注意拖完之后下次重排会把子项拉回布局算出的位置。
    */
-  public setLayout(manager: ICELayoutManager): void {
+  public setLayout(manager: ICELayoutManager, options: { disableTransform?: boolean } = {}): void {
     this.layoutManager = manager;
-    this.__layoutExplicit = true;
+    if (options && options.disableTransform !== undefined) {
+      this.__layoutDisablesTransform = options.disableTransform !== false;
+    }
     if (manager) {
       this.doLayout();
-      // 布局接管：设定了具体 layout 后，内部所有后代组件禁止手动变换（transformable=false），位置由代码接管
-      this.__disableTransformRecursively(this);
+      // 布局接管：设定了具体 layout 后，内部所有后代组件默认禁止手动变换（transformable=false），位置由代码接管
+      if (this.__layoutDisablesTransform) {
+        this.__disableTransformRecursively(this);
+      }
     }
-    this.__propagateLayout(manager);
   }
 
   /**
@@ -80,78 +106,158 @@ class ICEGroup extends ICERect {
   }
 
   /**
-   * 把布局策略传播给「未显式设置布局」的容器型后代：
-   * - 直接/间接子容器若没有显式布局，则继承当前布局并递归向下传播；
-   * - 遇到显式设置了布局的子容器则跳过（它的后代由它自己 setLayout 时传播）。
-   */
-  private __propagateLayout(manager: ICELayoutManager): void {
-    for (const child of this.childNodes) {
-      if (child instanceof ICEGroup && !child.__layoutExplicit) {
-        child.layoutManager = manager;
-        child.doLayout();
-        child.__propagateLayout(manager);
-      }
-    }
-  }
-
-  /**
    * 批量挂载/删除期间抑制逐次布局（避免 O(n²)），结束后统一排一次。
    */
   private __inBatch = false;
 
   /**
-   * 执行布局：先测量子组件，再交给布局策略排布。
+   * 执行布局：**先自底向上测量，再自顶向下摆位，最后自顶向下校验子树**。
    *
-   * 测量这一步是必要的：布局策略读的是 `child.state.width/height`，而它们要等首次渲染
-   * 才算出来（文本更是要量测字形）。旧实现不做测量，于是「首次布局拿到的全是 0/哨兵值」。
+   * ① 测量趟：对每个子项 `measure()`（布局读的是 `state.width/height`，而它们要等首次渲染
+   *    才算出来，文本更要量测字形）；子容器会借 `getPreferredSize()` 把自己的「内容尺寸」
+   *    报上来 —— 所以父布局嵌一个子容器时能拿到**自然尺寸**，而不是它当前那个空盒子。
+   * ② 排布趟：本容器的策略落位（只摆位置；子容器用什么策略是它自己的事）。
+   * ③ `fitContent`：容器可选择按内容自适应 —— 摆完之后把自身尺寸设成
+   *    `layoutManager.getPreferredSize()`（尺寸真的变了才写，避免每帧抖动）。
+   * ④ 校验趟（**对齐 Swing 的 `Container.validateTree()`**）：继续向下，谁失效（被改了尺寸 /
+   *    请求过重排）就把谁重排一遍并递归它的子树，没失效的子树整棵跳过；中间层容器即使没有
+   *    自己的布局也要穿过去（它的后代可能失效）。
+   *
+   * 本容器没有布局策略时，退化为只做第 ④ 步的向下校验。
    */
   public doLayout(): void {
-    if (!this.layoutManager) {
-      return;
+    if (this.__layingOut) {
+      return; // 布局期间的重入交给当前这一趟统一处理，避免自激
     }
     this.__layingOut = true;
     try {
+      if (this.layoutManager) {
+        for (let i = 0; i < this.childNodes.length; i++) {
+          const child: any = this.childNodes[i];
+          if (typeof child.measure === 'function') {
+            child.measure();
+          }
+          // 自底向上：`fitContent` 的子容器先把自己量成"内容尺寸"（它自己的子项也会被排好），
+          // 于是下面这一趟布局读到的就是它的自然尺寸，而不是未定的空盒子。
+          if (
+            child &&
+            child.layoutManager &&
+            child.state &&
+            child.state.fitContent &&
+            typeof child.doLayout === 'function'
+          ) {
+            child.doLayout();
+          }
+        }
+        this.layoutManager.layoutContainer(this);
+        this.__fitContent();
+      }
+      this.__layoutRequested = false;
+      this.__layoutInvalid = false;
+      // 自顶向下校验：只沿失效路径下潜（Swing validateTree 的代价模型）
       for (let i = 0; i < this.childNodes.length; i++) {
         const child: any = this.childNodes[i];
-        if (typeof child.measure === 'function') {
-          child.measure();
+        if (child instanceof ICEGroup && (child.__layoutInvalid || child.__layoutRequested)) {
+          child.doLayout();
         }
       }
-      this.layoutManager.layoutContainer(this);
     } finally {
       this.__layingOut = false;
-      this.__layoutRequested = false;
     }
   }
 
   /**
-   * 请求重排：**下一帧执行**，一帧内多次请求只排一次。
+   * 按内容自适应尺寸（`props.fitContent: true`）。
+   *
+   * 只监听"内容尺寸"，不覆盖调用方显式设的 padding：`getPreferredSize()` 里各布局已经把
+   * padding / margin 算进去了，这里取的是最终外框。
+   */
+  private __fitContent(): void {
+    if (!this.state.fitContent || !this.layoutManager) {
+      return;
+    }
+    const [w, h] = this.layoutManager.getPreferredSize(this);
+    const width = Math.max(0, Math.round(w));
+    const height = Math.max(0, Math.round(h));
+    if (!(width > 0) && !(height > 0)) {
+      return; // 布局没实现 getPreferredSize → 不动调用方给的尺寸
+    }
+    const changed =
+      Math.abs((Number(this.state.width) || 0) - width) > 0.5 ||
+      Math.abs((Number(this.state.height) || 0) - height) > 0.5;
+    if (!changed) {
+      return;
+    }
+    // 尺寸变化会让父容器重排（走 requestLayout 的下一帧合并），这里直接写值即可
+    this.setState({ width, height });
+  }
+
+  /**
+   * `setState` 后置钩子：**自己的尺寸变了 → 自己的布局失效**。
+   *
+   * 对齐 Swing 的 `Container.setBounds()` → `invalidate()`：尺寸变化让本容器的布局失效，
+   * 但它不自己重排（重排由持有者下一次 `doLayout()` 的自顶向下校验趟触发，
+   * 见 `doLayout()` ④），也不覆盖父链向上冒泡的那条路径（`super` 里会请求父容器重排）。
+   */
+  protected __afterStateMerge(sizeChanged: boolean): void {
+    if (sizeChanged) {
+      this.__layoutInvalid = true;
+    }
+    super.__afterStateMerge(sizeChanged);
+  }
+
+  /**
+   * 请求重排：**下一帧执行**，一帧内多次请求合并成一次。
+   *
+   * 语义对齐 Swing 的 `Component.invalidate()`：把自己标成失效，并**沿父链向上冒泡**
+   * （Swing 走 `invalidateParent` 一直标到 validate root）。真正的重排发生在下一次渲染前的
+   * `doLayout()`，它自顶向下只排「失效」的那条路径，没失效的子树整棵跳过。
    *
    * 触发来源是「子项改了 width/height」—— 布局结果依赖子项尺寸，尺寸变了必须重排，
    * 否则会出现「改了某个子项的大小，兄弟节点还停在老位置」。
-   * 旧实现只在 `setLayout()` / `addChild()` 时排一次，子项尺寸变化完全不会触发重排。
    *
    * 合并到下一帧是因为：逐个 setState 立刻重排会退化成 O(n²)（布局本身又要 setState 子项位置）。
    */
   public requestLayout(): void {
-    if (!this.layoutManager || this.__layingOut) {
+    if (this.__layingOut) {
       return;
     }
+    this.__layoutInvalid = true;
     this.__layoutRequested = true;
-    this.dirty = true;
-    if (this.ice) {
-      this.ice.dirty = true;
+    // 向上冒泡：让持有者知道自己这条路径失效了（中间层没有布局也要把请求传上去）
+    const parent: any = this.parentNode;
+    if (parent && typeof parent.requestLayout === 'function') {
+      parent.requestLayout();
+    }
+    if (this.layoutManager) {
+      this.dirty = true;
+      if (this.ice) {
+        this.ice.dirty = true;
+      }
     }
   }
 
-  /** 容器内容的首选尺寸（转发布局策略；未设置布局时返回 [0,0]）。 */
+  /**
+   * 容器内容的首选尺寸（设计思想同 Swing 的 `preferredLayoutSize`）。
+   *
+   * - `setPreferredSize()` 声明过 → 就报这个值（Swing 的 `isPreferredSizeSet()` 分支）；
+   * - 否则设了布局 → **问策略要内容尺寸**（对齐 Swing `Container.getPreferredSize()`：
+   *   它有布局管理器时返回 `layoutMgr.preferredLayoutSize(this)`，与当前边界无关）；
+   * - 都没有 → 回到基类的盒子（Swing 的 `getSize()` 兜底）。
+   *
+   * `props.fitContent: true` 的容器会用它把自己的尺寸调成内容大小，见 `doLayout()`。
+   */
   public getPreferredSize(): [number, number] {
-    return this.layoutManager ? this.layoutManager.getPreferredSize(this) : [0, 0];
+    if (this.isPreferredSizeSet()) {
+      return super.getPreferredSize();
+    }
+    return this.layoutManager ? this.layoutManager.getPreferredSize(this) : super.getPreferredSize();
   }
 
   protected doRender(): void {
-    // 渲染前先把挂起的重排做掉（父容器先于子项渲染，所以本帧子项位置就是新的）
-    if (this.__layoutRequested) {
+    // 渲染前先把挂起的重排做掉（父容器先于子项渲染，所以本帧子项位置就是新的）。
+    // 本容器没有布局策略时也要走这一趟：它要负责把校验继续传给失效的后代。
+    if (this.__layoutRequested || this.__layoutInvalid) {
       this.doLayout();
     }
     super.doRender();
@@ -201,7 +307,8 @@ class ICEGroup extends ICERect {
     bumpVisibilityEpoch();
 
     // 布局接管：父容器已设定 layout 时，新加入的子组件（及其后代）禁止手动变换和拖动
-    if (this.layoutManager) {
+    // （`setLayout(manager, { disableTransform: false })` 时不接管交互，只摆位置）
+    if (this.layoutManager && this.__layoutDisablesTransform) {
       child.state.transformable = false;
       child.state.draggable = false;
       this.__disableTransformRecursively(child);
@@ -218,15 +325,10 @@ class ICEGroup extends ICERect {
     }
     // 布局接管：新加入的子组件必须立即参与重排。
     // 旧实现只在 setLayout() 时排一次，之后 addChild 不重排 → 加进去的子组件位置全错。
-    if (this.layoutManager) {
-      // 新增的容器型子组件若没有显式布局，继承父层布局（与 setLayout 的传播规则一致），
-      // 否则它内部的子组件不会被排布。
-      if (child instanceof ICEGroup && !child.__layoutExplicit) {
-        child.layoutManager = this.layoutManager;
-      }
-      if (!this.__inBatch) {
-        this.doLayout();
-      }
+    // 注意：**不**给子容器继承本容器的策略（对齐 Swing 的 Container.setLayout：父布局只摆位置，
+    // 子容器用自己的策略排自己的子项），因此这里不再有 __propagateLayout 那套下灌逻辑。
+    if (this.layoutManager && !this.__inBatch) {
+      this.doLayout();
     }
   }
 

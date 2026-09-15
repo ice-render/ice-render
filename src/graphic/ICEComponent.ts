@@ -289,6 +289,10 @@ abstract class ICEComponent extends ICEEventTarget {
   /** 可见性缓存（代际号 + 值）：见 `isEffectivelyVisible` 的说明。 */
   private __visEpoch = -1;
   private __visValue = true;
+  /** `setPreferredSize()` 显式声明的首选尺寸（null = 没声明，见 `getPreferredSize()`）。 */
+  private __preferredSize: [number, number] | null = null;
+  /** 本次 `setState` 是否改了 `display`（供 `__afterStateMerge` 判断要不要请父容器重排）。 */
+  private __displayChanged = false;
   /** 本帧是否因为子树不透明度过 ctx.globalAlpha（见 __renderCore / __resetLeakyCtxState）。 */
   private __opacityApplied = false;
   /** 声明式渐变缓存：按描述对象引用判定，`refreshParams()` 里失效（setState 必然触发它）。 */
@@ -1084,6 +1088,53 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   /**
+   * 组件**想要多大**（布局用）。
+   *
+   * 对齐 Swing 的 `Component.getPreferredSize()`：
+   * - 调用方用 `setPreferredSize()` 显式声明过 → 用声明值；
+   * - 否则就是当前 `width/height`（Swing 的兜底语义也是 `getSize()`）：对叶子图元来说
+   *   "想要的尺寸 = 自己的盒子"，文本则在量测后已经是字形实际尺寸。
+   *
+   * 容器（`ICEGroup`）会覆写它：**没**显式声明尺寸的容器改为向自己的布局策略要「内容尺寸」，
+   * 于是父布局嵌一个子容器时读到的是它的**自然尺寸**（对齐 Swing 的 `preferredLayoutSize`）。
+   */
+  public getPreferredSize(): [number, number] {
+    if (this.__preferredSize) {
+      return [this.__preferredSize[0], this.__preferredSize[1]];
+    }
+    return [Number(this.state.width) || 0, Number(this.state.height) || 0];
+  }
+
+  /**
+   * 显式声明「我想要多大」（Swing 同名 API）。
+   *
+   * 布局在算剩余空间 / 摆位时会先问它（见 `ICELayoutManager.preferredSizeOf`）。
+   * 声明后即使容器自己算出了内容尺寸，也以这个值为准 —— 等价于 Swing 的
+   * `isPreferredSizeSet() == true` 时 `Container.getPreferredSize()` 不再问布局。
+   */
+  public setPreferredSize(size: [number, number] | { width: number; height: number }): this {
+    const width = Array.isArray(size) ? size[0] : size.width;
+    const height = Array.isArray(size) ? size[1] : size.height;
+    this.__preferredSize = [Number(width) || 0, Number(height) || 0];
+    // 尺寸声明变了 → 让父容器重排（对齐 Swing setPreferredSize() 里的 revalidate()）
+    if (this.parentNode && typeof this.parentNode.requestLayout === 'function') {
+      this.parentNode.requestLayout();
+    }
+    return this;
+  }
+
+  /**
+   * 调用方是否显式声明过首选尺寸。
+   *
+   * **只有 `setPreferredSize()` 才算**（Swing 的 `isPreferredSizeSet()` 就是这个语义）：
+   * 构造期给的 `width/height` 是**当前边界**（Swing 的 `setBounds`），不参与"想要多大"的协商。
+   * 容器因此能把"我被摆成多大"和"我内容想多大"分开报 —— 这正是 Swing 尺寸协议的关键。
+   */
+  public isPreferredSizeSet(): boolean {
+    return this.__preferredSize !== null;
+  }
+
+  /**
    * 派生参数刷新入口（**唯一**）：按需调用子类的 `calcComponentParams()`，并在算完后清除 `paramsDirty`。
    *
    * - 参数干净时直接返回，因此「只重绘、不改自身参数」的帧（例如祖先移动）不会重算点集/文本量测。
@@ -1764,13 +1815,24 @@ abstract class ICEComponent extends ICEEventTarget {
     // display 变化会让自身与全部后代的「最终可见性」失效
     if (!!newState && newState.display !== undefined && newState.display !== this.state.display) {
       bumpVisibilityEpoch();
+      // 显隐也是布局输入：布局器会跳过不可见子项（见 ICELayoutManager.layoutChildren），
+      // 所以父容器必须重排 —— 对齐 Swing 的 Component.setVisible() → invalidateParent()。
+      this.__displayChanged = true;
     }
     return sizeChanged;
   }
 
-  /** `setState` 的**后置**钩子：尺寸变化时请求父容器重排（合并到下一帧，见 `ICEGroup.requestLayout`）。 */
+  /**
+   * `setState` 的**后置**钩子：**尺寸或显隐**变化时请求父容器重排
+   * （合并到下一帧，见 `ICEGroup.requestLayout`）。
+   *
+   * 显隐为什么要算：布局器会把不可见子项整个跳过（`layoutChildren`），
+   * "藏起侧栏让内容占满"这类版式靠的就是它 —— 不请求重排就会留一块空白。
+   */
   protected __afterStateMerge(sizeChanged: boolean): void {
-    if (sizeChanged && this.parentNode && typeof this.parentNode.requestLayout === 'function') {
+    const layoutInputChanged = sizeChanged || this.__displayChanged;
+    this.__displayChanged = false;
+    if (layoutInputChanged && this.parentNode && typeof this.parentNode.requestLayout === 'function') {
       this.parentNode.requestLayout();
     }
   }
