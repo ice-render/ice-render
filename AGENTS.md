@@ -242,7 +242,9 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 | `ice-render-dsl` | **8094** | 示例页 e2e |
 | `ice-entity-designer-react-demo` | **8095** | 静态预览（webpack dev 仍用 8080） |
 | `ice-chart` | **5177** | `scripts/serve-examples.cjs`（Vite 号段） |
-| `ice-game` | **8098** | 游戏厅首页与各游戏页 e2e（可用 `ICE_GAME_PORT` 覆盖；8096/8097 留给后来者） |
+| `ice-chart-dsl` | **8096** | 示例页冒烟（2026-09-15 补） |
+| `ice-entity-designer-dsl` | **8097** | 示例页冒烟（2026-09-15 补） |
+| `ice-game` | **8098** | 游戏厅首页与各游戏页 e2e（可用 `ICE_GAME_PORT` 覆盖） |
 
 新增仓 / 新增服务时**先在这里登记**再写进配置。
 
