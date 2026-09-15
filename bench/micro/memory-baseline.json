@@ -1,0 +1,16 @@
+{
+  "_meta": {
+    "updated": "2026-09-15",
+    "machine": "Apple M4 / Node v25.2.1 / darwin-arm64",
+    "unit": "bytes/实例（gc 后 heapUsed 差 / N，独立进程）",
+    "n": 200000,
+    "note": "用 npm run bench:mem -- --update-baseline 刷新；判定为「实测 ≤ 基线 × tolerance」",
+    "tolerance": 1.3
+  },
+  "cases": {
+    "prototype-sharing": 2426,
+    "props-state-only": 1008,
+    "empty-object": 64,
+    "naive-full-defaults": 7925
+  }
+}
