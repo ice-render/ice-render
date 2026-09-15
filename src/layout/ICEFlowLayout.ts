@@ -28,19 +28,40 @@ export type ICEFlowCrossAlign = 'start' | 'center' | 'end';
  */
 class ICEFlowLayout extends ICELayoutManager {
   private gap: number;
+  /** 行间距（默认 = `gap`，与历史行为一致） */
+  private gapY: number;
   private align: 'left' | 'center' | 'right';
   private crossAlign: ICEFlowCrossAlign;
+  /** 装箱方式：`in-order`（默认，按顺序填满一行再换行）/ `first-fit`（优先回填还能放下的上一行） */
+  private pack: 'in-order' | 'first-fit';
 
-  constructor(props: { gap?: number; align?: 'left' | 'center' | 'right'; crossAlign?: ICEFlowCrossAlign } = {}) {
+  constructor(
+    props: {
+      gap?: number;
+      /** 行间距；不传就与 `gap` 相同（历史行为） */
+      gapY?: number;
+      align?: 'left' | 'center' | 'right';
+      crossAlign?: ICEFlowCrossAlign;
+      /**
+       * 装箱方式（默认 `in-order`）：
+       * - `in-order`：按顺序往当前行塞，塞不下才换行（Swing `FlowLayout` 的行为）；
+       * - `first-fit`：优先回填到**任何**还放得下的行（把"小徽标 / 小按钮"塞回上一行），
+       *   页面不容易被零碎小件撑高 —— `ice-web-components` 示例页的"簇 + 货架"手写布局就是这个语义。
+       */
+      pack?: 'in-order' | 'first-fit';
+    } = {}
+  ) {
     super();
     this.gap = props.gap ?? 10;
+    this.gapY = props.gapY ?? this.gap;
     this.align = props.align || 'left';
     this.crossAlign = props.crossAlign || 'start';
+    this.pack = props.pack === 'first-fit' ? 'first-fit' : 'in-order';
   }
 
   /** 序列化参数（见 `ICELayoutManager.toJSON`）。 */
   public toJSON(): any {
-    return { gap: this.gap, align: this.align, crossAlign: this.crossAlign };
+    return { gap: this.gap, gapY: this.gapY, align: this.align, crossAlign: this.crossAlign, pack: this.pack };
   }
 
   /**
@@ -61,6 +82,33 @@ class ICEFlowLayout extends ICELayoutManager {
     let rowWidth = 0;
     for (const child of children) {
       const w = this.outerSizeOf(child)[0];
+      if (this.pack === 'first-fit') {
+        // first-fit：回填到第一行还放得下的（+0.5 容差：宽度刚好铺满时别因浮点误差换行）
+        let placed = false;
+        for (let r = 0; r < rows.length; r += 1) {
+          const used = rowWidths[r] === undefined ? rowWidth : rowWidths[r];
+          if (rows[r].length > 0 && used + this.gap + w <= wrapWidth + 0.5) {
+            rows[r].push(child);
+            rowWidths[r] = used + this.gap + w;
+            placed = true;
+            break;
+          }
+        }
+        if (placed) {
+          continue;
+        }
+        if (rows[rows.length - 1].length === 0) {
+          // 当前行还是空的：直接放（放不下也不换行，避免在超窄容器里无限换行）
+          rows[rows.length - 1].push(child);
+          rowWidth = w;
+          continue;
+        }
+        // 开新行；旧行宽度先记账，新行宽度随后逐项累加
+        rowWidths[rowWidths.length - 1] = rowWidths[rowWidths.length - 1] ?? rowWidth;
+        rows.push([child]);
+        rowWidth = w;
+        continue;
+      }
       if (rowWidth > 0 && rowWidth + this.gap + w > wrapWidth) {
         rowWidths.push(rowWidth);
         rows.push([]);
@@ -69,7 +117,19 @@ class ICEFlowLayout extends ICELayoutManager {
       rows[rows.length - 1].push(child);
       rowWidth += rowWidth > 0 ? this.gap + w : w;
     }
-    rowWidths.push(rowWidth);
+    if (this.pack === 'first-fit') {
+      // 最后一行（以及任何还没记过账的行）宽度补齐
+      rows.forEach((row, index) => {
+        if (rowWidths[index] === undefined) {
+          rowWidths[index] = row.reduce(
+            (sum, child, i) => sum + this.outerSizeOf(child)[0] + (i > 0 ? this.gap : 0),
+            0
+          );
+        }
+      });
+    } else {
+      rowWidths.push(rowWidth);
+    }
     const rowHeights = rows.map((row) => row.reduce((max, child) => Math.max(max, this.outerSizeOf(child)[1]), 0));
     return { rows, rowWidths, rowHeights };
   }
@@ -110,7 +170,7 @@ class ICEFlowLayout extends ICELayoutManager {
         this.placeChild(child, x, y + this.__crossDelta(child, rowMaxH));
         x += this.outerSizeOf(child)[0] + this.gap;
       }
-      y += rowMaxH + this.gap;
+      y += rowMaxH + this.gapY;
     }
   }
 
@@ -128,7 +188,7 @@ class ICEFlowLayout extends ICELayoutManager {
     let height = 0;
     for (let r = 0; r < rowHeights.length; r++) {
       width = Math.max(width, rowWidths[r]);
-      if (r > 0) height += this.gap;
+      if (r > 0) height += this.gapY;
       height += rowHeights[r];
     }
     return [width + pad.left + pad.right, height + pad.top + pad.bottom];
