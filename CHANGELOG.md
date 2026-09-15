@@ -23,8 +23,9 @@
 
   - `ice-chart` 的 `resize()` 用 `getBoundingClientRect()` 的 **border-box** 尺寸 ——
     而引擎自己那行注释警告过"直接用 border-box 会被边框撑大（示例页画布带 1px 边框）"；
-  - `ice-smart-water` 的 `sizeCanvasToParent()` **忘了乘 dpr** —— 它那 15 个"岛"在 Retina 上
-    一直是 1x 渲染。
+  - `ice-smart-water` 的 `sizeCanvasToParent()` **绕开引擎手写 `canvasWidth` / `canvasHeight`** ——
+    而命中测试正是按这两个字段算的。该应用目前没开 HiDPI（`dpr` 恒为 1），所以数值上还没错，
+    但这层手写让"以后切 HiDPI"变成一个静默错位的陷阱（引擎以为在 2× 渲染、画布却被写回 1×）。
 
   两次都不是"写错代码"，是"没人提供入口"。引擎的 `hitTest()` / `fitViewport()` / `zoomAt()`
   都按 `canvasWidth/Height` 加内容盒算坐标，写错了**不会报错**，只会让命中整体偏移 ——
