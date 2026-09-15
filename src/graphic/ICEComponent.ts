@@ -153,6 +153,15 @@ import { uuid } from '../util/uuid';
  *
  * 这是内存优化的一部分：大量静态图元的默认配置从「每实例一份」变成「全局一份」。
  */
+/**
+ * `setMinimumSize()` 的声明值：**模块级侧表**，不放实例字段。
+ *
+ * 为什么不放实例字段：实测给组件类加一个实例字段会把属性挤出 V8 的"对象内属性"区，
+ * 渲染热路径（每帧读 `state`/`dirty`）因此慢 3~4×（bench 场景 A：0.055ms → 0.21ms；
+ * 换字段名、加到子类 `ICERect` 上同样复现）。布局约束只在布局期读写，侧表没有任何代价。
+ */
+const MIN_SIZE = new WeakMap<any, [number, number]>();
+
 const DEFAULT_PROPS = {
   left: 0,
   top: 0,
@@ -291,6 +300,10 @@ abstract class ICEComponent extends ICEEventTarget {
   private __visValue = true;
   /** `setPreferredSize()` 显式声明的首选尺寸（null = 没声明，见 `getPreferredSize()`）。 */
   private __preferredSize: [number, number] | null = null;
+  // 注意：`setMinimumSize()` 的值**不放在实例字段上**，而是放模块级 WeakMap（见 MIN_SIZE）。
+  // 原因不是洁癖，是实测：给组件类加一个实例字段会把属性挤出 V8 的"对象内属性"区，
+  // 渲染热路径（每帧读 state/dirty 等）因此慢 3~4×（bench 场景 A 实测 0.055ms → 0.21ms；
+  // 换字段名、把字段加在子类 ICERect 上，都同样复现）。布局约束只在布局期读写，侧表零成本。
   /** 本次 `setState` 是否改了 `display`（供 `__afterStateMerge` 判断要不要请父容器重排）。 */
   private __displayChanged = false;
   /** 本帧是否因为子树不透明度过 ctx.globalAlpha（见 __renderCore / __resetLeakyCtxState）。 */
@@ -1132,6 +1145,34 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   public isPreferredSizeSet(): boolean {
     return this.__preferredSize !== null;
+  }
+
+  /**
+   * 声明「最小能被压到多小」（布局在空间不足时用，例如 `ICEBoxLayout` 的 `grow` 收缩）。
+   *
+   * 缺省 `[0,0]` = **没有下限**；布局侧的口径是"没声明的轴回落到首选尺寸"（见
+   * `ICELayoutManager.minimumSizeOf`），所以不写它就等于"不可压缩"，与引入该协议之前一致。
+   * 想表达"可以压到 120，但不能再小"就 `setMinimumSize({ width: 120 })`（只约束宽度那一轴）。
+   */
+  public getMinimumSize(): [number, number] {
+    const declared = MIN_SIZE.get(this);
+    return declared ? [declared[0], declared[1]] : [0, 0];
+  }
+
+  /** 是否显式声明过最小尺寸（对齐 Swing 的 `isMinimumSizeSet()`）。 */
+  public isMinimumSizeSet(): boolean {
+    return MIN_SIZE.has(this);
+  }
+
+  /** 声明最小尺寸；与 `setPreferredSize()` 一样会请父容器重排（对齐 Swing 的 `revalidate()`）。 */
+  public setMinimumSize(size: [number, number] | { width?: number; height?: number }): this {
+    const width = Array.isArray(size) ? size[0] : size.width;
+    const height = Array.isArray(size) ? size[1] : size.height;
+    MIN_SIZE.set(this, [Number(width) || 0, Number(height) || 0]);
+    if (this.parentNode && typeof this.parentNode.requestLayout === 'function') {
+      this.parentNode.requestLayout();
+    }
+    return this;
   }
 
   /**

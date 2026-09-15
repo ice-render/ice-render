@@ -7,6 +7,59 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+## [2.11.0] - 2026-09-15
+
+本轮主题：**把"自由排版"与"自由拖动"这两件事彻底分开**，补齐收缩能力，并让布局的序列化不再"假装能读回"。
+
+### 新增
+
+- **`layoutIgnore`：手动定位的子项（CSS `position:absolute` 的对应物）**。写在子项 state 上
+  （`{ layoutIgnore: true }`），布局器一律跳过它、也不让它参与首选尺寸。
+  这样"容器负责大多数子项、少数子项位置是数据（用户拖出来的）"这类界面才成立
+  —— 例如"端子排负责排布外壳，但端子本身必须能被拖"。`ICEBoxLayout` / `ICEFlowLayout` /
+  `ICEBorderLayout` / `ICEOverlayLayout` 走 `layoutChildren()` 自动获得该行为；
+  `ICEGridLayout` 也跳过它，但**不可见子项仍占格**（对齐 Swing `GridLayout`）。
+- **交互锁成为独立的一维策略**（原来只是 `setLayout()` 的副作用、且有副作用不可逆）：
+  - `setLayout(manager, { lockInteraction: false })` 只排位置、不接管交互（`disableTransform` 仍是旧名字）；
+  - `container.setInteractionLock(true/false)` 可以在**没有布局**时单独开关，并且**解锁按原值还原**
+    （记录改过谁、改之前是什么，而不是一律设回 `true`）；
+  - `container.getInteractionLock()` / `container.getLayout()` 读取当前状态；
+  - `setLayout(null)` 清除布局：坐标留在原地，交互锁还原。
+  动机：`ice-entity-designer` 的端子排**因为"挂布局就再也拖不动"而放弃了布局机制**（该仓 AGENTS
+  两轮复核的结论）——耦合本就该拆开。
+- **最小尺寸协议**：`ICEComponent.setMinimumSize() / getMinimumSize() / isMinimumSizeSet()`，
+  布局侧 `ICELayoutManager.getMinimumSize(container)` + `minimumSizeOf(child)`。
+  `ICEBoxLayout` 在空间不足时按"能压多少"收缩声明了 `grow` 的子项，压到下限就停（如实溢出，
+  而不是把内容压没）。口径与 Swing 一致：**没声明下限的轴回落到首选尺寸 = 不许压缩**，
+  所以既有界面一行不改、行为不变；`ICEBoxLayout.getMinimumSize()` 会把子项的最小值沿嵌套往上传。
+- **等分网格与 `grow` 的整数分配（累计取整）**：`ICEBoxLayout` 的剩余空间、`ICEGridLayout`
+  `cellSizing: 'equal'` 的格宽/格高，都由"累计取整"切分 —— 每份都是整数、和精确等于可分配量，
+  不再产出 `33.333` 这种落点（相邻子项边缘不会错开半个像素）。只消除布局**自己引入**的分数：
+  容器本身在分数坐标上时，子项仍带着那个偏移（那是调用方的构图选择）。
+
+### 变更（破坏性：布局的序列化行为）
+
+- **未注册的布局类型不再"回退写类名"**，改为**不写 `layout` 字段**并告警。回退写类名看着能读回，
+  但下游打包改名之后那份数据就是废的（同 AGENTS 记过的判类型事故）。子项的 `left/top` 照旧在快照里，
+  所以读回来**版式不变**，只是不再自动重排；想保住布局请先 `ice.registerType('your-ns:MyLayout', MyLayout)`。
+  旧快照里已经是类名的数据**照旧兼容**（读回按未注册类型跳过、保留坐标）。
+- **`toJSON()` 返回 `null` = 显式声明"这个策略不进文档"**：用于组件内部策略（由组件构造时重建、
+  参数活在组件 state 里）。返回 `null` 时既不写也不告警；返回 `{}` 才是"没有参数但要保留策略"。
+  仍用基类默认 `toJSON()` 的布局会在序列化时**告警一次**（有构造参数的布局会在这里静默丢参）。
+
+### 内部实现（性能）
+
+- `setMinimumSize()` 的声明值放在**模块级 `WeakMap` 侧表**，不作为实例字段：实测给组件类加一个实例字段
+  会把属性挤出 V8 的"对象内属性"区，bench 场景 A 从 **0.055ms 掉到 0.21ms（3~4×）**。
+  这条已写进 AGENTS「别给组件类加实例字段」铁律。
+
+### 验证
+
+- `npm run verify` 全绿（137 suite / 1145 用例 + lint 0 error + bench **场景 A 0.054ms、场景 B 1.834ms 达标** + pkg:check）；
+  `npm run test:visual` 100/100（含全部 golden 图，等分格宽取整未造成像素偏差）。
+- 新增用例：`tests/layout/layout-ignore.test.ts`、`tests/layout/layout-min-size.test.ts`、
+  `tests/layout/layout-interaction-lock.test.ts`，以及序列化侧 3 例（未注册不写 / 旧快照兼容 / `null` 不进文档 / 默认 toJSON 告警）。
+
 ## [2.10.1] - 2026-09-15
 
 ### 变更

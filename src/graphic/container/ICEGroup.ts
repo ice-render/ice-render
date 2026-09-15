@@ -41,10 +41,19 @@ class ICEGroup extends ICERect {
   /**
    * 布局接管时是否禁用后代的手动变换 / 拖动（默认 true，保持历史行为）。
    *
-   * 编辑器类场景可以传 `setLayout(manager, { disableTransform: false })`：布局照常摆位置，
-   * 但用户仍能拖动 —— 代价是"拖完下次重排会被拉回去"，由应用自己决定要不要接受。
+   * **这是独立的一维策略，不是布局的附属品**：`setLayout(manager, { lockInteraction: false })`
+   * 只排位置、不锁交互；`setInteractionLock(true/false)` 也能在没有布局的情况下单独切换。
+   * 编辑器类场景（位置是数据、必须能拖）适合关掉它；纯 UI 外壳适合打开。
+   * `disableTransform` 是旧名字，仍然接受。
    */
   private __layoutDisablesTransform = true;
+  /**
+   * 交互锁改过哪些子项、改之前是什么值 —— 解锁时按原值还原。
+   *
+   * 为什么必须记：锁是**有副作用**的（写子项的 `transformable/draggable`）。只锁不还原，
+   * "布局撤销后子项再也拖不动了"就成了不可逆的坑（组件库当年就是因为这个把布局机制放着不用）。
+   */
+  private __interactionLockBackup: Map<any, { transformable: any; draggable: any }> | null = null;
 
   constructor(props) {
     super(props);
@@ -76,33 +85,108 @@ class ICEGroup extends ICERect {
    *   与历史行为一致）。传 `false` 时布局照常摆位置，但用户仍可拖动 —— 适用于"布局打底 + 允许微调"
    *   的场景；注意拖完之后下次重排会把子项拉回布局算出的位置。
    */
-  public setLayout(manager: ICELayoutManager, options: { disableTransform?: boolean } = {}): void {
-    this.layoutManager = manager;
-    if (options && options.disableTransform !== undefined) {
+  public setLayout(
+    manager: ICELayoutManager | null,
+    options: { lockInteraction?: boolean; disableTransform?: boolean } = {}
+  ): void {
+    if (options && options.lockInteraction !== undefined) {
+      this.__layoutDisablesTransform = options.lockInteraction !== false;
+    } else if (options && options.disableTransform !== undefined) {
+      // 旧名字（等价于 lockInteraction），保留以免破坏既有调用点
       this.__layoutDisablesTransform = options.disableTransform !== false;
     }
-    if (manager) {
-      this.doLayout();
-      // 布局接管：设定了具体 layout 后，内部所有后代组件默认禁止手动变换（transformable=false），位置由代码接管
-      if (this.__layoutDisablesTransform) {
-        this.__disableTransformRecursively(this);
+
+    if (!manager) {
+      // 撤销布局：位置交回调用方，并把交互锁**还原**（否则子项会永久动不了）
+      this.layoutManager = null;
+      this.setInteractionLock(false);
+      this.__layoutInvalid = true;
+      this.__layoutRequested = false;
+      this.dirty = true;
+      if (this.ice) {
+        this.ice.dirty = true;
+      }
+      return;
+    }
+
+    this.layoutManager = manager;
+    this.doLayout();
+    // 布局接管：设定了具体 layout 后，内部所有后代组件默认禁止手动变换（transformable=false），位置由代码接管
+    if (this.__layoutDisablesTransform) {
+      this.setInteractionLock(true);
+    }
+  }
+
+  /** 当前布局策略（没设过就是 `null`）。 */
+  public getLayout(): ICELayoutManager | null {
+    return this.layoutManager;
+  }
+
+  /** 交互锁当前是否打开（见 `setInteractionLock`）。 */
+  public getInteractionLock(): boolean {
+    return this.__layoutDisablesTransform;
+  }
+
+  /**
+   * 独立切换「后代是否可手动变换 / 拖动」，与有没有布局无关。
+   *
+   * 打开时记下每个后代的 `transformable/draggable` 原值；关闭时**按原值还原**，
+   * 所以 `setLayout(null)` / `setInteractionLock(false)` 之后，子项回到布局接管之前的状态。
+   *
+   * 与 `setLayout(manager, { lockInteraction })` 的分工：前者是"随时切"，后者是"设布局时顺带定"。
+   */
+  public setInteractionLock(locked: boolean): this {
+    this.__layoutDisablesTransform = locked !== false;
+    if (this.__layoutDisablesTransform) {
+      for (let i = 0; i < this.childNodes.length; i++) {
+        this.__lockSubtree(this.childNodes[i]);
+      }
+    } else {
+      this.__restoreInteraction();
+    }
+    return this;
+  }
+
+  /**
+   * 递归禁用一棵子树的手动变换（transformable=false），并记录原值。
+   * 一旦设定了具体 layout，子组件位置由布局代码决定，用户不可再手动变换。
+   */
+  private __lockSubtree(component): void {
+    if (!component || !component.state) {
+      return;
+    }
+    if (!this.__interactionLockBackup) {
+      this.__interactionLockBackup = new Map();
+    }
+    if (!this.__interactionLockBackup.has(component)) {
+      this.__interactionLockBackup.set(component, {
+        transformable: component.state.transformable,
+        draggable: component.state.draggable,
+      });
+    }
+    component.state.transformable = false;
+    component.state.draggable = false; // 布局接管后也不能拖动（位置由代码决定）
+    if (component.childNodes) {
+      for (let i = 0; i < component.childNodes.length; i++) {
+        this.__lockSubtree(component.childNodes[i]);
       }
     }
   }
 
-  /**
-   * 递归禁用所有后代组件的手动变换（transformable=false）。
-   * 一旦设定了具体 layout，子组件位置由布局代码决定，用户不可再手动变换。
-   */
-  private __disableTransformRecursively(component): void {
-    if (!component || !component.childNodes) {
+  /** 把交互锁改过的子项按原值还原。 */
+  private __restoreInteraction(): void {
+    const backup = this.__interactionLockBackup;
+    if (!backup) {
       return;
     }
-    for (const child of component.childNodes) {
-      child.state.transformable = false;
-      child.state.draggable = false; // 布局接管后也不能拖动（位置由代码决定）
-      this.__disableTransformRecursively(child);
-    }
+    backup.forEach((previous, child) => {
+      if (child && child.state) {
+        child.state.transformable = previous.transformable;
+        child.state.draggable = previous.draggable;
+      }
+    });
+    backup.clear();
+    this.__interactionLockBackup = null;
   }
 
   /**
@@ -254,6 +338,17 @@ class ICEGroup extends ICERect {
     return this.layoutManager ? this.layoutManager.getPreferredSize(this) : super.getPreferredSize();
   }
 
+  /**
+   * 最小尺寸：声明过 → 声明值；有布局 → 问策略（`getMinimumSize`）；都没有 → 没有下限。
+   * 与 `getPreferredSize()` 同构，父布局的收缩计算因此能一层层问到最里面。
+   */
+  public getMinimumSize(): [number, number] {
+    if (this.isMinimumSizeSet()) {
+      return super.getMinimumSize();
+    }
+    return this.layoutManager ? this.layoutManager.getMinimumSize(this) : super.getMinimumSize();
+  }
+
   protected doRender(): void {
     // 渲染前先把挂起的重排做掉（父容器先于子项渲染，所以本帧子项位置就是新的）。
     // 本容器没有布局策略时也要走这一趟：它要负责把校验继续传给失效的后代。
@@ -309,9 +404,7 @@ class ICEGroup extends ICERect {
     // 布局接管：父容器已设定 layout 时，新加入的子组件（及其后代）禁止手动变换和拖动
     // （`setLayout(manager, { disableTransform: false })` 时不接管交互，只摆位置）
     if (this.layoutManager && this.__layoutDisablesTransform) {
-      child.state.transformable = false;
-      child.state.draggable = false;
-      this.__disableTransformRecursively(child);
+      this.__lockSubtree(child);
     }
 
     // 注意：markDirty=false 只表示「不要主动置脏」，不能把从未渲染过的容器强制置干净，
