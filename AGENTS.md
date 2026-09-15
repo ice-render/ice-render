@@ -222,7 +222,7 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 
 ### 家族 e2e / 预览端口分配（2026-09-15 确立）
 
-六个仓常常在同一台机器上同时跑 e2e / 预览，**端口必须一仓一个、并写进各仓 config 注释**：
+各仓常常在同一台机器上同时跑 e2e / 预览，**端口必须一仓一个、并写进各仓 config 注释**：
 
 | 仓 | 端口 | 用途 |
 |---|---|---|
@@ -233,8 +233,9 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 | `ice-render-dsl` | **8094** | 示例页 e2e |
 | `ice-entity-designer-react-demo` | **8095** | 静态预览（webpack dev 仍用 8080） |
 | `ice-chart` | **5177** | `scripts/serve-examples.cjs`（Vite 号段） |
+| `ice-game` | **8098** | 游戏厅首页与各游戏页 e2e（可用 `ICE_GAME_PORT` 覆盖；8096/8097 留给后来者） |
 
-新增仓 / 新增服务时**先在这里登记**再写进配置（8096+ 留给后来者）。
+新增仓 / 新增服务时**先在这里登记**再写进配置。
 
 **`reuseExistingServer` 一律 `false`**：端口被别的仓的服务占着时要**响亮失败**。
 2026-09-15 踩过：`ice-smart-water/scripts/shoot-screenshots.mjs` 私自用了 8093，而
