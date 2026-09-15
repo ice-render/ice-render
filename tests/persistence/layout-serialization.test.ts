@@ -99,7 +99,14 @@ describe('布局随快照往返', () => {
     ice.addChildren([row, grid, col]);
 
     const loaded = roundTrip(ice);
-    expect(loaded.childNodes[0].layoutManager.toJSON()).toEqual({ gap: 8, align: 'center', crossAlign: 'center' });
+    expect(loaded.childNodes[0].layoutManager.toJSON()).toEqual({
+      gap: 8,
+      // FlowLayout 2.10 起新增行间距与装箱方式（默认值 = 历史行为）
+      gapY: 8,
+      align: 'center',
+      crossAlign: 'center',
+      pack: 'in-order',
+    });
     expect(loaded.childNodes[1].layoutManager.toJSON()).toEqual({
       cols: 3,
       rows: undefined,

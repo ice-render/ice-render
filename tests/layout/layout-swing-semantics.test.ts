@@ -402,3 +402,45 @@ describe('LayeredLayout 与其余布局同口径（认 margin）', () => {
     expect(b.state.left).toBe(72);
   });
 });
+
+describe('FlowLayout 的货架装箱（first-fit）与行间距（示例页「簇 + 货架」语义）', () => {
+  it('first-fit：小件回填到还放得下的上一行（in-order 会把它换到下一行）', () => {
+    // 行宽 100：放 60 → 60；再放 30（60+10+30=100 刚好）→ 同一行；
+    // 再放 60（100+10+60 放不下）→ 新行；最后放 30：in-order 会落到第二行（60+10+30 也放不下 → 第三行），
+    // first-fit 会回填到第一行还剩 100-60-10-30=0 → 放不下；这里用更清晰的场景见下一条。
+    const group = new ICEGroup({ width: 100, height: 200 });
+    const a = new ICERect({ width: 60, height: 20 });
+    const b = new ICERect({ width: 60, height: 20 });
+    const c = new ICERect({ width: 30, height: 20 });
+    group.addChildren([a, b, c]);
+    group.setLayout(new ICEFlowLayout({ gap: 10, pack: 'first-fit' }));
+    expect(a.state.top).toBe(0);
+    expect(b.state.top).toBe(20 + 10); // 第二行（100-60-10=30 < 60）
+    expect(c.state.top).toBe(0); // 回填到第一行（60+10+30 = 100 ✓）
+    expect(c.state.left).toBe(70);
+  });
+
+  it('in-order（默认）：同样的输入不会回填，小件落到下一行', () => {
+    const group = new ICEGroup({ width: 100, height: 200 });
+    const a = new ICERect({ width: 60, height: 20 });
+    const b = new ICERect({ width: 60, height: 20 });
+    const c = new ICERect({ width: 30, height: 20 });
+    group.addChildren([a, b, c]);
+    group.setLayout(new ICEFlowLayout({ gap: 10 }));
+    expect(b.state.top).toBe(30);
+    expect(c.state.top).toBe(30); // 不回填 → 跟着第二行
+    expect(c.state.left).toBe(70);
+  });
+
+  it('gapY 让行间距独立于列间距（默认等于 gap，保持历史行为）', () => {
+    const make = (props: any) =>
+      (() => {
+        const group = new ICEGroup({ width: 100, height: 200 });
+        group.addChildren([new ICERect({ width: 100, height: 20 }), new ICERect({ width: 100, height: 20 })]);
+        group.setLayout(new ICEFlowLayout(props));
+        return group.childNodes[1].state.top;
+      })();
+    expect(make({ gap: 10 })).toBe(30); // 默认：行距 = gap
+    expect(make({ gap: 10, gapY: 40 })).toBe(60); // 行距独立
+  });
+});
