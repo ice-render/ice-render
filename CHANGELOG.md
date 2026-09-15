@@ -7,6 +7,14 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 变更
+
+- **示例 `examples/layout/dashboard.html` 改用引擎布局器**（此前是"布局示例目录里唯一一处手写坐标"）：
+  `ICEBoxLayout(axis:'y')` 排"标题栏 + 卡片区"，`ICEGridLayout({ cols: 2 })` 排 KPI 卡片，
+  `ICEOverlayLayout` 做"底板 + 角饰 + 正文宿主"的叠层，卡片正文再用 `ICEBoxLayout(axis:'y')` 叠
+  数值 / 标签 / 趋势 —— 页面里不再出现一处 `left/top` 算术。
+  观感仅有一处 3px 级差异（趋势行与标签改为统一 12px 节奏，原来是手调的 15/9），golden 图未变。
+
 ## [2.10.0] - 2026-09-15
 
 ### 新增
