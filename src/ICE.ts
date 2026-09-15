@@ -1380,7 +1380,10 @@ class ICE {
    *
    * @param cssWidth  逻辑（CSS）宽度。不给则从内容盒读，读不到再退回画布当前逻辑尺寸。
    * @param cssHeight 逻辑（CSS）高度。同上。
-   * @returns 尺寸是否真的变了。`false` 表示无变化，调用方可以据此跳过重新布局 / 重绘。
+   * @returns 尺寸是否真的变了。`false` 表示无变化，此时本方法什么都没碰。
+   *          返回 `true` 时**引擎已经安排好重绘**（改 canvas 尺寸会清空画布，所以本方法
+   *          会自行置脏并唤醒帧循环），调用方只需要管**自己那层**的重新布局 ——
+   *          比如表单要按新宽度重新对齐控件，那件事只有调用方知道。
    */
   public fitCanvasToDisplaySize(cssWidth?: number, cssHeight?: number): boolean {
     const el: any = this.canvasEl;
@@ -1439,6 +1442,15 @@ class ICE {
     this.canvasHeight = backingH;
     // 尺寸变了，位置多半也变了（重排），矩形与内容盒必须一起刷新
     this.updateCanvasBoundingRect();
+    // **必须自己置脏**：给 canvas 的 width/height 赋值会**清空画布**，所以上面这几行
+    // 已经把画面抹掉了。不在这里安排重绘的话，「空闲停帧」状态下（画面已画完、帧循环已停）
+    // 没有任何人会再画一次 —— 调用方拿到的是 `true`，看到的却是一张**白画布**。
+    //
+    // 这不是"顺手帮忙重绘"：清空是引擎在这一行里干的事，补画的义务就属于引擎。
+    // 把这件事留给调用方，等于要求每个宿主都记住一条不成文的规矩，而漏掉的症状是静默白屏。
+    // （实测来源：`ice-agent-console` 的表单层在窗口变窄后整块变白 ——
+    //   它当时能画出来纯属巧合：`setWidth()` 里的 `doLayout()` 顺手置了脏。）
+    this.dirty = true;
     return true;
   }
 

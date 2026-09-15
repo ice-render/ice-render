@@ -10,10 +10,13 @@
  * - backing store = 逻辑尺寸 × dpr；CSS 尺寸固定为逻辑尺寸（**不取整**，避免顺手改人家布局宽度）
  * - 同步 `canvasWidth` / `canvasHeight`，并刷新命中用的矩形与内容盒
  * - 不传尺寸时从**内容盒**读，读不到再退回画布当前逻辑尺寸
- * - 返回「是否真的变了」，调用方据此跳过重排 / 重绘
+ * - 返回「是否真的变了」，调用方据此决定**自己那层**要不要重新布局
  * - init 的 dpr 路径已改为委托本方法，行为逐字节不变（由 ICE.dpr.test.ts 守着）
+ * - **改了尺寸就自己置脏**：改 canvas 尺寸会清空画布，补画的义务属于引擎
+ *   （少了它，空闲停帧状态下 resize 会静默白屏）
  */
 import ICE from '../src/ICE';
+import ICERect from '../src/graphic/shape/ICERect';
 import root from '../src/cross-platform/root';
 
 const CSS_W = 400;
@@ -196,6 +199,70 @@ describe('fitCanvasToDisplaySize：不传尺寸', () => {
 
     expect(ice.fitCanvasToDisplaySize(CSS_W, CSS_H + 50)).toBe(true);
     expect(ice.fitCanvasToDisplaySize(CSS_W, CSS_H + 50)).toBe(false);
+    ice.destroy();
+  });
+});
+
+describe('fitCanvasToDisplaySize：改完尺寸要自己安排重绘', () => {
+  /**
+   * 给 canvas 的 `width` / `height` 赋值会**清空画布** —— 所以"尺寸变了"这件事
+   * 天然带着"必须重画"的义务。既然清空是引擎干的，补画的义务就属于引擎。
+   *
+   * 漏掉的症状是**静默白屏**：画面已画完 → 空闲停帧（帧循环停了）→ 容器尺寸变化 →
+   * 调用方调本方法 → 画布被清空，而没有任何人会再画一次。
+   * 实测来源：`ice-agent-console` 的表单层在窗口变窄后整块变白。
+   * 它当时能画出来纯属巧合 —— `setWidth()` 里的 `doLayout()` 顺手置了脏。
+   */
+  function renderOnce(ice: any) {
+    ice.dirty = true;
+    ice.renderer.frameEvtHandler();
+  }
+
+  it('渲染过一轮（空闲停帧）之后再 fit，会把脏置回去', () => {
+    const { el } = makeCanvas();
+    const ice: any = new ICE().init(el);
+    ice.addChild(new ICERect({ left: 10, top: 20, width: 30, height: 40 }));
+
+    renderOnce(ice);
+    // 前置条件：画完了，帧循环可以停了
+    expect(ice.dirty).toBe(false);
+    expect(ice.needsFrame()).toBe(false);
+
+    expect(ice.fitCanvasToDisplaySize(640, 480)).toBe(true);
+
+    // 少了这一条，宿主看到的是一张白画布
+    expect(ice.dirty).toBe(true);
+    expect(ice.needsFrame()).toBe(true);
+    ice.destroy();
+  });
+
+  it('尺寸没变时**不**置脏（不能把停帧的省电效果抵消掉）', () => {
+    const { el } = makeCanvas();
+    const ice: any = new ICE().init(el);
+    ice.addChild(new ICERect({ left: 10, top: 20, width: 30, height: 40 }));
+
+    renderOnce(ice);
+    expect(ice.dirty).toBe(false);
+
+    expect(ice.fitCanvasToDisplaySize(CSS_W, CSS_H)).toBe(false);
+
+    // 无变化却置脏 = 每帧都重绘，停帧形同虚设
+    expect(ice.dirty).toBe(false);
+    expect(ice.needsFrame()).toBe(false);
+    ice.destroy();
+  });
+
+  it('fit 之后跑一帧就回到不脏（置脏不是一次性的死循环）', () => {
+    const { el } = makeCanvas();
+    const ice: any = new ICE().init(el);
+    ice.addChild(new ICERect({ left: 10, top: 20, width: 30, height: 40 }));
+
+    renderOnce(ice);
+    ice.fitCanvasToDisplaySize(640, 480);
+
+    renderOnce(ice);
+    expect(ice.dirty).toBe(false);
+    expect(ice.needsFrame()).toBe(false);
     ice.destroy();
   });
 });
