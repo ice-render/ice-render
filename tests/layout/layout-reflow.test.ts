@@ -21,7 +21,6 @@ import ICERect from '../../src/graphic/shape/ICERect';
 import ICEText from '../../src/graphic/text/ICEText';
 import ICEBoxLayout from '../../src/layout/ICEBoxLayout';
 import ICEGridLayout from '../../src/layout/ICEGridLayout';
-import ICEFlowLayout from '../../src/layout/ICEFlowLayout';
 import ICEBorderLayout from '../../src/layout/ICEBorderLayout';
 
 function makeGroup(width = 400, height = 200) {

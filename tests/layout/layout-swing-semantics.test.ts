@@ -218,4 +218,109 @@ describe('不可见子项（对齐 Swing：Flow/Box/Border 跳过、Grid 保留�
     // 隐藏项照样占一格（列宽 40 + gap 0），所以它不会被跳过、后面也没有别的项挤上来
     expect(hidden.state.left).toBe(40);
   });
+
+  it('显隐变化会触发父容器重排（对齐 Swing setVisible → invalidateParent）', () => {
+    const group = new ICEGroup({ width: 300, height: 100 });
+    const west = new ICERect({ width: 80, height: 100, layoutConstraint: 'west' });
+    const center = new ICERect({ width: 10, height: 10 });
+    group.addChildren([west, center]);
+    group.setLayout(new ICEBorderLayout({ gap: 0 }));
+    expect(center.state.width).toBe(220);
+
+    west.setState({ display: false });
+    expect((group as any).__layoutInvalid).toBe(true); // 父容器被标失效
+    group.doLayout();
+    expect(center.state.width).toBe(300); // 侧栏让出来的空间被内容接管
+  });
+});
+
+describe('BoxLayout 交叉轴对齐（对齐 Swing BoxLayout 的撑满语义）', () => {
+  it("align: 'stretch' 在交叉轴拉满（纵向堆叠的表单项）", () => {
+    const group = new ICEGroup({ width: 320, height: 200 });
+    const a = new ICERect({ width: 100, height: 20 });
+    const b = new ICERect({ width: 60, height: 30 });
+    group.addChildren([a, b]);
+    group.setLayout(new ICEBoxLayout({ axis: 'y', gap: 10, align: 'stretch' }));
+    expect(a.state.width).toBe(320);
+    expect(b.state.width).toBe(320);
+    expect(a.state.height).toBe(20); // 主轴尺寸不动
+    expect(b.state.top).toBe(30); // 20 + gap10
+  });
+
+  it("align: 'center' / 'end' 在交叉轴居中 / 贴末端", () => {
+    const group = new ICEGroup({ width: 320, height: 100 });
+    const a = new ICERect({ width: 100, height: 20 });
+    const b = new ICERect({ width: 100, height: 40 });
+    group.addChildren([a, b]);
+    group.setLayout(new ICEBoxLayout({ axis: 'x', gap: 10, align: 'center' }));
+    expect(a.state.top).toBe(40); // (100-20)/2
+    expect(b.state.top).toBe(30); // (100-40)/2
+
+    group.setLayout(new ICEBoxLayout({ axis: 'x', gap: 10, align: 'end' }));
+    expect(a.state.top).toBe(80);
+    expect(b.state.top).toBe(60);
+  });
+
+  it('默认 align: start 保持历史行为（不撑满、不偏移）', () => {
+    const group = new ICEGroup({ width: 320, height: 100 });
+    const a = new ICERect({ width: 100, height: 20 });
+    group.addChild(a);
+    group.setLayout(new ICEBoxLayout({ axis: 'x', gap: 10 }));
+    expect(a.state.width).toBe(100);
+    expect(a.state.top).toBe(0);
+  });
+
+  it('stretch 与 grow 可以同时用（主轴上分剩余、交叉轴拉满）', () => {
+    const group = new ICEGroup({ width: 400, height: 80 });
+    const fixed = new ICERect({ width: 100, height: 20 });
+    const flexible = new ICERect({ width: 100, height: 20, grow: 1 });
+    group.addChildren([fixed, flexible]);
+    group.setLayout(new ICEBoxLayout({ axis: 'x', gap: 0, align: 'stretch' }));
+    expect(fixed.state.width).toBe(100);
+    expect(flexible.state.width).toBe(300);
+    expect(fixed.state.height).toBe(80);
+    expect(flexible.state.height).toBe(80);
+  });
+});
+
+describe('FlowLayout 补齐：行内交叉轴对齐 + 换行后的首选尺寸', () => {
+  it("crossAlign: 'center' 让一行里矮的子项垂直居中", () => {
+    const group = new ICEGroup({ width: 400, height: 100 });
+    const tall = new ICERect({ width: 40, height: 60 });
+    const short = new ICERect({ width: 40, height: 20 });
+    group.addChildren([tall, short]);
+    group.setLayout(new ICEFlowLayout({ gap: 10, crossAlign: 'center' }));
+    expect(tall.state.top).toBe(0);
+    expect(short.state.top).toBe(20); // (60-20)/2
+  });
+
+  it("crossAlign: 'end' 贴行底", () => {
+    const group = new ICEGroup({ width: 400, height: 100 });
+    const tall = new ICERect({ width: 40, height: 60 });
+    const short = new ICERect({ width: 40, height: 20 });
+    group.addChildren([tall, short]);
+    group.setLayout(new ICEFlowLayout({ gap: 10, crossAlign: 'end' }));
+    expect(short.state.top).toBe(40);
+  });
+
+  it('容器有确定宽度时，首选尺寸按该宽度分行算（Swing preferredLayoutSize 口径）', () => {
+    const group = new ICEGroup({ width: 100, height: 0 });
+    const a = new ICERect({ width: 60, height: 20 });
+    const b = new ICERect({ width: 60, height: 20 });
+    const c = new ICERect({ width: 60, height: 20 });
+    group.addChildren([a, b, c]);
+    group.setLayout(new ICEFlowLayout({ gap: 10 }));
+    // 100 宽装不下两个 60 → 一行一个：最宽行 60、三行 20×3 + 间距 10×2 = 80
+    expect(group.getPreferredSize()).toEqual([60, 80]);
+  });
+
+  it('容器宽度未定时按单行（不会在 0 宽上把每个子项都换行）', () => {
+    const group = new ICEGroup({ width: 0 }); // 宽度 0 = 未定（按内容自适应时就是这个状态）
+    const a = new ICERect({ width: 60, height: 20 });
+    const b = new ICERect({ width: 60, height: 20 });
+    group.addChildren([a, b]);
+    group.setLayout(new ICEFlowLayout({ gap: 10 }));
+    expect(group.getPreferredSize()).toEqual([130, 20]);
+    expect(b.state.left).toBe(70);
+  });
 });

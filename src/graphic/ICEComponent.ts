@@ -291,6 +291,8 @@ abstract class ICEComponent extends ICEEventTarget {
   private __visValue = true;
   /** `setPreferredSize()` 显式声明的首选尺寸（null = 没声明，见 `getPreferredSize()`）。 */
   private __preferredSize: [number, number] | null = null;
+  /** 本次 `setState` 是否改了 `display`（供 `__afterStateMerge` 判断要不要请父容器重排）。 */
+  private __displayChanged = false;
   /** 本帧是否因为子树不透明度过 ctx.globalAlpha（见 __renderCore / __resetLeakyCtxState）。 */
   private __opacityApplied = false;
   /** 声明式渐变缓存：按描述对象引用判定，`refreshParams()` 里失效（setState 必然触发它）。 */
@@ -1813,13 +1815,24 @@ abstract class ICEComponent extends ICEEventTarget {
     // display 变化会让自身与全部后代的「最终可见性」失效
     if (!!newState && newState.display !== undefined && newState.display !== this.state.display) {
       bumpVisibilityEpoch();
+      // 显隐也是布局输入：布局器会跳过不可见子项（见 ICELayoutManager.layoutChildren），
+      // 所以父容器必须重排 —— 对齐 Swing 的 Component.setVisible() → invalidateParent()。
+      this.__displayChanged = true;
     }
     return sizeChanged;
   }
 
-  /** `setState` 的**后置**钩子：尺寸变化时请求父容器重排（合并到下一帧，见 `ICEGroup.requestLayout`）。 */
+  /**
+   * `setState` 的**后置**钩子：**尺寸或显隐**变化时请求父容器重排
+   * （合并到下一帧，见 `ICEGroup.requestLayout`）。
+   *
+   * 显隐为什么要算：布局器会把不可见子项整个跳过（`layoutChildren`），
+   * "藏起侧栏让内容占满"这类版式靠的就是它 —— 不请求重排就会留一块空白。
+   */
   protected __afterStateMerge(sizeChanged: boolean): void {
-    if (sizeChanged && this.parentNode && typeof this.parentNode.requestLayout === 'function') {
+    const layoutInputChanged = sizeChanged || this.__displayChanged;
+    this.__displayChanged = false;
+    if (layoutInputChanged && this.parentNode && typeof this.parentNode.requestLayout === 'function') {
       this.parentNode.requestLayout();
     }
   }

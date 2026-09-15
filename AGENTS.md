@@ -165,15 +165,22 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   父布局只给子容器摆位置）。子容器要自动排布就自己 `setLayout()`。重排由 `doLayout()` 末尾的
   **自顶向下校验趟**驱动（对齐 `Container.validateTree()`：谁失效排谁，没失效的子树整棵跳过，
   中间层容器没有布局也要穿过去）。
-  ⑤ **内外距只有一套实现**：容器的 `padding`、子项的 `margin` 一律走
+  ⑤ **交叉轴对齐用布局自己的参数**：`ICEBoxLayout.align`（`start` / `center` / `end` / **`stretch`**）、
+  `ICEFlowLayout.crossAlign`（行内）。`stretch` 是 Swing BoxLayout 的默认口径（交叉轴撑满），
+  纵向堆叠 + 拉满宽度的场景不要自己在组件里写；`grow`（主轴）与 `stretch`（交叉轴）可以同时用。
+  ⑥ **首选尺寸要算上换行**：`ICEFlowLayout.getPreferredSize()` 在容器有确定宽度时按该宽度分行
+  （Swing `preferredLayoutSize` 用 `target.getWidth()` 就是这么算的）；容器宽度未定（0）视为单行，
+  别在 0 宽上无限换行。**显隐是布局输入**：`setState({display})` 会请求父容器重排
+  （对齐 `Component.setVisible()` → `invalidateParent()`），布局器统一用 `layoutChildren()` 跳过不可见子项。
+  ⑦ **内外距只有一套实现**：容器的 `padding`、子项的 `margin` 一律走
   `contentBox()` / `outerSizeOf()` / `placeChild()` / `placeChildSized()`，新布局不许自己再算一遍
   （否则「屏幕上是 8px、盒子按 0 算」这类漂移一定会出现）。
-  ⑥ **每个布局都要实现 `getPreferredSize(container)`**（内容首选尺寸，含 padding/margin），
+  ⑧ **每个布局都要实现 `getPreferredSize(container)`**（内容首选尺寸，含 padding/margin），
   否则 `fitContent` 对它无效；返回 `[0,0]` 表示"我对尺寸没有意见"，容器会保留调用方给的尺寸。
-  ⑦ **不可见子项口径对齐 Swing**：`FlowLayout` / `BoxLayout` / `BorderLayout` / `OverlayLayout`
+  ⑨ **不可见子项口径对齐 Swing**：`FlowLayout` / `BoxLayout` / `BorderLayout` / `OverlayLayout`
   用 `layoutChildren()` 跳过不可见子项；**`GridLayout` 不跳过**（不可见项照样占格子）。
-  ⑧ **构造参数取默认值用 `??` 不用 `||`** —— `gap: 0` / `currentIndex: 0` 必须能表达。
-  ⑨ 子项上的布局声明（`margin` / `grow` / `gridSpan` / `layoutConstraint`）放 `state`
+  ⑩ **构造参数取默认值用 `??` 不用 `||`** —— `gap: 0` / `currentIndex: 0` 必须能表达。
+  ⑪ 子项上的布局声明（`margin` / `grow` / `gridSpan` / `layoutConstraint`）放 `state`
   （随快照走），非法约束值要**提示一次**而不是静默落默认值。
   回归见 `tests/layout/`（含 `layout-swing-semantics.test.ts` / `layout-composition.test.ts`）、
   `e2e/visual/visual.spec.ts` 的 golden 图。

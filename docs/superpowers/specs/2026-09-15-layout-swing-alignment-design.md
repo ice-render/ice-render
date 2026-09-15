@@ -41,14 +41,19 @@
   等价于 Swing 的 `setPreferredSize`），否则报布局算出的内容尺寸；新增 `setPreferredSize()` /
   `isPreferredSizeSet()` 对齐 Swing API。
 - 布局跳过不可见子项（Flow / Box / Border / Overlay / Card），`ICEGridLayout` 保持「保留格子」。
-- `ice-web-components`：去掉 `ICETabs` 的 `setLayout(null)` 规避；更新 `docs/guides/layout.md` 与
-  `docs/architecture.md` 的布局章节。
+- `ice-web-components`：去掉 `ICETabs` 的 `setLayout(null)` 规避；更新 `docs/guides/layout.md`。
+- **（追加，用户要求「先尝试把 ② 做完」）容器级迁移**：引擎补上迁移所需的能力后，
+  `ICELayout` → `ICEBorderLayout`、`ICEForm` → `ICEBoxLayout(axis y, align stretch)`、
+  `ICESpace` → `ICEBoxLayout` / `ICEFlowLayout`（按形态选），组件只保留自己的策略
+  （高度=内容高度 / 按内容自适应 / 区高区宽声明）。为此刻意加上：
+  `ICEBoxLayout.align`（含 `stretch`）、`ICEFlowLayout.crossAlign` 与「首选尺寸计入换行」、
+  `display` 变化触发父容器重排（否则「藏起侧栏」不会重排）。
+  `ICEGrid`（分数列宽跨列）与 `ICESplitter`（拖拽驱动尺寸）确认不适合引擎布局器，保持自研。
 
 **不做（留待后续）**
 
 - 把 web-components 的内部装饰从 `childNodes` 迁到 `painter`（Swing 的 ComponentUI 位）。
   本轮先靠「不继承」消除穿透；迁移是组件库侧的重构，单独一批做。
-- 容器级布局迁移（`ICEForm` / `ICESpace` 改走引擎布局器）需要交叉轴 stretch/align，同样单独一批。
 
 ## 4. 验收
 

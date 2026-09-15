@@ -10,6 +10,20 @@
 递归灌进所有后代容器，而组件库每个组件都是 `ICEGroup` 子类、内部零件（按钮文字、输入框前后缀 /
 清除按钮）都在同一个 `childNodes` 里 —— 于是一次 `setLayout()` 等于把整个界面的内部零件重摆一遍。
 
+### 新增
+
+- **`ICEBoxLayout.align`：箱式布局的交叉轴对齐**（`start` 默认 / `center` / `end` / `stretch`）。
+  `stretch` 是 Swing BoxLayout 的默认口径（子项在交叉轴撑满容器），
+  「纵向堆叠 + 每项拉满宽度」的表单类版式不用再手算宽度；`grow`（主轴分剩余）与 `stretch` 可同时用。
+- **`ICEFlowLayout.crossAlign`：行内交叉轴对齐**（`start` 默认 / `center` / `end`）——
+  一行里高矮不一的子项可以居中 / 贴底（`ICESpace` 的 `align` 就映射到它）。
+- **`ICEFlowLayout.getPreferredSize()` 按 Swing 口径计入换行**：容器已有确定宽度时按该宽度分行，
+  报「最宽行宽度 × 各行高度之和」（Swing `FlowLayout.preferredLayoutSize` 用的就是 `target.getWidth()`）；
+  宽度未定（0）或 `fitContent` 时按单行报（旧实现在 0 宽上会把每个子项都换行）。
+- **显隐变化触发父容器重排**（对齐 Swing `Component.setVisible()` → `invalidateParent()`）：
+  `display` 变化现在和尺寸变化一样会请求父容器重排 —— 布局器跳过不可见子项，
+  「藏起侧栏让内容占满」这类版式因此可以完全交给布局（`ICELayout` 的侧栏收起就是这么实现的）。
+
 ### 变更（破坏性：布局继承语义）
 
 - **删掉布局继承**：`setLayout()` 不再把策略传播给「未显式设置布局」的子容器，`addChild()` 也
@@ -44,9 +58,12 @@
 ### 验证
 
 - 新增 `tests/layout/layout-swing-semantics.test.ts`（不继承 / validateTree / 尺寸协商 /
-  `setPreferredSize` / 不可见子项 15 例），改写 `flow-layout`、`layout-reflow`、`layout-responsive`
-  里依赖旧继承语义的用例。
-- `npx jest` 全绿：**132 suite / 1093 用例**；`npm run types:check` 与 `npm run build` 零错误。
+  `setPreferredSize` / 不可见子项 / `BoxLayout.align` / `FlowLayout.crossAlign` 共 24 例），
+  改写 `flow-layout`、`layout-reflow`、`layout-responsive` 里依赖旧继承语义的用例。
+- `npm run verify` 全绿：**132 suite / 1102 用例** + lint（0 error）+ build + bench + pkg:check；
+  `e2e/visual/visual.spec.ts --grep layout` 8 张 golden 图与 `examples-smoke` 全过。
+- 组件库侧（`ice-web-components` 同分支）用它跑完了 1307 单测 + 9 个示例页 e2e，
+  `ICELayout` / `ICEForm` / `ICESpace` 已迁到引擎布局器（见该仓 CHANGELOG）。
 
 ## [2.7.0] - 2026-09-14
 
