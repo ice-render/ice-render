@@ -5,7 +5,7 @@
   <title>ICERender-dashboard</title>
   <body>
     <div style="font: 13px/1.8 sans-serif; color: #333; padding: 8px;">
-      KPI 仪表盘（用 <code>preset</code> + <code>shadow</code> 简写 + <code>textAlign: center</code>）——对比之前手写一大坨 style 的版本。
+      KPI 仪表盘：<code>ICEGridLayout</code> 排卡片、<code>ICEBoxLayout</code> 叠正文、<code>ICEOverlayLayout</code> 叠底板与角饰 —— 页面里没有一处 left/top 算术。
     </div>
     <canvas id="canvas-1" width="900" height="540" style="background-color: #f0f2f5;"></canvas>
   </body>
@@ -13,15 +13,6 @@
   <script type="text/javascript">
     let ice = new ICE.ICE().init('canvas-1');
 
-    // 标题栏：preset 'button' 给蓝色底，文字 textAlign center + textBaseline middle 居中
-    const title = new ICE.ICEGroup({ left: 40, top: 40, width: 820, height: 56 });
-    title.addChild(new ICE.ICERect({ preset: 'button', left: 0, top: 0, width: 820, height: 56 }));
-    title.addChild(
-      new ICE.ICEText({ left: 0, top: 0, width: 820, height: 56, text: '📊 KPI Dashboard · 2026 Q3', stroke: false, style: { fontSize: 22, fillStyle: '#ffffff', textAlign: 'center', textBaseline: 'middle' } })
-    );
-    ice.addChild(title);
-
-    // KPI 卡片：preset 'card'（白底 + 圆角 + 阴影），数值/标签用 textAlign center 居中
     const cardW = 392, cardH = 184;
     const kpiData = [
       { value: '12,345', label: '用户总数', color: '#3B82F6' },
@@ -29,26 +20,42 @@
       { value: '¥1.2M', label: '本月收入', color: '#F59E0B' },
       { value: '3.4%', label: '转化率', color: '#EF4444' },
     ];
-    const positions = [
-      { left: 40, top: 116 },
-      { left: 40 + cardW + 18, top: 116 },
-      { left: 40, top: 116 + cardH + 16 },
-      { left: 40 + cardW + 18, top: 116 + cardH + 16 },
-    ];
 
-    kpiData.forEach((k, i) => {
-      const card = new ICE.ICEGroup({ left: positions[i].left, top: positions[i].top, width: cardW, height: cardH });
-      // 卡片：preset 'card'（白底 + 圆角 + 阴影 md）
-      card.addChild(new ICE.ICERect({ preset: 'card', left: 0, top: 0, width: cardW, height: cardH }));
-      // 顶部彩色装饰条
-      card.addChild(new ICE.ICERect({ left: 0, top: 0, width: 56, height: 5, radius: 3, style: { fillStyle: k.color, strokeStyle: k.color, lineWidth: 1 } }));
-      // 数值：居中
-      card.addChild(new ICE.ICEText({ left: 0, top: 30, width: cardW, height: 60, text: k.value, stroke: false, style: { fontSize: 44, fillStyle: k.color, fontWeight: 'bold', textAlign: 'center', textBaseline: 'middle' } }));
-      // 标签：居中
-      card.addChild(new ICE.ICEText({ left: 0, top: 105, width: cardW, height: 24, text: k.label, stroke: false, style: { fontSize: 16, fillStyle: '#666666', textAlign: 'center', textBaseline: 'middle' } }));
-      // 趋势
-      card.addChild(new ICE.ICEText({ left: 0, top: 138, width: cardW, height: 20, text: '↑ 较昨日 +12.5%', stroke: false, style: { fontSize: 13, fillStyle: '#10B981', textAlign: 'center', textBaseline: 'middle' } }));
-      ice.addChild(card);
+    // 页面骨架：标题栏在上、卡片区在下（纵向箱式，20px 间距）
+    const board = new ICE.ICEGroup({ left: 40, top: 40, width: 820, height: 460, fill: false });
+    ice.addChild(board);
+    board.setLayout(new ICE.ICEBoxLayout({ axis: 'y', gap: 20 }));
+
+    // 标题栏 = 底板 + 文字叠放（OverlayLayout：子项都落在同一位置）
+    const title = new ICE.ICEGroup({ width: 820, height: 56 });
+    title.addChild(new ICE.ICERect({ preset: 'button', width: 820, height: 56 }));
+    title.addChild(
+      new ICE.ICEText({ width: 820, height: 56, text: '📊 KPI Dashboard · 2026 Q3', stroke: false, style: { fontSize: 22, fillStyle: '#ffffff', textAlign: 'center', textBaseline: 'middle' } })
+    );
+    title.setLayout(new ICE.ICEOverlayLayout());
+    board.addChild(title);
+
+    // 卡片区 = 2 列网格（行高取该行最高卡片）
+    const grid = new ICE.ICEGroup({ width: cardW * 2 + 18, height: cardH * 2 + 16 });
+    board.addChild(grid);
+    grid.setLayout(new ICE.ICEGridLayout({ cols: 2, gapX: 18, gapY: 16 }));
+
+    kpiData.forEach((k) => {
+      // 卡片 = 三层叠放：preset 'card' 底板 / 顶部彩色角饰 / 正文宿主
+      const card = new ICE.ICEGroup({ width: cardW, height: cardH });
+      card.addChild(new ICE.ICERect({ preset: 'card', width: cardW, height: cardH }));
+      card.addChild(new ICE.ICERect({ width: 56, height: 5, radius: 3, style: { fillStyle: k.color, strokeStyle: k.color, lineWidth: 1 } }));
+
+      // 正文宿主：数值 / 标签 / 趋势纵向依次排（间距 12，顶部内距 30）
+      const body = new ICE.ICEGroup({ width: cardW, height: cardH, padding: { top: 30 } });
+      body.addChild(new ICE.ICEText({ width: cardW, height: 60, text: k.value, stroke: false, style: { fontSize: 44, fillStyle: k.color, fontWeight: 'bold', textAlign: 'center', textBaseline: 'middle' } }));
+      body.addChild(new ICE.ICEText({ width: cardW, height: 24, text: k.label, stroke: false, style: { fontSize: 16, fillStyle: '#666666', textAlign: 'center', textBaseline: 'middle' } }));
+      body.addChild(new ICE.ICEText({ width: cardW, height: 20, text: '↑ 较昨日 +12.5%', stroke: false, style: { fontSize: 13, fillStyle: '#10B981', textAlign: 'center', textBaseline: 'middle' } }));
+      body.setLayout(new ICE.ICEBoxLayout({ axis: 'y', gap: 12 }));
+      card.addChild(body);
+
+      card.setLayout(new ICE.ICEOverlayLayout());
+      grid.addChild(card);
     });
   </script>
 </html>
