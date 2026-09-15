@@ -7,6 +7,40 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+## [2.12.0] - 2026-09-15
+
+### 新增
+
+- **`ICE.fitCanvasToDisplaySize(cssWidth?, cssHeight?)` —— 画布尺寸对齐的唯一公开入口。**
+  它做的是：backing store = 逻辑尺寸 × dpr、CSS 尺寸固定为逻辑尺寸、同步 `canvasWidth` /
+  `canvasHeight`，并在尺寸变化时刷新 `canvasBoundingClientRect` 与内容盒；返回「是否真的变了」，
+  调用方据此跳过重排 / 重绘。不传尺寸时从**内容盒**读（排除 border / padding）；
+  没有布局信息的运行时（小程序那类没有 `getBoundingClientRect` 的宿主）退回画布当前逻辑尺寸，不抛异常。
+
+  之所以要有这个入口：这段契约原先只活在私有的 `__applyDevicePixelRatio()` 里，
+  **且只在 `init` 时跑一次** —— 初始化之后容器尺寸变了就没有任何公开入口。于是两个下游各自重写了一遍，
+  还各自踩了不同的坑：
+
+  - `ice-chart` 的 `resize()` 用 `getBoundingClientRect()` 的 **border-box** 尺寸 ——
+    而引擎自己那行注释警告过"直接用 border-box 会被边框撑大（示例页画布带 1px 边框）"；
+  - `ice-smart-water` 的 `sizeCanvasToParent()` **忘了乘 dpr** —— 它那 15 个"岛"在 Retina 上
+    一直是 1x 渲染。
+
+  两次都不是"写错代码"，是"没人提供入口"。引擎的 `hitTest()` / `fitViewport()` / `zoomAt()`
+  都按 `canvasWidth/Height` 加内容盒算坐标，写错了**不会报错**，只会让命中整体偏移 ——
+  这类契约必须由内核兜住，不能靠文档。现在 `__applyDevicePixelRatio()` 改为委托本方法，
+  契约只有一份实现，`init` 行为逐字节不变。
+
+### 验证
+
+- 新增 `tests/ICE.fit-canvas.test.ts`（14 例：显式传尺寸 / 内容盒读取 / dpr = 1·2·3 /
+  小数尺寸不被取整 / 幂等返回 `false` / 无画布与非法尺寸的边界 / `init` 委托后的回归）。
+- `npm run verify` 全绿（140 suite / 1170 用例）；`npm run test:visual` 100/100；
+  bench 主 / anim / layers / micro / mem 五段全部达标；`pkg:check`（publint + attw）无问题。
+- 行为兼容：`init` 的 dpr 路径逐字节不变 —— `ICE.dpr.test.ts` 原有用例一字未改仍全过。
+- 一个自己在实现里抓回来的坑：初版写成"先取整再乘 dpr"，对小数宽度（400.5px）结果与原实现不同，
+  等于顺手改了调用方的布局宽度。已改为先乘后取整，并加测试钉住。
+
 ## [2.11.3] - 2026-09-15
 
 ### 修复
