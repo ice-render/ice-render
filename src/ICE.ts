@@ -1337,6 +1337,10 @@ class ICE {
   /**
    * 把 canvas 的 backing store 放大到 cssSize * dpr，并把 CSS 尺寸固定为逻辑尺寸。
    * 只有传了 dpr>1 才会调用。
+   *
+   * 「尺寸从哪来」留在 init 路径上（`box.width || el.width` 那个兜底依赖
+   * 「此刻 canvas 还没被放大过」这个前提），「怎么应用」交给 fitCanvasToDisplaySize()，
+   * 保证这份契约只有一份实现 —— 应用层重写它已经踩过两次坑。
    */
   private __applyDevicePixelRatio(): void {
     const el: any = this.canvasEl;
@@ -1349,15 +1353,7 @@ class ICE {
     // 内容盒尺寸（排除 border/padding）：直接用 border-box 会被边框撑大（示例页画布带 1px 边框）
     const cssW = box.width || el.width;
     const cssH = box.height || el.height;
-    el.width = Math.round(cssW * this.dpr);
-    el.height = Math.round(cssH * this.dpr);
-    if (el.style) {
-      el.style.width = cssW + 'px';
-      el.style.height = cssH + 'px';
-    }
-    this.canvasWidth = el.width;
-    this.canvasHeight = el.height;
-    this.updateCanvasBoundingRect();
+    this.fitCanvasToDisplaySize(cssW, cssH);
   }
 
   public updateCanvasBoundingRect(): any {
@@ -1367,6 +1363,83 @@ class ICE {
       this.__contentBox = this.__readContentBox(this.canvasBoundingClientRect);
     }
     return this.canvasBoundingClientRect;
+  }
+
+  /**
+   * 把画布对齐到它的**显示尺寸**：backing store 乘 dpr、CSS 尺寸固定为逻辑尺寸，
+   * 并把结果同步回引擎内部状态（`canvasWidth/Height` + 命中用的矩形与内容盒）。
+   *
+   * **容器尺寸变化之后调这一个方法就够了。不要自己给 `canvasWidth` / `canvasHeight` 赋值** ——
+   * 那是在从外部改引擎的内部状态，而且极容易漏掉 dpr 或边框补偿。
+   * 引擎的 `hitTest()` / `fitViewport()` / `zoomAt()` 都按这两个值加内容盒算坐标，
+   * 写错了**不会报错**，只会让命中整体偏移（画布带 1px 边框、或高分屏忘乘 dpr，都是这个症状）。
+   *
+   * 不传尺寸时从**内容盒**读（排除 border / padding）。直接用 `getBoundingClientRect()`
+   * 的 border-box 会被边框撑大 —— 老示例页的画布带 1px 边框，就是这么偏的。
+   * 没有布局信息的运行时（小程序那类没有 `getBoundingClientRect` 的宿主）请显式传尺寸。
+   *
+   * @param cssWidth  逻辑（CSS）宽度。不给则从内容盒读，读不到再退回画布当前逻辑尺寸。
+   * @param cssHeight 逻辑（CSS）高度。同上。
+   * @returns 尺寸是否真的变了。`false` 表示无变化，调用方可以据此跳过重新布局 / 重绘。
+   */
+  public fitCanvasToDisplaySize(cssWidth?: number, cssHeight?: number): boolean {
+    const el: any = this.canvasEl;
+    if (!el) {
+      return false;
+    }
+
+    const dpr = this.dpr || 1;
+    let cssW = cssWidth;
+    let cssH = cssHeight;
+
+    if (!(cssW > 0) || !(cssH > 0)) {
+      const rect = typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect() : null;
+      const box = this.__readContentBox(rect);
+      if (!(cssW > 0)) {
+        cssW = box.width;
+      }
+      if (!(cssH > 0)) {
+        cssH = box.height;
+      }
+    }
+    // 仍然拿不到尺寸（无布局信息的运行时）→ 退回画布当前的逻辑尺寸
+    if (!(cssW > 0)) {
+      cssW = el.width / dpr;
+    }
+    if (!(cssH > 0)) {
+      cssH = el.height / dpr;
+    }
+    if (!(cssW > 0) || !(cssH > 0)) {
+      return false;
+    }
+
+    // 逻辑尺寸**不做取整**：先乘 dpr 再取整，backing store 与 CSS 尺寸的比值才精确等于 dpr。
+    // 先取整再乘会把 400.5px 变成 401px，等于顺手改了人家的布局宽度。
+    const logicalW = cssW;
+    const logicalH = cssH;
+    const backingW = Math.round(logicalW * dpr);
+    const backingH = Math.round(logicalH * dpr);
+
+    const changed =
+      el.width !== backingW ||
+      el.height !== backingH ||
+      this.canvasWidth !== backingW ||
+      this.canvasHeight !== backingH;
+    if (!changed) {
+      return false;
+    }
+
+    el.width = backingW;
+    el.height = backingH;
+    if (el.style) {
+      el.style.width = `${logicalW}px`;
+      el.style.height = `${logicalH}px`;
+    }
+    this.canvasWidth = backingW;
+    this.canvasHeight = backingH;
+    // 尺寸变了，位置多半也变了（重排），矩形与内容盒必须一起刷新
+    this.updateCanvasBoundingRect();
+    return true;
   }
 
   /** 记下上次用于「位移增量」的矩形快照。
