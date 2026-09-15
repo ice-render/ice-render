@@ -69,6 +69,12 @@
 
 ### 验证
 
+- **golden 图更新一张：`git-commit-graph`**（`e2e/visual/__snapshots__/.../git-commit-graph-darwin.png`）。
+  原因是那张基准图**记录的是"布局继承"这个 bug 的画法**：示例把 `ICELayeredLayout` 设在容器组上，
+  旧实现把策略递归灌进每个节点组，于是"节点内部的圆点与文字"被当成图节点排成了上下两行；
+  删掉继承后它们保持示例自己写的坐标 —— 也就是示例注释里写的「标签在圆点右边、垂直居中」。
+  即：**新渲染符合示例本意，是基准图过期**（本次 `--update-snapshots` 重新生成，其余 99 张与 92 个
+  示例页冒烟用例全部通过）。
 - 新增 `tests/layout/layout-swing-semantics.test.ts`（不继承 / validateTree / 尺寸协商 /
   `setPreferredSize` / 不可见子项 / `BoxLayout.align` / `FlowLayout.crossAlign` 共 24 例），
   改写 `flow-layout`、`layout-reflow`、`layout-responsive` 里依赖旧继承语义的用例。
