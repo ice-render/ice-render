@@ -92,6 +92,20 @@ abstract class ICELayoutManager {
   }
 
   /**
+   * 布局自己的**构造参数**（序列化用）：返回一个能原样喂回构造函数的对象。
+   *
+   * 为什么要它：布局是"怎么排"，属于文档内容 —— 快照往返（`ice.toJSONString()` → 另存 →
+   * `fromJSONString()`）必须把策略一起带回来，否则"存盘再打开，版式散了"。
+   * 每个布局只要报自己的参数即可；`ICELayeredLayout` 这种无参布局返回 `{}`。
+   *
+   * **约定**：只报构造参数，不要报运行时状态（`currentIndex` 这种"用户切到第几张卡"要报，
+   * 但缓存/上一次算出的尺寸不要报）。第三方布局实现了它才能被序列化。
+   */
+  public toJSON(): any {
+    return {};
+  }
+
+  /**
    * 容器的可排布区域：容器自身盒子扣掉 `padding`（`container.state.padding`）。
    *
    * 返回的坐标是**相对容器自身**的（与 `child.state.left/top` 同一坐标系）。

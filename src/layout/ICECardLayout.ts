@@ -25,6 +25,11 @@ class ICECardLayout extends ICELayoutManager {
     this.currentIndex = props.currentIndex ?? 0;
   }
 
+  /** 序列化参数（`currentIndex` 是用户状态：切到第几张卡要跟着文档走）。 */
+  public toJSON(): any {
+    return { currentIndex: this.currentIndex };
+  }
+
   /**
    * @overwrite
    * 只显示当前卡片（display=true），其余隐藏（display=false），当前卡片对齐到内容盒左上角。

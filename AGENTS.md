@@ -179,8 +179,16 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   否则 `fitContent` 对它无效；返回 `[0,0]` 表示"我对尺寸没有意见"，容器会保留调用方给的尺寸。
   ⑨ **不可见子项口径对齐 Swing**：`FlowLayout` / `BoxLayout` / `BorderLayout` / `OverlayLayout`
   用 `layoutChildren()` 跳过不可见子项；**`GridLayout` 不跳过**（不可见项照样占格子）。
-  ⑩ **构造参数取默认值用 `??` 不用 `||`** —— `gap: 0` / `currentIndex: 0` 必须能表达。
-  ⑪ 子项上的布局声明（`margin` / `grow` / `gridSpan` / `layoutConstraint`）放 `state`
+  ⑩ **布局要能被序列化**：新布局必须实现 `toJSON()`（报**构造参数**，运行时缓存别报），
+  并把类型登记进 `src/consts/LAYOUT_TYPE_MAPPING.ts`（`ice-render:XxxLayout`）。
+  布局是"怎么排"，属于文档内容 —— 不登记的话快照往返会丢策略（"存盘再打开版式散了"）。
+  读回时类型没注册 → 跳过策略但保留坐标 + 记入 `unknownTypes`（与组件同口径，不炸整份数据）。
+  ⑪ **`GridLayout` 有两种格宽口径**：`cellSizing: 'content'`（默认，列宽取该列最宽子项）与
+  `'equal'`（各格等分容器并把子项摆成格子大小 —— Swing `GridLayout` 的口径）。
+  `equal` 模式下 `getPreferredSize()` **返回 `[0,0]` 不表态**：子项被拉成格子大小后再量它们
+  等于量容器自己（自指反馈，容器只会越量越大），容器多大由调用方给的尺寸决定。
+  ⑫ **构造参数取默认值用 `??` 不用 `||`** —— `gap: 0` / `currentIndex: 0` 必须能表达。
+  ⑬ 子项上的布局声明（`margin` / `grow` / `gridSpan` / `layoutConstraint`）放 `state`
   （随快照走），非法约束值要**提示一次**而不是静默落默认值。
   回归见 `tests/layout/`（含 `layout-swing-semantics.test.ts` / `layout-composition.test.ts`）、
   `e2e/visual/visual.spec.ts` 的 golden 图。
@@ -211,6 +219,28 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 5. 用 `finishing-a-development-branch` 收尾。
 
 ## git 约定
+
+### 家族 e2e / 预览端口分配（2026-09-15 确立）
+
+六个仓常常在同一台机器上同时跑 e2e / 预览，**端口必须一仓一个、并写进各仓 config 注释**：
+
+| 仓 | 端口 | 用途 |
+|---|---|---|
+| `ice-render` | **8090** | `playwright.config.ts`（examples 冒烟 + 视觉基准） |
+| `ice-entity-designer` | **8091** | 端到端回归 |
+| `ice-smart-water` | **8092** | 端到端回归 + `scripts/shoot-screenshots.mjs` + `webpack devServer` |
+| `ice-web-components` | **8093** | examples 冒烟 |
+| `ice-render-dsl` | **8094** | 示例页 e2e |
+| `ice-entity-designer-react-demo` | **8095** | 静态预览（webpack dev 仍用 8080） |
+| `ice-chart` | **5177** | `scripts/serve-examples.cjs`（Vite 号段） |
+
+新增仓 / 新增服务时**先在这里登记**再写进配置（8096+ 留给后来者）。
+
+**`reuseExistingServer` 一律 `false`**：端口被别的仓的服务占着时要**响亮失败**。
+2026-09-15 踩过：`ice-smart-water/scripts/shoot-screenshots.mjs` 私自用了 8093，而
+`ice-web-components` 的 playwright 也是 8093 且 `reuseExistingServer: true` —— 于是
+web-components 的 e2e 静默复用了 smart-water 的服务目录，9 个用例全红（页面 404），
+看起来像组件库坏了，实际是端口串号。排查成本远高于少一次"复用自己 dev server"的便利。
 
 - 核心引擎在 `dev` 分支开发，远程 `origin/dev`（Gitee）+ `github-origin/dev`（GitHub），两处都要推。
 - **分支与发版铁律（2026-09-13 确立）**：开发一律在 `dev`（或从它切出来的临时分支）上做，

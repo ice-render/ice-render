@@ -324,3 +324,57 @@ describe('FlowLayout 补齐：行内交叉轴对齐 + 换行后的首选尺寸',
     expect(b.state.left).toBe(70);
   });
 });
+
+describe('GridLayout 等分模式（对齐 Swing GridLayout 的等宽等高）', () => {
+  it("cellSizing: 'equal' 让各格等分容器，并把子项摆成格子大小", () => {
+    const group = new ICEGroup({ width: 300, height: 60, padding: 4 });
+    const a = new ICERect({ width: 10, height: 10 });
+    const b = new ICERect({ width: 10, height: 10 });
+    const c = new ICERect({ width: 10, height: 10 });
+    group.addChildren([a, b, c]);
+    group.setLayout(new ICEGridLayout({ cols: 3, gapX: 6, gapY: 0, cellSizing: 'equal' }));
+    // 内容盒 292 宽： (292 - 2*6) / 3 = 93.33
+    const cellW = (300 - 8 - 12) / 3;
+    expect(a.state.width).toBeCloseTo(cellW, 5);
+    expect(b.state.left).toBeCloseTo(4 + cellW + 6, 5);
+    expect(c.state.left).toBeCloseTo(4 + 2 * (cellW + 6), 5);
+    expect(a.state.height).toBe(52); // 内容盒高度 60-8
+    expect(a.state.left).toBe(4);
+  });
+
+  it('跨格在等分模式下按「格子 + 中间间距」加宽', () => {
+    const group = new ICEGroup({ width: 300, height: 40, padding: 0 });
+    const wide = new ICERect({ width: 10, height: 10, gridSpan: { colSpan: 2 } });
+    const tail = new ICERect({ width: 10, height: 10 });
+    group.addChildren([wide, tail]);
+    group.setLayout(new ICEGridLayout({ cols: 3, gapX: 5, gapY: 0, cellSizing: 'equal' }));
+    const cellW = (300 - 2 * 5) / 3;
+    expect(wide.state.width).toBeCloseTo(cellW * 2 + 5, 5);
+    expect(tail.state.left).toBeCloseTo(2 * (cellW + 5), 5);
+  });
+
+  it('默认仍是 content 模式（列宽取该列最宽子项，保持既有行为）', () => {
+    const group = new ICEGroup({ width: 300, height: 40 });
+    const a = new ICERect({ width: 40, height: 10 });
+    const b = new ICERect({ width: 80, height: 10 });
+    group.addChildren([a, b]);
+    group.setLayout(new ICEGridLayout({ cols: 2, gapX: 5, gapY: 0 }));
+    expect(a.state.width).toBe(40); // 不被拉成等分
+    expect(b.state.left).toBe(45); // 40 + gap5
+  });
+
+  it('equal 模式不表态首选尺寸，父布局回落到容器自己的盒子（避免自指反馈）', () => {
+    const outer = new ICEGroup({ width: 500, height: 60 });
+    const group = new ICEGroup({ width: 300, height: 40 });
+    const a = new ICERect({ width: 40, height: 10 });
+    const b = new ICERect({ width: 60, height: 30 });
+    group.addChildren([a, b]);
+    group.setLayout(new ICEGridLayout({ cols: 2, gapX: 5, gapY: 4, cellSizing: 'equal' }));
+    const tail = new ICERect({ width: 20, height: 10 });
+    outer.addChildren([group, tail]);
+    outer.setLayout(new ICEBoxLayout({ axis: 'x', gap: 10 }));
+
+    expect(group.getPreferredSize()).toEqual([0, 0]); // 布局不表态
+    expect(tail.state.left).toBe(310); // 父布局用的是 group 自己的盒子 300 + gap10
+  });
+});

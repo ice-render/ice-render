@@ -26,13 +26,46 @@ class ICEGridLayout extends ICELayoutManager {
   private rows: number | null;
   private gapX: number;
   private gapY: number;
+  private cellSizing: 'content' | 'equal';
 
-  constructor(props: { cols?: number; rows?: number; gapX?: number; gapY?: number } = {}) {
+  constructor(
+    props: {
+      cols?: number;
+      rows?: number;
+      gapX?: number;
+      gapY?: number;
+      /** `content`（默认）= 列宽取该列最宽子项；`equal` = 各格等宽等高等分容器（Swing GridLayout 口径）。 */
+      cellSizing?: 'content' | 'equal';
+    } = {}
+  ) {
     super();
     this.cols = props.cols && props.cols > 0 ? Math.floor(props.cols) : null;
     this.rows = props.rows && props.rows > 0 ? Math.floor(props.rows) : null;
     this.gapX = props.gapX ?? 10;
     this.gapY = props.gapY ?? 10;
+    this.cellSizing = props.cellSizing === 'equal' ? 'equal' : 'content';
+  }
+
+  /** 序列化参数（见 `ICELayoutManager.toJSON`）。 */
+  public toJSON(): any {
+    return {
+      cols: this.cols || undefined,
+      rows: this.rows || undefined,
+      gapX: this.gapX,
+      gapY: this.gapY,
+      cellSizing: this.cellSizing,
+    };
+  }
+
+  /** 等分模式：每列宽 / 每行高由容器内容盒均分（Swing `GridLayout` 的口径）。 */
+  private __equalMetrics(container: ICEGroup) {
+    const children = container.childNodes;
+    const cols = this.resolveCols(children.length);
+    const rows = Math.max(1, Math.ceil(children.length / cols));
+    const box = this.contentBox(container);
+    const colWidth = Math.max(0, (box.width - Math.max(0, cols - 1) * this.gapX) / cols);
+    const rowHeight = Math.max(0, (box.height - Math.max(0, rows - 1) * this.gapY) / rows);
+    return { cols, rows, colWidth, rowHeight };
   }
 
   /** 实际列数：显式 `cols` > 由 `rows` 反推 > 默认 2。 */
@@ -123,28 +156,46 @@ class ICEGridLayout extends ICELayoutManager {
   layoutContainer(container: ICEGroup): void {
     const box = this.contentBox(container);
     const { colWidths, rowHeights, cells } = this.buildGrid(container);
+    const equal = this.cellSizing === 'equal' ? this.__equalMetrics(container) : null;
 
     const colLeft: number[] = [];
     let acc = box.left;
     for (let c = 0; c < colWidths.length; c++) {
       colLeft[c] = acc;
-      acc += colWidths[c] + this.gapX;
+      acc += (equal ? equal.colWidth : colWidths[c]) + this.gapX;
     }
     const rowTop: number[] = [];
     acc = box.top;
     for (let r = 0; r < rowHeights.length; r++) {
       rowTop[r] = acc;
-      acc += rowHeights[r] + this.gapY;
+      acc += (equal ? equal.rowHeight : rowHeights[r]) + this.gapY;
     }
 
     for (const cell of cells) {
-      this.placeChild(cell.child, colLeft[cell.col] || box.left, rowTop[cell.row] || box.top);
+      if (equal) {
+        // 等分模式要**写尺寸**：Swing 的 GridLayout 会把子项摆成格子大小（跨格时带上中间的间距）
+        const width = equal.colWidth * cell.colSpan + this.gapX * (cell.colSpan - 1);
+        const height = equal.rowHeight * cell.rowSpan + this.gapY * (cell.rowSpan - 1);
+        this.placeChildSized(cell.child, colLeft[cell.col] || box.left, rowTop[cell.row] || box.top, width, height);
+      } else {
+        this.placeChild(cell.child, colLeft[cell.col] || box.left, rowTop[cell.row] || box.top);
+      }
     }
   }
 
-  /** 内容首选尺寸：列宽之和 + 列间距、行高之和 + 行间距，再加容器 padding。 */
+  /**
+   * 内容首选尺寸。
+   *
+   * - `content` 模式：列宽之和 + 列间距、行高之和 + 行间距，再加容器 padding；
+   * - `equal` 模式返回 `[0,0]`（**不表态**）：等分意味着"填满容器"，子项会被拉成格子大小，
+   *   这时候再量它们就等于在量容器自己（`cols × 当前子项宽` 会随着容器变大而变大，
+   *   父布局永远缩不回来）。容器多大由调用方给的尺寸决定，父布局会回落到这个盒子。
+   */
   getPreferredSize(container: ICEGroup): [number, number] {
     const pad = this.paddingOf(container);
+    if (this.cellSizing === 'equal') {
+      return [0, 0];
+    }
     const { colWidths, rowHeights } = this.buildGrid(container);
     const width =
       colWidths.reduce((sum, w) => sum + w, 0) + Math.max(0, colWidths.length - 1) * this.gapX + pad.left + pad.right;

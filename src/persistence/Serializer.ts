@@ -136,7 +136,10 @@ export default class Serializer {
       state: this.pickSerializableState(component.state),
       type: typeId,
       childNodes: [],
+      // 容器的布局策略属于文档内容（"怎么排"），见 __encodeLayout
+      layout: undefined,
     };
+    this.__encodeLayout(component, currentData);
 
     parentData.childNodes.push(currentData);
 
@@ -154,6 +157,34 @@ export default class Serializer {
         this.encodeRecursively(children[i], currentData);
       }
     }
+  }
+
+  /**
+   * 写出容器的布局策略：`layout: { type, props }`。
+   *
+   * 布局是"怎么排"，和坐标一样属于文档内容 —— 不写出来的话「存盘再打开」版式就散了
+   * （旧行为）。读回时由 `Deserializer` 按 `type` 反查构造函数、用 `props` 重建。
+   * 未注册的布局类型回退写类名并记录（与组件同口径），但下次可能读不回来。
+   */
+  private __encodeLayout(component: any, nodeData: any): void {
+    const manager = component && component.layoutManager;
+    if (!manager || typeof manager.toJSON !== 'function') {
+      nodeData.layout = undefined;
+      return;
+    }
+    const registeredTypeId = this.ice.getTypeId(manager.constructor);
+    const layoutType = registeredTypeId || manager.constructor.name;
+    if (!registeredTypeId) {
+      const fallbackName = String(layoutType);
+      if (this._unregisteredTypes.indexOf(fallbackName) === -1) {
+        this._unregisteredTypes.push(fallbackName);
+        console.warn(
+          `[ICE] 序列化遇到未注册的布局类型：${fallbackName}，已回退写出类名（可能受打包改名影响）。` +
+            `建议先 ice.registerType('your-namespace:MyLayout', MyLayout) 注册。`
+        );
+      }
+    }
+    nodeData.layout = { type: layoutType, props: manager.toJSON() };
   }
 
   /**

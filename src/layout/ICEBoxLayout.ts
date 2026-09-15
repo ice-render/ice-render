@@ -38,6 +38,11 @@ class ICEBoxLayout extends ICELayoutManager {
     this.align = props.align || 'start';
   }
 
+  /** 序列化参数（见 `ICELayoutManager.toJSON`）。 */
+  public toJSON(): any {
+    return { axis: this.axis, gap: this.gap, align: this.align };
+  }
+
   /** 交叉轴偏移量（`start` / `center` / `end`；`stretch` 直接撑满，不偏移）。 */
   private __crossDelta(child: any, crossSize: number): number {
     if (this.align === 'start' || this.align === 'stretch') {

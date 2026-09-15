@@ -12,6 +12,18 @@
 
 ### 新增
 
+- **布局随快照往返（持久化）**：容器的策略写成 `layout: { type, props }`，读回时按类型重建。
+  布局是"怎么排"，和坐标一样属于文档内容 —— 旧行为下 `layoutManager` 完全不参与序列化，
+  「存盘再打开版式散了」。
+  - 七种内置布局在 `ICE` 构造时注册（`src/consts/LAYOUT_TYPE_MAPPING.ts`，`ice-render:ICEBoxLayout` …），
+    各自实现 `toJSON()` 报构造参数（`ICELayoutManager.toJSON()` 默认 `{}`）；
+  - 未注册的第三方布局：写出时回退类名并告警，读回时**跳过策略、保留坐标**、记入 `deserializer.unknownTypes`
+    （与未注册组件的容错口径一致，不炸整份数据）；
+  - 第三方布局只要 `ice.registerType('your-ns:MyLayout', MyLayout)` + 实现 `toJSON()` 即可往返。
+- **`ICEGridLayout` 新增 `cellSizing: 'equal'`**：各格等宽等分容器、并把子项摆成格子大小
+  （Swing `GridLayout` 的口径；默认仍是引擎原有的 `'content'` = 列宽取该列最宽子项）。
+  跨格时会带上中间的间距。`equal` 模式的 `getPreferredSize()` 返回 `[0,0]`（不表态）——
+  子项被拉成格子大小后再量它们等于量容器自己，父布局回落到容器自己的盒子。
 - **`ICEBoxLayout.align`：箱式布局的交叉轴对齐**（`start` 默认 / `center` / `end` / `stretch`）。
   `stretch` 是 Swing BoxLayout 的默认口径（子项在交叉轴撑满容器），
   「纵向堆叠 + 每项拉满宽度」的表单类版式不用再手算宽度；`grow`（主轴分剩余）与 `stretch` 可同时用。
@@ -60,8 +72,12 @@
 - 新增 `tests/layout/layout-swing-semantics.test.ts`（不继承 / validateTree / 尺寸协商 /
   `setPreferredSize` / 不可见子项 / `BoxLayout.align` / `FlowLayout.crossAlign` 共 24 例），
   改写 `flow-layout`、`layout-reflow`、`layout-responsive` 里依赖旧继承语义的用例。
-- `npm run verify` 全绿：**132 suite / 1102 用例** + lint（0 error）+ build + bench + pkg:check；
+- 新增 `tests/persistence/layout-serialization.test.ts`（5 例：写法 / 无布局不写字段 / 往返一致 /
+  读回后仍会重排 / 未注册类型容错）。
+- `npm run verify` 全绿：**133 suite / 1107+ 用例** + lint（0 error）+ build + bench + pkg:check；
   `e2e/visual/visual.spec.ts --grep layout` 8 张 golden 图与 `examples-smoke` 全过。
+- 家族 e2e 端口重新分配（见 AGENTS「家族 e2e 端口分配」）：各仓 `reuseExistingServer: false`，
+  `ice-smart-water` 的截图脚本从 8093 改回自己的 8092。
 - 组件库侧（`ice-web-components` 同分支）用它跑完了 1307 单测 + 9 个示例页 e2e，
   `ICELayout` / `ICEForm` / `ICESpace` 已迁到引擎布局器（见该仓 CHANGELOG）。
 

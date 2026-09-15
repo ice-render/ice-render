@@ -42,6 +42,11 @@ class ICELayeredLayout extends ICELayoutManager {
     this.gapY = props.gapY ?? 40;
   }
 
+  /** 序列化参数（见 `ICELayoutManager.toJSON`）。 */
+  public toJSON(): any {
+    return { gapX: this.gapX, gapY: this.gapY };
+  }
+
   /**
    * @overwrite
    * 读容器里的节点（非连线组件）+ 边（ICEPolyLine 的 links），分层布局后 setState 落位。

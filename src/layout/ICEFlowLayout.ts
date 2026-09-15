@@ -38,6 +38,11 @@ class ICEFlowLayout extends ICELayoutManager {
     this.crossAlign = props.crossAlign || 'start';
   }
 
+  /** 序列化参数（见 `ICELayoutManager.toJSON`）。 */
+  public toJSON(): any {
+    return { gap: this.gap, align: this.align, crossAlign: this.crossAlign };
+  }
+
   /**
    * 换行宽度：`fitContent` 的容器由内容决定宽度 → 单行；容器宽度未定（0）也当单行
    * （否则会在 0 宽上把每个子项都换到下一行）。

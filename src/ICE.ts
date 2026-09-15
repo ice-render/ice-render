@@ -9,6 +9,7 @@ import { isString } from './util/lang';
 import { rebindComponentTree } from './util/data-util';
 import AnimationManager from './animation/AnimationManager';
 import { componentTypeEntries } from './consts/COMPONENT_TYPE_MAPPING';
+import { layoutTypeEntries } from './consts/LAYOUT_TYPE_MAPPING';
 import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';
 import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
 import AlignmentGuideManager from './control-panel/AlignmentGuideManager';
@@ -195,6 +196,11 @@ class ICE {
     // 内置类型在构造时注册，保证任何 ICE 实例从创建起就有完整、稳定的注册表。
     for (let i = 0; i < componentTypeEntries.length; i++) {
       const entry = componentTypeEntries[i];
+      this.registerType(entry.typeId, entry.ctor);
+    }
+    // 布局也进同一张注册表：快照往返要靠它按 type 重建容器的策略（见 LAYOUT_TYPE_MAPPING）
+    for (let i = 0; i < layoutTypeEntries.length; i++) {
+      const entry = layoutTypeEntries[i];
       this.registerType(entry.typeId, entry.ctor);
     }
   }

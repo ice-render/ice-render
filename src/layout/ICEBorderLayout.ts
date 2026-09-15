@@ -30,6 +30,11 @@ class ICEBorderLayout extends ICELayoutManager {
     this.gap = props.gap ?? 5;
   }
 
+  /** 序列化参数（见 `ICELayoutManager.toJSON`）。 */
+  public toJSON(): any {
+    return { gap: this.gap };
+  }
+
   /**
    * @overwrite
    * 五区落位。方位从 `constraintOf()` 读（非法值会提示一次并落到 center）。
