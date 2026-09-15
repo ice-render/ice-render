@@ -84,6 +84,13 @@ export default class ICEVisioLink extends ICEPolyLine {
       return this.__calcBezierDots();
     }
     const solutions = this.interpolate();
+    // 无解兜底：极端布局（两端节点重叠、端口背对……）会让下面的过滤器把候选全删掉，
+    // 此时 `solutions[0]` 是 undefined，读 `[2]` 就抛 pageerror —— 而 `__calcDots` 在**渲染**与
+    // **命中**两条路径上都会被调用，一抛异常整帧就崩（2026-09-15 实测：撤销/重做后移动一次鼠标即触发）。
+    // 保留上一次的几何即可：线先不更新，总比整页报错强。
+    if (!solutions || !solutions.length || !solutions[0] || !solutions[0][2] || !solutions[0][2].length) {
+      return this.state.dots;
+    }
     const { left, top } = this.state;
     const arr = solutions[0][2];
     this.state.points = [];
@@ -271,6 +278,15 @@ export default class ICEVisioLink extends ICEPolyLine {
     //SO - no additional points
     const s0 = GeoPoint.cloneArray(s);
     solutions.push(['s0', 's0', s0]);
+    /**
+     * 硬兜底：**保证 `interpolate()` 永远返回非空**。
+     *
+     * 后面三道过滤器（正交 / 不倒着走 / 不相交）都可能把候选删光 —— 极端布局下连最朴素的 s0 都
+     * 过不了正交判定。调用方 `__calcDots` 会取 `solutions[0][2]`，空数组就是 `undefined[2]` → 抛异常，
+     * 而它在**渲染**与**命中**两条路径上都被调用（实测：撤销/重做后移动鼠标即整页报错）。
+     * 这里留一条最小的两点路径：画一条直连总比整帧崩掉强。
+     */
+    const hardFallback = [['fallback', 'fallback', [startPoint, endPoint]]];
 
     //S1
     const s1 = GeoPoint.cloneArray(s);
@@ -389,6 +405,9 @@ export default class ICEVisioLink extends ICEPolyLine {
     }
     solutions = orthogonalSolution;
 
+    // 第一道过滤后"能画出来"的候选快照；下面的过滤器把候选删光时退回这里（再不行就退到硬兜底）。
+    const basicSolutions = solutions.length ? solutions.slice(0, 3) : hardFallback;
+
     //2. filter backward solutions, do not allow start and end points to coincide - ignore them
     if (!startPoint.equals(endPoint)) {
       const forwardSolutions = [];
@@ -400,7 +419,8 @@ export default class ICEVisioLink extends ICEPolyLine {
       }
       solutions = forwardSolutions;
       if (solutions.length == 0) {
-        //nothing to do...
+        // 全被判成"倒着走"：宁可画一条不理想的路径，也不能没有路径
+        solutions = basicSolutions.slice();
       }
     }
 
@@ -442,7 +462,12 @@ export default class ICEVisioLink extends ICEPolyLine {
 
     //4. get first class of solutions with same nr of points
     if (solutions.length == 0) {
-      //nothing to do...
+      // 交集过滤之外的兜底（例如 startPoint 与 endPoint 重合、或所有候选都是自交的）
+      solutions = basicSolutions.slice();
+    }
+    if (solutions.length == 0) {
+      // 连 basicSolutions 都空了（第一道正交过滤就清空）→ 用硬兜底，保证下面不读 undefined[2]
+      solutions = hardFallback.slice();
     }
 
     const firstSolution = solutions[0][2]; //pick first solution

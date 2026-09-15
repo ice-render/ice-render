@@ -222,14 +222,18 @@ class ICEPolyLine extends ICEDotPath {
     //在尝试建立连接之前首先尝试删除当前的所有连接关系。
     this.removeLink('start');
     this.removeLink('end');
+    this.__linkedComponents.start = null;
+    this.__linkedComponents.end = null;
 
     const links = this.state.links;
     if (links) {
       if (links.start && links.start.id && links.start.position) {
         this.createLink(links.start.id, links.start.position);
+        this.__linkedComponents.start = this.ice.findComponent(links.start.id) || null;
       }
       if (links.end && links.end.id && links.end.position) {
         this.createLink(links.end.id, links.end.position);
+        this.__linkedComponents.end = this.ice.findComponent(links.end.id) || null;
       }
     }
 
@@ -251,6 +255,33 @@ class ICEPolyLine extends ICEDotPath {
     // 因此直接同步调用即可；宿主移动/缩放/旋转时由上面的 AFTER_* 监听继续驱动。
     component && this.followComponent();
     this.state.draggable = false;
+  }
+
+  /**
+   * 端点在组件树上的引用（命中判定要用它们的世界盒）。
+   *
+   * 缓存组件而不是盒：节点移动后盒会变，缓存盒会过期；缓存组件则每次命中读一次当前盒（走渲染器的
+   * 快照索引，命中预筛本来就在用它）。
+   */
+  private __linkedComponents: { start: any; end: any } = { start: null, end: null };
+
+  /** 端点组件的世界盒：优先用渲染器的快照索引（缓存、零分配），没有渲染器时现场算（单测/headless）。 */
+  private __endpointBox(component: any): number[] | null {
+    if (!component) {
+      return null;
+    }
+    const renderer = this.ice && (this.ice as any).renderer;
+    if (renderer && typeof renderer.getWorldBox === 'function') {
+      const box = renderer.getWorldBox(component);
+      if (box) {
+        return box as unknown as number[];
+      }
+    }
+    if (typeof component.getMaxBoundingBox !== 'function') {
+      return null;
+    }
+    const mm = component.getMaxBoundingBox(true).getMinAndMaxPoint();
+    return [mm.minX, mm.minY, mm.maxX, mm.maxY];
   }
 
   /**
@@ -1121,30 +1152,35 @@ class ICEPolyLine extends ICEDotPath {
   /**
    * @method containsPoint 判断点是否在线上
    *
-   * 计算方法：如果给点的坐标点到线段两端的距离之和等于线段长度，则表示点位于线段上，允许一定的误差范围，用 delta 参数进行调节。
-   * 算法来源：http://www.jeffreythompson.org/collision-detection/line-point.php
+   * 2026-09-15 两处修正（现场都是"点节点中心，选中的却是线 → 节点拖不动"）：
+   *
+   * ① **容差不再随线段长度放大**。旧实现走的是三角不等式（`len1 + len2 ≈ 线段长`），
+   *    对线段中点旁距离 d 的点，`len1 + len2 ≈ L + 2d²/L`，于是"在容差内"反推出
+   *    `d ≤ √(errorRange·L/2)` —— 容差随线段长度**二次放大**：130px 的线段容差约 14px（本该 3px），
+   *    400px 的长线能到 24px。实测 BPMN 的池子中心离跨池消息流 10px 却被判成"在线上"，
+   *    点上去选中的是线、整张池子拖不动。现在直接交给基类走 `containsLocalPoint`
+   *    （精确点到折线距离 + `max(4, lineWidth/2 + 3)` 容差，与全引擎其余命中口径一致）。
+   *
+   * ② **不认领落在自己端点节点盒子内部的点**：折线首/末段要伸进端点节点才接得到端口上；
+   *    端口若选在背离对方的那一侧（或用户把节点拖到了线的另一侧），这段就横穿节点内部
+   *    （实测状态图「库存校验」中心距折线 3.1px —— 这比 4px 容差还近，光收紧容差治不了）。
+   *    节点是拖拽的主交互对象、线是附属，所以把"线不覆盖自己的端点节点"写进命中语义。
+   *    代价：每个端点一次 `renderer.getWorldBox()`（命中预筛本来就在用的缓存索引），没有额外遍历；
+   *    也**不动全局命中优先级** —— 那会让图表的每次 hover 退化成全队列扫描。
    *
    * @param x
    * @param y
    * @returns {boolean}
    */
   public containsPoint(x: number, y: number): boolean {
-    const errorRange = 3; //像素值，表示允许的浮点运算误差，正负区间内，调节此参数可以扩大或者缩小精确度。
-    const lines = this.getLines();
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const x1 = line.o[0];
-      const y1 = line.o[1];
-      const x2 = line.d[0];
-      const y2 = line.d[1];
-      const lineLength = Math.hypot(x2 - x1, y2 - y1);
-      const len1 = Math.hypot(x1 - x, y1 - y);
-      const len2 = Math.hypot(x2 - x, y2 - y);
-      if (len1 + len2 >= lineLength - errorRange && len1 + len2 <= lineLength + errorRange) {
-        return true;
+    const linked = this.__linkedComponents;
+    for (const terminal of ['start', 'end'] as const) {
+      const box = this.__endpointBox(linked[terminal]);
+      if (box && x > box[0] && x < box[2] && y > box[1] && y < box[3]) {
+        return false;
       }
     }
-    return false;
+    return super.containsPoint(x, y);
   }
 
   /**
