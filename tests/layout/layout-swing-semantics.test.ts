@@ -328,18 +328,20 @@ describe('FlowLayout 补齐：行内交叉轴对齐 + 换行后的首选尺寸',
 });
 
 describe('GridLayout 等分模式（对齐 Swing GridLayout 的等宽等高）', () => {
-  it("cellSizing: 'equal' 让各格等分容器，并把子项摆成格子大小", () => {
+  it("cellSizing: 'equal' 让各格等分容器，并把子项摆成格子大小（格宽取整，无分数落点）", () => {
     const group = new ICEGroup({ width: 300, height: 60, padding: 4 });
     const a = new ICERect({ width: 10, height: 10 });
     const b = new ICERect({ width: 10, height: 10 });
     const c = new ICERect({ width: 10, height: 10 });
     group.addChildren([a, b, c]);
     group.setLayout(new ICEGridLayout({ cols: 3, gapX: 6, gapY: 0, cellSizing: 'equal' }));
-    // 内容盒 292 宽： (292 - 2*6) / 3 = 93.33
-    const cellW = (300 - 8 - 12) / 3;
-    expect(a.state.width).toBeCloseTo(cellW, 5);
-    expect(b.state.left).toBeCloseTo(4 + cellW + 6, 5);
-    expect(c.state.left).toBeCloseTo(4 + 2 * (cellW + 6), 5);
+    // 可分配宽 = 292 - 2*6 = 280，分 3 份 → 累计取整得到 93 / 94 / 93（和为 280，逐项都是整数）
+    const widths = [a.state.width, b.state.width, c.state.width];
+    expect(widths.every((w) => Number.isInteger(w))).toBe(true);
+    expect(widths.reduce((sum, w) => sum + w, 0)).toBe(280);
+    // 相邻格「上一格右边缘 + 间距 = 下一格左边缘」
+    expect(b.state.left).toBe(4 + a.state.width + 6);
+    expect(c.state.left).toBe(4 + a.state.width + 6 + b.state.width + 6);
     expect(a.state.height).toBe(52); // 内容盒高度 60-8
     expect(a.state.left).toBe(4);
   });
@@ -350,9 +352,11 @@ describe('GridLayout 等分模式（对齐 Swing GridLayout 的等宽等高）',
     const tail = new ICERect({ width: 10, height: 10 });
     group.addChildren([wide, tail]);
     group.setLayout(new ICEGridLayout({ cols: 3, gapX: 5, gapY: 0, cellSizing: 'equal' }));
-    const cellW = (300 - 2 * 5) / 3;
-    expect(wide.state.width).toBeCloseTo(cellW * 2 + 5, 5);
-    expect(tail.state.left).toBeCloseTo(2 * (cellW + 5), 5);
+    // 可分配宽 = 300 - 2*5 = 290 分 3 份（累计取整，290/3 的分数不进落点）；
+    // 跨 2 格 = 前两格之和 + 中间那 1 个间距
+    expect(Number.isInteger(wide.state.width)).toBe(true);
+    expect(Number.isInteger(tail.state.left)).toBe(true);
+    expect(tail.state.left).toBe(wide.state.left + wide.state.width + 5);
   });
 
   it('默认仍是 content 模式（列宽取该列最宽子项，保持既有行为）', () => {

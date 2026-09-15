@@ -117,7 +117,7 @@ describe('布局随快照往返', () => {
     expect(loaded.childNodes[2].layoutManager.toJSON()).toEqual({ axis: 'y', gap: 10, align: 'start' });
   });
 
-  it('未注册的布局类型：跳过策略、保留坐标、记入 unknownTypes', () => {
+  it('未注册的布局类型：**不写进快照**（不假装能读回）、保留坐标、记入 unregisteredTypes', () => {
     class MyLayout extends ICELayoutManager {
       layoutContainer(): void {}
       toJSON(): any {
@@ -132,8 +132,12 @@ describe('布局随快照往返', () => {
     ice.addChild(group);
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const json: any = new Serializer(ice).toJSONObject();
-    expect(json.childNodes[0].layout.type).toBe('MyLayout'); // 未注册 → 回退类名
+    const serializer = new Serializer(ice);
+    const json: any = serializer.toJSONObject();
+    // 没注册 → 不写 layout 字段（回退写类名会产出"下游打包改名后就废"的数据）
+    expect(json.childNodes[0].layout).toBeUndefined();
+    expect(serializer.unregisteredTypes).toContain('MyLayout');
+    expect(warn).toHaveBeenCalled();
 
     const target = new ICE();
     target.evtBus = new EventBus();
@@ -143,7 +147,76 @@ describe('布局随快照往返', () => {
     const restored: any = target.childNodes[0];
     expect(restored.layoutManager).toBe(null); // 没注册 → 保持无布局
     expect(restored.childNodes[0].state.left).toBe(33); // 坐标照旧
-    expect(deserializer.unknownTypes).toContain('MyLayout');
+    warn.mockRestore();
+  });
+
+  it('旧快照里仍是类名的布局：读回时按未注册类型处理（向后兼容）', () => {
+    // 用真实产物构造"旧快照"：先正常序列化，再把 layout.type 改写成 2.8 之前的无 namespace 类名
+    const ice = makeIce();
+    const group = new ICEGroup({ width: 200, height: 100 });
+    const rect = new ICERect({ left: 0, top: 0, width: 20, height: 20 });
+    group.addChild(rect);
+    group.setLayout(new ICEBoxLayout({ axis: 'x', gap: 5 }));
+    ice.addChild(group);
+    const doc: any = JSON.parse(JSON.stringify(new Serializer(ice).toJSONObject()));
+    expect(doc.childNodes[0].layout.type).toBe('ice-render:ICEBoxLayout');
+    doc.childNodes[0].layout = { type: 'LegacyBoxLayout', props: { axis: 'x', gap: 5 } };
+
+    const target = makeIce();
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const deserializer = new Deserializer(target);
+    deserializer.fromJSONObject(doc);
+    const restored: any = target.childNodes[0];
+    expect(restored.layoutManager).toBe(null); // 未注册 → 保持无布局
+    expect(restored.childNodes[0].state.left).toBe(rect.state.left); // 坐标照旧
+    expect(deserializer.unknownTypes).toContain('LegacyBoxLayout');
+    warn.mockRestore();
+  });
+
+  it('布局用的是基类默认 toJSON()：开发期告警一次（有参布局的参数会丢）', () => {
+    class LazyLayout extends ICELayoutManager {
+      constructor(props: any = {}) {
+        super();
+        this.foo = props.foo;
+      }
+      public foo: any;
+      layoutContainer(): void {}
+      // 故意不实现 toJSON
+    }
+    const ice = makeIce();
+    ice.registerType('test:LazyLayout', LazyLayout);
+    const group = new ICEGroup({ width: 200, height: 100 });
+    group.addChild(new ICERect({ width: 20, height: 20 }));
+    group.setLayout(new LazyLayout({ foo: 42 }));
+    ice.addChild(group);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const json: any = new Serializer(ice).toJSONObject();
+    expect(json.childNodes[0].layout.props).toEqual({}); // 参数丢了 —— 但至少响了一声
+    expect(warn).toHaveBeenCalled();
+    expect(String(warn.mock.calls[0][0])).toContain('基类默认 toJSON');
+    warn.mockRestore();
+  });
+
+  it('toJSON() 返回 null = 显式不进文档（组件内部策略），既不写也不告警', () => {
+    class InternalLayout extends ICELayoutManager {
+      layoutContainer(): void {}
+      // 内部策略：参数活在组件 state 里，构造时由组件自己重建 —— 不需要进文档
+      toJSON(): any {
+        return null;
+      }
+    }
+    const ice = makeIce();
+    const group = new ICEGroup({ width: 200, height: 100 });
+    group.addChild(new ICERect({ left: 7, top: 8, width: 20, height: 20 }));
+    group.setLayout(new InternalLayout());
+    ice.addChild(group);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const json: any = new Serializer(ice).toJSONObject();
+    expect(json.childNodes[0].layout).toBeUndefined();
+    expect(warn).not.toHaveBeenCalled();
+    expect(json.childNodes[0].childNodes[0].state.left).toBe(7); // 坐标照旧
     warn.mockRestore();
   });
 });

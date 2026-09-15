@@ -7,6 +7,7 @@
  */
 import ICE from '../ICE';
 import { toIsoTime } from './document-time';
+import ICELayoutManager from '../layout/ICELayoutManager';
 
 /**
  * 序列化时排除的运行时缓存/计算值：这些值在反序列化后会由引擎重新计算，
@@ -164,27 +165,69 @@ export default class Serializer {
    *
    * 布局是"怎么排"，和坐标一样属于文档内容 —— 不写出来的话「存盘再打开」版式就散了
    * （旧行为）。读回时由 `Deserializer` 按 `type` 反查构造函数、用 `props` 重建。
-   * 未注册的布局类型回退写类名并记录（与组件同口径），但下次可能读不回来。
+   *
+   * **没注册的布局不写**（2026-09-15 起，原先是回退写类名）：回退写类名看着"能读回"，
+   * 但下游打包改名之后那份数据就是废的（引擎 AGENTS 记过同类事故）。宁可当场少一个"活布局"
+   * —— 子项的 `left/top` 照旧在快照里，读回来版式不变、只是不再自动重排 —— 也不要存一份
+   * 到了下游才炸的数据。想保住布局，先 `ice.registerType('your-ns:MyLayout', MyLayout)`。
    */
   private __encodeLayout(component: any, nodeData: any): void {
     const manager = component && component.layoutManager;
-    if (!manager || typeof manager.toJSON !== 'function') {
+    if (!manager) {
       nodeData.layout = undefined;
       return;
     }
     const registeredTypeId = this.ice.getTypeId(manager.constructor);
-    const layoutType = registeredTypeId || manager.constructor.name;
+    const hasToJSON = typeof manager.toJSON === 'function';
+    // 只调一次 toJSON()：它可能被第三方实现成有副作用的函数，调两次既不必要也不礼貌
+    const props = hasToJSON ? manager.toJSON() : undefined;
+
+    // ① 显式"不进文档"：`toJSON()` 返回 null 表示这个策略由组件在构造时重建（内部策略，
+    //    参数已经活在组件的 state 里）。这类布局既不写、也不告警 —— 它不是"忘了实现"。
+    if (props === null) {
+      nodeData.layout = undefined;
+      return;
+    }
+
+    // ② 未注册：**不写**（回退写类名会产出"下游打包改名后就废"的数据）
     if (!registeredTypeId) {
-      const fallbackName = String(layoutType);
+      const fallbackName = String((manager.constructor && manager.constructor.name) || 'UnknownLayout');
       if (this._unregisteredTypes.indexOf(fallbackName) === -1) {
         this._unregisteredTypes.push(fallbackName);
         console.warn(
-          `[ICE] 序列化遇到未注册的布局类型：${fallbackName}，已回退写出类名（可能受打包改名影响）。` +
-            `建议先 ice.registerType('your-namespace:MyLayout', MyLayout) 注册。`
+          `[ICE] 序列化跳过未注册的布局类型：${fallbackName}（快照里只保留坐标，读回后不再自动排布）。` +
+            `要保住布局请先 ice.registerType('your-namespace:MyLayout', MyLayout) 注册。`
+        );
+      }
+      nodeData.layout = undefined;
+      return;
+    }
+
+    // ③ 连 toJSON 都没有（JS 写的第三方布局）：不写 + 告警
+    if (!hasToJSON) {
+      if (this._unregisteredTypes.indexOf(registeredTypeId) === -1) {
+        this._unregisteredTypes.push(registeredTypeId);
+        console.warn(
+          `[ICE] 布局 ${registeredTypeId} 没有实现 toJSON()，快照里只保留坐标（布局参数会丢）。` +
+            `无参布局也请显式实现 toJSON() { return {}; }。`
+        );
+      }
+      nodeData.layout = undefined;
+      return;
+    }
+
+    // ④ 用的还是基类默认实现：无参布局这样写没问题，**有参布局的参数会静默丢掉**（不报错、版式却变了）
+    if (manager.toJSON === ICELayoutManager.prototype.toJSON) {
+      const key = `default-toJSON:${registeredTypeId}`;
+      if (this._unregisteredTypes.indexOf(key) === -1) {
+        this._unregisteredTypes.push(key);
+        console.warn(
+          `[ICE] 布局 ${registeredTypeId} 用的是基类默认 toJSON()：如果你有构造参数，它们不会进快照。` +
+            `无参布局请显式实现 toJSON() { return {}; } 以表明"确实没有参数"。`
         );
       }
     }
-    nodeData.layout = { type: layoutType, props: manager.toJSON() };
+    nodeData.layout = { type: registeredTypeId, props: props === undefined ? {} : props };
   }
 
   /**

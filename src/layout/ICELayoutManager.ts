@@ -92,6 +92,18 @@ abstract class ICELayoutManager {
   }
 
   /**
+   * 容器内内容的「最小尺寸」（可选，默认 `[0,0]` = 没有意见）。
+   *
+   * 为什么要有它：首选尺寸只描述"想多大"，回答不了"最小能压到多小"。没有最小值的协议，
+   * 布局在空间不足时只能二选一 —— 要么溢出（内容压出容器），要么硬压（把子项压没）。
+   * 有了它，收缩才是**逐项显式声明**的：没写 `setMinimumSize()` 的子项默认不可压缩
+   * （见 `minimumSizeOf` 的兜底），所以历史行为不变。
+   */
+  getMinimumSize(container: ICEGroup): [number, number] {
+    return [0, 0];
+  }
+
+  /**
    * 布局自己的**构造参数**（序列化用）：返回一个能原样喂回构造函数的对象。
    *
    * 为什么要它：布局是"怎么排"，属于文档内容 —— 快照往返（`ice.toJSONString()` → 另存 →
@@ -100,6 +112,12 @@ abstract class ICELayoutManager {
    *
    * **约定**：只报构造参数，不要报运行时状态（`currentIndex` 这种"用户切到第几张卡"要报，
    * 但缓存/上一次算出的尺寸不要报）。第三方布局实现了它才能被序列化。
+   *
+   * **返回 `null` = 显式声明"这个策略不进文档"**：用于组件内部策略 —— 由组件在构造时自己
+   * `setLayout(new XxxLayout())` 重建、参数活在组件的 state 里（组件库的
+   * `ICEMenuLayout` / `ICEWindowLayout` / `ICEFomItemLayout` 就是这一类）。
+   * 返回 `null` 时序列化既不写 `layout` 字段、也不告警；返回 `{}` 则相反，表示
+   * "我确实没有参数，但请在文档里保留这个策略"。
    */
   public toJSON(): any {
     return {};
@@ -150,23 +168,91 @@ abstract class ICELayoutManager {
   }
 
   /**
+   * 子项**能被压到多小**（收缩类布局用，例如 `ICEBoxLayout` 的剩余空间不足时）。
+   *
+   * 口径（逐轴判断，缺省则回落到首选尺寸）：
+   * - 子项用 `setMinimumSize()` 声明过的轴 → 用声明值；
+   * - 没声明的轴 → 用它的**首选尺寸**，也就是"不许压缩"。
+   *
+   * 这样"能不能压"是子项自己说了算的（对齐 Swing `Component.getMinimumSize()` 的
+   * 默认实现返回 `getPreferredSize()`）：不写 `setMinimumSize()` 的既有界面，
+   * 收缩行为与引入这个协议之前**完全一致**。
+   */
+  protected minimumSizeOf(child: any): [number, number] {
+    const preferred = this.preferredSizeOf(child);
+    let declared: any = null;
+    if (child && typeof child.getMinimumSize === 'function') {
+      declared = child.getMinimumSize();
+    }
+    if (!declared) {
+      return preferred;
+    }
+    const minWidth = Number(declared[0]) || 0;
+    const minHeight = Number(declared[1]) || 0;
+    return [minWidth > 0 ? minWidth : preferred[0], minHeight > 0 ? minHeight : preferred[1]];
+  }
+
+  /**
    * 参与排布的子项（跳过不可见子项）。
    *
    * 对齐 Swing：`FlowLayout` / `BorderLayout` / `BoxLayout` 都跳过不可见子项，
    * **`GridLayout` 不跳过**（不可见子项照样占一个格子），所以网格布局不要用它。
    * 判据用 `isEffectivelyVisible()`：父容器 `display:false` 时整棵子树都不参与排布。
    */
-  protected layoutChildren(container: ICEGroup): any[] {
+  protected layoutChildren(container: ICEGroup, options: { includeInvisible?: boolean } = {}): any[] {
     const children = container.childNodes;
-    const visible: any[] = [];
+    const result: any[] = [];
     for (let i = 0; i < children.length; i++) {
       const child: any = children[i];
-      if (typeof child.isEffectivelyVisible === 'function' && !child.isEffectivelyVisible()) {
+      // `layoutIgnore`：这个子项由调用方手动定位（CSS 里 `position:absolute` 的对应物），布局不碰它。
+      // 有了它，"容器负责大多数子项、少数子项位置是数据（用户拖出来的）"这类界面才成立。
+      if (child.state && child.state.layoutIgnore === true) {
         continue;
       }
-      visible.push(child);
+      if (
+        !options.includeInvisible &&
+        typeof child.isEffectivelyVisible === 'function' &&
+        !child.isEffectivelyVisible()
+      ) {
+        continue;
+      }
+      result.push(child);
     }
-    return visible;
+    return result;
+  }
+
+  /**
+   * 把 `total` 按权重切成**整数**分量，且分量之和精确等于 `Math.round(total)`。
+   *
+   * 为什么要有它：等分网格与 `grow` 的剩余空间分配天然是除法 —— 100 分 3 份是 33.333…，
+   * 落在画布上就是 .333 像素的落点与尺寸（文本被反锯齿软化、相邻子项边缘对不齐）。
+   * 用「累计取整」分配（第 i 份 = round(累计权重占比 × total) − 已分配）可以做到：
+   * ① 每份都是整数；② 不会出现"最后一项多出半像素"的漂移；③ 容器尺寸变化时整体单调、不抖动。
+   *
+   * 注意：这里只消除**布局自己引入**的分数（除法余数）。容器自身若在分数坐标上，
+   * 子项仍会带着那个偏移 —— 那是调用方的构图选择，布局不该越权改写。
+   */
+  protected distributeIntegers(total: number, weights: number[]): number[] {
+    const result: number[] = [];
+    let weightSum = 0;
+    for (let i = 0; i < weights.length; i++) {
+      weightSum += Math.max(0, Number(weights[i]) || 0);
+    }
+    if (weightSum <= 0 || weights.length === 0) {
+      for (let i = 0; i < weights.length; i++) {
+        result.push(0);
+      }
+      return result;
+    }
+    let consumedWeight = 0;
+    let assigned = 0;
+    for (let i = 0; i < weights.length; i++) {
+      consumedWeight += Math.max(0, Number(weights[i]) || 0);
+      const boundary = Math.round((total * consumedWeight) / weightSum);
+      result.push(boundary - assigned);
+      assigned = boundary;
+    }
+    return result;
   }
 
   /** 子项的**占位尺寸**：内容尺寸 + 外边距（布局推进时用这个）。 */
