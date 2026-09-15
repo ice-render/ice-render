@@ -116,21 +116,29 @@ export interface SnapAxes {
 }
 
 export interface AlignmentGuideOptions {
-  /** 磁吸阈值（屏幕像素），默认 5。 */
+  /** 磁吸阈值（屏幕像素），默认 3。 */
   threshold?: number;
-  /** 滞回余量（屏幕像素）：已吸附轴脱离阈值 = threshold + hysteresis，默认 2。 */
+  /** 滞回余量（屏幕像素）：已吸附轴脱离阈值 = threshold + hysteresis，默认 1。 */
   hysteresis?: number;
   /** 边缘对齐，默认 true。 */
   edge?: boolean;
   /** 中心对齐，默认 true。 */
   center?: boolean;
   /**
-   * 等间距对齐，**默认 false**（2026-09-15 改）。
+   * 等间距对齐，**默认 false**（2.11.1 起的默认，本次未改）。
    *
-   * 它生成的是「任意两个目标中心的中点」这种**全图级别**的候选线：数量随目标数平方增长，
-   * 且用户基本无法预期线会出现在哪儿。实测（34 个单元的工艺图、阈值 2 屏幕 px）：
-   * 边+中心是 36% 的吸附概率，把等间距也打开会涨到 49%（不限距离时 60% → 75%）。
-   * 需要它（例如"让 A 居中在 B 与 C 之间"）的应用显式打开即可。
+   * 语义是「让源盒居中在 a、b 两个目标之间」，用来把一列/一行元素排均匀。
+   *
+   * 为什么默认关：候选是「任意两个目标中心的中点」这种**全图级别**的线，O(n²)。
+   * 实测（34 个单元的工艺图、阈值 2 屏幕 px）：拖动路径上平均**每一步有 183 条**中点候选，
+   * 24 步里有 7 步会撞上某个中点（开启后吸附步数 11/24 → 13/24、换线 8 → 12）。
+   * 抖动指标不受影响（相邻步最大位移变化 6.1、单步最大修正 4.4 与关闭时一致 —— 那是
+   * "命中即锁定"的功劳），所以**是否开启按场景决定**：需要"排匀一列元素"的编辑器显式
+   * `spacing: true` 即可，密集的工程图建议保持默认关闭。
+   *
+   * **判据带间隙门控**（2026-09-15 修）：只有源盒真的塞得进 a、b 之间那道空隙时才产生候选 ——
+   * 挡住"两个紧挨着的图元的中点"这类放不下当前元素的无意义线。注意它**不负责压低整体密度**
+   * （工艺图上只筛掉 183 条里的 5 条），密度得靠 threshold / proximity / 这个开关来控制。
    */
   spacing?: boolean;
   /**
@@ -272,13 +280,27 @@ export function computeSnap(
   }
 
   if (options.spacing) {
+    // 等间距候选：「让源盒正好落在 a、b 两个目标中心的中点」。
+    //
+    // 但**只有源盒真的塞得进 a、b 之间的空隙**时才给这条候选。原实现不检查空隙，
+    // 于是任意一对目标都贡献一条中点线（O(n²)），指针每挪一步都能撞上一条 ——
+    // 而"两个紧挨着的图元的中点"根本放不下当前元素，那条线没有任何指导意义。
+    // 实测（34 个单元的水务工艺图、阈值 2 屏幕 px）：不检查空隙时"≤4px 命中候选线"的概率
+    // 从 36% 抬到 49%，这也是 2.11.1 一度把等间距默认关掉的原因。
+    // 加上间隙门控后，功能保留（左右邻居之间确实有空位才出现），噪声回到边/中心同一量级。
+    const sourceW = source.maxX - source.minX;
+    const sourceH = source.maxY - source.minY;
     for (let i = 0; i < targets.length; i++) {
       for (let j = i + 1; j < targets.length; j++) {
         const a = targets[i];
         const b = targets[j];
         const minX = Math.min(a.centerX, b.centerX);
         const maxX = Math.max(a.centerX, b.centerX);
-        if (source.centerX > minX && source.centerX < maxX) {
+        // 空隙 = 左边那个的右边缘 → 右边那个的左边缘。
+        const leftX = a.centerX <= b.centerX ? a : b;
+        const rightX = leftX === a ? b : a;
+        const gapX = rightX.minX - leftX.maxX;
+        if (source.centerX > minX && source.centerX < maxX && gapX + 0.5 >= sourceW) {
           // 等间距候选同样过门控：两端都要与源盒在 Y 上相近，否则那是"全图中点"，没有指导意义
           const pairTop = Math.min(a.minY, b.minY);
           const pairBottom = Math.max(a.maxY, b.maxY);
@@ -296,7 +318,10 @@ export function computeSnap(
         }
         const minY = Math.min(a.centerY, b.centerY);
         const maxY = Math.max(a.centerY, b.centerY);
-        if (source.centerY > minY && source.centerY < maxY) {
+        const leftY = a.centerY <= b.centerY ? a : b;
+        const rightY = leftY === a ? b : a;
+        const gapY = rightY.minY - leftY.maxY;
+        if (source.centerY > minY && source.centerY < maxY && gapY + 0.5 >= sourceH) {
           const pairLeft = Math.min(a.minX, b.minX);
           const pairRight = Math.max(a.maxX, b.maxX);
           if (pairRight >= source.minX - proximity.x && pairLeft <= source.maxX + proximity.x) {
@@ -341,6 +366,10 @@ class AlignmentGuideManager {
     hysteresis: 1,
     edge: true,
     center: true,
+    /**
+     * 等间距（居中在 a、b 之间）：默认关（见 `AlignmentGuideOptions.spacing` 的实测），
+     * 开启时带间隙门控。抖动由"命中即锁定 + 不取整"保证，与这一项无关。
+     */
     spacing: false,
     proximity: 0,
     guideStyle: { fillStyle: token('chrome.guide.color') },
@@ -494,17 +523,29 @@ class AlignmentGuideManager {
   }
 
   private __computeTargets(): SnapBox[] {
-    // 只把顶层图元作为对齐目标，不展开容器内部子节点。
-    // 否则拖拽 Entity 这类容器时，它内部的字段 ICEText 也会被当成候选目标，
-    // 导致远离其它实体时仍出现引导线。
-    const all = this.ice.childNodes;
+    // 目标是「除被拖组件自己以外，所有参与对齐的图元」——**包括别人容器里的子节点**。
+    //
+    // 为什么必须展开子树：编辑器里"能自由拖动的图元"大多长在容器里 —— BPMN 的池/泳道、
+    // 状态图的复合状态、二次回路的端子、甘特图的任务条。早先只取 `ice.childNodes`（顶层），
+    // 结果是这些场景**一个可用目标都没有**：实测 BPMN 示例 18 个可拖图元里 15 个在泳道内，
+    // 拖动它们时提示线数量恒为 0（"发卡"拖到"申请结束"左边缘差 3.6px 也不吸附）；
+    // 而顶层只剩池子这种包住整张图的容器，它的边永远不在阈值内。
+    //
+    // 排除**自己的整棵子树**同样是必须的：子组件与父组件一起平移，把它们当候选等于"自己对自己
+    // 吸附"——命中后每帧给出同一个固定偏移（子树相对父级的固定间距），父组件会一直偏着指针走。
     const out: SnapBox[] = [];
-    for (const c of all) {
-      if (c === this.active) continue;
-      if (!this.__isAlignmentParticipant(c)) continue;
-      const b = this.__boxOf(c);
-      if (b) out.push(b);
-    }
+    const visit = (nodes: any[]) => {
+      for (const c of nodes || []) {
+        // 被拖组件连同子树一起移动 —— 跳过它，并且**不再往下递归**。
+        if (c === this.active) continue;
+        if (this.__isAlignmentParticipant(c)) {
+          const b = this.__boxOf(c);
+          if (b) out.push(b);
+        }
+        if (c.childNodes && c.childNodes.length) visit(c.childNodes);
+      }
+    };
+    visit(this.ice.childNodes);
     return out;
   }
 

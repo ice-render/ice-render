@@ -33,6 +33,57 @@ function defaults(over = {}) {
 }
 
 describe('密集版面下的对齐稳定性', () => {
+  /**
+   * 造一个假组件：只满足 `AlignmentGuideManager.__computeTargets` 需要的表面
+   * （state / 世界包围盒 / 子节点）。
+   */
+  function fakeComponent(opts: any = {}) {
+    const {
+      id,
+      minX = 0,
+      minY = 0,
+      maxX = 10,
+      maxY = 10,
+      draggable = true,
+      interactive = true,
+      children = [],
+      isLine = false,
+    } = opts;
+    const c: any = {
+      state: { id, draggable, interactive },
+      isLine,
+      isControlPanel: false,
+      parentNode: null,
+      childNodes: [],
+      getMaxBoundingBox: () => ({ getMinAndMaxPoint: () => ({ minX, minY, maxX, maxY }) }),
+    };
+    c.childNodes = children;
+    children.forEach((k: any) => {
+      k.parentNode = c;
+    });
+    return c;
+  }
+
+  it('候选目标：展开别人容器里的子节点，但排除被拖组件自己的子树', () => {
+    // 容器结构：池 > 泳道 > 任务；另有独立顶层节点
+    const task = fakeComponent({ id: 'task', minX: 20, maxX: 30 });
+    const lane = fakeComponent({ id: 'lane', minX: 10, maxX: 10.5, children: [task] });
+    const pool = fakeComponent({ id: 'pool', minX: 0, maxX: 0.5, children: [lane] });
+    const standalone = fakeComponent({ id: 'standalone', minX: 500, maxX: 510 });
+    const manager: any = new AlignmentGuideManager({ evtBus: { on: () => undefined, off: () => undefined } });
+    manager.ice = { childNodes: [pool, standalone] };
+
+    // ① 拖泳道内的任务：目标 = 池 + 泳道 + 独立节点。
+    //    早先只取顶层时，这里只剩「池」（包住整张图，边永远不在阈值内）→ 提示线恒为 0。
+    manager.active = task;
+    expect(manager.__computeTargets().map((b: any) => b.minX)).toEqual([0, 10, 500]);
+
+    // ② 拖池：它自己连同整棵子树（泳道、任务）都随它平移，一个都不能当目标
+    //    （否则会命中"子树相对父级的固定间距"，父组件永远偏着指针走）
+    manager.active = pool;
+    expect(manager.__computeTargets().map((b: any) => b.minX)).toEqual([500]);
+  });
+
   it('粘性目标：连续拖动不再"每步换一条对齐线"', () => {
     // 两条线相距 3px（`100` / `103`），都在阈值内 —— 密集版面的最小复现
     const targets = [box(100, 0, 140, 40), box(103, 0, 143, 40)];
@@ -66,21 +117,38 @@ describe('密集版面下的对齐稳定性', () => {
     expect(gated.x).toBeNull();
   });
 
-  it('等间距候选默认关闭：只在中点附近才命中（构造场景），且默认选项里它就是关的', () => {
-    // 两个目标中心 250 / 550 → 中点 400；源中心贴近 400 时，只有"等间距"这一种关系会命中
+  it('等间距：应用显式开启、且源盒塞得进空隙时才给出候选', () => {
+    // 两个目标中心 250 / 550，边缘之间空隙 200px；源盒宽 100px → 放得下
     const targets = [box(200, 500, 300, 600), box(500, 500, 600, 600)];
-    const source = box(352, 500, 452, 560); // centerX = 402
-    expect(computeSnap(source, targets, 3, 3, defaults({ spacing: false, center: false })).x).toBeNull();
+    const source = box(352, 500, 452, 560); // centerX = 402，中点 400
     const on = computeSnap(source, targets, 3, 3, defaults({ spacing: true, center: false })).x;
     expect(on && on.type).toBe('spacing');
+    // 默认（关闭）下没有这条候选：这是 2.11.1 起的生产默认，2.11.2 没改
+    expect(computeSnap(source, targets, 3, 3, defaults({ center: false })).x).toBeNull();
   });
 
-  it('管理器默认值：阈值 3 / 滞回 1 / 门控关 / 等间距关（后两项决定"不跳"）', () => {
+  it('等间距的间隙门控：源盒塞不进空隙就不给候选（密集版面的噪声来源）', () => {
+    // 两个目标紧挨着：边缘之间只剩 20px 空隙，中心中点 310
+    const targets = [box(200, 500, 300, 600), box(320, 500, 420, 600)];
+    const only = defaults({ spacing: true, edge: false, center: false }); // 显式开启，且只看 spacing 一种关系
+
+    // 源盒宽 100px，塞不进 20px 的空隙 → 旧实现照样给"中点线"，现在不给
+    const wide = box(260, 500, 360, 560); // centerX = 310 = 中点
+    expect(computeSnap(wide, targets, 3, 3, only).x).toBeNull();
+
+    // 换成塞得进去的窄盒（宽 20px = 空隙），同一条中点候选就回来了
+    const narrow = box(300, 500, 320, 560); // centerX = 310 = 中点
+    const hit = computeSnap(narrow, targets, 3, 3, only).x;
+    expect(hit && hit.type).toBe('spacing');
+    expect(hit && hit.guideValue).toBe(310);
+  });
+
+  it('管理器默认值：阈值 3 / 滞回 1 / 门控关 / 等间距关（2.11.2 未改已发布的默认）', () => {
     const manager: any = new AlignmentGuideManager({ evtBus: { on: () => undefined, off: () => undefined } });
     expect(manager.options.threshold).toBe(3); // 引擎默认不动（密集版面由应用侧收紧到 2）
     expect(manager.options.hysteresis).toBe(1);
     expect(manager.options.proximity).toBe(0); // 门控默认关（会挡掉合法的远距离对齐）
-    expect(manager.options.spacing).toBe(false);
+    expect(manager.options.spacing).toBe(false); // 等间距默认关（工艺图实测：路径上平均 183 条中点候选）
     expect(manager.options.edge).toBe(true);
     expect(manager.options.center).toBe(true);
   });

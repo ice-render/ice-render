@@ -19,10 +19,13 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 
 **1. 极端规模下的内存与构建效率**
 
-- **默认配置不复制** —— 所有实例原型继承同一份默认 `props` / `state`，只有显式传入的字段才落到实例上；嵌套对象在合并时才做写时复制。
+- **默认配置不复制（实例侧）** —— 所有实例原型继承同一份默认 `props` / `state`，只有显式传入的字段才落到实例上；嵌套对象在合并时才做写时复制。**例外是 `style`**：它是每实例按当前主题派生的对象（共享会串味），实例的 `style` 各有一份。
 - **挂载去重为 O(1)** —— 用 `WeakSet`，批量挂载不再有 `indexOf` 的 O(n²) 放大。
-- **实测**（2026-09-10，Apple Silicon 开发机）：**100 万个最小矩形的堆增量约 0.87GB**（朴素实现约 2.0GB）；**100 万图元构建约 6s**。这类数字跨机器会差数倍，别把这里的数值当承诺——以本机跑出来的为准。
-- **回归**：`tests/graphic/ICEComponent.props-sharing.test.ts`、`tests/ICE.add-child.test.ts`；微基准见 `bench/micro/`。
+- **实测**（2026-09-15，Apple Silicon 开发机，`npm run bench:mem`：node + 每档独立进程 + 造对象前后各两次 gc 的**真增量**）：
+  **100 万个最小矩形的堆增量约 2.3GB（2.4KB/图元；10 万 ≈232MB、50 万 ≈1.16GB）**；
+  同一场景把整份默认表显式传给每个实例约 7.4GB（3.3×）——而"默认配置"（`props` + `state`）那部分只占 **0.98KB/图元**。
+  这类数字跨机器会差数倍，以本机 `npm run bench:mem` 为准；**100 万图元构建约 6s** 是 2026-09-10 示例页的数据（本轮未复测）。
+- **回归**：`tests/graphic/ICEComponent.props-sharing.test.ts`、`tests/ICE.add-child.test.ts`；内存基准 `npm run bench:mem`（已纳入 `verify:full`），其余微基准见 `bench/micro/`。
 
 **2. 局部重绘是一条可证明的像素契约**
 
