@@ -171,6 +171,42 @@ ice.addChild(new ICERect({ width: 100, height: 50 }));
 
 发布包提供 **ESM（`dist/index.mjs`）/ CJS（`dist/index.cjs`）/ UMD（`dist/index.umd.js`）** 三种格式。
 
+### 接下来：写一个「页面」
+
+上面的例子是**引擎原语** —— 画一个图形、加一个子节点。但一个应用里真正要写的是**页面**：
+若干控件、数据由宿主推给你、切换 / 刷新时只改值不重建结构。那种情况下别继续堆
+`ice.addChild(...)`，家族统一的写法是**一页一个类**：
+
+```ts
+import { ICEContainer, ICELabel, ICETable } from 'ice-web-components';
+
+class DataPage extends ICEContainer {
+  private readonly table: ICETable;                 // ① 构造期建树，树只建一次
+
+  constructor(ctx: { width: number; height: number }) {
+    super({ left: 0, top: 0, width: ctx.width, height: ctx.height });
+    this.addChild(new ICELabel({ left: 16, top: 12, text: '运行数据' }));
+    this.table = new ICETable({ left: 16, top: 48, width: ctx.width - 32 });
+    this.addChild(this.table);
+  }
+
+  /** ② 唯一改值入口：宿主在"数据换成新的"之后调它 */
+  onUpdate(snapshot: { rows: any[] }): void {
+    this.table.setData(snapshot.rows);
+  }
+}
+```
+
+三条判据说明"什么时候该从脚本升级成页面"：**有第二个页面**、**数据由宿主推给你**、
+**同一块结构要反复改值**。页面自己**不回调宿主**（要宿主做事就声明 `headerActions()` /
+`statusTags()` / `islandSpecs()`，宿主来取）。
+
+完整契约（宿主在什么时机调 `onUpdate()`、哪一层该用哪个入口、稳定结构与可变内容的边界、
+验收清单、常见坑）见
+[应用层：一个页面怎么写](https://ice-render.github.io/ice-render-doc/docs/conventions/app-pages)。
+组件库侧对应的容器契约见 [`ice-web-components`](https://github.com/ice-render/ice-web-components)
+的 `docs/guides/layout.md` 第六节。
+
 ### 导出 SVG（矢量，不依赖 canvas）
 
 画布的 `toDataURL()` / `toBlob()` 是**光栅快照**（分辨率写死、放大就糊）。引擎的路径对象是
