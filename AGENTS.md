@@ -48,7 +48,10 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   ① **基座**：`ice.setTheme(...)` / `ice.setChrome(...)`（UI 主题、应用主题走这条）；
   ② **命名补丁**：`ice.setThemePatch(id, patch)` / `ice.clearThemePatch(id)`（**领域库**走这条：图表调色板、设计器外壳），
   `id` 约定用库名（`'ice-chart'` / `'ice-designer'`），同 id 再注册即替换。
-  合成顺序 = `基座 → 命名补丁（按注册顺序）`，每次只重算一次并广播该实例。这条契约解决的是历史上最坑的一类不一致：
+  合成顺序 = `基座 → 命名补丁（按注册顺序）`，每次只重算一次并广播该实例。**优先级因此是定死的**：
+  `setTheme` / `setChrome` 在**最底层**，命名补丁在它之上 —— 所以**应用要覆盖领域库的 token，
+  得用自己的补丁**（`setThemePatch('host', …)`，注册在领域库之后），**写基座压不住补丁**；
+  要整个撤掉某库的外壳用 `clearThemePatch(id)`。这条契约解决的是历史上最坑的一类不一致：
   两边都直接改实例主题 → **后写的赢** —— 换 UI 主题会把图表主题抹掉、换图表主题会把 UI 主题抹掉，成败取决于调用顺序
   （`ice-agent-console` 的 `view/diagram-layer.ts` 注释里记过这个坑）。**领域库不要再调 `setTheme` / `setChrome`**；
   应用也不要调 `setThemePatch`（那是库的活）。补丁**不进快照**（它是库装载时重新注册的运行时约定）。回归：`tests/theme/theme-patch.test.ts`。
