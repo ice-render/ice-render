@@ -55,6 +55,18 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   两边都直接改实例主题 → **后写的赢** —— 换 UI 主题会把图表主题抹掉、换图表主题会把 UI 主题抹掉，成败取决于调用顺序
   （`ice-agent-console` 的 `view/diagram-layer.ts` 注释里记过这个坑）。**领域库不要再调 `setTheme` / `setChrome`**；
   应用也不要调 `setThemePatch`（那是库的活）。补丁**不进快照**（它是库装载时重新注册的运行时约定）。回归：`tests/theme/theme-patch.test.ts`。
+- **位图缓存 × 全局状态的铁律（2026-09-17 确立，v2.14.1）**：引擎里有**三份"画出来是什么"的缓存** ——
+  ① 组件级离屏缓存 `ObjectCache`（文本/连线/点集/半透明，静态命中路径只判 `!component.dirty && cache && 视口一致`）；
+  ② 静态层位图 `CanvasRenderer.__layer`（**整段**位图，成员集合/渲染视口/队列结构三者之一变了才重建）；
+  ③ 上屏快照 `__snap`（停用，供局部重绘算脏区）。
+  **任何改变"画出来是什么"的全局状态，都必须显式声明它作废哪几份缓存** —— 第一例就是换主题：
+  主题引用是 paint 时解析的，而 `__reapplyPreset()` 只对「用了 preset / 没写 style」的组件 `setState`，
+  **写了引用但没用 preset** 的组件不会被置脏，于是第 ① ② 份缓存会把**烤着旧主题颜色**的位图原样贴回来
+  （表现：热切换后文本停在旧色，浅色主题的深字压深底上；`?theme=` 刷新路径正常，因为整棵树重建了）。
+  修法：`ICE.__recomposeTheme()`（四条主题入口的汇合点）里调 `renderer.invalidateObjectCache()`
+  （它同时丢 ① 与 ②）+ `requestRepaint()`（保证有帧）。
+  回归：`tests/theme/theme-cache-invalidation.test.ts`（四条入口）、`e2e/visual/theme-cache-pixel.spec.ts`
+  （**像素**判据：热切换后的画布必须与"开机即深色"逐像素一致 —— 样式值/画布指纹都看不出这个缺陷）。
 - **请求重绘用 `ice.requestRepaint()`（v2.14.0）**：在 `setState` 之外改了会影响画面的东西（自绘 painter 读了新数据、
   换视口、字体/图片刚就绪、要作废静态层）时用它，**不要再写 `ice.dirty = true`**（直摸内部字段，无文档无保证）。
   它等价于"置脏 + 标记渲染队列重排"，幂等可链式。回归：`tests/renderer/request-repaint.test.ts`。

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>换主题：热切换 vs 开机即深色（位图缓存是否作废）</title>
+  <body style="font: 13px/1.6 sans-serif; padding: 12px; background: #fff">
+    <p>
+      两个画布跑**同一份确定性场景**（若干用<strong>主题引用</strong>着色的 <code>ICEText</code>）：
+      <code>canvas-hot</code> 开机浅色、由 <code>window.__switch()</code> 热切换到深色；
+      <code>canvas-dark</code> 开机即深色。<strong>两者必须逐像素一致</strong> ——
+      不一致就是"组件级离屏缓存/静态层把烤着旧主题颜色的位图贴回来了"。
+    </p>
+    <canvas id="canvas-hot" width="640" height="300" style="background: #f8f9fa; border: 1px solid #ccc"></canvas>
+    <canvas id="canvas-dark" width="640" height="300" style="background: #212529; border: 1px solid #ccc"></canvas>
+  </body>
+  <script src="../../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const DARK = ICE.DARK_THEME;
+      const LIGHT = ICE.LIGHT_THEME;
+
+      /** 同一份场景：底色 + 三档主题引用文字（大号/正文/次级），全部走 token 引用。 */
+      function buildScene(ice) {
+        const bg = new ICE.ICERect({
+          left: 0,
+          top: 0,
+          width: 640,
+          height: 300,
+          fill: true,
+          stroke: false,
+          style: { fillStyle: ICE.token('background') },
+        });
+        ice.addChild(bg);
+
+        const rows = [
+          { text: '污水处理工艺图 · 标题', top: 24, size: 28, weight: '700', color: ICE.token('text') },
+          { text: '正文：二沉池出水经中间提升泵进深度处理', top: 92, size: 16, weight: 'normal', color: ICE.token('text') },
+          { text: '次级：DO 2.1 mg/L · MLSS 3.4 g/L', top: 136, size: 14, weight: 'normal', color: ICE.token('textSecondary') },
+          { text: '提示：滚轮缩放 / 空白处拖拽平移', top: 176, size: 12, weight: 'normal', color: ICE.token('textTertiary') },
+          { text: '内回流 DN350 · 剩余污泥 DN200', top: 210, size: 12, weight: 'normal', color: ICE.token('textSecondary') },
+        ];
+        for (const r of rows) {
+          ice.addChild(
+            new ICE.ICEText({
+              left: 32,
+              top: r.top,
+              width: 560,
+              height: Math.round(r.size * 2),
+              text: r.text,
+              stroke: false,
+              style: { fontSize: r.size, fontWeight: r.weight, fontFamily: 'system-ui, sans-serif', fillStyle: r.color },
+            })
+          );
+        }
+      }
+
+      const hot = new ICE.ICE().init('canvas-hot');
+      const dark = new ICE.ICE().init('canvas-dark');
+      hot.setTheme(LIGHT);
+      dark.setTheme(DARK);
+      buildScene(hot);
+      buildScene(dark);
+
+      /** 记一下"热切换那条路径到底有没有清缓存"（修复后应当 ≥1）。 */
+      let clears = 0;
+      const origClear = hot.renderer.cache.clear.bind(hot.renderer.cache);
+      hot.renderer.cache.clear = function () {
+        clears++;
+        return origClear();
+      };
+
+      /** 由用例驱动：浅色 → 深色（热切换，不重建场景）。 */
+      window.__switch = function () {
+        hot.setTheme(DARK);
+        return { clears, themeRevision: hot.__themeRevision };
+      };
+
+      /** 逐像素比对两个画布（同一确定性场景，必须一致）。 */
+      window.__compare = function () {
+        const a = document.querySelector('#canvas-hot');
+        const b = document.querySelector('#canvas-dark');
+        const da = a.getContext('2d').getImageData(0, 0, a.width, a.height).data;
+        const db = b.getContext('2d').getImageData(0, 0, b.width, b.height).data;
+        let diff = 0;
+        let alphaDiff = 0;
+        let maxPremultDelta = 0;
+        const samples = new Map();
+        const hex = (d, i) => '#' + [d[i], d[i + 1], d[i + 2]].map((v) => v.toString(16).padStart(2, '0')).join('');
+        for (let i = 0; i < da.length; i += 4) {
+          if (da[i + 3] !== db[i + 3]) alphaDiff++;
+          if (Math.abs(da[i] - db[i]) + Math.abs(da[i + 1] - db[i + 1]) + Math.abs(da[i + 2] - db[i + 2]) > 6) {
+            diff++;
+            const k = `${hex(da, i)} vs ${hex(db, i)}`;
+            samples.set(k, (samples.get(k) || 0) + 1);
+          }
+          maxPremultDelta = Math.max(
+            maxPremultDelta,
+            Math.abs(da[i] - db[i]),
+            Math.abs(da[i + 1] - db[i + 1]),
+            Math.abs(da[i + 2] - db[i + 2])
+          );
+        }
+        const total = da.length / 4;
+        return {
+          equal: diff === 0 && alphaDiff === 0,
+          diffRatio: diff / total,
+          alphaDiffRatio: alphaDiff / total,
+          maxPremultDelta,
+          topSamples: [...samples.entries()].sort((x, y) => y[1] - x[1]).slice(0, 5),
+        };
+      };
+
+      window.__stats = function () {
+        return {
+          clears,
+          layerBuildsHot: hot.renderer.__layerBuilds,
+          layerBuildsDark: dark.renderer.__layerBuilds,
+        };
+      };
+    })();
+  </script>
+</html>

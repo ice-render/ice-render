@@ -986,6 +986,21 @@ class ICE {
     // 主题版本号：组件的作用域主题缓存靠它失效
     this.__themeRevision++;
     this.__reapplyPresets();
+    /**
+     * **作废位图缓存**：主题变了，可组件**不一定是脏的** ——
+     * `__reapplyPreset()` 只对「用了 preset / 没写 style」的组件 `setState`，
+     * 而**写了主题引用**（`token('ui.colors.text')`）的组件不在此列：它们的样式是 paint 时解析的，
+     * 引擎认为"内容没变"，于是组件级离屏缓存/静态层会把**烤着旧主题颜色**的位图原样贴回来。
+     * 表现就是"换主题后文本停在旧色"（浅色主题的深字压在深底上）。
+     *
+     * 这条必须在这里做：`setTheme` / `setChrome` / `setThemePatch` / `clearThemePatch`
+     * 四个入口都汇合到本方法（见各自的注释）。
+     */
+    if (this.renderer && typeof this.renderer.invalidateObjectCache === 'function') {
+      this.renderer.invalidateObjectCache();
+    }
+    // 保证"即使一个组件都没被重新 apply 也会有帧" —— 顺带作废上屏快照/静态层的队列侧
+    this.requestRepaint();
     this.__notifyThemeChange(previous, kind);
   }
 

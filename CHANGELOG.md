@@ -7,6 +7,39 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+## [2.14.1] - 2026-09-17
+
+### 修复
+
+- **换主题后文本贴旧位图**（热切换路径）：深色主题切换后，大量文本仍是浅色主题的深字压深底上，
+  而 `?theme=dark` 刷新路径完全正常 —— 说明配色写法没错，错在"不重建的那条路径"。
+
+  **根因是两套机制的隐含假设冲突**：主题引用（`token('ui.colors.text')`）假设"样式是引用、paint 时解析"，
+  而**组件级离屏缓存**与**静态层位图**假设"内容没变就贴旧位图" —— 主题**不在它们的内容指纹里**
+  （`contentKeyVector` 推的是 `st.fillStyle`，换主题前后是同一个引用对象）；
+  再加上 `__reapplyPreset()` 只对「用了 preset / 没写 style」的组件 `setState`，
+  **写了引用但没用 preset** 的组件根本不被置脏 → 静态命中直接贴图。
+
+  实测（`ice-smart-water` 线上，同一页两条路径逐像素对拍，`#canvas-shell` 1552×902）：
+  内容区差异 **28,281 像素 → 0**；最典型的色对是 `#212529 → #dee2e6`（浅色主题的深字 vs 深色主题的正确字色）。
+
+  **修法**（单一汇合点，覆盖 `setTheme` / `setChrome` / `setThemePatch` / `clearThemePatch` 四条入口）：
+  - 新增 `CanvasRenderer.invalidateObjectCache()`：**同时**作废组件级离屏缓存与**静态层位图**
+    （后者显式置 null，不依赖 `markQueueDirty()` → `__rebuildQueue()` 的副作用 —— 那条路径哪天被优化掉就静默退化了）；
+  - `ICE.__recomposeTheme()` 里调它，再 `requestRepaint()`（保证"即使一个组件都没被重新 apply 也会有帧"）。
+
+  ⚠️ 两条**顺带澄清**（都验证过）：
+  - "把主题版本号加进缓存指纹"**不可能有效** —— 只要 `!component.dirty`，静态命中路径**根本不会执行指纹比较**；
+  - 静态层是**第二个同类漏洞**（成员/视口/队列都没变，所以不会重建）。当前两个大页面实测 `__layerBuilds = 0`
+    未触发，但结构相同，一并修死。
+
+### 门禁
+
+- 新增 `tests/theme/theme-cache-invalidation.test.ts`：四条主题入口都要「清缓存 + 丢静态层 + 保证有帧」；
+- 新增 `e2e/visual/theme-cache-pixel.spec.ts` + fixture：**热切换后的画布与"开机即深色"逐像素一致**
+  （摘掉失效调用，这条立刻红 —— 已验证有牙）。这条补的是**像素级**盲区：样式值（库侧
+  `theme-coverage.spec.ts`）与画布指纹（`theme-hot-switch.spec.ts`）都看不出位图过期。
+
 ## [2.14.0] - 2026-09-17
 
 ### 新增

@@ -186,6 +186,32 @@ class CanvasRenderer extends ICEEventTarget {
     return this.__layerEnabled;
   }
 
+  /**
+   * **作废"画进位图"的那两层缓存**：组件级离屏缓存（`ObjectCache`）+ 静态层位图（`__layer`）。
+   *
+   * 什么时候必须调：任何改变**"画出来是什么"**的全局状态。第一个用例是**换主题** ——
+   * 样式里的主题引用（`token('ui.colors.text')`）是 paint 时解析的，但这两层位图是
+   * **"内容没变就贴旧图"**，而主题根本不在它们的内容指纹里（引用对象前后同值）。
+   * 不作废的表现：换主题后**文本贴旧位图** —— 浅色主题烤进去的深字压在深底上。
+   *
+   * 为什么两层要一起作废：
+   * - 组件级缓存：静态命中只判 `!component.dirty && cache && 视口一致`，**不比较主题/指纹**
+   *   （而且只要 `!dirty` 就直接贴图返回，连指纹那一段都不会执行）；
+   * - 静态层：成员集合 / 渲染视口 / 队列结构三者之一变了才重建，换主题**三者都没变**
+   *   —— 它会一直贴那张烤着旧主题色的整段位图。
+   *
+   * 都是 O(1) 丢弃（WeakMap 换新 + 置 null），而换主题是低频操作，直接全丢最省心。
+   */
+  public invalidateObjectCache(): this {
+    if (this.cache) {
+      this.cache.clear();
+    }
+    // ⚠️ 显式丢静态层，**不要**依赖 `markQueueDirty()` → `__rebuildQueue()` 的副作用：
+    // 哪天那条路径被优化掉，这里会静默退化成"换了主题、整段位图还是旧的"。
+    this.__layer = null;
+    return this;
+  }
+
   private refreshQueue() {
     if (this.__queueDirty) {
       this.__rebuildQueue();
