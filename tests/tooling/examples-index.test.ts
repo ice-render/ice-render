@@ -58,4 +58,29 @@ describe('examples 导航页与示例文件一致', () => {
     const missing = listIndexLinks().filter((l) => !fs.existsSync(path.join(EXAMPLES, l)));
     expect(missing).toEqual([]);
   });
+
+  it('页内写的计数与真实条目数一致（手改列表不会把数字留在旧值上）', () => {
+    // 为什么需要这条：链接集合对得上，不代表页里的数字对得上。2026-09-14 那次加
+    // `layout/layout-composition.html` 就是**手加一行 `<li>`**、没重新生成 —— 列表是 92 条，
+    // 页头却还写着"共 91 个示例"、layout 组的 `<span class="count">` 还是 13，
+    // 而原来的用例只比集合，**一路绿**（页面自己撒了 4 个月的谎，谁也不会去数）。
+    const html = fs.readFileSync(path.join(EXAMPLES, 'index.html'), 'utf8');
+
+    const declaredTotal = Number(/共 (\d+) 个示例/.exec(html)?.[1]);
+    expect(Number.isFinite(declaredTotal)).toBe(true);
+    expect(declaredTotal).toBe(listExampleFiles().length);
+
+    const sections = [...html.matchAll(/<h2>([^<]+) <span class="count">(\d+)<\/span><\/h2>\s*<ul>([\s\S]*?)<\/ul>/g)];
+    expect(sections.length).toBeGreaterThan(0); // 正则失效就得先修这条，不能静默空转
+
+    const wrong: string[] = [];
+    let sum = 0;
+    for (const [, name, declared, body] of sections) {
+      const actual = (body.match(/<li>/g) || []).length;
+      sum += actual;
+      if (Number(declared) !== actual) wrong.push(`${name}: 写 ${declared} / 实际 ${actual}`);
+    }
+    expect(wrong).toEqual([]);
+    expect(sum).toBe(declaredTotal);
+  });
 });
