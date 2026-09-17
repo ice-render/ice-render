@@ -52,13 +52,14 @@ import { ICE_ERROR_CODES, iceError } from './util/errors';
  *
  * - `kind: 'theme'` —— 来自 `setTheme()`（语义色 / palette / motion 等整体变了）
  * - `kind: 'chrome'` —— 来自 `setChrome()`（只有交互外壳那组 token 变了）
+ * - `kind: 'patch'` —— 来自 `setThemePatch()` / `clearThemePatch()`（领域库注册的命名补丁变了）
  */
 export interface ICEThemeChangeInfo {
   /** 变更**之后**的主题（就是此刻 `ice.getTheme()` 的那一份）。 */
   theme: ICETheme;
   /** 变更之前的主题。 */
   previous: ICETheme;
-  kind: 'theme' | 'chrome';
+  kind: 'theme' | 'chrome' | 'patch';
 }
 
 /**
@@ -149,6 +150,22 @@ class ICE {
   private __themeName: string | null = null;
   /** 快照的基线主题名：主题补丁是叠在它上面的（默认 default）。 */
   private __themeBaseName = 'default';
+  /**
+   * **命名主题补丁层**（2026-09-17，v2.14.0）。
+   *
+   * 场景：一个画布上，**UI 主题**（控件库打的）与**领域主题**（图表调色板 / 设计器外壳）都会写
+   * 同一组 `semantic.*` / `chrome`。以前两边都是"直接改实例主题"，于是**后写的赢** ——
+   * 换 UI 主题时领域主题被抹掉、换领域主题时 UI 主题被抹掉，成败取决于调用顺序。
+   *
+   * 现在分两层：`setTheme()` 写的是**基座**，`setThemePatch(id, patch)` 注册的是**叠在基座上的命名补丁**。
+   * 基座换掉时补丁**自动重放**，所以两层互不覆盖、调用顺序无关。
+   *
+   * `id` 用库名（`'ice-chart'` / `'ice-designer'`），同一个 id 后写覆盖前写（幂等重注册）。
+   * 补丁**不进快照**：它是库在装载时重新注册的运行时约定，不是"用户设置过的主题"。
+   */
+  private __themePatches: Map<string, ICEThemePatch> = new Map();
+  /** 不含命名补丁的"基座主题"（`setTheme` / `setChrome` 的结果）。 */
+  private __themeBaseTheme: ICETheme = getTheme();
   /** 有没有动过主题（没动过就不往快照里写 theme 字段）。 */
   private __themeTouched = false;
   /** 订阅者抛错的提示只打一次（见 __warnThemeListenerOnce）。 */
@@ -882,8 +899,10 @@ class ICE {
    */
   public setTheme(theme: ICEThemeInput): this {
     const previous = this.theme;
-    // 实例级：不修改模块级默认主题，因此多个 ICE 实例可以有各自的主题（多品牌/多租户）
-    this.theme = resolveTheme(theme, this.theme);
+    // 实例级：不修改模块级默认主题，因此多个 ICE 实例可以有各自的主题（多品牌/多租户）。
+    // ⚠️ 解出来的是**基座**；命名补丁（`setThemePatch`）在 recompose 里叠上去 —— 见那条注释。
+    this.__themeBaseTheme = resolveTheme(theme, this.__themeBaseTheme);
+    this.__recomposeTheme(previous, 'theme');
     this.__themeTouched = true;
     if (typeof theme === 'string') {
       // 命名主题：整份替换；补丁与基线都重置到它
@@ -894,10 +913,6 @@ class ICE {
       // 部分主题：叠在当前主题之上，基线（命名主题）不变
       this.__themePatch = this.__themePatch ? deepMerge(this.__themePatch, theme) : { ...(theme as any) };
     }
-    // 主题版本号：组件的作用域主题缓存靠它失效
-    this.__themeRevision++;
-    this.__reapplyPresets();
-    this.__notifyThemeChange(previous, 'theme');
     return this;
   }
 
@@ -914,19 +929,90 @@ class ICE {
   public setChrome(patch: Partial<ICEChromeTheme>): this {
     if (!patch || typeof patch !== 'object') return this;
     const previous = this.theme;
-    this.theme = mergeThemes(this.theme, { semantic: { chrome: patch } as any });
+    this.__themeBaseTheme = mergeThemes(this.__themeBaseTheme, { semantic: { chrome: patch } as any });
+    this.__recomposeTheme(previous, 'chrome');
     this.__themeTouched = true;
     const patchRecord: any = { chrome: patch };
     this.__themePatch = this.__themePatch ? deepMerge(this.__themePatch, patchRecord) : patchRecord;
+    return this;
+  }
+
+  /**
+   * 注册一份**命名主题补丁**（领域库用：图表调色板 / 设计器外壳）。
+   *
+   * 与 `setTheme()` 的关系见 `__themePatches` 的注释：`setTheme` 写**基座**，本方法写**叠在基座上的补丁**。
+   * 基座被换掉（UI 主题切了）时补丁**自动重放**，所以：
+   *
+   * - **调用顺序无关**：先打 UI 主题还是先注册图表主题，结果一样；
+   * - **互不覆盖**：换 UI 主题不会把领域主题抹掉，反之亦然。
+   *
+   * ```ts
+   * ice.setThemePatch('ice-chart', { palette: [...], chrome: { selection: {...} } });
+   * ```
+   *
+   * @param id 补丁名（约定用库名）；同 id 再次注册即**替换**（幂等，便于重复应用）
+   */
+  public setThemePatch(id: string, patch: ICEThemePatch): this {
+    if (!id || !patch || typeof patch !== 'object') return this;
+    this.__themePatches.set(id, patch);
+    this.__recomposeTheme(this.theme, 'patch');
+    this.__themeTouched = true;
+    return this;
+  }
+
+  /** 撤销一份命名主题补丁（`setThemePatch` 的逆操作）。 */
+  public clearThemePatch(id: string): this {
+    if (!this.__themePatches.delete(id)) return this;
+    this.__recomposeTheme(this.theme, 'patch');
+    this.__themeTouched = true;
+    return this;
+  }
+
+  /** 已注册的补丁名（调试 / 自检用）。 */
+  public getThemePatchIds(): string[] {
+    return [...this.__themePatches.keys()];
+  }
+
+  /**
+   * 由「基座 + 命名补丁」重算实例主题，并走一遍与 `setTheme` 相同的收尾
+   * （版本号 → 重解析 preset → 广播）。
+   */
+  private __recomposeTheme(previous: ICETheme, kind: ICEThemeChangeInfo['kind']): void {
+    let theme = this.__themeBaseTheme;
+    for (const patch of this.__themePatches.values()) {
+      theme = mergeThemes(theme, patch);
+    }
+    this.theme = theme;
+    // 主题版本号：组件的作用域主题缓存靠它失效
     this.__themeRevision++;
     this.__reapplyPresets();
-    this.__notifyThemeChange(previous, 'chrome');
-    return this;
+    this.__notifyThemeChange(previous, kind);
   }
 
   /** 当前采用的主题（含设置的 chrome / 作用域之外的实例主题）。 */
   public getTheme(): ICETheme {
     return this.theme;
+  }
+
+  /**
+   * **请求重绘**：下一帧整张画布重画一次。
+   *
+   * 什么时候需要它：在 `setState` 之外改了会影响画面的东西 —— 自绘 painter 读了新的外部数据、
+   * 换了渲染视口、外部资源（字体 / 图片）刚就绪、静态层缓存需要作废。凡是"组件自己知道要重画、
+   * 但引擎看不出来"的场合，都调它。
+   *
+   * 为什么要有这个方法：应用层的正常写法是 `comp.setState(...)`（引擎自己置脏）；只有上面那些
+   * **绕不开的场景**才需要手动请求 —— 以前只能写 `ice.dirty = true`，那是直接摸引擎的内部字段，
+   * 既没文档也没保证。这个方法是它的**公开表达**，并且会一并标记渲染队列需要重排。
+   *
+   * 幂等，可重复调用。
+   */
+  public requestRepaint(): this {
+    this.dirty = true;
+    if (this.renderer && typeof this.renderer.markQueueDirty === 'function') {
+      this.renderer.markQueueDirty();
+    }
+    return this;
   }
 
   /**
@@ -970,7 +1056,7 @@ class ICE {
    * 兜一层 try/catch 是为了"主题应用已经完成"这个不变量：订阅者（哪怕是绕过 `onThemeChange`
    * 直接挂在 evtBus 上的）抛异常，也不该让 `setTheme` 半路炸掉、把调用方搞懵。
    */
-  private __notifyThemeChange(previous: ICETheme, kind: 'theme' | 'chrome'): void {
+  private __notifyThemeChange(previous: ICETheme, kind: ICEThemeChangeInfo['kind']): void {
     const bus: any = this.__themeBus();
     try {
       bus.trigger(ICE_EVENT_NAME_CONSTS.THEME_CHANGE, null, { theme: this.theme, previous, kind });
