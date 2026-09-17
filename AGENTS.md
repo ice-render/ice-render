@@ -217,7 +217,9 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 
 > 复核日期 **2026-09-11**。此前本节长期停留在「8 suite / 36 用例」等早期口径，与仓库实际严重脱节，已按实测重写。
 
-- ~~P0：零单元测试~~ → **已偿还**：jest 单测 **101 个 suite / 788 个用例**（2026-09-13 实测），`jest.config.js` 配了「只许上调」的覆盖率门槛（语句 65 / 分支 58 / 函数 72 / 行 65），CI 用 `npm test -- --coverage` 跑。可视化/交互/像素一致性另有 Playwright（`e2e/`，`npm run test:visual`，**75 条**）。
+- ~~P0：零单元测试~~ → **已偿还**：jest 单测 **140 个 suite / 1173 个用例**（2026-09-17 实测），`jest.config.js` 配了「只许上调」的覆盖率门槛（语句 65 / 分支 58 / 函数 72 / 行 65），CI 用 `npm test -- --coverage` 跑。可视化/交互/像素一致性另有 Playwright（`e2e/`，`npm run test:visual`，**100 条**，2026-09-17 实测）。
+
+  > 数字只是**当天的快照**（加一条测试它就会变），别拿它当断言 —— 要看当前值就 `npx jest --listTests | wc -l` / `npm test` 直接跑。这里保留数字是为了"这套东西有多厚"，不是为了精确。
 - ~~P2：`tests/` 里 49 个 HTML 全是无断言的手测 demo~~ → **已收敛**：重命名为 `examples/`，由 `examples/generate-index.cjs` 生成导航页（88 个示例），自动化单测统一放顶层 `tests/`（镜像 `src/` 结构）。
   生成器跳过 `assets` / `node_modules` / 点开头目录（2026-09-13 修：此前会误收 `examples/mini-program/node_modules/**` 里第三方自带的示例 html，导航页从 88 条变 95 条）；`tests/tooling/examples-index.test.ts` 会静态校验「导航页 ↔ 磁盘示例文件」双向一致，所以新增示例后忘了重新生成也会红。
 - ~~P1：`ice-flow` 的 `ice-render` 版本声明写错~~ → **已修复**（改为 `^1.0.4`；下游 `.npmrc` 配 `legacy-peer-deps` 解 `rollup-plugin-uglify` 的 ERESOLVE）。
