@@ -228,6 +228,30 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   - `ICEControlPanelManager` 的「按组件类型展现不同操作工具」需要进一步抽象（`src/control-panel/ICEControlPanelManager.ts:27`）——插件机制已提供 `tools` 注册点，可视为该抽象的第一层。
   - `TransformControlPanel` 的**斜切（skew）手柄**未做（引擎的 skew 变换本身可用，缺的是手柄 UI）。
 
+## 成员顺序（2026-09-17 定）
+
+家族的应用层（各仓的页面 / 示例页）按这个顺序排类成员，正则 `S*T*F*C*(A|M)*`：
+
+```
+static 常量/字段  →  static 方法  →  实例字段  →  构造函数  →  访问器 / 实例方法
+```
+
+**本仓是引擎，`src/` 不强制这条** —— 存量里有一批刻意的"就近放置"：静态工厂/工具方法放在
+类尾（`ICE.linkViewport` / `headless`、`GeoUtil.*`）、私有 scratch 字段紧挨着用到它的方法
+（`ICEPolyLine.__polyBoxScratch`、`ICEText.__editInput`、`ICEComponent` 的
+`ANIMATION_SAFE_KEYS` + `isAnimationSafeKeyFor()`）。2026-09-17 全仓体检（372 个类）里有
+46 个类、144 处成员偏离，**不搬迁**，理由两条：
+
+1. **代价不对称**：收益只是"读起来齐"；代价是引擎里 144 处成员搬家（其中约 78 处是**字段**），
+   而 **TS 里字段的声明顺序是有语义的** —— 初始化按声明顺序执行，还影响 V8 的 class shape，
+   每一处都要人工确认初始化表达式互不依赖。为排版动引擎不划算；要做也得先只挪方法（约 66 处、
+   零风险），字段单独当一次重构排期。
+2. **这条顺序本身不是权威规定**：Google Java Style §3.4.2 明确说 class 成员顺序
+   "**没有唯一正确的配方**"（要的是每种顺序都讲得通、维护者能解释），Google 的 TypeScript
+   指南对顺序**完全沉默**（全文 "ordering" 出现 0 次）。
+
+**新代码照契约写；老代码遇到再改**（Boy Scout）。别为排版发起全量搬迁的提交。
+
 ## superpowers 协作约定
 
 本工程使用 superpowers 闭环开发：
