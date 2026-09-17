@@ -1,11 +1,13 @@
 // 命中测试的快路径契约：复用渲染器「已排序队列」+ 倒序扫描，必须与
-// 「展平整棵树 + 排序 + 升序扫描」给出**逐点相同**的结果。
+// 独立预言机（自己递归收集 + 精确点判定）给出**逐点相同**的结果。
 //
 // 背景：`hitTestComponents` 原先每次命中都要 flatten + sort（1 万组件实测 0.8ms/次），
 // 而 hover 类交互是逐次 mousemove 调的（`ICEHoverManager` / ice-chart 的 HitResolver 都走它）。
 // 快路径复用渲染器那份「只在结构/zIndex 变化时才重建」的队列，去掉每次命中的展平、排序与数组分配。
 //
-// 判据：与一个**独立预言机**（不看世界盒预筛、不复用队列，直接按 z 序升序 + 精确点判定）逐点比对。
+// **顺序语义（2026-09-17 渲染顺序铁律）**：绘制 = 树序（先父后子）+ 兄弟按 zIndex，
+// 且**工具层整体画在组件层之上**（两层不再按 zIndex 交叉排序）。
+// 判据：与一个**独立预言机**（不看世界盒预筛、不复用队列，自己按同一语义收集 + 精确点判定）逐点比对。
 // 世界盒预筛只是优化，它绝不能改变「点得到谁」这个结果。
 import CanvasRenderer from '../../src/renderer/CanvasRenderer';
 import ICE from '../../src/ICE';
@@ -14,7 +16,7 @@ import ICEGroup from '../../src/graphic/container/ICEGroup';
 import ICEText from '../../src/graphic/text/ICEText';
 import EventBus from '../../src/event/EventBus';
 import root from '../../src/cross-platform/root';
-import { flattenTree, isEffectivelyVisible } from '../../src/util/data-util';
+import { isEffectivelyVisible } from '../../src/util/data-util';
 
 class FakePath2D {
   _isPolyfill = true;
@@ -95,24 +97,40 @@ function renderFrame(ice: any) {
 }
 
 /**
- * 独立预言机：不复用任何队列、不做世界盒预筛 —— 只按「zIndex 升序、后者覆盖前者」的语义
- * 逐个用精确点判定找最上层的可交互组件。
+ * 独立预言机：不复用任何队列、不做世界盒预筛 —— 自己按「树序 + 兄弟按 zIndex」递归收集，
+ * 工具层整体在组件层之上，再逐个用精确点判定找最上层的可交互组件。
+ *
+ * 刻意**不调用** `flattenTree` / `sortSiblingsByZIndex`：预言机的意义就是另一份实现，
+ * 复用了就等于拿实现验证实现。
  */
 function oracleHit(ice: any, wx: number, wy: number): any {
-  const all: any[] = [];
-  flattenTree(all, ice.childNodes || []);
-  flattenTree(all, ice.toolNodes || []);
-  all.sort((a, b) => a.state.zIndex - b.state.zIndex);
-  let found: any = null;
-  for (const c of all) {
-    if (c.isControlPanel) continue;
-    if (!c.state.interactive || !isEffectivelyVisible(c)) continue;
-    if (c.containsPoint(wx, wy)) {
-      if (typeof c.isPointClippedOut === 'function' && c.isPointClippedOut(wx, wy)) continue;
-      found = c;
+  const collectOrdered = (nodes: any[], out: any[]) => {
+    // 排的是**副本**（不能动 childNodes），相等时保持加入顺序 → `sort` 稳定
+    const ordered = (nodes || []).slice().sort((a: any, b: any) => (a.state.zIndex || 0) - (b.state.zIndex || 0));
+    for (const node of ordered) {
+      out.push(node);
+      collectOrdered(node.childNodes || [], out);
     }
-  }
-  return found;
+  };
+  const comps: any[] = [];
+  const tools: any[] = [];
+  collectOrdered(ice.childNodes || [], comps);
+  collectOrdered(ice.toolNodes || [], tools);
+
+  const pick = (nodes: any[]): any => {
+    let found: any = null;
+    for (const c of nodes) {
+      if (c.isControlPanel) continue;
+      if (!c.state.interactive || !isEffectivelyVisible(c)) continue;
+      if (c.containsPoint(wx, wy)) {
+        if (typeof c.isPointClippedOut === 'function' && c.isPointClippedOut(wx, wy)) continue;
+        found = c;
+      }
+    }
+    return found;
+  };
+  // 工具层画在组件层之上 → 先问工具层
+  return pick(tools) || pick(comps);
 }
 
 /** 在画布上撒一格点，逐点比对「引擎 hitTest」与「独立预言机」。 */

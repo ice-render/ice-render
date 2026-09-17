@@ -7,6 +7,54 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+## [2.13.0] - 2026-09-17
+
+### 变更（⚠️ 渲染顺序语义变了）
+
+- **渲染顺序改为「树序 + 兄弟按 zIndex」**：绘制 = **先父后子**；`state.zIndex` **只在兄弟之间**
+  比较（相等时保持加入顺序）。另外把**工具层整体画在组件层之上**这条摆正 —— 两层过去是
+  按 zIndex **交叉排序**的，现在按渲染实际顺序（`componentQueue` → `toolsQueue`）判定。
+
+  **修的是什么**：默认 `zIndex` 是**构造顺序计数器**（`ICEComponent.instanceCounter++`），
+  而队列过去是"展平后**全局**按 zIndex 排序"。于是**父容器比子组件后构造**时，父的 zIndex
+  反超自己的整棵子树 → **父把自己的子组件整个盖住**：画出来一片空白、**不报错**、单测也不红。
+
+  真机 before/after（`e2e/visual/render-order.spec.ts` + `examples/render-order/tree-order.html`：
+  子矩形先建、父分组后建，父子重叠）：
+
+  | | 子矩形中心像素 |
+  |---|---|
+  | 旧实现 | `#0d6efd`（被父的蓝底盖住） |
+  | 新实现 | `#dc3545`（子组件可见） |
+
+  **对使用者的影响**：
+  - 兄弟之间的分层**不变**（默认 zIndex 仍是构造顺序，所以"后加的兄弟在上面"照旧）；
+  - 想跨子树压层（"我这块要盖住隔壁那块"）要抬**共同祖先那一层的兄弟**，不能只抬深层节点
+    —— 子树的叠放位置由它在兄弟里的位置决定（与 DOM / Swing 同语义）；
+  - 家族里为绕开这个坑写的 `raiseSubtree`（把整棵子树设成同一个 zIndex）**保留无害**，
+    新代码不需要它了。
+
+### 三处同源（改一处必须改三处）
+
+| 位置 | 变成 |
+|---|---|
+| `util/data-util.ts` 的 `flattenTree` | 递归时**先排兄弟**（排副本，`childNodes` 本身不动）；新增 `sortSiblingsByZIndex` |
+| `CanvasRenderer.__rebuildQueue` | **不再全局 sort**；`zIndex` 变化走重建但**保留上屏快照**（成员没变 → 局部重绘仍成立） |
+| `SvgExporter` | 导出顺序同样按兄弟排，不再全局 sort |
+
+命中判定与绘制**同源**：`hitTestComponents` 的两条路径（渲染队列 / headless 回退）都改为
+「先扫工具层、再扫组件层」。顺带修掉一个既有的不一致：组件显式给很大的 zIndex（`BIG_ZINDEX_NUMBER`
+那档）时，旧实现"看着被工具层盖住却点得到"。
+
+### 回归
+
+- 新增 `tests/renderer/render-order.test.ts`（6 条：父晚于子构造仍可见 / 兄弟 zIndex / 跨子树不越级 /
+  工具层在组件层之上 / zIndex 变更后不退回全局排序 / `flattenTree` 不改 `childNodes`）；
+- `tests/renderer/hit-test-ordered.test.ts` 的**独立预言机**按新语义重写（刻意不调用 `flattenTree`，
+  否则等于拿实现验证实现）—— 9800 点逐点比对；
+- 新增真机用例 `e2e/visual/render-order.spec.ts` + 示例页 `examples/render-order/tree-order.html`；
+- `tests/renderer/CanvasRenderer.dirty-rect.test.ts` 的「zIndex 变更后仍局部重绘」继续通过。
+
 ## [2.12.3] - 2026-09-17
 
 ### 文档

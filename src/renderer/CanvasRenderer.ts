@@ -192,26 +192,36 @@ class CanvasRenderer extends ICEEventTarget {
       return;
     }
     //结构未变：仅检查 zIndex 是否真的发生变化（O(n) 整数比对，无数组分配）。
-    // 仅当顺序确实改变时才重新排序，否则直接复用上一次的队列。
+    // 变了就**整队重建**（重建走的是"树序 + 兄弟按 zIndex"，见 flattenTree）——
+    // 不能在这里对已展平的数组再排一次：那会把"只排兄弟"重新变成"全局排序"，
+    // 父容器就会反超自己的子树（渲染顺序铁律，2026-09-17）。
     if (this.__zOrderChanged()) {
-      const compareZ = (a: any, b: any) => a.state.zIndex - b.state.zIndex;
-      this.componentQueue.sort(compareZ);
-      this.toolsQueue.sort(compareZ);
-      this.__snapshotZ();
+      // 只换了次序、成员没变 → **上屏快照仍然有效**，别清掉：清了本帧就得回退全量。
+      // 局部重绘路径本身就是"与该区域相交者按新序重画"，叠放次序变化能正确落地（见 __renderDirtyRect）。
+      this.__rebuildQueue(true);
     }
   }
 
-  private __rebuildQueue() {
-    const compareZ = (a: any, b: any) => a.state.zIndex - b.state.zIndex;
+  /**
+   * 重建渲染队列。
+   *
+   * @param keepSnapshots 仅**次序**变化（成员集合没变）时传 true：保留上屏快照与 prime 状态，
+   *   让 dirty-rect 路径继续局部重绘；树结构变化时必须为 false（成员进出，旧快照不再可信）。
+   */
+  private __rebuildQueue(keepSnapshots: boolean = false) {
+    /**
+     * **不要再全局 sort 一次**：`flattenTree` 给出的已经是最终绘制顺序
+     * （先父后子 + 兄弟按 zIndex，见 `util/data-util.ts` 的渲染顺序铁律）。
+     */
     this.componentQueue = flattenTree([], this.ice.childNodes);
-    this.componentQueue.sort(compareZ);
     this.toolsQueue = flattenTree([], this.ice.toolNodes);
-    this.toolsQueue.sort(compareZ);
     this.__queueDirty = false;
     this.__snapshotZ();
-    // 结构变了：快照整体失效，下一次渲染必须先全量 prime。
-    this.__snap = new WeakMap();
-    this.__primed = false;
+    if (!keepSnapshots) {
+      // 结构变了：快照整体失效，下一次渲染必须先全量 prime。
+      this.__snap = new WeakMap();
+      this.__primed = false;
+    }
     // 结构变了：静态层的成员集合/次序也失效（成员是队列里的连续一段）。
     this.__layer = null;
   }

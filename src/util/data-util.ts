@@ -80,6 +80,15 @@ export function flattenAllComponents(ice: any, result: any[] = []): any[] {
  */
 export function hitTestComponents(ice: any, wx: number, wy: number, tolerance: number): any {
   const renderer: any = ice.renderer;
+  /**
+   * 命中判定必须与**绘制顺序**同源（渲染顺序铁律，2026-09-17）：绘制顺序是
+   * 「组件层（树序） → 工具层（树序）」，所以命中从后往前找时也是
+   * **先扫工具层、再扫组件层**。
+   *
+   * 旧实现把两层**按 zIndex 混在一起排序** —— 那是"全局 zIndex"时代的产物：
+   * 组件如果显式给了个很大的 zIndex（`BIG_ZINDEX_NUMBER` 那档），命中会把它当成
+   * 比工具层更上层，但绘制上它其实被工具层盖着，于是"看着被遮住却点得到"。
+   */
   if (renderer && typeof renderer.getOrderedQueues === 'function') {
     // 快路径：复用渲染器那份「已排序、且只在结构/zIndex 变化时重建」的队列，**倒序**扫描，
     // 第一个命中即 z 序最高者（与下面升序扫描「后者覆盖前者」等价）。
@@ -88,44 +97,36 @@ export function hitTestComponents(ice: any, wx: number, wy: number, tolerance: n
     const q = renderer.getOrderedQueues();
     const comps: any[] = q.components || [];
     const tools: any[] = q.tools || [];
-    let i = comps.length - 1;
-    let j = tools.length - 1;
-    while (i >= 0 || j >= 0) {
-      let component: any;
-      if (i < 0) {
-        component = tools[j--];
-      } else if (j < 0) {
-        component = comps[i--];
-      } else if (tools[j].state.zIndex >= comps[i].state.zIndex) {
-        // zIndex 相等时取工具：升序排列里工具在后（组件树在前、工具树在后），倒序扫描要先遇到它
-        component = tools[j--];
-      } else {
-        component = comps[i--];
-      }
-      if (component.isControlPanel) continue;
-      if (!component.state.interactive || !isEffectivelyVisible(component)) continue;
-      const box: any = renderer.getWorldBox(component);
-      if (
-        box &&
-        (wx < box[0] - tolerance || wx > box[2] + tolerance || wy < box[1] - tolerance || wy > box[3] + tolerance)
-      ) {
-        continue;
-      }
-      if (component.containsPoint(wx, wy)) {
-        // 被祖先裁剪掉的部分不该命中（例如滚动容器里滚出可视区的子组件）
-        if (typeof component.isPointClippedOut === 'function' && component.isPointClippedOut(wx, wy)) {
+    const tryLayer = (nodes: any[]): any => {
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        const component: any = nodes[i];
+        if (component.isControlPanel) continue;
+        if (!component.state.interactive || !isEffectivelyVisible(component)) continue;
+        const box: any = renderer.getWorldBox(component);
+        if (
+          box &&
+          (wx < box[0] - tolerance || wx > box[2] + tolerance || wy < box[1] - tolerance || wy > box[3] + tolerance)
+        ) {
           continue;
         }
-        return component;
+        if (component.containsPoint(wx, wy)) {
+          // 被祖先裁剪掉的部分不该命中（例如滚动容器里滚出可视区的子组件）
+          if (typeof component.isPointClippedOut === 'function' && component.isPointClippedOut(wx, wy)) {
+            continue;
+          }
+          return component;
+        }
       }
-    }
-    return null;
+      return null;
+    };
+    // 工具层画在组件层之上 → 先扫工具层
+    return tryLayer(tools) || tryLayer(comps);
   }
 
-  // 回退路径：没有渲染器（headless 建树 / 未 init / 单测夹具）时，回到「展平 + 排序 + 升序扫描」。
+  // 回退路径：没有渲染器（headless 建树 / 未 init / 单测夹具）时，回到「展平 + 升序扫描」。
   // 语义与快路径逐条对齐，两条路径都必须给出同一个结果（回归用例逐点比对）。
+  // `flattenAllComponents` 已经是「树序 + 兄弟按 zIndex」（见 `flattenTree`），**不要再全局排序**。
   const all = flattenAllComponents(ice);
-  all.sort((a: any, b: any) => a.state.zIndex - b.state.zIndex);
 
   const canScreen = renderer && typeof renderer.getWorldBox === 'function';
 
@@ -155,8 +156,23 @@ export function hitTestComponents(ice: any, wx: number, wy: number, tolerance: n
 }
 
 export function flattenTree(result: any[] = [], childNodes: any[] = [], level: number = 1, pid: any = null): any[] {
-  for (let i = 0; i < childNodes.length; i++) {
-    const node = childNodes[i];
+  /**
+   * **渲染顺序铁律（2026-09-17，v2.13.0）：树序 + 兄弟按 zIndex。**
+   *
+   * 展平的顺序就是绘制顺序：**先父后子**，同一父容器下的兄弟按 `state.zIndex` 升序
+   * （相等时保持加入顺序 —— `Array.prototype.sort` 自 ES2019 起稳定）。
+   *
+   * 为什么不再"全局按 zIndex 排序"：默认 `zIndex` 是**构造顺序计数器**
+   * （`ICEComponent.instanceCounter++`），全局排序下"父容器比子组件后构造"会让父的 zIndex
+   * 反超自己的子树 → **父把自己的子组件整个盖住**（画出来一片空白、且不报错）。
+   * 树序下这种倒挂不可能发生：子永远画在父之上。
+   *
+   * 注意：**只排兄弟**，且排的是**副本**（`childNodes` 本身保持加入顺序 ——
+   * 调用方按 `childNodes[0]` 取"第一个子节点"是既有语义，不能被动过）。
+   */
+  const ordered = sortSiblingsByZIndex(childNodes);
+  for (let i = 0; i < ordered.length; i++) {
+    const node = ordered[i];
     node._level = level;
     node._pid = pid;
     result.push(node);
@@ -166,6 +182,19 @@ export function flattenTree(result: any[] = [], childNodes: any[] = [], level: n
     flattenTree(result, node.childNodes || [], level + 1, childPid);
   }
   return result;
+}
+
+/**
+ * 兄弟节点按 `zIndex` 升序排序（稳定）。**长度 < 2 时不复制**，直接返回原数组 ——
+ * 绝大多数容器只有 0~1 个子节点，这条快路径让"每次展平都复制一份 childNodes"的开销归零。
+ */
+export function sortSiblingsByZIndex(childNodes: any[]): any[] {
+  if (!childNodes || childNodes.length < 2) {
+    return childNodes || [];
+  }
+  const copy = childNodes.slice();
+  copy.sort((a: any, b: any) => (a && a.state ? a.state.zIndex || 0 : 0) - (b && b.state ? b.state.zIndex || 0 : 0));
+  return copy;
 }
 
 /**

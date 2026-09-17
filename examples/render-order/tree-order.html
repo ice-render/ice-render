@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>渲染顺序：树序 + 兄弟按 zIndex</title>
+  <body style="margin: 0; background: #f7f7f7">
+    <canvas id="canvas-1" width="900" height="360" style="background-color: #ffffff"></canvas>
+    <script src="../../dist/index.umd.js"></script>
+  </body>
+  <script type="text/javascript">
+    const ice = new ICE.ICE().init('canvas-1');
+
+    /**
+     * 渲染顺序铁律（v2.13.0）：绘制 = 树序（先父后子）+ 兄弟按 zIndex。
+     *
+     * 左边这一组刻意**先建子、后建父** —— 默认 zIndex 是构造顺序计数器，旧实现下父的 zIndex
+     * 反超自己的子树，父的底色会把子组件整个盖住（画出来一片空白）。
+     * 现在子组件必须可见。
+     */
+    const childFirst = new ICE.ICERect({
+      id: 'child-first-child',
+      left: 40,
+      top: 60,
+      width: 120,
+      height: 80,
+      radius: 4,
+      style: { fillStyle: '#DC3545' }, // 红：应当可见
+    });
+    const parentLater = new ICE.ICEGroup({
+      id: 'child-first-parent',
+      left: 20,
+      top: 40,
+      width: 160,
+      height: 120,
+      style: { fillStyle: '#0D6EFD', strokeStyle: '#0A58CA', lineWidth: 2 }, // 蓝底
+    });
+    parentLater.addChild(childFirst);
+    ice.addChild(parentLater);
+
+    /** 右边：同一个父下的兄弟按 zIndex 排（绿 z=1 在黄 z=2 之下，后画的黄压在绿上）。 */
+    const green = new ICE.ICERect({
+      id: 'sib-green',
+      left: 300,
+      top: 60,
+      width: 140,
+      height: 80,
+      zIndex: 1,
+      style: { fillStyle: '#198754' },
+    });
+    const yellow = new ICE.ICERect({
+      id: 'sib-yellow',
+      left: 380,
+      top: 60,
+      width: 140,
+      height: 80,
+      zIndex: 2,
+      style: { fillStyle: '#FFC107' },
+    });
+    ice.addChild(green);
+    ice.addChild(yellow);
+
+    window.__renderOrder = { ice, parentLater, childFirst, green, yellow };
+  </script>
+</html>

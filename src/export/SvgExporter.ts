@@ -12,6 +12,7 @@ import { resolveLetterSpacingPx, resolveTextDecorations } from '../graphic/text/
 import ICEImage from '../graphic/ICEImage';
 import { SHADOW_PRESETS } from '../graphic/ICEComponent';
 import { isTokenRef, resolveThemeValue } from '../theme/ICETheme';
+import { sortSiblingsByZIndex } from '../util/data-util';
 
 /**
  * @file SVG 导出
@@ -20,7 +21,7 @@ import { isTokenRef, resolveThemeValue } from '../theme/ICETheme';
  * 自己的命令流（见 cross-platform/Path2DRecorder.ts），于是同一份场景可以再输出一份矢量。
  *
  * 导出器刻意**镜像渲染器的口径**，而不是另起一套：
- * - 绘制顺序 = 渲染队列的顺序（`flattenTree` 后按 `state.zIndex` 稳定排序），工具层默认不导出；
+ * - 绘制顺序 = 渲染队列的顺序（**树序 + 兄弟按 `state.zIndex`**，与 `flattenTree` 同源），工具层默认不导出；
  * - 每个组件的变换 = `composeMatrix()`（本地 → 世界），整体再套一层「世界 → 视图」矩阵，
  *   与 `applyTransformToCtx()` 的 `viewport · composed` 完全对应；
  * - 填充/描边 = `state.fill` / `state.stroke` + `props.style` 与 `state.style` 合并后的键
@@ -449,9 +450,12 @@ function exportLayersResult(targets: any[], options: SvgExportOptions = {}): Svg
     const isIceRoot = !!(target.childNodes && target.getRenderViewport);
     const ice = isIceRoot ? target : target.ice;
     const queue: any[] = [];
+    // 层内顺序 = 渲染顺序（树序 + 兄弟按 zIndex，见 `util/data-util.ts` 的渲染顺序铁律）：
+    // 递归时先把兄弟排好，**不做全局排序** —— 全局排序会把父容器排到自己的子树之上。
     const collect = (nodes: any[]): void => {
-      for (let j = 0; j < nodes.length; j++) {
-        const node = nodes[j];
+      const ordered = sortSiblingsByZIndex(nodes);
+      for (let j = 0; j < ordered.length; j++) {
+        const node = ordered[j];
         queue.push(node);
         if (node.childNodes && node.childNodes.length) {
           collect(node.childNodes);
@@ -462,7 +466,6 @@ function exportLayersResult(targets: any[], options: SvgExportOptions = {}): Svg
     if (options.includeTools && ice && ice.toolNodes) {
       collect(ice.toolNodes);
     }
-    queue.sort((a: any, b: any) => (a.state.zIndex || 0) - (b.state.zIndex || 0));
     layers.push({ ice, queue });
   }
   // 视口模式取第一层的视口；内容模式把各层内容并起来算包围盒
