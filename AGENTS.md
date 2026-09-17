@@ -268,6 +268,11 @@ static 常量/字段  →  static 方法  →  实例字段  →  构造函数  
 
 ### 家族 e2e / 预览端口分配（2026-09-15 确立）
 
+**家族应用层写法（单一来源）**：页面怎么写 —— 一页一类、`onUpdate()` 由谁在什么时候调用、
+稳定结构与可变内容的边界、四个入口（引擎原语 / 组件库 / 设计器 / DSL）怎么选、验收清单 ——
+正文在 `ice-web-components/docs/guides/app-pages.md`；容器契约在
+`ice-web-components/docs/guides/layout.md` 第六节。各应用仓的 AGENTS 只记自己特有的部分。
+
 各仓常常在同一台机器上同时跑 e2e / 预览，**端口必须一仓一个、并写进各仓 config 注释**：
 
 | 仓 | 端口 | 用途 |
