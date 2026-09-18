@@ -377,7 +377,7 @@ abstract class ICEComponent extends ICEEventTarget {
    *   draggable:true,                              //是否可以拖动
    *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
    *   linkable:true,                               //组件是否可以用连接线连接起来，如果此状态为 true ，ICELinkSlotManager 在运行时会动态在组件上创建连接插槽 ICELinkSlot 的实例
-   *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable TODO:动画运行过程中不允许选中，不能进行交互？？？
+   *   interactive: true,                           //是否可以进行用户交互操作；为 false 时拖拽/变换/选中全部关闭（要"动画期间不许动"就把它关掉——引擎不做隐式互斥）
    *   showMinBoundingBox:true,                     //是否显示最小包围盒，开发时打开，主要用于 debug
    *   showMaxBoundingBox:true,                     //是否显示最大包围盒，开发时打开，主要用于 debug
    * }

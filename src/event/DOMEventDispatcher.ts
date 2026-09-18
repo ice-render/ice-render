@@ -104,9 +104,9 @@ class DOMEventDispatcher {
         //! 键盘事件必须先选中组件再派发才有意义，同样不做命中检测。
         if (!isMove && !isKeyboard && !isWheel) {
           // 控制面板**不参与命中**（`findTargetComponent` 跳过 `isControlPanel`），所以面板盖在
-          // 组件上不会挡住点击 —— 这条曾经是 FIXME（"面板遮挡导致组件收不到事件"），
-          // 2026-09-08 修掉之后回归钉在 `tests/event/DOMEventDispatcher.test.ts`
-          // （面板覆盖父容器包围盒时，点击子组件仍命中子组件）。
+          // 组件上不会挡住点击。（这条以前挂着"面板遮挡导致组件收不到事件"的待办，
+          // 2026-09-08 修掉之后回归钉在 `tests/event/DOMEventDispatcher.test.ts`：
+          // 面板覆盖父容器包围盒时，点击子组件仍命中子组件。）
           componentCache = this.findTargetComponent(evt);
         }
 

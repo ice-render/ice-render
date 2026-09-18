@@ -253,9 +253,18 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 - ~~P1：README 称"纯 TypeScript"但残留 7 个 `.js`~~ → **已偿还**：全部迁移为 `.ts`，`types:check` 与 `build:types` 零错误。
 - ~~P2：`CanvasRenderer.doRender()` 未使用 `startTime` 死代码；`ICE.init()` 留有 `//FIXME:防止 init 方法被调用多次`~~ → **已偿还**（两者均已不存在）。
 - **P2（仍在）**：下游 `ice-entity-designer` 的 `rollup` 2 / `typescript` 4.6 与引擎（rollup 3 / TS 5.9）仍分叉（eslint 已统一到 8）。副作用之一：`typescript@4.6.2` 的已发布包里带着 `prepare: gulp build-eslint-rules`，导致用 `file:` 链接该包的工程 `npm install` 会以 `code 127` 失败（需 `--ignore-scripts`；升到 TS 5.6+ 可根治）。
-- **P2（仍在）**：`src/` 里还有 **23 处 TODO/FIXME**，集中在 `TransformControlPanel.ts`(6)、`ICEText.ts`(4)、`ICEVisioLink.ts`(3)、`LineControlPanel.ts`(3)。其中只有两条是实质性缺口，其余是「尺寸/样式应做成可配置参数」这类小项：
-  - `ICEControlPanelManager` 的「按组件类型展现不同操作工具」需要进一步抽象（`src/control-panel/ICEControlPanelManager.ts:27`）——插件机制已提供 `tools` 注册点，可视为该抽象的第一层。
+- **P2（仍在）**：`src/` 里还有 **9 处 TODO/FIXME**（2026-09-18 复核）。此前这一行记的是 23 处，
+  其中「尺寸/样式应做成可配置参数」那批**已经做完** —— 控制面板手柄尺寸现在由
+  `ICE.init(ctx, { controlPanel: { resizeControlSize, rotateControlSize, rotateControlOffsetY, lineControlSize } })`
+  传入（默认值不变，非法值退回默认），另外清掉了三条**已经过期**的注释
+  （`destory()` 停动画 ×2、`DOMEventDispatcher` 的面板遮挡）。
+  剩下 9 处分布在 `ICEText.ts`(4) 与其余 5 个文件各 1 处，**实质缺口只有两条**：
+  - `ICEControlPanelManager` 的「按组件类型展现不同操作工具」需要进一步抽象（`src/control-panel/ICEControlPanelManager.ts`）——插件机制已提供 `tools` 注册点，可视为该抽象的第一层。
   - `TransformControlPanel` 的**斜切（skew）手柄**未做（引擎的 skew 变换本身可用，缺的是手柄 UI）。
+
+  其余 7 处更接近「未来能力」而不是缺陷：`ICEText` 的沿路径排字 / 量测性能与无 DOM 运行时兼容 /
+  位置精度，`ICEEventTarget` 的 W3C 事件 API 对齐，`cross-platform/root` 的 Node canvas，
+  `ICEVisioLink` 想去掉对 `GeoPoint` / `GeoLine` 的依赖。
 
 ## 成员顺序（2026-09-17 定）
 

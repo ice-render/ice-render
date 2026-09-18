@@ -23,6 +23,26 @@
 
 ### 文档
 
+- `ICEVisioLink` 的构造参数**补全了文档**（`escapeDistance` / `linkShape` / `links` /
+  `arrow` / `style.label.offset` 等，原本只有一句 `FIXME`）。
+- [07 交互与动画](docs/architecture/07-interaction-animation.md) 补了「正交路由怎么算」一节：
+  候选 → 三道过滤 → 避障 → 打分，连同那条案例数据（24 处穿线 → 0）和两个踩过的坑。
+- [09 路线图](docs/architecture/09-roadmap.md) 的「连接线」一行补上 2.15.0 的标签偏移与
+  2.16.0 的避障；README 的 `ICE.init` 选项处补上 `controlPanel`，连接线一节补上避障。
+- `AGENTS.md` 的「已知技术债」复核：TODO/FIXME 由 23 处降到 **9 处**，
+  「尺寸/样式可配置」那批已做完，实质缺口只剩两条（控制面板按类型选工具、斜切手柄）。
+
+### 修复
+
+- `ICEVisioLink.lineIntersectsLine()` 改用**参数方程**判线段相交（`p + t·r` 与 `q + u·s`），
+  替掉原来的"竖×竖 / 竖×斜 / 斜×斜"三支轴向特判 —— 分支更少，且共线重叠对**任意方向**都成立
+  （旧实现只覆盖轴向与同斜率两种）。
+
+  ⚠️ **行为口径不变**：交点判定仍然走 `GeoLine.contains()`（带 3px 容差，"几乎贴到"也算相交）。
+  这条容差是承重的 —— 正交路由靠它把"线贴着图元边框走"判成穿越，换成精确比较会让一批
+  本该绕开的走线悄悄贴着边框过去。回归逐条钉住口径：真交叉 / 端点相接 / 共线重叠（横竖斜）/
+  平行不相交 / 贴边容忍，见 `tests/link/visio-link-obstacle.test.ts`。
+
 - 清掉三条**已经过期**的 FIXME 注释（行为与回归都在，只是注释没跟上）：
   `ICEComponent.destory()` / `ICEGroup.destory()` 的「立即停止组件上的所有动画」
   （实现里早已把组件从动画管理器摘除，回归在 `tests/animation/animation.extended.test.ts`）；

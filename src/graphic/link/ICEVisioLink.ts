@@ -60,7 +60,20 @@ const ROUTE_OBSTACLE_CHECK_LIMIT = 24;
  */
 export default class ICEVisioLink extends ICEPolyLine {
   /**
-   * FIXME:补全 props 配置项的描述
+   * 构造参数（`props`）—— 与 `arrangeParam()` 的默认值一一对应：
+   *
+   * | 参数 | 默认 | 说明 |
+   * |---|---|---|
+   * | `startPoint` / `endPoint` | `[0,0]` / `[10,10]` | 两端点（世界坐标）；会被写进 `points` 的头尾 |
+   * | `points` | `[startPoint, endPoint]` | 折线点集；**由路由器重算**，调用方给了也只当初始值 |
+   * | `links` | — | 两端挂在哪个组件的哪个插槽：`{ start: {id, position}, end: {id, position} }`，`position` 取 `T/R/B/L/C` |
+   * | `escapeDistance` | `30` | 逃逸距离：端点先沿插槽法线走出去多远，再开始正交路由 |
+   * | `linkShape` | `'visio'` | `'visio'` = 正交折线（默认，走本文件的路由器）；`'bezier'` = 插槽法线方向的三次贝塞尔采样 |
+   * | `routeType` / `routeOffset` | 由父类 `ICEPolyLine` 消费 | **只管非 Visio 形态**；`linkShape: 'bezier'` 时 `recalculateRoute()` 直接跳过 |
+   * | `label` / `style.label` | — | 连线标签与外观（`style.label.offset` 可把标签挪开，见 2.15.0） |
+   * | `arrow` / `arrowStyle` | `'end'` / 实心 | 端点箭头：`'end' \| 'start' \| 'none'`，`'filled' \| 'hollow'` |
+   *
+   * 避障（2.16.0）：正交路由会把**走廊里的其他图元**当障碍绕开，规则见 `collectRouteObstacles()`。
    */
   constructor(props: any = {}) {
     props = ICEVisioLink.arrangeParam(props);
@@ -609,68 +622,45 @@ export default class ICEVisioLink extends ICEPolyLine {
   }
 
   /**
-   * FIXME: 用更好的数学方法进行计算。
-   * Test to see if 2 {Line}s intersects. They are considered finite segments
-   * and not the infinite lines from geometry
-   * @param {Line} l1 - fist line/segment
-   * @param {Line} l2 - last line/segment
-   * @return {Boolean} true - if the lines intersect or false if not
+   * 两条**有限线段**是否相交（不是几何上的"无限直线"）。
+   *
+   * 旧实现按"轴向"分支：竖×竖、竖×斜、斜×斜各写一支，还得靠 `contains()` 兜端点相接。
+   * 现在用一套**参数方程**：`p + t·r` 与 `q + u·s`，解出 t、u 落在 [0,1] 即相交，
+   * 共线（叉积为 0）时退化成"投影区间是否重叠"。分支少了，且**共线重叠对任意方向都成立**
+   * —— 旧实现只覆盖了轴向与同斜率两种共线情形。
+   *
+   * ⚠️ 交点判定仍然走 `GeoLine.contains()`：它带 **3px 容差**（`len1 + len2` 与线段长度比），
+   * 也就是"几乎贴到"就算相交。这条口径是**承重的** —— 正交路由靠它把"线贴着图元边框走"
+   * 判成穿越；换成精确比较会让一批本该绕开的走线悄悄贴着边框走。
    */
   private lineIntersectsLine(l1, l2) {
-    // check for two vertical lines
-    if (l1.startPoint.x == l1.endPoint.x && l2.startPoint.x == l2.endPoint.x) {
-      return l1.startPoint.x == l2.startPoint.x // if 'infinite 'lines do coincide,
-        ? // then check segment bounds for overlapping
-          l1.contains(l2.startPoint.x, l2.startPoint.y) || l1.contains(l2.endPoint.x, l2.endPoint.y)
-        : // lines are paralel
-          false;
-    }
-    // if one line is vertical, and another line is not vertical
-    else if (l1.startPoint.x == l1.endPoint.x || l2.startPoint.x == l2.endPoint.x) {
-      // let assume l2 is vertical, otherwise exchange them
-      if (l1.startPoint.x == l1.endPoint.x) {
-        const l = l1;
-        l1 = l2;
-        l2 = l;
-      }
-      // finding intersection of 'infinite' lines
-      // equation of the first line is y = ax + b, second: x = c
-      const a = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
-      const b = l1.startPoint.y - a * l1.startPoint.x;
-      const x0 = l2.startPoint.x;
-      const y0 = a * x0 + b;
-      return l1.contains(x0, y0) && l2.contains(x0, y0);
-    }
-    // check normal case - both lines are not vertical
-    else {
-      //line equation is : y = a*x + b, b = y - a * x
-      const a1 = (l1.endPoint.y - l1.startPoint.y) / (l1.endPoint.x - l1.startPoint.x);
-      const b1 = l1.startPoint.y - a1 * l1.startPoint.x;
-      const a2 = (l2.endPoint.y - l2.startPoint.y) / (l2.endPoint.x - l2.startPoint.x);
-      const b2 = l2.startPoint.y - a2 * l2.startPoint.x;
+    const p1 = l1.startPoint;
+    const p2 = l1.endPoint;
+    const q1 = l2.startPoint;
+    const q2 = l2.endPoint;
 
-      if (a1 == a2) {
-        //paralel lines
-        return b1 == b2
-          ? // for coincide lines, check for segment bounds overlapping
-            l1.contains(l2.startPoint.x, l2.startPoint.y) || l1.contains(l2.endPoint.x, l2.endPoint.y)
-          : // not coincide paralel lines have no chance to intersect
-            false;
-      } else {
-        //usual case - non paralel, the 'infinite' lines intersects...we only need to know if inside the segment
-        /*
-         * if one of the lines are vertical, then x0 is equal to their x,
-         * otherwise:
-         * y1 = a1 * x + b1
-         * y2 = a2 * x + b2
-         * => x0 = (b2 - b1) / (a1 - a2)
-         * => y0 = a1 * x0 + b1
-         */
-        const x0 = (b2 - b1) / (a1 - a2);
-        const y0 = a1 * x0 + b1;
-        return l1.contains(x0, y0) && l2.contains(x0, y0);
+    const r = [p2.x - p1.x, p2.y - p1.y];
+    const s = [q2.x - q1.x, q2.y - q1.y];
+    const qp = [q1.x - p1.x, q1.y - p1.y];
+    const denom = r[0] * s[1] - r[1] * s[0];
+
+    if (denom === 0) {
+      // 平行：只有共线（叉积也为 0）才可能相交，接着比投影区间
+      const collinear = qp[0] * r[1] - qp[1] * r[0] === 0;
+      if (!collinear) {
+        return false;
       }
+      return l1.contains(q1.x, q1.y) || l1.contains(q2.x, q2.y) || l2.contains(p1.x, p1.y) || l2.contains(p2.x, p2.y);
     }
+
+    const t = (qp[0] * s[1] - qp[1] * s[0]) / denom;
+    const u = (qp[0] * r[1] - qp[1] * r[0]) / denom;
+    if (t < 0 || t > 1 || u < 0 || u > 1) {
+      return false;
+    }
+    const x0 = p1.x + t * r[0];
+    const y0 = p1.y + t * r[1];
+    return l1.contains(x0, y0) && l2.contains(x0, y0);
   }
 
   /**
