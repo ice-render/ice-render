@@ -30,7 +30,12 @@ import ICEControlPanel from '../ICEControlPanel';
  * @author 大漠穷秋<damoqiongqiu@126.com>
  */
 export default class LineControlPanel extends ICEControlPanel {
-  private controlSize: number = 16; //TODO:改成可配置参数
+  /**
+   * 两端端点手柄（`ICELinkHook`）的边长：**构造时可配**（宿主走
+   * `ICE.init(ctx, { controlPanel: { lineControlSize } })`）。默认 16 = 历史行为。
+   * 只接受有限正数，非法值退回默认（理由同 `TransformControlPanel` 的手柄尺寸）。
+   */
+  public controlSize: number = 16;
   private startControl: ICELinkHook;
   private endControl: ICELinkHook;
 
@@ -42,6 +47,9 @@ export default class LineControlPanel extends ICEControlPanel {
       showMinBoundingBox: false,
       showMaxBoundingBox: false,
     });
+    if (typeof props?.controlSize === 'number' && Number.isFinite(props.controlSize) && props.controlSize > 0) {
+      this.controlSize = props.controlSize;
+    }
     this.initControls();
   }
 

@@ -11,7 +11,7 @@ import AnimationManager from './animation/AnimationManager';
 import { componentTypeEntries } from './consts/COMPONENT_TYPE_MAPPING';
 import { layoutTypeEntries } from './consts/LAYOUT_TYPE_MAPPING';
 import ICE_EVENT_NAME_CONSTS from './consts/ICE_EVENT_NAME_CONSTS';
-import ICEControlPanelManager from './control-panel/ICEControlPanelManager';
+import ICEControlPanelManager, { type ControlPanelOptions } from './control-panel/ICEControlPanelManager';
 import AlignmentGuideManager from './control-panel/AlignmentGuideManager';
 import root from './cross-platform/root';
 import DOMEventDispatcher from './event/DOMEventDispatcher';
@@ -261,13 +261,20 @@ class ICE {
 
   /**
    * @param ctx DOM id、HTMLCanvasElement 或 CanvasRenderingContext2D
-   * @param options 渲染配置。renderMode: 'dirty-rect'(默认) | 'full'
+   * @param options 渲染与外壳配置。
+   *   - `renderMode`: 'dirty-rect'(默认) | 'full'
+   *   - `dpr`: 设备像素比（默认 1）
+   *   - `controlPanel`: 控制面板手柄尺寸（`resizeControlSize` / `rotateControlSize` /
+   *     `rotateControlOffsetY` / `lineControlSize`），不传即历史默认值
    *
    * 幂等：同一个 ICE 实例重复 init 到同一个 canvas 时直接返回自身。
    * React StrictMode 下 effect 会被执行两次，幂等可以避免重复挂载 Manager / 重复绑定全局事件。
    * 若要换一个 canvas，请先调用 destroy()。
    */
-  public init(ctx: any, options: { renderMode?: 'full' | 'dirty-rect'; dpr?: number } = {}) {
+  public init(
+    ctx: any,
+    options: { renderMode?: 'full' | 'dirty-rect'; dpr?: number; controlPanel?: ControlPanelOptions } = {}
+  ) {
     if (!ctx) {
       throw iceError(ICE_ERROR_CODES.INIT_TARGET_REQUIRED, 'ICE.init() failed...');
     }
@@ -340,7 +347,7 @@ class ICE {
     DOMEventInterceptor.start();
     this.eventDispatcher = new DOMEventDispatcher(this).start();
     this.animationManager = new AnimationManager(this).start();
-    this.controlPanelManager = new ICEControlPanelManager(this).start();
+    this.controlPanelManager = new ICEControlPanelManager(this, options.controlPanel).start();
     this.renderer = new CanvasRenderer(this, options).start();
     this.alignmentGuide = new AlignmentGuideManager(this); // 默认禁用，应用层显式 enable 才启用
     this.linkSlotManager = new ICELinkSlotManager(this).start(); //linkSlotManager 内部会监听 renderer 上的事件，所以 linkSlotManager 需要在 renderer 后面实例化。

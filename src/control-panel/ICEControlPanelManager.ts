@@ -12,6 +12,22 @@ import LineControlPanel from './link-controls/LineControlPanel';
 import TransformControlPanel from './transform-controls/TransformControlPanel';
 
 /**
+ * 控制面板的可配置项（宿主通过 `ICE.init(ctx, { controlPanel })` 传入）。
+ *
+ * 全部可选，缺省即历史行为；非法值（0 / 负数 / NaN）在面板里退回默认。
+ */
+export interface ControlPanelOptions {
+  /** 变换手柄（8 个缩放控点）的边长，默认 16 */
+  resizeControlSize?: number;
+  /** 旋转手柄的半径，默认 8 */
+  rotateControlSize?: number;
+  /** 旋转手柄离包围盒顶边的距离，默认 60 */
+  rotateControlOffsetY?: number;
+  /** 线条端点手柄（`ICELinkHook`）的边长，默认 16 */
+  lineControlSize?: number;
+}
+
+/**
  * @class ICEControlPanelManager
  *
  * 控制面板管理器
@@ -29,7 +45,7 @@ class ICEControlPanelManager {
   public transformControlPanel: TransformControlPanel;
   public lineControlPanel: LineControlPanel;
 
-  constructor(ice: ICE) {
+  constructor(ice: ICE, options: ControlPanelOptions = {}) {
     this.ice = ice;
 
     this.transformControlPanel = new TransformControlPanel({
@@ -37,6 +53,10 @@ class ICEControlPanelManager {
       top: 100,
       width: 100,
       height: 100,
+      // 手柄尺寸：宿主没传就是各面板自己的默认值（历史行为）
+      resizeControlSize: options.resizeControlSize,
+      rotateControlSize: options.rotateControlSize,
+      rotateControlOffsetY: options.rotateControlOffsetY,
       // 主题引用（paint 时解析）：setTheme / setChrome 之后外壳跟着换，不用重建组件
       style: {
         strokeStyle: token('chrome.selection.stroke'),
@@ -55,6 +75,7 @@ class ICEControlPanelManager {
       top: 50,
       width: 100,
       height: 100,
+      controlSize: options.lineControlSize,
       style: {
         strokeStyle: 'rgba(255, 255, 49, 0)',
         fillStyle: 'rgba(255, 255, 49, 0)',

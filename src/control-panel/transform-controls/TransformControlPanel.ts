@@ -27,10 +27,16 @@ import RotateControl from './RotateControl';
  */
 export default class TransformControlPanel extends ICEControlPanel {
   private rotateControlInstance;
-  private rotateControlSize: number = 8; //TODO:改成可配置参数
-  private rotateControlOffsetY: number = 60; //TODO:改成可配置参数
+  /**
+   * 手柄尺寸 / 偏移：**构造时可配**（宿主走 `ICE.init(ctx, { controlPanel: {…} })`）。
+   *
+   * 默认值就是历史行为 —— 不传时逐像素不变。只接受有限正数：0 / 负数 / NaN 一律退回默认，
+   * 否则会画出一个点不中、也看不见的手柄（这类"配错了但没报错"的坑比"配不上"更难查）。
+   */
+  public rotateControlSize: number = 8;
+  public rotateControlOffsetY: number = 60;
   private resizeControlInstanceCache = [];
-  private resizeControlSize: number = 16; //TODO:改成可配置参数
+  public resizeControlSize: number = 16;
 
   constructor(props) {
     super({
@@ -40,7 +46,17 @@ export default class TransformControlPanel extends ICEControlPanel {
       showMinBoundingBox: false,
       showMaxBoundingBox: false,
     });
+    this.applyControlPanelOptions(props);
     this.initControls();
+  }
+
+  /** 从 props 取手柄尺寸；非法值静默退回默认（见字段上的注释）。 */
+  private applyControlPanelOptions(props: any): void {
+    const pick = (value: any, fallback: number) =>
+      typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
+    this.resizeControlSize = pick(props && props.resizeControlSize, this.resizeControlSize);
+    this.rotateControlSize = pick(props && props.rotateControlSize, this.rotateControlSize);
+    this.rotateControlOffsetY = pick(props && props.rotateControlOffsetY, this.rotateControlOffsetY);
   }
 
   /**

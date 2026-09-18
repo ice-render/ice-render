@@ -2159,7 +2159,8 @@ abstract class ICEComponent extends ICEEventTarget {
   /**
    * @method destory
    * 销毁组件
-   * - FIXME:立即停止组件上的所有动画效果
+   * - 先把本组件从动画管理器摘除（否则每帧仍会 setState 到这个已销毁的组件 —— 内存与 CPU 双泄漏），
+   *   回归见 `tests/animation/animation.extended.test.ts` 的「组件销毁时从动画列表摘除」
    * - 需要清理绑定的事件
    * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
    * - 子类需要覆盖此方法，释放自己占有的资源。

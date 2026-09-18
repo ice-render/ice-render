@@ -7,6 +7,28 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 新增
+
+- **控制面板手柄尺寸可配置**：
+  `ICE.init(ctx, { controlPanel: { resizeControlSize, rotateControlSize, rotateControlOffsetY, lineControlSize } })`。
+
+  这四个尺寸原本是写死在 `TransformControlPanel` / `LineControlPanel` 里的私有字段
+  （代码里挂着 `//TODO:改成可配置参数`）：16 / 8 / 60 / 16。触摸端要大一点的控点、
+  密集图纸要小一点，宿主此前只能改引擎源码。现在按构造参数传，默认值不变，
+  **非法值（0 / 负数 / NaN / 非数字）一律退回默认** —— 配错的症状会是"手柄看不见也点不中"，
+  那种失败比"配不上"难查得多。
+
+  回归：`tests/control-panel/control-panel-options.test.ts`（默认值 / 构造可配 /
+  `ICE.init` 透传 / 非法值退回，四条都验到"手柄真的按配置建出来"，不只是字段被赋值）。
+
+### 文档
+
+- 清掉三条**已经过期**的 FIXME 注释（行为与回归都在，只是注释没跟上）：
+  `ICEComponent.destory()` / `ICEGroup.destory()` 的「立即停止组件上的所有动画」
+  （实现里早已把组件从动画管理器摘除，回归在 `tests/animation/animation.extended.test.ts`）；
+  `DOMEventDispatcher` 的「控制面板会遮挡组件」（2026-09-08 命中检测已跳过 `isControlPanel`，
+  回归在 `tests/event/DOMEventDispatcher.test.ts`）。
+
 ## [2.16.0] - 2026-09-18
 
 ### 修复
