@@ -137,6 +137,22 @@ class ICEPolyLine extends ICEDotPath {
             // 主题引用：深色主题下标签变成深底亮字（原本写死白底黑字，压在深色画面上很突兀）
             fillStyle: token('chrome.linkLabel.fill'),
             backgroundColor: token('chrome.linkLabel.background'),
+            /**
+             * 标签相对「折线上的锚点」的偏移 `[dx, dy]`（本地坐标，即世界单位）。
+             *
+             * 为什么要有它：锚点由 `getLabelPosition()` 定死在折线上（2 点取中点、
+             * 多点取**中间折点**），而折点是路由器为了避开符号折出来的 —— 于是
+             * **共用一个汇流点**的几条连线锚点逐像素重合，标签必然互相压住；
+             * 更麻烦的是"放大图元间距"消不掉它（折点与符号的相对位置是尺度不变的）。
+             * 应用层唯一能做的是改数据挪走个别冲突，自动布局 / 用户拖出来的图无从下手。
+             *
+             * 给了它，应用层就能做"标注沿法向错开"这类避让：画布（`drawLabel`）、
+             * 包围盒（擦除盒 / 离屏缓存范围）、SVG 导出三处共用 `__labelMetrics()`，
+             * 因此偏移一次到位、三者不会漂移。
+             *
+             * 非法值（不是长度 2 的数组 / 含非有限数）一律当作没写，不抛错。
+             * 默认**不写**这个键（写了会进 state 与快照，零偏移没有表达价值）。
+             */
           },
         },
       },
@@ -1015,6 +1031,10 @@ class ICEPolyLine extends ICEDotPath {
     const fontSize = style.fontSize || 14;
     const padding = 4;
     const pos = this.getLabelPosition();
+    // 锚点在折线上（见 `style.label.offset` 的说明）；偏移只挪标签，不动折线本身。
+    const offset = this.__labelOffset(style);
+    const cx = pos[0] + offset[0];
+    const cy = pos[1] + offset[1];
     let textWidth = 0;
     const ctx: any = this.ctx;
     if (ctx && typeof ctx.measureText === 'function') {
@@ -1023,7 +1043,26 @@ class ICEPolyLine extends ICEDotPath {
     } else {
       textWidth = label.length * fontSize; // 降级估算
     }
-    return { x: pos[0], y: pos[1], halfW: textWidth / 2 + padding, halfH: fontSize / 2 + padding };
+    return { x: cx, y: cy, halfW: textWidth / 2 + padding, halfH: fontSize / 2 + padding };
+  }
+
+  /**
+   * 解析 `style.label.offset`：只认长度为 2 的数组里的**有限数**，其余一律当没写。
+   *
+   * 放在这里而不是构造函数里归一化，是因为 `style` 可以运行时被 `setState` 改写
+   * （主题补丁 / 动画 / 属性面板都会写它），构造期归一化会被随后的写值绕过。
+   */
+  private __labelOffset(style: any): [number, number] {
+    const raw = style && style.offset;
+    if (!Array.isArray(raw) || raw.length !== 2) {
+      return [0, 0];
+    }
+    const dx = Number(raw[0]);
+    const dy = Number(raw[1]);
+    if (!isFinite(dx) || !isFinite(dy)) {
+      return [0, 0];
+    }
+    return [dx, dy];
   }
 
   /**

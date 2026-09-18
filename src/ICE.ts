@@ -1272,6 +1272,21 @@ class ICE {
    *
    * 关闭时把内联样式**还原为空**（而不是写 `auto`），避免覆盖应用自己的 CSS。
    */
+  /**
+   * 把本实例的画布设成「输入穿透」（`pointer-events: none`）。
+   *
+   * 用途是**分层渲染**：上层只负责动画、手势应该落到下层时，给上层开穿透；
+   * 配合 `ICE.linkViewport(a, b)` 让两层同视口。它同时影响命中测试与全局拦截器
+   * 里的"外来 canvas"过滤（按下 / 滚轮按目标 canvas 归属）。
+   *
+   * ⚠️ **它解决的是"另一块 canvas"，不是"盖在画布上的 DOM 浮层"** ——
+   * 浮在上面的 `<div>` 面板（对话区 / 工具栏 / 弹层）不吃这一套：全局拦截器挂在
+   * `window` 上，对**非 canvas** 的目标一律照常转发（引擎无法知道宿主在画布上叠了什么）。
+   * 那种情况请在浮层根上 `stopPropagation()`（一行的事，语义也清楚：
+   * "这块 DOM 不吃画布的手势"），键盘不要拦（输入法 / 快捷键会废）。
+   *
+   * @param enabled 是否穿透（默认 false）
+   */
   public setInputPassthrough(enabled: boolean): this {
     this.__inputPassthrough = !!enabled;
     const el: any = this.canvasEl;
