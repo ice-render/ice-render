@@ -9,6 +9,11 @@
 3. **局部重绘**：脏区按组件**旧世界盒 ∪ 新世界盒 + paint pad** 收集，聚合成若干块**互不相接**的裁剪区（`coalesceRegions`，上限 6 块，超出时合并「面积增量最小」的两块；**脏块数超过聚合预算 `MAX_COALESCE_REGIONS = 32` 时直接塌缩成并集盒**，避免 O(k³) 聚合把一帧卡死），逐块 `clearRect` + `clip`，块内按 z 序重画与区域相交的组件。渲染器用 `WeakMap` 保存每组件「上次实际绘制的世界轴对齐盒」快照，用于旧区域擦除与相交判断。
    - **两个坐标系**：脏区收集与相交判定在世界坐标里做（快照盒是世界盒），而 `clearRect`/`clip` 必须用**渲染坐标** = 世界坐标 × 渲染视口（`dpr · viewport`）。两者之间只有一个换算点 `mapBoxToRender()`（向外取整防接缝）。
 4. **组件上下文自包含**：每个组件 render 末尾把本组件写过的泄漏 ctx 属性（shadow/globalAlpha/composite/lineCap/lineJoin/miterLimit/textAlign/textBaseline/虚线）归位为 canvas 默认值——这是 full 与 partial **逐像素一致**的前提。
+   - **文本语言也是"画出来是什么"的一部分**（2025 年补）：同一个汉字有简/繁/日/韩多套字形，
+     Canvas 按元素的 **`lang`** 选字形，`dir` 影响双向文本的排布。离屏层（静态层位图、组件缓存位图）
+     因此必须与主画布**同语言** —— 所以 `root.createOffscreenCanvas(w, h, sourceEl)` 会从主画布
+     镜像 `lang` / `dir`（不支持该属性的运行时忽略，小程序宿主对象写不进去时静默跳过）。
+     回归：`tests/renderer/offscreen-text-lang.test.ts`（含"宿主对象写不进去不阻断渲染"的降级分支）。
 
 ```mermaid
 graph TD

@@ -472,7 +472,8 @@ class CanvasRenderer extends ICEEventTarget {
 
     let off: { canvas: any; ctx: any };
     try {
-      off = root.createOffscreenCanvas(pw, ph);
+      // 第三个参数：静态层要跟随主画布的文本语言（汉字字形随 lang 变，见 root.createOffscreenCanvas）
+      off = root.createOffscreenCanvas(pw, ph, this.ice && this.ice.canvasEl);
     } catch (err) {
       return null; // 运行时没有离屏 canvas（小程序老基础库）：静默退回逐组件重画
     }

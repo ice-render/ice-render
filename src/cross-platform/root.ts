@@ -86,19 +86,52 @@ let root: any = null;
   }
   // 创建离屏 canvas（对象缓存用，与 Worker/OffscreenCanvas 无关，仍运行在当前线程）。
   // 浏览器用 document.createElement('canvas')，小程序用 wx.createOffscreenCanvas({type:'2d'})。
-  root.createOffscreenCanvas = (width: number, height: number) => {
+  /**
+   * 把主画布的**文本绘制语言**镜像到离屏画布上。
+   *
+   * 为什么需要：同一个汉字有多种字形（简/繁/日/韩），Canvas 按元素的**语言**选字形
+   * —— 也就是说 `lang="ja"` 与 `lang="zh-CN"` 画出来的「直 / 骨 / 海」不是同一批字形。
+   * 而引擎对静态层/组件缓存承诺「与主画布**逐像素一致**」（脏矩形与离屏缓存都建立在这条上），
+   * 主画布上显式写了 `lang` 而离屏层没有的话，两者的字形就会分叉 —— 这种差异在
+   * 汉字上只有几个像素，肉眼极难发现，却会让像素回归在最不该红的时候红。
+   *
+   * 兼容性：`lang` 是 2025 年（Chrome 136）才进 CanvasTextDrawingStyles 的，
+   * Safari 至今没有；`dir` 则一直都有。所以这里**只是把属性写上**，不支持它的运行时会忽略；
+   * 小程序 canvas 是宿主对象，赋值可能抛错 —— 捕获后跳过，绝不让它影响渲染。
+   */
+  const mirrorTextLanguage = (canvas: any, sourceEl: any) => {
+    if (!canvas || !sourceEl) {
+      return canvas;
+    }
+    try {
+      if (!canvas.lang && sourceEl.lang) {
+        canvas.lang = sourceEl.lang;
+      }
+      if (!canvas.dir && sourceEl.dir) {
+        canvas.dir = sourceEl.dir;
+      }
+    } catch (err) {
+      // 宿主对象不允许写：跳过即可（大不了回到"不支持"的旧行为）
+    }
+    return canvas;
+  };
+
+  root.createOffscreenCanvas = (width: number, height: number, sourceEl?: any) => {
     if (root.wx && typeof root.wx.createOffscreenCanvas === 'function') {
       const canvas = root.wx.createOffscreenCanvas({ type: '2d', width, height });
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         throw iceError(ICE_ERROR_CODES.OFFSCREEN_CONTEXT_UNSUPPORTED, '当前运行时无法创建 2d 离屏上下文。');
       }
+      mirrorTextLanguage(canvas, sourceEl);
       return { canvas, ctx };
     }
     if (root.document && typeof root.document.createElement === 'function') {
       const canvas = root.document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
+      // 元素默认继承 document 的语言；这里显式跟随**主画布**，宿主在 canvas 上写 lang 时才有意义
+      mirrorTextLanguage(canvas, sourceEl);
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         throw iceError(ICE_ERROR_CODES.OFFSCREEN_CONTEXT_UNSUPPORTED, '当前运行时无法创建 2d 离屏上下文。');

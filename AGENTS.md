@@ -67,6 +67,13 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   （它同时丢 ① 与 ②）+ `requestRepaint()`（保证有帧）。
   回归：`tests/theme/theme-cache-invalidation.test.ts`（四条入口）、`e2e/visual/theme-cache-pixel.spec.ts`
   （**像素**判据：热切换后的画布必须与"开机即深色"逐像素一致 —— 样式值/画布指纹都看不出这个缺陷）。
+- **文本语言也是"画出来是什么"（2026-09-18 补）**：同一个汉字有简/繁/日/韩多套字形，
+  Canvas 按元素的 **`lang`** 选字形（2025 年才进 CanvasTextDrawingStyles，Chrome 136+），
+  `dir` 影响双向文本排布。**离屏层必须与主画布同语言** —— 静态层位图与组件缓存位图都要走
+  `root.createOffscreenCanvas(w, h, sourceEl)`，由它从主画布镜像 `lang` / `dir`
+  （不支持的运行时忽略；小程序宿主对象写不进去时静默跳过）。宿主若在主画布上显式写了 `lang`
+  而离屏层不跟随，字形就会分叉：只有几个像素的差异，肉眼几乎看不出，却会让"逐像素一致"的
+  像素回归在最不该红的时候红。回归：`tests/renderer/offscreen-text-lang.test.ts`。
 - **请求重绘用 `ice.requestRepaint()`（v2.14.0）**：在 `setState` 之外改了会影响画面的东西（自绘 painter 读了新数据、
   换视口、字体/图片刚就绪、要作废静态层）时用它，**不要再写 `ice.dirty = true`**（直摸内部字段，无文档无保证）。
   它等价于"置脏 + 标记渲染队列重排"，幂等可链式。回归：`tests/renderer/request-repaint.test.ts`。

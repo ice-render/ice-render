@@ -521,7 +521,8 @@ class ObjectCache {
     const pw = Math.max(1, Math.ceil(box.maxX * rs + ox) - dx + 1);
     const ph = Math.max(1, Math.ceil(box.maxY * rs + oy) - dy + 1);
 
-    const { canvas, ctx } = root.createOffscreenCanvas(pw, ph);
+    // 第三个参数：组件缓存位图同样要跟随主画布的文本语言，否则缓存的字形与主画布分叉
+    const { canvas, ctx } = root.createOffscreenCanvas(pw, ph, this.ice && this.ice.canvasEl);
     // world → bitmap：先按 rs 缩放，再平移到以 (dx, dy) 为原点。
     // 等价于「主画布 CTM（world*rs + (ox,oy)）减去整数平移 (dx,dy)」——栅格因此逐像素对齐。
     const base = [rs, 0, 0, rs, ox - dx, oy - dy];
