@@ -572,7 +572,7 @@ class ICEGroup extends ICERect {
    * @overwrite
    * @method destory
    * 销毁组件
-   * - FIXME:立即停止组件上的所有动画效果
+   * - 先递归销毁子节点（每个子节点各自从动画管理器摘除），再走父类的销毁流程
    * - 需要清理绑定的事件
    * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
    */

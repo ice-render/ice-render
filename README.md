@@ -30,6 +30,9 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 **2. 局部重绘是一条可证明的像素契约**
 
 - 默认渲染路径为**脏矩形局部重绘**，不满足局部条件时自动回退全量；`ICE.init(ctx, { renderMode: 'full' })` 可强制全量。
+  同一个入口还接外壳配置：`ICE.init(ctx, { dpr })`（高分屏）与
+  `ICE.init(ctx, { controlPanel: { resizeControlSize, rotateControlSize, rotateControlOffsetY, lineControlSize } })`
+  （变换/连线手柄的尺寸，默认 16 / 8 / 60 / 16）。
 - 为保证两条路径**逐像素一致**，每个组件在 `render()` 末尾把自身污染过的 `ctx` 全局状态（阴影 / `globalAlpha` / 合成模式 / 虚线等）归位，使组件渲染自包含。
 - 用 golden image 做像素一致性回归（`e2e/visual/dirty-rect-pixel.spec.ts`），覆盖文本、参数化图元、半透明落墨等场景。
 - 配套优化：组件级离屏缓存（含纯平移复用位图）、渲染队列缓存、矩阵零分配。
@@ -114,6 +117,8 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 - **连接线形态可切换** —— 同一套「插槽吸附」之上可选 **Visio 正交折线**（默认）或**普通贝塞尔曲线**
   （`linkShape: 'visio' | 'bezier'`）：贝塞尔沿插槽法线出/入，控制点长度随两端距离自适应。
 - **Visio 风格连接线** —— 端点插槽吸附（上 / 右 / 下 / 左 / 中心五个方向），建立组件间的连线关系；
+  正交路由会**避障**：把走廊里的其他图元当障碍绕开（逐个绕，绕不开时按"挡路图元的并集"再绕一轮），
+  给排水工艺图实测 37 条管线由 24 处穿线降到 **0**；
   端点箭头**默认实心**（用线色填充），`arrowStyle: 'hollow'` 可切回空心描边。
 - **视口缩放 / 平移** —— `setViewport()` 与锚点缩放 `zoomAt(screenX, screenY, factor)`；「视图缩放」与「图元缩放」严格分离。
 - **对齐吸附** —— 边缘 / 中心 / 等间距吸附与提示线，默认关闭、按需 `enable()`（零开销）。

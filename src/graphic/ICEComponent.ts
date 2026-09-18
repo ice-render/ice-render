@@ -377,7 +377,7 @@ abstract class ICEComponent extends ICEEventTarget {
    *   draggable:true,                              //是否可以拖动
    *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
    *   linkable:true,                               //组件是否可以用连接线连接起来，如果此状态为 true ，ICELinkSlotManager 在运行时会动态在组件上创建连接插槽 ICELinkSlot 的实例
-   *   interactive: true,                           //是否可以进行用户交互操作，如果此参数为 false ， draggable, transformable TODO:动画运行过程中不允许选中，不能进行交互？？？
+   *   interactive: true,                           //是否可以进行用户交互操作；为 false 时拖拽/变换/选中全部关闭（要"动画期间不许动"就把它关掉——引擎不做隐式互斥）
    *   showMinBoundingBox:true,                     //是否显示最小包围盒，开发时打开，主要用于 debug
    *   showMaxBoundingBox:true,                     //是否显示最大包围盒，开发时打开，主要用于 debug
    * }
@@ -2159,7 +2159,8 @@ abstract class ICEComponent extends ICEEventTarget {
   /**
    * @method destory
    * 销毁组件
-   * - FIXME:立即停止组件上的所有动画效果
+   * - 先把本组件从动画管理器摘除（否则每帧仍会 setState 到这个已销毁的组件 —— 内存与 CPU 双泄漏），
+   *   回归见 `tests/animation/animation.extended.test.ts` 的「组件销毁时从动画列表摘除」
    * - 需要清理绑定的事件
    * - 带有子节点的组件需要先销毁子节点，然后再销毁自身。
    * - 子类需要覆盖此方法，释放自己占有的资源。
