@@ -9,6 +9,7 @@ import { isNil, round } from '../../util/lang';
 import GeoLine from '../../geometry/GeoLine';
 import GeoPoint from '../../geometry/GeoPoint';
 import ICEBoundingBox from '../../geometry/ICEBoundingBox';
+import { flattenAllComponents, isEffectivelyVisible } from '../../util/data-util';
 import ICEPolyLine from './ICEPolyLine';
 
 /**
@@ -22,6 +23,20 @@ const BEZIER_MIN_OFFSET = 24;
 const BEZIER_SEGMENT_LENGTH = 12;
 const BEZIER_MIN_SEGMENTS = 8;
 const BEZIER_MAX_SEGMENTS = 24;
+
+/**
+ * 避障参数（正交折线）。
+ *
+ * 走廊 = 两端点围成的矩形再外扩 `ROUTE_CORRIDOR_PAD`。只把**落在走廊里**的图元当障碍：
+ * 离这条线很远的图元既不可能被穿到，让它参与判定只是白算。
+ *
+ * 两个上限是**成本闸**：候选生成与相交判定各吃一份障碍清单。
+ * 没有它们的话，一张 1 万图元的图里每建一条线都要对 1 万个盒子做候选级的两两比较
+ * （候选数 ≈ 4 × 障碍数，是平方级的）。
+ */
+const ROUTE_CORRIDOR_PAD = 28;
+const ROUTE_OBSTACLE_LIMIT = 10;
+const ROUTE_OBSTACLE_CHECK_LIMIT = 24;
 
 /**
  * ! FIXME: 删掉对 GeoPoint/GeoLine/GeoUtil 的依赖
@@ -263,6 +278,15 @@ export default class ICEVisioLink extends ICEPolyLine {
       }
     }
 
+    /**
+     * 走廊里的**其他图元**。
+     *
+     * 老实现里"障碍"只有两端自己（`startBounding` / `endBounding`）：线会不会横穿
+     * **第三个图元**，路由器根本不知道 —— 于是密集布局里就会看到线从方块中间穿过去
+     * （给排水工艺图实测 37 条管线里 24 处穿越）。
+     */
+    const obstacles = this.collectRouteObstacles(startComponent, endComponent);
+
     //the index of the gap (where do we need to insert new points) DO NOT CHANGE IT
     let gapIndex = 0;
 
@@ -384,6 +408,20 @@ export default class ICEVisioLink extends ICEPolyLine {
     s2_6.splice(gapIndex + 1, 0, s2_6_1, s2_6_2);
     solutions.push(['s2', 's2_6', s2_6]);
 
+    /**
+     * 绕障候选：绕到走廊里每个图元的**外侧**。
+     *
+     * 上面那六条 s2 变体只会绕**两端自己**（逃逸线取的是两端包围盒外 20px），
+     * 中间挡着的图元它们看不见 —— 这就是"线从方块里穿过去"的来源。
+     * 这里按障碍逐个补候选：向左/右让开它的竖边、向上/下让开它的横边，
+     * 四条都是两段正交折线，和既有候选同格式、走同一套过滤与打分。
+     */
+    const detourCount = Math.min(obstacles.length, ROUTE_OBSTACLE_LIMIT);
+    for (let i = 0; i < detourCount; i++) {
+      const ob = obstacles[i];
+      solutions = solutions.concat(this.detourCandidates(startPoint, endPoint, ob, `route${i}`));
+    }
+
     //FILTER solutions
     /*
      * Algorithm
@@ -458,6 +496,61 @@ export default class ICEVisioLink extends ICEPolyLine {
     if (nonIntersectionSolutions.length != 0) {
       //reasign to solutions
       solutions = nonIntersectionSolutions;
+    }
+
+    /**
+     * 3b. 过滤"穿过**其他图元**"的候选。
+     *
+     * 与上面那条（两端自己的盒子）不同，这一条是**软约束**：
+     * 密集布局里确实存在"怎么绕都得压一个"的情况，硬删会退化成直连（比穿图元更难看）。
+     * 所以取**穿过最少**的那一档：零穿越优先，退而求其次也把穿越压到最少。
+     *
+     * ⚠️ 这一步必须排在下面"取点数最少的那一档"**之前** ——
+     * 否则一条"短一点但横穿方块"的候选会先把零穿越的候选淘汰掉，避障等于白做。
+     */
+    if (obstacles.length) {
+      let scored = this.scoreObstacleCrossings(solutions, obstacles);
+
+      /**
+       * 一轮不够就再来一轮：**绕"挡路的那些图元"的并集**。
+       *
+       * 只绕单个障碍处理不了"一条线要横穿一整排图元"（给排水图上最常见：
+       * 事故池到厌氧池那条要跨过缺氧池/好氧池/二沉池三个盒子）。
+       * 把当前最优路径穿过的那些盒子合成一个并集，再从并集的外侧让开 ——
+       * 这正是人在图上画走线时的做法：不绕某一个方块，而是绕开**那一排**。
+       *
+       * 上限两轮：每轮只增 4 条候选，成本可控；两轮还绕不开就认了（下面取穿越最少的那档），
+       * 不为了绕路把线画到图外去。
+       */
+      for (let round = 0; round < 2; round++) {
+        let best = scored[0].crossings;
+        for (let i = 1; i < scored.length; i++) {
+          if (scored[i].crossings < best) best = scored[i].crossings;
+        }
+        if (best === 0) break;
+        const worst = scored.find((item) => item.crossings === best);
+        const blockers = this.obstaclesCrossedBy(worst.solution[2], obstacles);
+        if (!blockers.length) break;
+        const union = {
+          x1: Math.min(...blockers.map((b) => b.x1)),
+          y1: Math.min(...blockers.map((b) => b.y1)),
+          x2: Math.max(...blockers.map((b) => b.x2)),
+          y2: Math.max(...blockers.map((b) => b.y2)),
+        };
+        const extra = this.detourCandidates(startPoint, endPoint, union, `union${round}`);
+        if (!extra.length) break;
+        solutions = solutions.concat(extra);
+        scored = this.scoreObstacleCrossings(solutions, obstacles);
+      }
+
+      let best = scored[0].crossings;
+      for (let i = 1; i < scored.length; i++) {
+        if (scored[i].crossings < best) best = scored[i].crossings;
+      }
+      const kept = scored.filter((item) => item.crossings === best).map((item) => item.solution);
+      if (kept.length) {
+        solutions = kept;
+      }
     }
 
     //4. get first class of solutions with same nr of points
@@ -627,6 +720,195 @@ export default class ICEVisioLink extends ICEPolyLine {
       }
     }
     return false;
+  }
+
+  /**
+   * 收集**这条线可能穿到**的图元（走廊里的障碍）。
+   *
+   * 取的是 `getMinBoundingBox()`（组件自己的盒子，**不含**子节点）：
+   * 位号/名称那些文字盒是刻意画在盒子外面的，且相邻图元的文字盒本来就大面积交叠，
+   * 拿它当障碍会让绝大多数正交解都被判"穿过"（实测那样做反而退化成直连），
+   * 而用户说的"线穿过了图元"指的是**形状**被穿过。
+   *
+   * 排除三类：自己、两端（线本来就要从它们身上接出来）、其他线条
+   * （线压线在给排水图纸里是常态，不构成观感缺陷，也避免两条线互相把对方挤走）。
+   */
+  private collectRouteObstacles(startComponent: any, endComponent: any) {
+    const obstacles = [];
+    if (!this.ice || (!startComponent && !endComponent)) {
+      return obstacles;
+    }
+    const points = this.state.points;
+    if (!points || points.length < 2) {
+      return obstacles;
+    }
+    const startX = points[0][0];
+    const startY = points[0][1];
+    const endX = points[points.length - 1][0];
+    const endY = points[points.length - 1][1];
+    const corridorMinX = Math.min(startX, endX) - ROUTE_CORRIDOR_PAD;
+    const corridorMaxX = Math.max(startX, endX) + ROUTE_CORRIDOR_PAD;
+    const corridorMinY = Math.min(startY, endY) - ROUTE_CORRIDOR_PAD;
+    const corridorMaxY = Math.max(startY, endY) + ROUTE_CORRIDOR_PAD;
+
+    const all = flattenAllComponents(this.ice);
+    /**
+     * 两端自己的祖先容器（泳道、画布分组）**不是障碍**：我们就待在里面，
+     * 绕开它等于绕开整张图。它们也不算"已收下"，否则里面的节点会被一并跳过
+     * —— BPMN 那种"泳道里放节点"的图就再也避不了障了。
+     */
+    const containersOfEndpoints: any[] = [];
+    [startComponent, endComponent].forEach((node: any) => {
+      let parent = node && node.parentNode;
+      while (parent) {
+        containersOfEndpoints.push(parent);
+        parent = parent.parentNode;
+      }
+    });
+    const midX = (startX + endX) / 2;
+    const midY = (startY + endY) / 2;
+    for (let i = 0; i < all.length; i++) {
+      const component = all[i];
+      if (!component || component === this || component === startComponent || component === endComponent) continue;
+      if (containersOfEndpoints.indexOf(component) !== -1) continue;
+      /**
+       * ⚠️ 只认"图元本身"，不认它的**内部零件**。
+       *
+       * `flattenAllComponents()` 给的是整棵树（含子节点），而一个工艺符号是一个容器
+       * 加一堆子组件拼出来的：位号文字、名称文字、内部装饰……实测一条管线的走廊里
+       * 24 个"障碍"里 20 个是这些零件 —— 真正挡路的符号反而被上限挤掉了，
+       * 于是避障看着在跑、实际没绕开任何东西（这也是第一版"改了跟没改一样"的原因之一）。
+       *
+       * 判定**用组件自己的声明**（`hasDerivedChildren()`：子节点是按 state 派生的装饰，
+       * 见 `ICEComponent.hasDerivedChildren` 的注释），而不是按盒子大小或"有没有子节点"去猜
+       * —— 文字盒比形状盒还宽（阀门那种窄符号的位号盒有 90px 宽），猜必然猜错。
+       *
+       * 代价：既是复合图元、又真的装着业务子节点的那种组件（BPMN 的池/泳道），
+       * 它的子节点会被一并跳过 —— 那种图里"绕开泳道"本来也没有意义（泳道大到无法绕），
+       * 而泳道里真正的节点仍会作为独立障碍参与判定（它们不是派生节点）。
+       */
+      let ancestor = component.parentNode;
+      let derived = false;
+      while (ancestor) {
+        if (typeof ancestor.hasDerivedChildren === 'function' && ancestor.hasDerivedChildren()) {
+          derived = true;
+          break;
+        }
+        ancestor = ancestor.parentNode;
+      }
+      if (derived) continue;
+      // 控制面板是覆盖在目标上的工具层，其他线条同理：都不是"图元"
+      if (component.isControlPanel || component instanceof ICEPolyLine) continue;
+      if (typeof component.getMinBoundingBox !== 'function') continue;
+      if (!isEffectivelyVisible(component)) continue;
+      /**
+       * ⚠️ 必须 `refresh = true`（现场重算矩阵）。
+       *
+       * `getMinBoundingBox()` 读的是 `state.composedMatrix`，而那个值**只有渲染过才有**
+       * ——建图阶段（首帧之前）或纯 headless 里它是空数组，算出来的盒子全是 NaN。
+       * 第一次实现就栽在这里：NaN 与任何数比较都是 false，于是"障碍"看着收了一堆、
+       * 相交判定却永远返回 false，避障形同虚设（症状是改了跟没改一样）。
+       * `getMaxBoundingBox(true)` 是应用层 `autoPorts()` 的同款用法，口径一致。
+       */
+      const box = component.getMinBoundingBox(true).getMinAndMaxPoint();
+      if (box.maxX < corridorMinX || box.minX > corridorMaxX || box.maxY < corridorMinY || box.minY > corridorMaxY) {
+        continue;
+      }
+      obstacles.push({
+        id: String((component.state && component.state.id) || ''),
+        x1: box.minX,
+        y1: box.minY,
+        x2: box.maxX,
+        y2: box.maxY,
+        // 离这条线越近越该先绕它：候选生成有数量上限，得按相关性取舍
+        distance: Math.hypot((box.minX + box.maxX) / 2 - midX, (box.minY + box.maxY) / 2 - midY),
+      });
+    }
+
+    // 稳定排序（距离优先、同距按 id）—— 路由结果必须可复现，否则同样的图两次跑出来的折线不一样
+    obstacles.sort((a, b) =>
+      a.distance === b.distance ? (a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : a.distance - b.distance
+    );
+    return obstacles.slice(0, ROUTE_OBSTACLE_CHECK_LIMIT);
+  }
+
+  /**
+   * 绕着一个盒子生成 4 条候选（左/右让开竖边、上/下让开横边）。
+   *
+   * 让开距离取 `escapeDistance × 0.4` 与 8px 的较大者：太小会贴着障碍蹭过去
+   * （下一帧坐标一变就又压上了），太大则把线甩得离图很远、看起来像画错了。
+   * 盒子里没有"哪个是障碍"的语义，它可以是单个图元，也可以是**一排图元的并集**。
+   */
+  private detourCandidates(startPoint: any, endPoint: any, box: any, tag: string) {
+    const margin = Math.max(8, Math.round(this.state.escapeDistance * 0.4));
+    const raw: Array<[string, any[]]> = [
+      [`${tag}-w`, [new GeoPoint(box.x1 - margin, startPoint.y), new GeoPoint(box.x1 - margin, endPoint.y)]],
+      [`${tag}-e`, [new GeoPoint(box.x2 + margin, startPoint.y), new GeoPoint(box.x2 + margin, endPoint.y)]],
+      [`${tag}-n`, [new GeoPoint(startPoint.x, box.y1 - margin), new GeoPoint(endPoint.x, box.y1 - margin)]],
+      [`${tag}-s`, [new GeoPoint(startPoint.x, box.y2 + margin), new GeoPoint(endPoint.x, box.y2 + margin)]],
+    ];
+    const out = [];
+    for (let k = 0; k < raw.length; k++) {
+      const [name, mids] = raw[k];
+      const path = [startPoint, ...mids, endPoint];
+      // 让开线正好落在端点那一行/列上时会插入重复点：连着两个相同的点会让
+      // orthogonalPath / forwardPath / scorePath 都算出别扭的结果（甚至自交），先剔掉。
+      const deduped = [path[0]];
+      for (let j = 1; j < path.length; j++) {
+        const prev = deduped[deduped.length - 1];
+        if (prev.x !== path[j].x || prev.y !== path[j].y) {
+          deduped.push(path[j]);
+        }
+      }
+      if (deduped.length >= 3) {
+        out.push([name, name, deduped]);
+      }
+    }
+    return out;
+  }
+
+  /** 给每条候选记一笔"穿过了几个障碍"。 */
+  private scoreObstacleCrossings(solutions: any[], obstacles: any[]) {
+    const scored = [];
+    for (let i = 0; i < solutions.length; i++) {
+      scored.push({ solution: solutions[i], crossings: this.countObstacleCrossings(solutions[i][2], obstacles) });
+    }
+    return scored;
+  }
+
+  /** 这条路径具体穿过了哪几个障碍（用于把"挡路的那些"合成并集再绕一次）。 */
+  private obstaclesCrossedBy(points: any, obstacles: any[]) {
+    const crossed = [];
+    for (let i = 0; i < obstacles.length; i++) {
+      const ob = obstacles[i];
+      if (this.polylineIntersectsRectangle(points, this.insetBox(ob))) {
+        crossed.push(ob);
+      }
+    }
+    return crossed;
+  }
+
+  /**
+   * 障碍盒向内缩 1px。
+   *
+   * 贴着边走、擦着角过不算穿越 —— 那种情形只有 1px 的观感差异，
+   * 却会让"零穿越"这个判据几乎永远无法满足（相邻图元之间的通道本来就只有十几像素）。
+   */
+  private insetBox(ob: any) {
+    const inset = 1;
+    return { x1: ob.x1 + inset, y1: ob.y1 + inset, x2: ob.x2 - inset, y2: ob.y2 - inset };
+  }
+
+  /** 一条候选路径穿过了几个障碍。 */
+  private countObstacleCrossings(points: any, obstacles: any[]): number {
+    const limit = Math.min(obstacles.length, ROUTE_OBSTACLE_CHECK_LIMIT);
+    let count = 0;
+    for (let i = 0; i < limit; i++) {
+      if (this.polylineIntersectsRectangle(points, this.insetBox(obstacles[i]))) {
+        count++;
+      }
+    }
+    return count;
   }
 
   /**
