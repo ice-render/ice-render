@@ -45,6 +45,10 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   只能用字面量，换主题走它自己的主题字段；⑥ 品牌基线（设计语言）是产品决策，别靠合并 token 词汇解决。
 - **类型注册 / 序列化铁律（2026-09-13 命名空间化确立）**：类型标识（typeId）统一为 **`namespace:Type`**，且**只有这一种形式**（正则 `/^[a-z][a-z0-9-]*:[A-Za-z_][A-Za-z0-9_-]*$/`，工具函数 `src/util/type-id.ts`）。引擎内置用 `ice-render:*`，实体设计器 `ice-entity-designer:*`，图表 `ice-chart:*`，第三方用自己的小写包名。约定：① 内置类型在 `ICE` 构造函数里经 `registerType()` 注册（`src/consts/COMPONENT_TYPE_MAPPING.ts` 只提供条目表），**不再**在 `init()` 里拷贝映射；② `registerType(typeId, Ctor)` —— 同一 typeId 注册**不同**构造函数、或同一构造函数注册**第二个** typeId，都**明确抛错**（后者会让 `getTypeId` 反查歧义）；同一 typeId + 同一构造函数视为幂等；③ **不做旧名兼容**：家族仍在发布初期，不为无 namespace 的历史类名维护别名表——旧格式数据里的节点按「未注册类型」处理；④ `typeMapping` 是**无原型对象**，`getType('constructor')` 不会命中 `Object.prototype`；⑤ 序列化由 `ice.getTypeId(ctor)` **反查**（与类的 JS 名解耦，压缩改名不破坏已存数据），未注册类型才回退 `constructor.name`，此时 `Serializer.unregisteredTypes` 会记录并告警（回退名可能被下游 mangle，读不回来）；反序列化遇到未注册类型跳过该节点（含子树）并记入 `deserializer.unknownTypes`，不再整份数据打不开。格式带 `version` 与 `SERIALIZATION_MIGRATIONS`。回归用例见 `tests/persistence/type-id.test.ts`、`tests/persistence/type-registry.test.ts`。
 - **渲染顺序铁律（2026-09-17 确立，v2.13.0）**：绘制顺序 = **树序（先父后子）+ 兄弟按 `state.zIndex` 升序**（相等保持加入顺序），**工具层整体画在组件层之上**（`componentQueue` → `toolsQueue`，两层不按 zIndex 交叉）。`zIndex` **只在兄弟之间**比较，不再是全局序列。旧实现"展平后全局排序"下，**父容器的 zIndex 只要比子组件大**就会反超并**盖住自己的整棵子树**（一片空白、不报错；`ice-web-components` 的 `ICEPanel` 是典型受害者）。三处同源，改一处必须改三处：`util/data-util.ts` 的 `flattenTree`（展平/命中回退）、`CanvasRenderer.__rebuildQueue`（不 global sort）、`SvgExporter`（导出顺序）；取数口径也只有一个：`util/data-util.ts` 的 `zIndexOf`。回归：`tests/renderer/render-order.test.ts`、`tests/renderer/hit-test-ordered.test.ts`（逐点预言机）、`e2e/visual/render-order.spec.ts`（真机像素）。
+- **容器的派生部件先于内容 + 重排只作用于真实子节点（2026-09-19 补，与"渲染顺序铁律"同源）**：复合组件（`hasDerivedChildren() === true`）把"自己的底 / 标题 / 角标"也挂在 `childNodes` 里（形状由子组件绘制，菱形 / 事件圆 / 圆角框都靠它），`getSerializableChildren()` 声明的才是**真实子节点**。两条口径都落在 `util/data-util.ts`，**渲染与导出必须同源**（`flattenTree` / `SvgExporter.collectOrdered`；命中检测复用渲染队列，自动同源）：
+  ① **`paintOrderChildrenOf(container)`：先派生部件、再真实子节点**（两组内各自按 zIndex 升序）—— 就是 CSS 的背景语义，容器的底永远画在内容之下。不这么做，底的 `zIndex` 一旦排在内容之后（默认 `'auto'` 就很容易）就会**把整段内容盖成一片底色**（2026-09 两个真实事故：BPMN 池里的任务矩形全部消失、状态机复合状态变成空框）；应用侧只能靠"给底写个更低的魔数"绕，而多低才算够低它自己也不知道。
+  ② **`siblingScopeOf(container)`：四个 z 序 API（`bringToFront` / `sendToBack` / `moveUp` / `moveDown`）的作用域 = 真实子节点** —— 派生部件不是文档内容，被重编号会把容器内容盖掉，而且组件重建即复位，纯噪声。
+  ⚠️ 递归展平时**不能**把 `paintOrderChildrenOf` 的产物再按 zIndex 洗一遍（`flattenTree` 因此拆出 `flattenOrdered`）：分组次序不是 zIndex 升序，洗一次就静默失效。没有 `getSerializableChildren()` 的组件**行为逐字不变**。回归：`tests/renderer/derived-children-paint-order.test.ts`。
 - **zIndex 是"0 = auto 层"的 CSS 口径（2026-09-19 改版，**默认值语义变了**）**：
   ① **默认 `zIndex` 是 `'auto'` 哨兵（`Z_INDEX_AUTO`），排序时当 `0` 用** —— 就是 CSS 的
     `z-index: auto` 那一档。同层没显式写过 zIndex 的兄弟
@@ -59,6 +63,8 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
     重编号成 **`-(m-1) … 'auto'`（最上 = auto 层）**，不是"自己加一减一" ——
     平手时加减一挪不动。**auto 那一档留给最上层**是为了让"置顶之后新加入的组件仍然画在最上面"。
     口径唯一出处 `zIndexForPaintRank`。
+    ⚠️ **父容器声明了 `getSerializableChildren()` 时，作用域再收窄到"真实子节点"**
+    （`siblingScopeOf`）：容器的底 / 标题 / 角标是派生部件，不是文档内容，被重编号会把容器内容盖掉。
     ⚠️ **应用自己钉成正数的兄弟不参与、值也不会被改写**（浮层 / 水印 / 吸顶条永远是应用自己那一档）——
     2026-09-19 收紧：旧实现"整层重编号"会把钉子一起洗掉（置顶一次，浮层就掉下去了）。
     目标自己被钉住时退化处理：`bringToFront` → `max+1`；`sendToBack` → `min-1`；
