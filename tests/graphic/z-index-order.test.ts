@@ -340,6 +340,41 @@ describe('z 序操作 API（只在同一父容器内）', () => {
     expect(paint(group)).toEqual(['b', 'a', 'pinned']);
     expect(pinned.state.zIndex).toBe(9);
   });
+
+  it('工具层里的组件也能用这四个 API：作用域是 toolNodes，不碰组件层', () => {
+    const ice = makeIce();
+    const t1 = rect('t1');
+    const t2 = rect('t2', { left: 20 });
+    ice.addTool(t1);
+    ice.addTool(t2);
+    const c = rect('c', { left: 40 });
+    ice.addChild(c);
+
+    t1.bringToFront();
+    expect(sortSiblingsByZIndex(ice.toolNodes).map((x: any) => x.state.id)).toEqual(['t2', 't1']);
+    expect(t1.state.zIndex).toBe(Z_INDEX_AUTO);
+    expect(t2.state.zIndex).toBe(-1);
+    // 组件层完全没被碰
+    expect(ice.childNodes.map((x: any) => x.state.zIndex)).toEqual([Z_INDEX_AUTO]);
+    expect(c.state.zIndex).toBe(Z_INDEX_AUTO);
+  });
+
+  it('非法 zIndex（字符串 / NaN）提醒一次并按 0 处理（静默失效最难查）', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const a = rect('a');
+      a.setState({ zIndex: '5' as any });
+      a.setState({ zIndex: '7' as any }); // 同一个组件只提醒一次
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(zIndexOf(a)).toBe(0);
+
+      const b = rect('b', { zIndex: NaN }); // 构造期传非法值同样提醒（每个组件各一次）
+      expect(warn).toHaveBeenCalledTimes(2);
+      expect(zIndexOf(b)).toBe(0);
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });
 
 describe('存盘：默认值不写、显式值原样写', () => {
