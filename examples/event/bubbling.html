@@ -21,7 +21,7 @@
     >
     <script src="../../dist/index.umd.js"></script>
     <script type="text/javascript">
-      const { ICE, ICEComponent, ICEGroup, ICERect, ICECircle } = window.ICE;
+      const { ICE, ICEGroup, ICERect, ICECircle } = window.ICE;
       const ice = new ICE().init('canvas-1');
       const log = document.getElementById('log');
       const push = (message) => {
@@ -74,8 +74,8 @@
         push(`[组件链] ${phaseName(evt.eventPhase)}  target=${who(evt.target)}  currentTarget=父容器`);
       });
       ice.evtBus.on('click', (evt) => {
-        // 画布外的点击也会到总线（原始输入监听挂在 window 上），那一次 target 是 DOM 元素
-        if (!(evt.target instanceof ICEComponent)) return;
+        // 画布外的点击也会到总线（原始输入监听挂在 window 上）：那一次 evt.source === 'window'
+        if (evt.source !== 'canvas') return;
         push(`[总线]   target=${who(evt.target)}  currentTarget=EventBus`);
       });
 

@@ -7,6 +7,33 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 变更
+
+- **`evt.source` 与 `evt.target` 契约**（2026-09-19，分支 `feat/event-source-and-target-contract`）：
+  把"事件从哪来"显式化，消掉两个使用者一定会撞的坑。
+
+  ⚠️ **行为变化**：`evt.target` 不再可能是 DOM 元素 ——
+  以前 `new ICEEvent(原始 DOM 事件)` 会把 DOM 事件的 `target` / `currentTarget` / `srcElement` /
+  `eventPhase` 一起平铺进来，于是"画布外点工具栏按钮"的事件上 `target` 是 `HTMLButtonElement`，
+  应用只能靠 `instanceof ICEComponent` 去猜；而 `eventPhase` 出现同一字段两种含义
+  （命中组件的路径在组件链末尾归零、总线看到 `0`；没有命中组件的事件沿用 DOM 的 `BUBBLING_PHASE(3)`）。
+  现在：
+
+  - **`evt.source`**：`'canvas'`（画布内的原始输入，可能有命中组件）/ `'window'`（画布外的原始输入，
+    没有命中组件）/ `'engine'`（`trigger()` / `dispatchEvent()`）。应用只关心画布内交互时，
+    一句 `if (evt.source !== 'canvas') return;` 就够了；
+  - **`evt.target`**：要么是命中的组件、要么是 `null`；原始 DOM 元素在 `evt.originalEvent.target`；
+  - **`evt.eventPhase`**：总线那一段恒为 `0`（总线是传播终点，不在任何传播段里）；
+  - 顺带把 `ICEEvent` 上"声明了却没有默认值"的 W3C 字段补齐（`srcElement` / `isTrusted` /
+    `composed` / `cancelBubble` / `returnValue`）—— 以前只有从 DOM 事件拷到值时才有值。
+
+  ⚠️ **已知行为（本次不改）**：画布外的输入仍会做命中测试（坐标按画布矩形换算，可能恰好落在画布内
+  并命中组件，表现为"点工具栏按钮顺带选中画布元素"）。归属已由 `source` 给出，应用过滤即可；
+  "画布外输入要不要干脆不做命中"是语义级决策，留待单独评估。
+
+  回归：`tests/event/event-source.test.ts`（8 条；改动前 7 条红，第 8 条"应用转发改写 `evt.target`"
+  改动前后都绿——它是控制项）。
+
 ## [2.19.0] - 2026-09-19
 
 > 这一版把「容器与它的内容」的绘制次序补完整：**容器的派生部件（自己的底 / 标题 / 角标）永远画在
