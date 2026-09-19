@@ -10,6 +10,7 @@ import { cloneDeep } from '../util/lang';
 import { merge } from '../util/lang';
 import { bumpVisibilityEpoch, getVisibilityEpoch, sortSiblingsByZIndex } from '../util/data-util';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
+import bigZIndexNum from '../consts/BIG_ZINDEX_NUMBER';
 import root from '../cross-platform/root';
 import EventBus from '../event/EventBus';
 import ICEEvent from '../event/ICEEvent';
@@ -289,6 +290,18 @@ abstract class ICEComponent extends ICEEventTarget {
   protected static __syncInstanceCounter(zIndex: any): void {
     const value = Number(zIndex);
     if (!Number.isFinite(value)) {
+      return;
+    }
+    /**
+     * **工具层的编号空间不参与这个计数器。**
+     *
+     * 控制面板与它的手柄用的是 `bigZIndexNum`(1e7) 起步的号段，而工具层与组件层是
+     * **两个独立队列**（工具层整体画在组件层之上），两边的数字永不互相比较 ——
+     * 把 1e7 同步进默认值计数器，只会让"建完面板之后新建的普通组件"默认拿到 1e7 这种天文数字
+     * （实测：`new ICEControlPanelManager()` 之后 counter 直接跳到 10001003）。
+     * 号段是保留的，落在里面的一律当内部值处理。
+     */
+    if (value >= bigZIndexNum) {
       return;
     }
     const next = Math.floor(value) + 1;
@@ -2288,7 +2301,10 @@ abstract class ICEComponent extends ICEEventTarget {
     for (let i = 0; i < order.length; i++) {
       const sibling: any = order[i];
       if (sibling && sibling.state && sibling.state.zIndex !== i) {
-        sibling.setState({ zIndex: i });
+        // `paramsDirty: false`：zIndex 在引擎自己的「动画安全键」白名单里（改它不影响
+        // 尺寸 / 点集 / 文本量测），重排一次同层不该把所有兄弟的派生参数都标记重算。
+        // 注意 `dirty` 仍然是 true（要重绘），只是跳过重量测那段。
+        sibling.setState({ zIndex: i }, { paramsDirty: false });
       }
     }
   }
