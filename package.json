@@ -38,7 +38,7 @@
     "build:types": "tsc --emitDeclarationOnly && node scripts/emit-dmts.cjs",
     "clean": "rimraf dist",
     "pretty": "prettier src/**/* --write",
-    "types:check": "tsc --noEmit",
+    "types:check": "tsc --noEmit && tsc --noEmit -p tsconfig.typecheck.json",
     "types:watch": "npm run types:check -- --watch",
     "test": "jest",
     "test:visual": "playwright test",

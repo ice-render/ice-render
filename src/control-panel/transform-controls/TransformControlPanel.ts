@@ -218,6 +218,16 @@ export default class TransformControlPanel extends ICEControlPanel {
     if (!this.targetComponent) {
       return;
     }
+    /**
+     * ⚠️ **转发前必须把事件的 `target` 改成被转发的那个组件**（2026-09-19 事件冒泡改版）。
+     *
+     * 转发是"这次键盘事件真正要作用于目标组件"，而 `ICEComponent` 的默认键盘处理
+     * （方向键微调 / Delete 删除）现在带守卫：`evt.target !== this` 就返回 ——
+     * 不改正 `target`，转发过去的事件会被当成"冒泡上来的祖先事件"直接丢掉，
+     * 表现为"选中组件后用面板手柄按方向键没反应"。
+     */
+    evt.target = this.targetComponent;
+    evt.__iceTarget = this.targetComponent;
     this.targetComponent.trigger(evt.type, evt, { component: this.targetComponent });
   }
 

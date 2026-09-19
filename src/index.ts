@@ -45,6 +45,22 @@ export { default as DOMEventDispatcher } from './event/DOMEventDispatcher';
 export { default as DOMEventInterceptor } from './event/DOMEventInterceptor';
 export { default as EventBus } from './event/EventBus';
 export { default as ICEEventTarget } from './event/ICEEventTarget';
+// 事件对象本身（应用要类型标注 / 自造事件并 dispatchEvent 时用得到）
+export { default as ICEEvent } from './event/ICEEvent';
+/**
+ * 事件名 / 事件对象的类型（应用侧写 TS 时用得到）：
+ * `ICEEventName`（引擎内置 + DOM 语义名）、`ICEEventOf<K>`（按名取事件类型）、
+ * `ICEEventParamMap`（事件名 → `evt.param` 形状）、`ICEEventListenerOptions`（`on`/`addEventListener` 的选项）、
+ * `ICEDOMEventName`。见 docs/architecture/05-event-system.md。
+ */
+export type {
+  ICEEventName,
+  ICEEventOf,
+  ICEEventParamMap,
+  ICEEventListenerOptions,
+  ICEDOMEventName,
+} from './event/event-types';
+export type { ICEEngineEventNameConst } from './consts/ICE_EVENT_NAME_CONSTS';
 export { default as GeoLine } from './geometry/GeoLine';
 export { default as GeoPoint } from './geometry/GeoPoint';
 export { default as GeoUtil } from './geometry/GeoUtil';
