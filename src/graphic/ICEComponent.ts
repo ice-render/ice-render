@@ -12,6 +12,7 @@ import {
   bumpVisibilityEpoch,
   getVisibilityEpoch,
   sortSiblingsByZIndex,
+  siblingScopeOf,
   zIndexOf,
   zIndexForPaintRank,
 } from '../util/data-util';
@@ -2287,6 +2288,9 @@ abstract class ICEComponent extends ICEEventTarget {
    * 四个方法都返回 `this`，可链式：`rect.setSize(10, 10).bringToFront()`。
    *
    * **作用域 = 同层的「可排层」**：排序键 ≤ 0 的那些兄弟（`'auto'` 默认值 + 应用写的负值）。
+   * 父容器若声明了 `getSerializableChildren()`（复合组件同时当容器，如流程图 / BPMN 的节点与池），
+   * 作用域再收窄到**真实子节点** —— 容器自己的底 / 标题 / 角标是派生部件，不是文档内容，
+   * 被重编号会把容器里的内容盖掉（见 `util/data-util.ts` 的 `siblingScopeOf`）。
    * 应用**自己钉成正数**的兄弟（浮层 / 水印 / 吸顶条，如 `zIndex: 9000`）**不参与、值也不会被改写**
    * —— 它们是应用自己那一档，永远压在可排层之上。这条是 2026-09-19 收紧的：
    * 之前"整层重编号"会把应用的钉子一起洗掉，导致"置顶一次，浮层就掉下去了"。
@@ -2342,7 +2346,9 @@ abstract class ICEComponent extends ICEEventTarget {
   /** 本组件所属的兄弟列表：优先父容器，其次 ICE 的组件层 / 工具层。 */
   private __siblingList(): any[] | null {
     if (this.parentNode && Array.isArray(this.parentNode.childNodes)) {
-      return this.parentNode.childNodes;
+      // 父容器是复合组件时，作用域收窄到**真实子节点**：派生部件（容器自己的底 / 标题 / 角标）
+      // 不是文档内容，不该被"置顶 / 置底"重编号（见 `siblingScopeOf` 的说明）。
+      return siblingScopeOf(this.parentNode);
     }
     const ice: any = this.ice;
     if (!ice) return null;
