@@ -8,6 +8,7 @@
 import ICE from '../ICE';
 import { toIsoTime } from './document-time';
 import ICELayoutManager from '../layout/ICELayoutManager';
+import { sortSiblingsByZIndex } from '../util/data-util';
 
 /**
  * 序列化时排除的运行时缓存/计算值：这些值在反序列化后会由引擎重新计算，
@@ -109,15 +110,38 @@ export default class Serializer {
     const themeSnapshot = this.ice && typeof this.ice.themeSnapshot === 'function' ? this.ice.themeSnapshot() : null;
     if (themeSnapshot) result.theme = themeSnapshot;
 
-    for (let i = 0; i < this.ice.childNodes.length; i++) {
-      const child = this.ice.childNodes[i];
-      this.encodeRecursively(child, result);
-    }
+    this.__encodeChildren(this.ice.childNodes, result);
     return result;
   }
 
+  /**
+   * 序列化一批兄弟节点，并把它们的 `zIndex` **归一化**成绘制次序里的序号。
+   *
+   * 为什么要在存盘时归一化：默认 `zIndex` 是**进程级计数器**（`instanceCounter++`），
+   * 直接存的话文档里会留下一串"构造顺序"留下的大数字 —— 换一个会话打开时，
+   * 那个会话的计数器还在个位数，新建的组件就会画到已有内容下面（实测：文档里 198~200、
+   * 新建的是 4）。归一化之后文档里表达的是**次序本身**，与计数器无关。
+   *
+   * 只在"绘制次序 ≠ 插入次序"时才写（写的是绘制次序里的下标 0..n-1）：
+   * 常见情况下什么都没改，文档里就不出现 `zIndex`；需要显式表达次序时才落一个干净的小整数。
+   * 读回时子节点按文件顺序构造（= 插入次序），所以往返之后的绘制次序与存盘前一致。
+   */
+  private __encodeChildren(children: any[], parentData: any): void {
+    if (!children || !children.length) {
+      return;
+    }
+    const paintOrder = sortSiblingsByZIndex(children);
+    const paintIndex = new Map<any, number>();
+    for (let i = 0; i < paintOrder.length; i++) {
+      paintIndex.set(paintOrder[i], i);
+    }
+    for (let i = 0; i < children.length; i++) {
+      this.encodeRecursively(children[i], parentData, { paint: paintIndex.get(children[i]) ?? i, insertion: i });
+    }
+  }
+
   //递归序列化  //递归序列化
-  private encodeRecursively(component, parentData) {
+  private encodeRecursively(component, parentData, order?: { paint: number; insertion: number }) {
     // 优先用注册表反查稳定 typeId（与类名解耦，压缩改名不破坏数据）；
     // 未注册的自定义类型回退到 constructor.name（保持既有约定），但会记录 + 告警：
     // 这类数据（尤其是被 mangle 过的类名）下次可能读不回来。
@@ -133,13 +157,21 @@ export default class Serializer {
         );
       }
     }
-    const currentData = {
+    const currentData: any = {
       state: this.pickSerializableState(component.state),
       type: typeId,
       childNodes: [],
       // 容器的布局策略属于文档内容（"怎么排"），见 __encodeLayout
       layout: undefined,
     };
+    // zIndex 归一化（口径见 __encodeChildren）：次序没变就不写，变了才写序号
+    if (order) {
+      if (order.paint === order.insertion) {
+        delete currentData.state.zIndex;
+      } else {
+        currentData.state.zIndex = order.paint;
+      }
+    }
     this.__encodeLayout(component, currentData);
 
     parentData.childNodes.push(currentData);
@@ -154,9 +186,7 @@ export default class Serializer {
       typeof component.getSerializableChildren === 'function' ? component.getSerializableChildren() : null;
     const children = customChildren || (derived ? [] : component.childNodes);
     if (children && children.length) {
-      for (let i = 0; i < children.length; i++) {
-        this.encodeRecursively(children[i], currentData);
-      }
+      this.__encodeChildren(children, currentData);
     }
   }
 

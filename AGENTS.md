@@ -44,6 +44,21 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   只能用字面量，换主题走它自己的主题字段；⑥ 品牌基线（设计语言）是产品决策，别靠合并 token 词汇解决。
 - **类型注册 / 序列化铁律（2026-09-13 命名空间化确立）**：类型标识（typeId）统一为 **`namespace:Type`**，且**只有这一种形式**（正则 `/^[a-z][a-z0-9-]*:[A-Za-z_][A-Za-z0-9_-]*$/`，工具函数 `src/util/type-id.ts`）。引擎内置用 `ice-render:*`，实体设计器 `ice-entity-designer:*`，图表 `ice-chart:*`，第三方用自己的小写包名。约定：① 内置类型在 `ICE` 构造函数里经 `registerType()` 注册（`src/consts/COMPONENT_TYPE_MAPPING.ts` 只提供条目表），**不再**在 `init()` 里拷贝映射；② `registerType(typeId, Ctor)` —— 同一 typeId 注册**不同**构造函数、或同一构造函数注册**第二个** typeId，都**明确抛错**（后者会让 `getTypeId` 反查歧义）；同一 typeId + 同一构造函数视为幂等；③ **不做旧名兼容**：家族仍在发布初期，不为无 namespace 的历史类名维护别名表——旧格式数据里的节点按「未注册类型」处理；④ `typeMapping` 是**无原型对象**，`getType('constructor')` 不会命中 `Object.prototype`；⑤ 序列化由 `ice.getTypeId(ctor)` **反查**（与类的 JS 名解耦，压缩改名不破坏已存数据），未注册类型才回退 `constructor.name`，此时 `Serializer.unregisteredTypes` 会记录并告警（回退名可能被下游 mangle，读不回来）；反序列化遇到未注册类型跳过该节点（含子树）并记入 `deserializer.unknownTypes`，不再整份数据打不开。格式带 `version` 与 `SERIALIZATION_MIGRATIONS`。回归用例见 `tests/persistence/type-id.test.ts`、`tests/persistence/type-registry.test.ts`。
 - **渲染顺序铁律（2026-09-17 确立，v2.13.0）**：绘制顺序 = **树序（先父后子）+ 兄弟按 `state.zIndex` 升序**（相等保持加入顺序），**工具层整体画在组件层之上**（`componentQueue` → `toolsQueue`，两层不按 zIndex 交叉）。`zIndex` **只在兄弟之间**比较，不再是全局序列。判据来源：默认 `zIndex` 是**构造顺序计数器**（`ICEComponent.instanceCounter++`），旧实现"展平后全局排序"下，**父容器比子组件后构造**会让父反超并**盖住自己的整棵子树**（一片空白、不报错；`ice-web-components` 的 `ICEPanel` 是典型受害者）。三处同源，改一处必须改三处：`util/data-util.ts` 的 `flattenTree`（展平/命中回退）、`CanvasRenderer.__rebuildQueue`（不 global sort）、`SvgExporter`（导出顺序）。回归：`tests/renderer/render-order.test.ts`、`tests/renderer/hit-test-ordered.test.ts`（逐点预言机）、`e2e/visual/render-order.spec.ts`（真机像素）。
+- **zIndex 默认值 / 操作 API / 存盘归一化（2026-09-19 补，本节与上一条同源）**：
+  ① **显式写过 `zIndex` 之后，默认值计数器必须跟上去**（`ICEComponent.__syncInstanceCounter`，
+     构造期与 `setState` 两个入口都挂了；反序列化走 `new Clazz(nodeData.state)`，因此自动覆盖）。
+     不做的后果是**跨会话倒挂**：默认 `zIndex` 是进程级计数器，而 `zIndex` 又进快照 ——
+     打开一份"元件比较多"的文档（里面 zIndex 已到 198~200）后新建组件，新会话计数器还在个位数，
+     新建的会画到**已有内容下面**（实测复现，症状是"新建的图元看不见"）。
+  ② **四个 z 序操作 API 只在同一父容器内生效**：`bringToFront()` / `sendToBack()` / `moveUp()` /
+     `moveDown()`（`ICEComponent` 实例方法，返回 `this` 可链式）。实现是把**同层** `zIndex`
+     重编号成 `0..n-1`，不是"自己加一减一" —— 平手（`zIndex` 相等）时次序由插入顺序决定，
+     加减一根本挪不动。`childNodes` 数组本身**保持插入顺序**（调用方按 `childNodes[0]` 取第一个
+     子节点是既有语义），所以断言次序要看**绘制次序**，不要看数组。
+  ③ **存盘把 `zIndex` 归一化成绘制次序里的序号**（`Serializer.__encodeChildren`）：
+     次序与插入顺序一致时**不写**；不一致才写 `0..n-1` 的小整数。这样文档里不再留计数器留下的
+     天文数字，且"读回 → 再存"稳定。读旧数据不受影响（`zIndex` 本来就是可选字段）。
+  回归：`tests/graphic/z-index-order.test.ts`（10 条，含跨会话倒挂、平手重编号、作用域、往返次序不变）。
 - **主题写入契约（2026-09-17 确立，v2.14.0）**：一个 `ICE` 实例上的主题分**两层**，谁写哪层是定死的 ——
   ① **基座**：`ice.setTheme(...)` / `ice.setChrome(...)`（UI 主题、应用主题走这条）；
   ② **命名补丁**：`ice.setThemePatch(id, patch)` / `ice.clearThemePatch(id)`（**领域库**走这条：图表调色板、设计器外壳），

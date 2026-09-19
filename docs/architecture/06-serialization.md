@@ -51,6 +51,24 @@ graph LR
   **遇到未注册的类型不会整份数据打不开**：跳过该节点（含子树）并记入 `deserializer.unknownTypes`，
   便于提示用户 `registerType()` 后重载。
 
+### `zIndex` 在存盘时归一化（2026-09-19）
+
+`zIndex` 是**进文档**的字段（`NON_SERIALIZABLE_KEYS` 里没有它），但它的默认值取自
+**进程级计数器**（`ICEComponent.instanceCounter++`）。直接把计数器留下的数字写进文档会有两个后果：
+文档里出现与内容无关的大整数；换个会话打开后，那个会话的计数器还在个位数，**新建的组件会画到
+已有内容下面**（跨会话倒挂，实测：文档里 198~200、新建的是 4）。
+
+所以存盘时按**同一个父容器**归一化：绘制次序（兄弟按 `zIndex` 升序，稳定）与插入次序一致时
+**不写** `zIndex`；不一致才写绘制次序里的下标 `0..n-1`（`Serializer.__encodeChildren`）。
+
+- 读回时子节点按文件顺序构造（= 插入次序），所以**往返之后绘制次序逐项不变**；
+- 读旧数据不受影响：`zIndex` 本来就是可选字段，缺失时走默认值；
+- 跨会话"新建组件在最上层"由另一条保证：显式写过 `zIndex` 之后计数器会被顶上去
+  （见 [02 组件模型](02-component-model.md) 的 `zIndex` 一节）。
+
+回归：`tests/graphic/z-index-order.test.ts`（含"大 zIndex 不进文档 + 往返次序不变"）、
+`tests/persistence/layout-serialization.test.ts`（布局与 `zIndex` 一起往返）。
+
 ## 类型标识与注册表（关键）
 
 ### `namespace:Type` 契约

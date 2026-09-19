@@ -8,7 +8,7 @@
 import { glMatrix, mat2d, vec2 } from 'gl-matrix';
 import { cloneDeep } from '../util/lang';
 import { merge } from '../util/lang';
-import { bumpVisibilityEpoch, getVisibilityEpoch } from '../util/data-util';
+import { bumpVisibilityEpoch, getVisibilityEpoch, sortSiblingsByZIndex } from '../util/data-util';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import root from '../cross-platform/root';
 import EventBus from '../event/EventBus';
@@ -276,6 +276,27 @@ abstract class ICEComponent extends ICEEventTarget {
   //静态属性，实例计数器
   protected static instanceCounter: number = 0;
 
+  /**
+   * 把「默认 zIndex 计数器」抬到某个显式 `zIndex` 之上。
+   *
+   * 存在的理由：默认 `zIndex` 是 `instanceCounter++`（进程级），而 `zIndex` 又是**进快照**的字段。
+   * 只要有人显式写了一个大值（应用写死 `zIndex: 1e6`、或者**打开一份旧文档** ——
+   * 反序列化就是 `new Clazz(nodeData.state)`），计数器就落后了，之后新建的组件会拿到更小的值，
+   * 于是画在已有内容**下面**（被盖住时表现为"新建的图元看不见"）。
+   *
+   * 所以任何"显式写入 zIndex"的入口都要经这里：构造函数（含反序列化）与 `setState`。
+   */
+  protected static __syncInstanceCounter(zIndex: any): void {
+    const value = Number(zIndex);
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    const next = Math.floor(value) + 1;
+    if (next > ICEComponent.instanceCounter) {
+      ICEComponent.instanceCounter = next;
+    }
+  }
+
   protected __dirty: boolean = true;
 
   /**
@@ -428,6 +449,16 @@ abstract class ICEComponent extends ICEEventTarget {
     this.props.id = props && props.id !== undefined ? props.id : 'ICE_' + uuid();
     this.props.zIndex = ICEComponent.instanceCounter++;
     merge(this.props, props);
+    /**
+     * 显式传了 `zIndex`（应用写死 / **反序列化**走的就是这条路：`new Clazz(nodeData.state)`）时，
+     * 把默认值计数器顶到它上面。
+     *
+     * 为什么必须做：`zIndex` 默认取**进程级计数器**，而它是**进快照**的字段 —— 两个不同时钟的东西
+     * 绑在一起就会倒挂：打开一份"元件比较多"的文档（里面的 zIndex 已到几百），新会话的计数器还在个位数，
+     * 于是**新建的组件 zIndex 更小 → 画在已有内容下面**（实测：文档里 198~200，新建的是 4）。
+     * 见 `tests/graphic/z-index-order.test.ts` 的回归。
+     */
+    ICEComponent.__syncInstanceCounter(this.props.zIndex);
     // 用户没写 style 时，给一份「主题派生」的默认样式（不是共享的 frozen 默认，避免被实例污染）
     if (!props || props.style === undefined) {
       this.__usesThemeDefaultStyle = true;
@@ -1730,6 +1761,11 @@ abstract class ICEComponent extends ICEEventTarget {
    * @param newState
    */
   public setState(newState: any, options?: { paramsDirty?: boolean }) {
+    // 显式写 zIndex 时把「默认 zIndex 计数器」顶到它上面 —— 否则下一次 `new Xxx()` 拿到的
+    // 默认值会比它小，新建的组件会**画到最下面**（见 __syncInstanceCounter 的注释）。
+    if (newState && newState.zIndex !== undefined) {
+      ICEComponent.__syncInstanceCounter(newState.zIndex);
+    }
     const sizeChanged = this.__beforeStateMerge(newState);
     merge(this.state, newState);
     // 运行时写 style（setState({style}) / 动画 / preset 重解析）可能引入主题引用：
@@ -2171,6 +2207,90 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   public destroy(): void {
     this.destory();
+  }
+
+  /**
+   * **把本组件移到同层最上 / 最下 / 上移一位 / 下移一位**（父容器为作用域）。
+   *
+   * 与 CSS / 各画布库的语义一致：`zIndex` **只在兄弟之间比较**（见 [04 渲染] 的顺序铁律），
+   * 所以这四个方法也只动**同一个父容器里的次序**，不跨层、不影响别的容器。
+   * 四个方法都返回 `this`，可链式：`rect.setSize(10, 10).bringToFront()`。
+   *
+   * ⚠️ 实现是**改写同层 zIndex 为 0..n-1**（而不是只改自己那一个数）：
+   * `zIndex` 相等时次序由**插入顺序**决定（稳定排序），只把用户那个数加一减一在"平手"场景下
+   * 根本挪不动位置。统一重编号之后，次序与数值一一对应，行为和直觉一致。
+   */
+  public bringToFront(): this {
+    const order = this.__siblingOrder();
+    if (!order || order.length < 2) return this;
+    const rest = order.filter((item) => item !== this);
+    if (rest.length === order.length) return this; // 不在兄弟列表里（未挂载）
+    this.__applySiblingOrder([...rest, this]);
+    return this;
+  }
+
+  /** 移到同层最下（`bringToFront` 的逆操作）。 */
+  public sendToBack(): this {
+    const order = this.__siblingOrder();
+    if (!order || order.length < 2) return this;
+    const rest = order.filter((item) => item !== this);
+    if (rest.length === order.length) return this;
+    this.__applySiblingOrder([this, ...rest]);
+    return this;
+  }
+
+  /** 在同层里上移一位（超出最上层时不动）。 */
+  public moveUp(): this {
+    return this.__shiftInSiblings(1);
+  }
+
+  /** 在同层里下移一位（已在最下层时不动）。 */
+  public moveDown(): this {
+    return this.__shiftInSiblings(-1);
+  }
+
+  /** 同层兄弟的**绘制次序**（= 兄弟按 zIndex 升序，稳定；与渲染器同源）。 */
+  private __siblingOrder(): any[] | null {
+    const list = this.__siblingList();
+    if (!list || !list.length) return null;
+    return sortSiblingsByZIndex(list);
+  }
+
+  /** 本组件所属的兄弟列表：优先父容器，其次 ICE 的组件层 / 工具层。 */
+  private __siblingList(): any[] | null {
+    if (this.parentNode && Array.isArray(this.parentNode.childNodes)) {
+      return this.parentNode.childNodes;
+    }
+    const ice: any = this.ice;
+    if (!ice) return null;
+    if (Array.isArray(ice.toolNodes) && ice.toolNodes.indexOf(this) !== -1) {
+      return ice.toolNodes;
+    }
+    return Array.isArray(ice.childNodes) ? ice.childNodes : null;
+  }
+
+  private __shiftInSiblings(delta: number): this {
+    const order = this.__siblingOrder();
+    if (!order || order.length < 2) return this;
+    const at = order.indexOf(this);
+    if (at === -1) return this;
+    const to = at + delta;
+    if (to < 0 || to >= order.length) return this;
+    const next = order.slice();
+    next.splice(at, 1);
+    next.splice(to, 0, this);
+    this.__applySiblingOrder(next);
+    return this;
+  }
+
+  /** 把目标次序落到同层的 `zIndex`（0..n-1；没变的兄弟不动，避免无谓置脏）。 */
+  private __applySiblingOrder(order: any[]): void {
+    for (let i = 0; i < order.length; i++) {
+      const sibling: any = order[i];
+      if (sibling && sibling.state && sibling.state.zIndex !== i) {
+        sibling.setState({ zIndex: i });
+      }
+    }
   }
 
   public destory(): void {
