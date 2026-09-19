@@ -676,7 +676,43 @@ abstract class ICEComponent extends ICEEventTarget {
     this.on('keyup', this.keyboardEvtHandler, this);
   }
 
+  /**
+   * **这次事件该不该由我处理**（拖动 / 方向键移动这类"默认动作"的归属）。
+   *
+   * 规则：从命中组件往上数，**最近的那个 `interactive` 且 `draggable` 的组件**才是事件主人。
+   * 与 DOM 里"事件目标是最内层元素、外层不重复响应"同一个直觉，但保留了 canvas 里的常见用法：
+   * 抓着一个**不可交互的子节点**（图元上的文字标签 / 图标 / 装饰）拖动时，
+   * 应该由它外面那层可交互容器接管 —— 这也是 `ice-entity-designer` 拖实体的方式。
+   *
+   * 两条边界：
+   * - `evt.target === this`（或没写 target 的引擎自造事件）→ 直接由我处理（保持既有行为）；
+   * - 命中组件自己就是 interactive+draggable → **它**是主人，祖先（包括我）都让位
+   *   （否则"拖子组件，父容器跟着跑"）。
+   */
+  private __isDragOwner(evt?: any): boolean {
+    const target: any = evt && evt.target;
+    if (!target || target === this) {
+      return true;
+    }
+    if (!this.state.interactive || !this.state.draggable) {
+      return false;
+    }
+    let node: any = target;
+    while (node && node !== this) {
+      const state: any = node.state;
+      if (state && state.interactive !== false && state.draggable !== false) {
+        return false; // 更内层已经有人接管
+      }
+      node = node.parentNode;
+    }
+    return node === this; // 命中点不在我的子树里 → 不是我
+  }
+
   protected mouseDownEvtHandler(evt?: any) {
+    // 事件会冒泡（2026-09-19 起）：由「从命中点往上数最近的 interactive+draggable 组件」接管
+    if (!this.__isDragOwner(evt)) {
+      return;
+    }
     if (!this.state.interactive || !this.state.draggable) {
       return;
     }
@@ -685,6 +721,10 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   protected mouseMoveEvtHandler(evt: any) {
+    // 同 mouseDownEvtHandler：冒泡上来的移动事件不该让祖先容器跟着动
+    if (!this.__isDragOwner(evt)) {
+      return;
+    }
     // movementX/Y 是屏幕像素位移；在缩放视口下，世界坐标位移需要除以 scale。
     const scale = this.ice && this.ice.viewport ? this.ice.viewport.scale : 1;
     const tx = evt.movementX / scale;
@@ -710,6 +750,10 @@ abstract class ICEComponent extends ICEEventTarget {
    * @returns
    */
   protected keyboardEvtHandler(evt: any) {
+    // 同 mouseDownEvtHandler：方向键只移动"该动的那个组件"，不移动它的祖先
+    if (!this.__isDragOwner(evt)) {
+      return;
+    }
     const MOVE_STEP = 2; //每按键一次移动的步长，像素值
     const keyName = evt.key;
     switch (keyName) {

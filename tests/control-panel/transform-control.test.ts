@@ -117,3 +117,30 @@ describe('缩放手柄几何（回归：resize 不应移动组件中心）', () 
     });
   }
 });
+
+describe('面板转发键盘事件（2026-09-19 冒泡改版的连带守卫）', () => {
+  /**
+   * 面板在工具层、盖在目标组件之上，所以目标收不到键盘事件，由面板转发。
+   *
+   * 冒泡改版给 `ICEComponent` 的默认键盘处理加了守卫（`evt.target !== this` 就返回），
+   * 因此**转发前必须把 `evt.target` 改成被转发的组件** —— 否则"选中组件后用手柄按方向键"
+   * 会静默失效（这次就是靠这条用例发现的）。
+   */
+  it('★ 转发时改写 evt.target，目标组件的默认键盘处理才生效', () => {
+    const target: any = new ICERect({ left: 10, top: 10, width: 100, height: 50 });
+    const panel: any = new TransformControlPanel({ width: 100, height: 100 });
+    panel.targetComponent = target;
+    const moved: string[] = [];
+    target.moveGlobalPosition = () => {
+      moved.push('moved');
+      return target;
+    };
+
+    // 面板收到的键盘事件：target 指向面板自己（模拟手柄被聚焦 / 面板被命中）
+    const evt: any = { type: 'keydown', key: 'ArrowRight', target: panel, bubbles: true, cancelable: true };
+    panel.keyboardEvtHandler(evt);
+
+    expect(moved).toEqual(['moved']);
+    expect(evt.target).toBe(target); // 转发时改写，目标组件的守卫才会放行
+  });
+});

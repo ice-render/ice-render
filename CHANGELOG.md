@@ -7,6 +7,89 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+## [2.18.0] - 2026-09-19
+
+> ⚠️ **破坏性：事件传播语义改版**。事件开始沿组件树冒泡（命中组件 → 各级父容器 → 总线），
+> 且 `ICEEvent` 的 W3C 方法从「调用即抛异常」变成**真生效**。上游要改的三件事：
+> ① 容器的 click 处理若只想认「点在自己身上」，加 `evt.target === this` 守卫；
+> ② 跨组件转发事件时把 `evt.target` 改成目标组件；
+> ③ `preventDefault()` 现在会真的阻止原始 DOM 的默认行为（原来会抛异常）。
+
+### 变更（破坏性：事件系统语义）
+
+- **事件沿组件树冒泡 + `ICEEvent` 的 W3C 方法真实现**（2026-09-19，分支 `feat/event-system`）。
+
+  改版前的事实（探针实测）：`ICEEvent.prototype.preventDefault / stopPropagation /
+  stopImmediatePropagation / composedPath / initEvent` **全是 `throw new Error('Method not implemented.')`** ——
+  应用里一调用，异常就从监听器里冒出去，**后面的监听器与总线都收不到事件**；
+  而且组件之间**没有冒泡**（只有"命中组件 + 总线"两站），父容器拿不到子组件上的事件。
+  下游为此各写各的绕过：`ice-chart` 专门写了"只对原始 DOM 事件调用 `preventDefault`"的注释与封装，
+  `ice-web-components` 里则留下若干"在面板自己身上再 `stopPropagation` 一次"的写法 ——
+  既无效（没有冒泡可阻止），又危险（真调下去就炸，而 `typeof === 'function'` 的守卫**拦不住它**）。
+
+  改版后：
+
+  - **传播路径**：命中组件（`AT_TARGET=2`）→ 各级父容器（`BUBBLING_PHASE=3`）→ **总线最后收一次**；
+    `evt.target` 恒为命中组件，`currentTarget` 随节点走，`composedPath()` 给出祖先链。
+  - **`stopPropagation()` 只挡祖先**；`stopImmediatePropagation()` 连当前目标剩下的监听器也跳过；
+    ⚠️ **总线仍然收到一次** —— 它是引擎内部通道（控制面板选中 / 连线插槽 / 悬停 / 键盘作用域），
+    被组件里的一次 `stopPropagation()` 掐掉会变成"看着只挡冒泡、实际引擎失灵"。
+  - **`preventDefault()`**：只有 `cancelable === true` 才生效，置 `defaultPrevented`，并顺手调用
+    原始 DOM 事件的 `preventDefault()`；引擎自造事件上 `bubbles / cancelable / defaultPrevented /
+    eventPhase` 不再是 `undefined`。
+  - **同一个 `ICEEvent` 一路传到底**（不再层层包）：否则上一个监听器打的标记会落在副本上
+    （冒泡/取消永不生效），`param` 也会被覆盖成 `{}`（"组件路径看不到 param"就是这个原因）。
+  - **构造函数平铺字段时不覆盖本类方法**（`NON_COPYABLE_KEYS`）：普通对象做的事件桩上的
+    `preventDefault` 是可枚举 own 属性，拷进来就会盖掉真实现（真实 DOM 事件的方法在原型上、不可枚举，
+    所以旧实现没暴露这个坑）。
+  - **API**：`on / once / off / suspend / resume / purgeEvents` 一律返回 `this`（可链式）；
+    `off(name)`（不传回调）清空该事件的**全部**监听；`addEventListener(type, fn, { once })` /
+    `removeEventListener` / `dispatchEvent(event)` 改成**签名正确的真方法**（旧实现是把
+    `on/off/trigger` 挂过去，第三参被当成 `scope`、`dispatchEvent` 收事件对象却当成事件名）；
+    `ICEEvent` 与 `ICE_EVENT_NAME_CONSTS` 之外，**`ICEEvent` 类本身也对外导出**了。
+  - **两套 API 是同一个实现、两种参数形状**（这是本轮明确收口的目标）：
+    `on(name, fn, scope?, options?)` 与 `addEventListener(type, fn, options?)` 共用同一份
+    `__register` / `__remove`；`off` 按 `(fn, scope)` 精确匹配、`removeEventListener` **忽略 scope**
+    （W3C 身份 = `(type, listener, capture)`）；`dispatchEvent` 按 W3C 返回 `!defaultPrevented`。
+    `options` 支持 `{ once, passive, capture, signal }`：`passive` 监听器里 `preventDefault()` 不生效
+    （按事件名提醒一次，别静默）、`capture` 只作注册身份（引擎无捕获阶段）、`signal` abort 自动摘除；
+    `listener` 可以是函数或 `{ handleEvent }` 对象。`once` 改成**监听记录上的标记**
+    （不再是"自摘包装函数 + `__onceOriginal`"那套双身份），`off/hasListener/removeEventListener`
+    因此用**同一个身份**匹配。引擎自造事件的 `timeStamp` 改用**单调时钟**（`performance.now()` 时间原点，
+    旧实现是 `Date.now()` 墙钟）。
+    回归：`tests/event/api-consistency.test.ts`（9 条：交叉注册/移除、`once` 等价、`{handleEvent}`、
+    `capture` 身份、`passive` 屏蔽 + 提醒、`signal` 摘除、`dispatchEvent` 返回值、单调时间戳）。
+  - **连带修掉的两处"冒泡副作用"**（都是这次实测发现的）：
+    ① `TransformControlPanel.keyboardEvtHandler` 把键盘事件**转发**给选中组件时没改 `evt.target` ——
+    新引擎的默认键盘处理带 `evt.target === this` 守卫，转发过去会被当成"冒泡上来的祖先事件"丢掉，
+    表现为"选中组件后用手柄按方向键没反应"。现在转发前改写 `target`（回归：`tests/control-panel/transform-control.test.ts`
+    的"转发时改写 evt.target"，无修复时该用例直接红）。
+    ② 容器的 click 处理若只想认"点在自己身上"，要用 `evt.target === this` 守卫（新引擎里子节点点击会冒泡上来）——
+    这条约定写进了 [05 事件系统](docs/architecture/05-event-system.md) 与 `AGENTS.md`；
+    下游 `ice-web-components` 的模态遮罩 / 悬浮按钮 / 下拉选择器 / 图片预览遮罩共 5 处按这条收口
+    （守卫在 2.17.0 上也成立，跨版本安全）。
+  - **事件名与事件对象有了类型**（应用层一致性收口）：`ICE_EVENT_NAME_CONSTS` 改 `as const`，
+    新增 `event/event-types.ts`（`ICEEventName` = 内置事件 + DOM 语义事件、`ICEEventOf<K>`、
+    `ICEEventParamMap` 事件名 → `evt.param` 形状、`ICEEventListenerOptions`），
+    `on / once / trigger` 加重载：写引擎名/DOM 语义名时回调里的 `evt` 有类型
+    （`evt.param.component`、`evt.offsetX` 都能过编译），写自定义事件名回退 `any`；
+    `ICEEvent` 补齐归一化输入字段声明。
+    ⚠️ 载荷仍分两处（`evt.param` 与「事件对象字段」，后者是变换类事件的历史写法），
+    类型表**如实反映**、未强行统一 —— "全部走 param"是行为变更，等有需要再做。
+  - **门禁补一条**：`tests/**` 原本不在 `tsconfig.json` 的 `include`（只有 `src`）里，
+    新增的 `tests/types/event-names.ts` 类型断言本来是**死的**（实测：断言写错也不报错）。
+    新增 `tsconfig.typecheck.json` 把 `tests/types` 纳入，`npm run types:check` 现在跑两份；
+    配套的家族侧替换（引擎事件名改用常量）见各仓提交。
+
+  ⚠️ **下游需要跟着改**（本版未一并改，列在这里以免漏）：`ice-web-components` 里
+  `ICEModal` / `ICEDrawer` / `ICETour` / `ICETable` / `ICEKeyScope` 那几处对 **ICEEvent** 调
+  `preventDefault` / `stopPropagation` 的地方，现在**从"会抛异常"变成"真的生效"** ——
+  语义变强了，但意图要复核（尤其"阻止冒泡到遮罩"这类，冒泡实现之后才真正成立）；
+  `ice-chart` 的 `InteractionController.preventDefault` 绕过可以删掉。
+
+  回归：`tests/event/bubbling-and-w3c.test.ts`（14 条：W3C 方法 / 冒泡顺序 / `stop*` 语义 /
+  总线不受影响 / composedPath / 别名与链式 / `off(name)` 全清）、`docs/architecture/05-event-system.md`。
+
 ## [2.17.0] - 2026-09-19
 
 > ⚠️ **这一版有两处破坏性变更**：默认 `zIndex` 的语义改版（`'auto'` 哨兵 + 重排 API 收窄）
