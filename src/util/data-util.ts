@@ -213,7 +213,9 @@ function flattenOrdered(result: any[], ordered: any[], level: number, pid: any):
  * 没有 `getSerializableChildren()` 的组件（普通容器 / 纯图形）行为**逐字不变**：
  * 全部子节点视为真实子节点，只按 zIndex 排一次。
  *
- * @internal 供渲染队列（`flattenTree`）与 SVG 导出（`SvgExporter`）共用，两处必须同源。
+ * 引擎内部三处同源（渲染队列 `flattenTree` / SVG 导出 `SvgExporter.collectOrdered` /
+ * 命中检测复用渲染队列）；对外导出是为了让应用与测试能**在无头环境断言真实绘制次序**
+ * （与 `sortSiblingsByZIndex` / `zIndexOf` 同属"排序口径"的公开出口）。
  */
 export function paintOrderChildrenOf(container: any): any[] {
   const all: any[] = (container && container.childNodes) || [];

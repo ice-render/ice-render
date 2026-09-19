@@ -189,6 +189,6 @@ export type { ICEError, ICEErrorCode, ICEErrorDetails } from './util/errors';
  * `'auto' - 1` 是 `NaN`，一个脏值就能让整层排序悄悄地不生效。见 docs/architecture/02-component-model.md。
  */
 export { default as Z_INDEX_AUTO } from './consts/Z_INDEX_AUTO';
-export { sortSiblingsByZIndex, zIndexOf, zIndexForPaintRank } from './util/data-util';
+export { paintOrderChildrenOf, sortSiblingsByZIndex, zIndexOf, zIndexForPaintRank } from './util/data-util';
 export { buildAccessibilityTree } from './a11y/accessibility';
 export type { ICEAccessibleNode, ICEAccessibleRole, ICEAccessibilityOptions } from './a11y/accessibility';
