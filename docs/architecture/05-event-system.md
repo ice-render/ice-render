@@ -66,6 +66,23 @@ graph LR
 - `DOMEventDispatcher` 把原生事件转成 `ICEEvent`（保留 `originalEvent`、`target` 指向命中组件），再注入 `EventBus` 分发。
 - 组件通过 `initEvents()` 注册默认事件（`mousedown`/`keydown`/`keyup`），子类可覆盖。
 
+### 指针坐标：移动类事件**每帧重读** canvas 矩形
+
+命中检测要把 `clientX/clientY` 换算到画布坐标，靠的是 `getBoundingClientRect()`。
+**移动类事件必须每帧重读一次**（`ICE.refreshInputRect()`），不能缓存、也不能做"一帧一次"的节流：
+
+- 页面滚动、画布**上方插入内容**（提示条 / 错误信息 / 广告位）都会让缓存的矩形整体过期；
+  而移动事件是唯一高频入口 —— 不刷新就没人来纠正它，过期期间 `clientX - rect.left` 恒定偏移，
+  命中、悬停、拖拽会**整体错位**，直到用户点一下或滚一格（`ice-chart` 的示例页真实撞到过：
+  图表创建后插入状态行把画布下推 26px，悬停直接落空）；
+- 实测一次 rect 读 **0.22µs**（每次读之前改样式、强制重排的最坏情况 2.8µs），相对每帧渲染可忽略；
+- 尺寸没变时只把已缓存的**内容盒**跟着平移（省掉 `computedStyle` 读取），所以"每帧重读"不等于"每帧重算";
+- 做位移增量必须用**值快照**，不能拿上一次的 rect 对象引用做差 —— 某些运行时（测试桩 / 小程序）
+  返回同一个可变对象，增量会恒为 0，内容盒再也不跟着走。
+
+回归：`tests/ICE.input-rect.test.ts`、`tests/event/DOMEventDispatcher.input.test.ts`、
+`e2e/visual/input-rect-shift.spec.ts`。
+
 ## 常见事件名
 
 引擎定义了一批事件常量（`ICE_EVENT_NAME_CONSTS`），例如：

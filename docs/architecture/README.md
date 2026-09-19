@@ -39,6 +39,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**（MIT 协议，作者
 | [19 · 脏区空间索引评估](19-dirty-rect-spatial-index-evaluation.md) | 要不要给局部重绘加一层空间索引：脏区判定的真实边界（**能不能局部重绘取决于脏区的几何分布而非数量**）、原型实测（1.9×，天花板 3~4×）、与静态层的关系、真要做必须先守住的设计点与验收条件；**结论：暂缓** |
 | [20 · 引擎升版后的应用侧验证清单](20-engine-upgrade-verification.md) | 给"升级引擎的人"的操作清单：对齐依赖 → 门禁 → **全部示例页逐页** → 按引擎改动类型做定向检查（静态层是否真参与 / hover 命中路径 / 序列化往返）→ 发布；含**像素对照的两档口径**、**归因顺序**（先量噪声底线再切变量）与六个踩过的坑 |
 | [21 · 主题与样式机制](21-theme-and-style.md) | 四层 token（base / semantic / chrome / preset）、**主题引用在 paint 时解析**（自定义组件也能跟随 `setTheme`）、**主题变更通知**（`ice.onThemeChange`，上层被动跟随的唯一时机）、交互状态样式与可选自动驱动、主题作用域、主题进快照、`validateTheme()` 结构化校验（拼错内置名报 warning、应用自带词汇报 info、含 WCAG 对比度）、命名主题注册护栏、预设注册纪律、**热路径性能约束**（快路径与基线同构，微基准 0.98×）与已知取舍 |
+| [22 · 布局（LayoutManager）](22-layout.md) | 容器持有策略、策略只算位置；7 个内置策略与构造参数；**尺寸协商只走 `getPreferredSize()`**（构造期的宽高是边界不是首选尺寸）；内外距只有一套实现；子项声明（`margin`/`grow`/`gridSpan`/`layoutConstraint`）；择时四步（测量 → 排布 → `fitContent` → `validateTree` 校验趟）；交互锁的副作用与还原；显隐口径；布局序列化（`layout: { type, props }`）与未注册类型的降级 |
 
 ## 运行时全景（一图概览）
 

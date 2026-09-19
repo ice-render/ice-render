@@ -113,18 +113,42 @@ graph TD
 （`collectOk>0`）且与 full 路径 10 步逐像素一致。
 引擎 JS 层基准：`npm run bench` 的场景 C（文本缓存命中）对比场景 D（每帧重建）可观察加速比。
 
+### 在 `setState` 之外改画面：用 `ice.requestRepaint()`（v2.14.0）
+
+组件走 `setState` 置脏是常规路径。但有些"画出来是什么变了"并不经过 `setState`：
+自绘 painter 读了新数据、换了视口、字体/图片刚就绪、要作废静态层与上屏快照 —— 这类情况用：
+
+```js
+ice.requestRepaint(); // 置脏 + 标记渲染队列重排；幂等，可链式
+```
+
+**不要再写 `ice.dirty = true`**：那是直摸内部字段（无文档、无保证），而且它只置脏、
+不通知渲染队列。`requestRepaint()` 的语义就是"我改了会影响画面的东西，下一帧重画"。
+回归：`tests/renderer/request-repaint.test.ts`。
+
 ## 渲染队列（flattenTree + 排序 + 缓存）
 
 每帧需要把组件树"展平"成有序数组再渲染：
 
+- **绘制顺序 = 树序（先父后子）+ 兄弟按 `state.zIndex` 升序**（相等时保持加入顺序）；
+  **工具层整体画在组件层之上**（`componentQueue` → `toolsQueue`，两层之间不按 zIndex 交叉）。
+  口径的唯一出处是 `util/data-util.ts` 的 `flattenTree()`（渲染顺序铁律，v2.13.0）。
 - `flattenTree(childNodes)` 递归遍历，产出 `componentQueue`（普通组件）与 `toolsQueue`（工具组件），同时标注 `_level`/`_pid`。
-- 两个队列各自按 `state.zIndex` **升序**排序，确定绘制顺序。
+  ⚠️ **只排兄弟**，而且排的是**副本** —— `childNodes` 本身保持加入顺序（调用方按 `childNodes[0]` 取"第一个子节点"是既有语义）。
+
+  旧实现是"展平之后**全局**按 `zIndex` 排序"，而默认 `zIndex` 是**构造顺序计数器**
+  （`ICEComponent.instanceCounter++`）：父容器比子组件后构造时，父的 zIndex 会反超自己整棵子树，
+  **父把孩子整个盖住**（画面一片空白、且不报错）。树序下这种倒挂不可能发生 —— 子永远画在父之上。
+  回归：`tests/renderer/render-order.test.ts`（顺序）、`tests/renderer/hit-test-ordered.test.ts`（命中与绘制同源）、
+  `e2e/visual/render-order.spec.ts`（真机像素）。
 
 **性能优化（2026-09-08 引入）**：渲染队列带缓存。
 
 - 仅当组件树**结构变化**（`addChild`/`removeChild`/`addTool`/`removeTool` 等）时，由 `renderer.markQueueDirty()` 触发重建（重新 flatten + sort）。
 - 稳态帧只做一次 **O(n) 的 zIndex 稳定性比对**：若所有 `zIndex` 未变，直接复用上一帧的队列数组，不重复递归展平、不重新分配数组。
-- `zIndex` 变化（经 `setState`）无需手动标记，稳态比对会自动发现并重新排序。
+- `zIndex` 变化（经 `setState`）无需手动标记，稳态比对会自动发现并**整队重建**；
+  重建仍然走 `flattenTree`（树序 + 兄弟排序），**不得**在展平结果上再全局排一次 ——
+  那等于把"只排兄弟"退回成旧的全局语义，父容器会再次反超自己的子树。
 
 **铁律**：所有改变组件树结构的入口都必须调用 `renderer.markQueueDirty()`，否则稳态帧会沿用过期队列，导致增删组件不渲染或层级错乱。回归用例见 `tests/renderer/CanvasRenderer.queue.test.ts`。
 
@@ -399,7 +423,8 @@ micro 基准 `anim 每帧全量 compose` **0.93×** —— 关键项全部**快�
 
 **四条安全边界**（都有回归用例兜着）：
 
-1. **只有 z 序上连续的干净段能成层**。队列是**全局 zIndex 排序**，位图只能整层贴回；
+1. **只有 z 序上连续的干净段能成层**。队列是**树序 + 兄弟按 zIndex**（工具层整体在组件层之上），
+   位图只能整层贴回；
    成员与非成员在 z 序上交错，叠放次序就会变（画错）。成员数下限 256（低于它，贴一张图还不如逐组件画）。
 2. **排除三类组件**：有 `clipChildren` 祖先（位图里没有那层裁剪）、`globalCompositeOperation`
    非 `source-over`（依赖"画布已有内容"的算子会算出不同结果）、`display:false`（旧墨迹要擦）。

@@ -79,6 +79,45 @@ off();
 自维护一套画布配色）以前只能等下一次重建 —— 引擎换了主题、上层纹丝不动，根因就是这里没有信号。
 各产品**不需要**再发明同步时机。
 
+## 2.5 谁写哪一层：主题写入契约（2.14.0 / 2.14.1）
+
+一个 `ICE` 实例上的主题分**两层**，四个入口各写各的（`ICE.setTheme` / `setChrome` /
+`setThemePatch` / `clearThemePatch`，最终都汇合到 `ICE.__recomposeTheme()`）：
+
+| 入口 | 写哪层 | 谁用 |
+|---|---|---|
+| `ice.setTheme(theme)` | **基座** `__themeBaseTheme` | UI 主题 / 应用主题 |
+| `ice.setChrome(patch)` | 基座里的 `semantic.chrome` | 外壳配色（选中框 / 手柄 / 插槽 / 引导线…） |
+| `ice.setThemePatch(id, patch)` | **命名补丁** `__themePatches`（Map，按注册顺序） | **领域库**（`'ice-chart'` 调色板、`'ice-designer'` 外壳） |
+| `ice.clearThemePatch(id)` | 撤销某份补丁（`getThemePatchIds()` 可查已注册的） | 卸载领域库 / 换外壳 |
+
+**合成顺序是定死的**：`基座 → 命名补丁（按注册顺序）` —— `__recomposeTheme()` 先取基座，
+再按 Map 的插入顺序逐个 `mergeThemes`。由此得到两条使用规则：
+
+- **补丁永远压得住基座**：应用想覆盖领域库的 token，必须用自己的补丁
+  （`setThemePatch('host', …)`，注册在领域库之后）—— 换 UI 主题压不住它；
+- 要**整个撤掉**某个库的外壳用 `clearThemePatch(id)`，不要"再设一份主题盖回去"。
+
+**领域库不要再调 `setTheme` / `setChrome`**（那是基座层，等于跟宿主抢方向盘）：历史上两边都直接改实例主题，
+后写的赢 —— 换 UI 主题会把图表主题抹掉、换图表主题会把 UI 主题抹掉，成败取决于调用顺序。
+
+### 换主题必须作废位图缓存（2.14.1）
+
+主题引用是 **paint 时**解析的（见 §3），而 `__reapplyPresets()` 只对「用了 preset / 没写 style」的组件
+`setState`；**写了引用但没用 preset** 的组件不会被置脏。于是组件级离屏缓存（`ObjectCache`）
+与静态层位图会把**烤着旧主题颜色**的位图原样贴回来 —— 表现是"热切换后文本停在旧色"
+（浅色主题的深字压在深底上；`?theme=` 刷新路径正常，因为整棵树重建了）。
+
+修法就在 `__recomposeTheme()` 里（四个入口的汇合点）：`renderer.invalidateObjectCache()`
+（同时丢组件级缓存与静态层）+ `requestRepaint()`（保证有一帧）。
+
+⚠️ **补丁不进快照**：快照里存的是 `{ name, patch }`（相对命名主题的差异，见 §6），
+命名补丁是**装载时重新注册**的运行时约定，不随文档存取。
+
+回归：`tests/theme/theme-patch.test.ts`（契约与优先级）、
+`tests/theme/theme-cache-invalidation.test.ts`（四条入口都要作废缓存）、
+`e2e/visual/theme-cache-pixel.spec.ts`（**像素**判据：热切换后的画布必须与"开机即深色"逐像素一致）。
+
 ## 3. 主题引用：样式在 **paint 时** 解析
 
 样式里的色值可以直接引用 token，而不是写死字面量：
