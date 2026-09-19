@@ -34,6 +34,7 @@ import ICE from '../../src/ICE';
 import ICEComponent from '../../src/graphic/ICEComponent';
 import ICEGroup from '../../src/graphic/container/ICEGroup';
 import CanvasRenderer from '../../src/renderer/CanvasRenderer';
+import { zIndexOf } from '../../src/util/data-util';
 
 function makeIce(): ICE {
   const ice = new ICE();
@@ -59,8 +60,8 @@ describe('CanvasRenderer 渲染队列缓存', () => {
     expect(q.length).toBe(2);
     expect(q).toContain(a);
     expect(q).toContain(b);
-    // 默认 zIndex 随构造顺序递增，队列按 zIndex 升序
-    expect(q[0].state.zIndex).toBeLessThanOrEqual(q[1].state.zIndex);
+    // 默认 zIndex 是 'auto'（排序当 0），队列按排序键升序
+    expect(zIndexOf(q[0])).toBeLessThanOrEqual(zIndexOf(q[1]));
   });
 
   it('结构未变时稳态刷新复用同一队列数组（不重新 flatten），zIndex 变化时才重排序', () => {
@@ -125,7 +126,8 @@ describe('CanvasRenderer 渲染队列缓存', () => {
     (ice.renderer as any).refreshQueue();
     const arrBefore = (ice.renderer as any).componentQueue;
 
-    a.setState({ zIndex: b.state.zIndex + 10 }, { paramsDirty: false });
+    // ⚠️ 默认值是 `'auto'` 哨兵，不能直接做算术（`'auto' + 10` = `'auto10'`）—— 取数走 zIndexOf
+    a.setState({ zIndex: zIndexOf(b) + 10 }, { paramsDirty: false });
     (ice.renderer as any).refreshQueue();
 
     const q = (ice.renderer as any).componentQueue;

@@ -167,10 +167,12 @@ export { TYPE_ID_PATTERN, isTypeId, assertTypeId, parseTypeId, makeTypeId } from
 export { ICE_ERROR_CODES, iceError, getICEErrorCode, isICEError } from './util/errors';
 export type { ICEError, ICEErrorCode, ICEErrorDetails } from './util/errors';
 /**
- * 同层叠放次序的**唯一口径**（2026-09-19 起默认 `zIndex = 0`，即 CSS 的 `z-index: auto` 那一档）：
+ * 同层叠放次序的**唯一口径**（2026-09-19 起默认 `zIndex = 'auto'`，即 CSS 的 `z-index: auto` 那一档，
+ * 排序时当 `0` 用）：
  * 应用层要自己排/比同层次序时用这几个，不要各写一套 `x.state.zIndex || 0` ——
- * 一个脏值（字符串 / NaN）就能让整层排序悄悄地不生效。见 docs/architecture/02-component-model.md。
+ * `'auto' - 1` 是 `NaN`，一个脏值就能让整层排序悄悄地不生效。见 docs/architecture/02-component-model.md。
  */
+export { default as Z_INDEX_AUTO } from './consts/Z_INDEX_AUTO';
 export { sortSiblingsByZIndex, zIndexOf, zIndexForPaintRank } from './util/data-util';
 export { buildAccessibilityTree } from './a11y/accessibility';
 export type { ICEAccessibleNode, ICEAccessibleRole, ICEAccessibilityOptions } from './a11y/accessibility';

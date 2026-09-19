@@ -138,7 +138,7 @@ ice.requestRepaint(); // 置脏 + 标记渲染队列重排；幂等，可链式
 
   旧实现是"展平之后**全局**按 `zIndex` 排序"：父容器的 zIndex 只要比子组件大，就会反超自己整棵子树，
   **父把孩子整个盖住**（画面一片空白、且不报错）。树序下这种倒挂不可能发生 —— 子永远画在父之上。
-  （默认 `zIndex` 现在是 `0`/auto 层，2026-09-19 起；见 [02](02-component-model.md) 的 `zIndex` 一节。）
+  （默认 `zIndex` 现在是 `'auto'`（排序当 0），2026-09-19 起；见 [02](02-component-model.md) 的 `zIndex` 一节。）
   回归：`tests/renderer/render-order.test.ts`（顺序）、`tests/renderer/hit-test-ordered.test.ts`（命中与绘制同源）、
   `e2e/visual/render-order.spec.ts`（真机像素）。
 

@@ -6,6 +6,7 @@
  */
 import ICERect from '../../src/graphic/shape/ICERect';
 import { DEFAULT_THEME } from '../../src/theme/ICETheme';
+import Z_INDEX_AUTO from '../../src/consts/Z_INDEX_AUTO';
 
 class FakePath2D {
   _isPolyfill = true;
@@ -59,13 +60,13 @@ describe('ICEComponent 默认 props 原型共享', () => {
     expect(r.props.style.fillStyle).toBe('#333333');
   });
 
-  it('id 每实例唯一；zIndex 默认是共享默认值 0（auto 层，不再随实例递增）', () => {
+  it('id 每实例唯一；zIndex 默认是共享默认值 `auto`（不再随实例递增）', () => {
     const a = new ICERect({});
     const b = new ICERect({});
     expect(a.props.id).not.toBe(b.props.id);
-    // 2026-09-19：默认 zIndex 改成 0（auto 层），不再有"构造顺序计数器"
-    expect(a.props.zIndex).toBe(0);
-    expect(b.props.zIndex).toBe(0);
+    // 2026-09-19：默认 zIndex 改成 `'auto'`（排序当 0），不再有"构造顺序计数器"
+    expect(a.props.zIndex).toBe(Z_INDEX_AUTO);
+    expect(b.props.zIndex).toBe(Z_INDEX_AUTO);
     // 而且它是**共享默认**（原型上），不给每个实例多一份 own 字段
     expect(Object.prototype.hasOwnProperty.call(a.props, 'zIndex')).toBe(false);
   });

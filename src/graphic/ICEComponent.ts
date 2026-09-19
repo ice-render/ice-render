@@ -10,6 +10,7 @@ import { cloneDeep } from '../util/lang';
 import { merge } from '../util/lang';
 import { bumpVisibilityEpoch, getVisibilityEpoch, sortSiblingsByZIndex, zIndexForPaintRank } from '../util/data-util';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
+import Z_INDEX_AUTO from '../consts/Z_INDEX_AUTO';
 import root from '../cross-platform/root';
 import EventBus from '../event/EventBus';
 import ICEEvent from '../event/ICEEvent';
@@ -150,7 +151,7 @@ import { uuid } from '../util/uuid';
  * 每个组件实例不再各自复制一份默认 style/transform/lineDash/animations，而是通过
  * `Object.create(DEFAULT_PROPS)` 原型继承；只有用户显式传入的字段才写到实例上
  * （merge 对嵌套对象做写时复制）。`id` 是每实例唯一值，不在共享默认里；
- * `zIndex` 默认是 `0`（`auto` 层），是只读的共享默认值，可以在默认表里。
+ * `zIndex` 默认是 `'auto'`（auto 层，排序当 0），是只读的共享默认值，可以在默认表里。
  *
  * 这是内存优化的一部分：大量静态图元的默认配置从「每实例一份」变成「全局一份」。
  */
@@ -166,7 +167,7 @@ const MIN_SIZE = new WeakMap<any, [number, number]>();
 /**
  * 主题作用域缓存的**编号来源**（`__scopeId`）。
  *
- * 它以前蹭的是「默认 zIndex 计数器」，2026-09-19 那个计数器被删掉（默认 zIndex 改成 0 / auto 层），
+ * 它以前蹭的是「默认 zIndex 计数器」，2026-09-19 那个计数器被删掉（默认 zIndex 改成 `'auto'`），
  * 这里就单独给一个模块级小计数器 —— 只要求"进程内唯一、稳定"，与叠放次序无关。
  */
 let THEME_SCOPE_SEQ = 0;
@@ -188,9 +189,10 @@ const DEFAULT_PROPS = {
   /**
    * **同层叠放次序**：数值越大越靠上，**只在同一个父容器（兄弟）之间比较**。
    *
-   * 默认 `0` 就是 CSS 里的 `z-index: auto` 那一档（2026-09-19 起，之前是"构造顺序计数器"）：
-   * 没显式写过 zIndex 的兄弟彼此相等，次序退化为**加入顺序** —— 于是"后加入的默认画在最上面"，
-   * 且不会再有"计数器涨到几百之后，新建的图元被已有内容盖住"那种跨会话倒挂。
+   * 默认值是 `'auto'`（`Z_INDEX_AUTO`），就是 CSS 里的 `z-index: auto` 那一档
+   * （2026-09-19 起，之前是"构造顺序计数器"）：**排序时当 0 用**，没显式写过 zIndex 的兄弟
+   * 彼此相等，次序退化为**加入顺序** —— 于是"后加入的默认画在最上面"，且不会再有
+   * "计数器涨到几百之后，新建的图元被已有内容盖住"那种跨会话倒挂。
    *
    * 显式写值就是**钉子**，一视同仁地参与比较（与 CSS 同义）：
    * - `-n`：压到 `auto` 层**之下**（背景、底纹）；
@@ -201,7 +203,7 @@ const DEFAULT_PROPS = {
    * 它们把同层重编号成 `-(n-1) … 0`（最上面那个是 0，仍留在 `auto` 层），口径见
    * `util/data-util.ts` 的 `zIndexForPaintRank`。
    */
-  zIndex: 0,
+  zIndex: Z_INDEX_AUTO,
   fill: true,
   stroke: true,
   animations: Object.freeze({}),
@@ -395,7 +397,7 @@ abstract class ICEComponent extends ICEEventTarget {
    *   origin:'localCenter',
    *   localOrigin: [0,0],                          //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
    *   absoluteOrigin: [0,0],                       //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
-   *   zIndex: 0,                                   //类似 CSS 的 z-index：默认 0 = auto 层，只在兄弟之间比较
+   *   zIndex: 'auto',                              //类似 CSS 的 z-index：默认 'auto'（= auto 层），只在兄弟之间比较
    *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
    *   draggable:true,                              //是否可以拖动
    *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
@@ -449,7 +451,7 @@ abstract class ICEComponent extends ICEEventTarget {
     this.props = Object.create(DEFAULT_PROPS);
     // 显式 id 优先（A2UI / 反序列化 / 业务绑定都依赖稳定 id），没有时才生成 UUID。
     this.props.id = props && props.id !== undefined ? props.id : 'ICE_' + uuid();
-    // 注意：`zIndex` 不再按构造顺序发号 —— 默认值走共享默认表的 `0`（auto 层）。
+    // 注意：`zIndex` 不再按构造顺序发号 —— 默认值走共享默认表的 `'auto'`（auto 层，排序当 0）。
     // 旧的"进程级计数器"是跨会话倒挂的根：默认值随进程里构造过的组件数量一路涨，
     // 打开一份元件很多的文档再新建组件时，新组件的号反而更小、被画到已有内容下面。
     merge(this.props, props);

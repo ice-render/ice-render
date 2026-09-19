@@ -117,8 +117,9 @@ export default class Serializer {
   /**
    * 序列化一批兄弟节点。
    *
-   * `zIndex` 的写法（2026-09-19 起，与"默认值是 0 / auto 层"配套）：
-   * - **默认值（0）不写**：读回时就是默认值，文档更干净，也不会出现一整片 `zIndex: 0`；
+   * `zIndex` 的写法（2026-09-19 起，与"默认值是 `'auto'` / auto 层"配套）：
+   * - **默认值（`'auto'`，排序当 0）不写**：读回时就是默认值，文档更干净，
+   *   也不会出现一整片 `zIndex: 'auto'` / `zIndex: 0`；
    * - **显式值原样写**（含 `bringToFront()` 之类重排 API 落下的负数）：次序信息本来就在这些数里，
    *   不归一化、不改写 —— 文档里"写的就是用户/API 表达的次序本身"。
    *
@@ -161,7 +162,7 @@ export default class Serializer {
       // 容器的布局策略属于文档内容（"怎么排"），见 __encodeLayout
       layout: undefined,
     };
-    // zIndex 默认值（0 = auto 层）不进文档；显式值原样保留（口径见 __encodeChildren）
+    // zIndex 默认值（'auto' = auto 层）不进文档；显式值原样保留（口径见 __encodeChildren）
     if (zIndexOf(component) === 0) {
       delete currentData.state.zIndex;
     }

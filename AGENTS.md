@@ -45,7 +45,8 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 - **类型注册 / 序列化铁律（2026-09-13 命名空间化确立）**：类型标识（typeId）统一为 **`namespace:Type`**，且**只有这一种形式**（正则 `/^[a-z][a-z0-9-]*:[A-Za-z_][A-Za-z0-9_-]*$/`，工具函数 `src/util/type-id.ts`）。引擎内置用 `ice-render:*`，实体设计器 `ice-entity-designer:*`，图表 `ice-chart:*`，第三方用自己的小写包名。约定：① 内置类型在 `ICE` 构造函数里经 `registerType()` 注册（`src/consts/COMPONENT_TYPE_MAPPING.ts` 只提供条目表），**不再**在 `init()` 里拷贝映射；② `registerType(typeId, Ctor)` —— 同一 typeId 注册**不同**构造函数、或同一构造函数注册**第二个** typeId，都**明确抛错**（后者会让 `getTypeId` 反查歧义）；同一 typeId + 同一构造函数视为幂等；③ **不做旧名兼容**：家族仍在发布初期，不为无 namespace 的历史类名维护别名表——旧格式数据里的节点按「未注册类型」处理；④ `typeMapping` 是**无原型对象**，`getType('constructor')` 不会命中 `Object.prototype`；⑤ 序列化由 `ice.getTypeId(ctor)` **反查**（与类的 JS 名解耦，压缩改名不破坏已存数据），未注册类型才回退 `constructor.name`，此时 `Serializer.unregisteredTypes` 会记录并告警（回退名可能被下游 mangle，读不回来）；反序列化遇到未注册类型跳过该节点（含子树）并记入 `deserializer.unknownTypes`，不再整份数据打不开。格式带 `version` 与 `SERIALIZATION_MIGRATIONS`。回归用例见 `tests/persistence/type-id.test.ts`、`tests/persistence/type-registry.test.ts`。
 - **渲染顺序铁律（2026-09-17 确立，v2.13.0）**：绘制顺序 = **树序（先父后子）+ 兄弟按 `state.zIndex` 升序**（相等保持加入顺序），**工具层整体画在组件层之上**（`componentQueue` → `toolsQueue`，两层不按 zIndex 交叉）。`zIndex` **只在兄弟之间**比较，不再是全局序列。旧实现"展平后全局排序"下，**父容器的 zIndex 只要比子组件大**就会反超并**盖住自己的整棵子树**（一片空白、不报错；`ice-web-components` 的 `ICEPanel` 是典型受害者）。三处同源，改一处必须改三处：`util/data-util.ts` 的 `flattenTree`（展平/命中回退）、`CanvasRenderer.__rebuildQueue`（不 global sort）、`SvgExporter`（导出顺序）；取数口径也只有一个：`util/data-util.ts` 的 `zIndexOf`。回归：`tests/renderer/render-order.test.ts`、`tests/renderer/hit-test-ordered.test.ts`（逐点预言机）、`e2e/visual/render-order.spec.ts`（真机像素）。
 - **zIndex 是"0 = auto 层"的 CSS 口径（2026-09-19 改版，**默认值语义变了**）**：
-  ① **默认 `zIndex` 是 `0`，就是 CSS 的 `z-index: auto` 那一档**。同层没显式写过 zIndex 的兄弟
+  ① **默认 `zIndex` 是 `'auto'` 哨兵（`Z_INDEX_AUTO`），排序时当 `0` 用** —— 就是 CSS 的
+    `z-index: auto` 那一档。同层没显式写过 zIndex 的兄弟
     彼此相等，次序退化为**加入顺序** —— 后加入的默认画在最上面。**"构造顺序计数器"（`instanceCounter`）
     已删除**：它的两个毒副作用（跨会话倒挂：打开元件多的文档后新建画到下面；"写死 `zIndex: 90`
     表示在最上层"不可靠：默认值跨实例还在涨）从根上消失，别再把它们修回来。
@@ -53,11 +54,11 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
     `+n` 抬到 auto 层**之上**（浮层）。⚠️ 正数钉住的兄弟会盖住**之后新加入**的 auto 组件 ——
     这是 CSS 口径（别再当 bug 修）；要"永远在最上"用工具层（`ice.addTool`）。
   ③ **四个 z 序 API 只在同一父容器内生效**：`bringToFront()` / `sendToBack()` / `moveUp()` /
-    `moveDown()`（返回 `this` 可链式）。实现是把**同层**重编号成 **`-(n-1) … 0`（最上 = 0）**，
-    不是"自己加一减一" —— 平手时加减一挪不动。**0 留给最上层**是为了让"置顶之后新加入的组件
-    仍然画在最上面"（0 那一档按加入顺序）。口径唯一出处 `zIndexForPaintRank`。
+    `moveDown()`（返回 `this` 可链式）。实现是把**同层**重编号成 **`-(n-1) … 'auto'`（最上 = auto 层）**，
+    不是"自己加一减一" —— 平手时加减一挪不动。**auto 那一档留给最上层**是为了让"置顶之后新加入的组件
+    仍然画在最上面"（auto 那一档按加入顺序）。口径唯一出处 `zIndexForPaintRank`。
     `childNodes` 数组本身**保持加入顺序**，断言次序要看**绘制次序**，不要看数组。
-  ④ **存盘：默认值（0）不写、显式值原样写**（`Serializer.__encodeChildren`）。旧的"归一化成
+  ④ **存盘：默认值（`'auto'`，等价于 0）不写、显式值原样写**（`Serializer.__encodeChildren`）。旧的"归一化成
     `0..n-1`"随计数器一起废掉 —— 它会把应用刻意钉的浮层值改写掉；现在文档里写的就是次序本身。
     读旧数据不受影响（`zIndex` 本来就是可选字段）。
   ⑤ **工具层的 1e7 只是它自己的编号**（`consts/BIG_ZINDEX_NUMBER`）：工具层是**另一条队列**，
@@ -65,7 +66,7 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
     （不再是"组件层别用的保留号段"：没有计数器要保护了。）
   ⑥ **队列缓存不许因此退化**：`zIndex` **数值**变了但**次序**没变（批量重写成同一组值、
     动画缓动没跨过邻居）时**不重建队列**，只刷新快照 —— 判据是"每个父容器内是否仍按 zIndex
-    非降序"（`CanvasRenderer.__zOrderStillSorted`，只比相邻同组节点，O(n) 无分配）。
+    非降序"（`CanvasRenderer.__zOrderStillSorted`：快照与判序都走 `zIndexOf` 归一化，只比相邻同组节点，O(n) 无分配）。
     次序真变了才整队重建（保留上屏快照）。这条别改回"发现 zIndex 变了就重建"。
   回归：`tests/graphic/z-index-order.test.ts`（默认 0 / 加入顺序 / 跨会话倒挂 / 正负钉子 /
   平手重编号 / 置顶后新建仍最上 / 存盘往返）+ `tests/renderer/CanvasRenderer.queue.test.ts`
