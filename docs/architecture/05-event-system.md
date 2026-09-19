@@ -1,5 +1,11 @@
 # 05 · 事件系统
 
+> **用户向文档在文档站**：本页是**贡献者向**的实现说明（类关系 / 内部机制 / 口径取舍）。
+> 使用者真正会读的是 [`ice-render-doc/docs/guide/events.mdx`](https://ice-render.github.io/ice-render-doc/docs/guide/events)
+> —— 它有两个真机 LiveExample（`static/ice-render/examples/event-{bubbling,api}.html`）、一张
+> 「常见困惑（现象 → 原因 → 写法）」表、以及 2.17 → 2.18 的升级清单。**改了本页的口径，请同步那一页**；
+> 引擎仓库侧的对外门面是 README 的「事件：先订阅，再渲染」一节与 `examples/event/bubbling.html`。
+
 ## 设计目标
 
 Canvas 标签内部没有事件机制。引擎借鉴 W3C `EventTarget` 接口 + jQuery 风格 API，在 canvas 内部实现一套事件机制，并把原生 DOM 事件（mouse/keyboard/touch）桥接进组件。
