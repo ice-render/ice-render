@@ -7,7 +7,12 @@
 
 > 下一个版本发布前，改动在这里累积。
 
-### 变更
+## [2.20.0] - 2026-09-19
+
+> ⚠️ **行为变化（本仓约定：不用 `!` 标记，写在下面这一小节）**：`evt.target` 不再可能是 DOM 元素
+> —— 事件来源显式化为 `evt.source`，原始 DOM 元素请到 `evt.originalEvent.target` 取。
+
+### 变更（破坏性：事件身份字段契约）
 
 - **`evt.source` 与 `evt.target` 契约**（2026-09-19，分支 `feat/event-source-and-target-contract`）：
   把"事件从哪来"显式化，消掉两个使用者一定会撞的坑。
