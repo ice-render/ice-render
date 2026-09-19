@@ -22,7 +22,7 @@ import EventBus from '../../src/event/EventBus';
 import ICEGroup from '../../src/graphic/container/ICEGroup';
 import ICERect from '../../src/graphic/shape/ICERect';
 import ICECircle from '../../src/graphic/shape/ICECircle';
-import Serializer from '../../src/persistence/Serializer';
+import Serializer, { SERIALIZATION_VERSION } from '../../src/persistence/Serializer';
 import Deserializer from '../../src/persistence/Deserializer';
 
 function makeIce(): ICE {
@@ -106,7 +106,7 @@ describe('序列化 / 反序列化 round-trip', () => {
     const ice = makeIce();
     ice.addChild(new ICERect({ width: 10, height: 10 }));
     const json: any = new Serializer(ice).toJSONObject();
-    expect(json.version).toBe(1);
+    expect(json.version).toBe(SERIALIZATION_VERSION);
   });
 
   it('时间戳是 ISO 8601 UTC（与运行环境语言/时区无关，可排序、可解析）', () => {

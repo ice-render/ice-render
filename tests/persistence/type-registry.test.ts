@@ -30,7 +30,7 @@ import ICERect from '../../src/graphic/shape/ICERect';
 import ICECircle from '../../src/graphic/shape/ICECircle';
 import ICERose from '../../src/graphic/shape/ICERose';
 import ICEText from '../../src/graphic/text/ICEText';
-import Serializer from '../../src/persistence/Serializer';
+import Serializer, { SERIALIZATION_VERSION } from '../../src/persistence/Serializer';
 import Deserializer, { SERIALIZATION_MIGRATIONS } from '../../src/persistence/Deserializer';
 
 function makeIce(): any {
@@ -133,7 +133,7 @@ describe('反序列化容错', () => {
   it('未注册类型被跳过并记录，其余组件照常加载（不再抛错）', () => {
     const ice = makeIce();
     const json: any = {
-      version: 1,
+      version: SERIALIZATION_VERSION, // 本用例与版本迁移无关：用当前版本，避免走迁移
       childNodes: [
         { type: 'ice-render:Rect', state: { left: 1, top: 2, width: 10, height: 10 }, childNodes: [] },
         {
@@ -152,7 +152,7 @@ describe('反序列化容错', () => {
     expect(ice.childNodes[0]).toBeInstanceOf(ICERect);
     expect(ice.childNodes[1]).toBeInstanceOf(ICECircle);
     expect(d.unknownTypes).toEqual(['other-app:Widget']);
-    expect(json.version).toBe(1); // 未发生迁移
+    expect(json.version).toBe(SERIALIZATION_VERSION); // 未发生迁移
   });
 
   it('registerType 之后同一份数据即可完整加载', () => {
@@ -202,15 +202,19 @@ describe('版本迁移', () => {
 
   it('迁移表按 to 升序逐级执行，并把 version 抬到最新', () => {
     const ran: string[] = [];
+    // 注意：迁移表里现在**已有一条内置迁移**（v1 → v2 的 zIndex 归一化），
+    // 所以这里用"相对当前版本"的目标（不能用写死的 2 / 3，否则会跟内置那条撞号），
+    // 且结束时必须**还原**迁移表，而不是清空（清空会把内置迁移一起干掉）。
+    const saved = SERIALIZATION_MIGRATIONS.slice();
     SERIALIZATION_MIGRATIONS.push({
-      to: 2,
+      to: SERIALIZATION_VERSION + 1,
       run: (j: any) => {
         ran.push('v2');
         j.migratedV2 = true;
       },
     });
     SERIALIZATION_MIGRATIONS.push({
-      to: 3,
+      to: SERIALIZATION_VERSION + 2,
       run: (j: any) => {
         ran.push('v3');
         j.migratedV3 = true;
@@ -224,21 +228,24 @@ describe('版本迁移', () => {
       expect(ran).toEqual(['v2', 'v3']);
       expect(json.migratedV2).toBe(true);
       expect(json.migratedV3).toBe(true);
-      expect(json.version).toBe(3);
+      expect(json.version).toBe(SERIALIZATION_VERSION + 2);
     } finally {
       SERIALIZATION_MIGRATIONS.length = 0;
+      saved.forEach((m) => SERIALIZATION_MIGRATIONS.push(m));
     }
   });
 
   it('版本已是最新时不执行任何迁移', () => {
     const ran: string[] = [];
+    const saved = SERIALIZATION_MIGRATIONS.slice();
     SERIALIZATION_MIGRATIONS.push({ to: 1, run: () => ran.push('v1') });
     try {
       const ice = makeIce();
-      new Deserializer(ice).fromJSONObject({ version: 1, childNodes: [] });
+      new Deserializer(ice).fromJSONObject({ version: SERIALIZATION_VERSION, childNodes: [] });
       expect(ran).toEqual([]);
     } finally {
       SERIALIZATION_MIGRATIONS.length = 0;
+      saved.forEach((m) => SERIALIZATION_MIGRATIONS.push(m));
     }
   });
 });

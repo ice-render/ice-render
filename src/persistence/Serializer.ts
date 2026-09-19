@@ -27,7 +27,20 @@ const NON_SERIALIZABLE_KEYS = [
 /**
  * 序列化格式版本号。数据结构发生变化时递增，并在 Deserializer 中做对应迁移。
  */
-export const SERIALIZATION_VERSION = 1;
+/**
+ * 序列化格式版本。
+ *
+ * - **v1**（≤ 2.16.0）：`zIndex` 是"构造顺序计数器"留下的数字；
+ * - **v2**（2026-09-19 起）：`zIndex` 的默认值是 `'auto'` 哨兵，显式数字是**应用自己钉的**。
+ *
+ * 同一个数字在两个版本里含义不同，所以升版本 + 一条迁移（见 `SERIALIZATION_MIGRATIONS`）：
+ * v1 数据在载入时按**每个兄弟组**归一化 `zIndex`，次序逐项不变、最上层落回 auto 层，
+ * 这样"打开旧文档后新建的组件仍然画在最上面"（v1 时代的承诺）不会被打破。
+ *
+ * 另外这层版本校验也顺带保护了"降级读"：2.16.0 拿到 `zIndex: 'auto'` 会按数字比较（NaN）静默乱序，
+ * 现在它会明确报「不支持的反序列化版本」而不是画错。
+ */
+export const SERIALIZATION_VERSION = 2;
 
 /**
  * @class Serializer

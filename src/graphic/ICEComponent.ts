@@ -178,6 +178,24 @@ const MIN_SIZE = new WeakMap<any, [number, number]>();
  */
 let THEME_SCOPE_SEQ = 0;
 
+/**
+ * 非法 `zIndex` 的**一次性提醒**（每个组件最多一次）。
+ *
+ * `zIndex` 只接受**有限数字**或 `'auto'`；其余取值（字符串 / `NaN` / `Infinity` / 对象）
+ * 会被 `zIndexOf` 一律当 0 用 —— 这种"静默失效"最难查（排序看上去就是不生效），
+ * 所以这里给一次 `console.warn`。用 WeakSet 做侧表而不是往实例上挂字段：
+ * 见文件开头那条实测（给组件类加实例字段会把属性挤出 V8 的对象内属性区，渲染热路径慢 3~4×）。
+ * 生产构建会剥掉 console.*，所以不会给宿主添噪音。
+ */
+const Z_INDEX_WARNED = new WeakSet<any>();
+function warnInvalidZIndex(component: any, value: any): void {
+  if (value === undefined || value === Z_INDEX_AUTO) return;
+  if (typeof value === 'number' && Number.isFinite(value)) return;
+  if (Z_INDEX_WARNED.has(component)) return;
+  Z_INDEX_WARNED.add(component);
+  console.warn(`[ICE] zIndex 只接受有限数字或 'auto'（默认值，排序当 0），当前取值为 ${String(value)}；已按 0 处理。`);
+}
+
 const DEFAULT_PROPS = {
   left: 0,
   top: 0,
@@ -461,6 +479,9 @@ abstract class ICEComponent extends ICEEventTarget {
     // 旧的"进程级计数器"是跨会话倒挂的根：默认值随进程里构造过的组件数量一路涨，
     // 打开一份元件很多的文档再新建组件时，新组件的号反而更小、被画到已有内容下面。
     merge(this.props, props);
+    if (props && props.zIndex !== undefined) {
+      warnInvalidZIndex(this, props.zIndex);
+    }
     // 用户没写 style 时，给一份「主题派生」的默认样式（不是共享的 frozen 默认，避免被实例污染）
     if (!props || props.style === undefined) {
       this.__usesThemeDefaultStyle = true;
@@ -1762,6 +1783,9 @@ abstract class ICEComponent extends ICEEventTarget {
    * @param newState
    */
   public setState(newState: any, options?: { paramsDirty?: boolean }) {
+    if (newState && newState.zIndex !== undefined) {
+      warnInvalidZIndex(this, newState.zIndex);
+    }
     const sizeChanged = this.__beforeStateMerge(newState);
     merge(this.state, newState);
     // 运行时写 style（setState({style}) / 动画 / preset 重解析）可能引入主题引用：

@@ -9,6 +9,7 @@
 import ICE from '../../src/ICE';
 import ICERect from '../../src/graphic/shape/ICERect';
 import Deserializer from '../../src/persistence/Deserializer';
+import { SERIALIZATION_VERSION } from '../../src/persistence/Serializer';
 import { ICE_ERROR_CODES, getICEErrorCode, isICEError } from '../../src/util/errors';
 
 /** 捕获调用抛出的错误（把 try/catch 收敛到一处，避免 `expect` 出现在 catch 里）。 */
@@ -53,7 +54,7 @@ describe('引擎错误码', () => {
     const ice: any = new ICE();
     const err = captured(() => new Deserializer(ice).fromJSONObject({ version: 999, childNodes: [] }));
     expect(getICEErrorCode(err)).toBe(ICE_ERROR_CODES.DESERIALIZE_VERSION_UNSUPPORTED);
-    expect(err.details).toMatchObject({ version: 999, supported: 1 });
+    expect(err.details).toMatchObject({ version: 999, supported: SERIALIZATION_VERSION });
   });
 
   it('插件：缺 name / 组件注册失败（带插件名）', () => {

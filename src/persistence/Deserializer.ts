@@ -8,6 +8,7 @@
 import ICE from '../ICE';
 import { SERIALIZATION_VERSION } from './Serializer';
 import { toIsoTime } from './document-time';
+import { zIndexOf, zIndexForPaintRank } from '../util/data-util';
 import { ICE_ERROR_CODES, iceError } from '../util/errors';
 
 /**
@@ -15,9 +16,65 @@ import { ICE_ERROR_CODES, iceError } from '../util/errors';
  *
  * 需要变更数据格式时，把 SERIALIZATION_VERSION 加 1 并在此追加一条迁移：
  * `SERIALIZATION_MIGRATIONS.push({ to: 2, run: (json) => { ...改写 json 结构... } });`
- * 当前版本为 1，尚无迁移（仅保留机制与回归用例）。
+ * 当前版本为 2（见下方 v1 → v2 的说明）。
  */
 export const SERIALIZATION_MIGRATIONS: Array<{ to: number; run: (jsonObj: any) => void }> = [];
+
+/**
+ * v1 → v2：把旧文档里的 `zIndex` 按**每个兄弟组**归一化。
+ *
+ * 背景（2026-09-19）：`zIndex` 的默认值从"构造顺序计数器"改成 `'auto'` 哨兵。
+ * v1 文档里的 `198/199/200` 这种数字本来只是"次序"（计数器产物与应用手写的钉子混在一起，
+ * 无法区分）；到了 v2 语义下它们会被当成**应用自己钉的正数**，于是新组件（`'auto'` = 0）
+ * 会画到它们下面 —— 也就是 v1 时代那个"新建的图元看不见"的症状换个入口回来了
+ * （实测复现：旧文档 198/199/200 + 新建 → 新建的在最下面）。
+ *
+ * 迁移规则（**逐项保持绘制次序**，只换编码）：
+ * - 对每个兄弟组，按 v1 口径（数字升序、平手按加入顺序）排好；
+ * - 再按 v2 口径重新编号：`-(m-1) … 'auto'`（最上面那个落回 auto 层，默认值直接删字段）。
+ * - **整组本来就全是 0 / 没写**（v1 下就是"纯加入顺序"）时不动它 —— 那种文档在 v2 下本来就正确。
+ *
+ * 代价（有意为之）：v1 文档里"钉在 9999 的浮层"迁移后落回 auto 层，不再有钉子效力。
+ * v1 本来也没这个保证 —— 计数器涨过 9999 之后它同样会被新内容盖住。
+ */
+function migrateZIndexToV2(jsonObj: any): void {
+  const walk = (nodes: any[]): void => {
+    if (!nodes || !nodes.length) {
+      return;
+    }
+    const count = nodes.length;
+    let allAuto = true;
+    for (let i = 0; i < count; i++) {
+      if (zIndexOf(nodes[i]) !== 0) {
+        allAuto = false;
+        break;
+      }
+    }
+    if (!allAuto) {
+      // v1 口径的绘制次序：数字升序、平手按加入顺序（稳定排序）
+      const ordered = nodes.slice().sort((a: any, b: any) => zIndexOf(a) - zIndexOf(b));
+      for (let i = 0; i < count; i++) {
+        const node: any = ordered[i];
+        const state = node && node.state;
+        if (!state) {
+          continue;
+        }
+        const next = zIndexForPaintRank(i, count);
+        if (next === 'auto') {
+          delete state.zIndex; // 默认值不写进文档
+        } else {
+          state.zIndex = next;
+        }
+      }
+    }
+    for (let i = 0; i < count; i++) {
+      walk(nodes[i] && nodes[i].childNodes);
+    }
+  };
+  walk(jsonObj && jsonObj.childNodes);
+}
+
+SERIALIZATION_MIGRATIONS.push({ to: 2, run: migrateZIndexToV2 });
 
 /**
  * @class Deserializer
