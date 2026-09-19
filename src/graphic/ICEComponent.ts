@@ -677,6 +677,16 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   protected mouseDownEvtHandler(evt?: any) {
+    /**
+     * ⚠️ **事件会冒泡**（2026-09-19 起）：只有**被命中的那个组件**该进入拖动态。
+     *
+     * 没有这道守卫的后果很具体：拖一个子组件时，它的各级祖先容器也会收到冒泡上来的
+     * `mousedown` → 各自注册 `mousemove` → 一起跟着动（"拖小的，大的也跑"）。
+     * 应用层想在容器上监听点击做别的处理，不受影响（那是它自己注册的监听器，不是基类默认行为）。
+     */
+    if (evt && evt.target && evt.target !== this) {
+      return;
+    }
     if (!this.state.interactive || !this.state.draggable) {
       return;
     }
@@ -685,6 +695,10 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   protected mouseMoveEvtHandler(evt: any) {
+    // 同 mouseDownEvtHandler：冒泡上来的移动事件不该让祖先容器跟着动
+    if (evt && evt.target && evt.target !== this) {
+      return;
+    }
     // movementX/Y 是屏幕像素位移；在缩放视口下，世界坐标位移需要除以 scale。
     const scale = this.ice && this.ice.viewport ? this.ice.viewport.scale : 1;
     const tx = evt.movementX / scale;
@@ -710,6 +724,10 @@ abstract class ICEComponent extends ICEEventTarget {
    * @returns
    */
   protected keyboardEvtHandler(evt: any) {
+    // 同 mouseDownEvtHandler：方向键只移动"被派发给的那个组件"，不移动它的祖先
+    if (evt && evt.target && evt.target !== this) {
+      return;
+    }
     const MOVE_STEP = 2; //每按键一次移动的步长，像素值
     const keyName = evt.key;
     switch (keyName) {

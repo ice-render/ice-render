@@ -7,6 +7,48 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 变更（破坏性：事件系统语义）
+
+- **事件沿组件树冒泡 + `ICEEvent` 的 W3C 方法真实现**（2026-09-19，分支 `feat/event-system`）。
+
+  改版前的事实（探针实测）：`ICEEvent.prototype.preventDefault / stopPropagation /
+  stopImmediatePropagation / composedPath / initEvent` **全是 `throw new Error('Method not implemented.')`** ——
+  应用里一调用，异常就从监听器里冒出去，**后面的监听器与总线都收不到事件**；
+  而且组件之间**没有冒泡**（只有"命中组件 + 总线"两站），父容器拿不到子组件上的事件。
+  下游为此各写各的绕过：`ice-chart` 专门写了"只对原始 DOM 事件调用 `preventDefault`"的注释与封装，
+  `ice-web-components` 里则留下若干"在面板自己身上再 `stopPropagation` 一次"的写法 ——
+  既无效（没有冒泡可阻止），又危险（真调下去就炸，而 `typeof === 'function'` 的守卫**拦不住它**）。
+
+  改版后：
+
+  - **传播路径**：命中组件（`AT_TARGET=2`）→ 各级父容器（`BUBBLING_PHASE=3`）→ **总线最后收一次**；
+    `evt.target` 恒为命中组件，`currentTarget` 随节点走，`composedPath()` 给出祖先链。
+  - **`stopPropagation()` 只挡祖先**；`stopImmediatePropagation()` 连当前目标剩下的监听器也跳过；
+    ⚠️ **总线仍然收到一次** —— 它是引擎内部通道（控制面板选中 / 连线插槽 / 悬停 / 键盘作用域），
+    被组件里的一次 `stopPropagation()` 掐掉会变成"看着只挡冒泡、实际引擎失灵"。
+  - **`preventDefault()`**：只有 `cancelable === true` 才生效，置 `defaultPrevented`，并顺手调用
+    原始 DOM 事件的 `preventDefault()`；引擎自造事件上 `bubbles / cancelable / defaultPrevented /
+    eventPhase` 不再是 `undefined`。
+  - **同一个 `ICEEvent` 一路传到底**（不再层层包）：否则上一个监听器打的标记会落在副本上
+    （冒泡/取消永不生效），`param` 也会被覆盖成 `{}`（"组件路径看不到 param"就是这个原因）。
+  - **构造函数平铺字段时不覆盖本类方法**（`NON_COPYABLE_KEYS`）：普通对象做的事件桩上的
+    `preventDefault` 是可枚举 own 属性，拷进来就会盖掉真实现（真实 DOM 事件的方法在原型上、不可枚举，
+    所以旧实现没暴露这个坑）。
+  - **API**：`on / once / off / suspend / resume / purgeEvents` 一律返回 `this`（可链式）；
+    `off(name)`（不传回调）清空该事件的**全部**监听；`addEventListener(type, fn, { once })` /
+    `removeEventListener` / `dispatchEvent(event)` 改成**签名正确的真方法**（旧实现是把
+    `on/off/trigger` 挂过去，第三参被当成 `scope`、`dispatchEvent` 收事件对象却当成事件名）；
+    `ICEEvent` 与 `ICE_EVENT_NAME_CONSTS` 之外，**`ICEEvent` 类本身也对外导出**了。
+
+  ⚠️ **下游需要跟着改**（本版未一并改，列在这里以免漏）：`ice-web-components` 里
+  `ICEModal` / `ICEDrawer` / `ICETour` / `ICETable` / `ICEKeyScope` 那几处对 **ICEEvent** 调
+  `preventDefault` / `stopPropagation` 的地方，现在**从"会抛异常"变成"真的生效"** ——
+  语义变强了，但意图要复核（尤其"阻止冒泡到遮罩"这类，冒泡实现之后才真正成立）；
+  `ice-chart` 的 `InteractionController.preventDefault` 绕过可以删掉。
+
+  回归：`tests/event/bubbling-and-w3c.test.ts`（14 条：W3C 方法 / 冒泡顺序 / `stop*` 语义 /
+  总线不受影响 / composedPath / 别名与链式 / `off(name)` 全清）、`docs/architecture/05-event-system.md`。
+
 ## [2.17.0] - 2026-09-19
 
 > ⚠️ **这一版有两处破坏性变更**：默认 `zIndex` 的语义改版（`'auto'` 哨兵 + 重排 API 收窄）

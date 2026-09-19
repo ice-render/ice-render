@@ -45,6 +45,8 @@ export { default as DOMEventDispatcher } from './event/DOMEventDispatcher';
 export { default as DOMEventInterceptor } from './event/DOMEventInterceptor';
 export { default as EventBus } from './event/EventBus';
 export { default as ICEEventTarget } from './event/ICEEventTarget';
+// 事件对象本身（应用要类型标注 / 自造事件并 dispatchEvent 时用得到）
+export { default as ICEEvent } from './event/ICEEvent';
 export { default as GeoLine } from './geometry/GeoLine';
 export { default as GeoPoint } from './geometry/GeoPoint';
 export { default as GeoUtil } from './geometry/GeoUtil';

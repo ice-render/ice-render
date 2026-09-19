@@ -65,6 +65,8 @@ abstract class ICEEventTarget {
     }
     this.off(eventName, fn, scope);
     this.listeners[eventName].push({ callback: fn, scope: scope });
+    // 链式（与引擎其余 API 一致）：`target.on('click', fn).on('keydown', fn2)`
+    return this;
   }
 
   /**
@@ -78,6 +80,15 @@ abstract class ICEEventTarget {
   public off(eventName: string, fn: (...args: any[]) => any, scope: any = root) {
     let arr = this.listeners[eventName];
     if (!arr) return;
+    /**
+     * `off(name)`（不传回调）＝ **移除该事件上的全部监听**。
+     * 旧实现只支持"按 (fn, scope) 摘一个"，想清空一个事件只能自己遍历，
+     * 而 `purgeEvents()` 又会把**所有**事件的监听一起清掉 —— 中间这一档一直是缺的。
+     */
+    if (fn === undefined) {
+      delete this.listeners[eventName];
+      return this;
+    }
     arr = [...arr];
     for (let i = 0; i < arr.length; i++) {
       const item = arr[i];
@@ -87,9 +98,10 @@ abstract class ICEEventTarget {
       const matched = cb === fn || (cb && cb.__onceOriginal === fn);
       if (matched && item.scope === scope) {
         this.listeners[eventName].splice(i, 1);
-        return;
+        return this;
       }
     }
+    return this;
   }
 
   /**
@@ -109,9 +121,23 @@ abstract class ICEEventTarget {
     if (this.suspendedEventNames.includes(eventName)) return false;
 
     let iceEvent: ICEEvent;
-    if (originalEvent) {
+    if (originalEvent instanceof ICEEvent) {
+      /**
+       * **已经是 ICEEvent 就不要再包一层**（这条是事件系统的正确性关键）：
+       * - 包一层会换掉事件对象 → 上一个监听器里 `stopPropagation()` / `preventDefault()`
+       *   打的标记落在副本上，冒泡与取消**永远不生效**；
+       * - `param` 也会被后包的那层覆盖成 `{}`（组件路径上"看不到 param"就是这么来的）。
+       * 现在：同一个事件对象一路传到底，`target`/`currentTarget`/标记都保持一份真相。
+       */
+      iceEvent = originalEvent;
+      iceEvent.type = eventName || iceEvent.type;
+      if (param && Object.keys(param).length) {
+        iceEvent.param = { ...(iceEvent.param || {}), ...param };
+      }
+    } else if (originalEvent) {
       iceEvent = new ICEEvent(originalEvent);
       iceEvent.originalEvent = originalEvent.originalEvent ? originalEvent.originalEvent : originalEvent;
+      iceEvent.type = eventName || iceEvent.type;
       iceEvent.param = { ...param };
     } else {
       iceEvent = new ICEEvent({
@@ -120,6 +146,11 @@ abstract class ICEEventTarget {
         param: { ...param },
       });
     }
+    if (!iceEvent.__iceTarget) {
+      iceEvent.__iceTarget = this;
+    }
+    const previousCurrentTarget = iceEvent.currentTarget;
+    iceEvent.currentTarget = this as any;
 
     // 遍历**快照**，并在调用前确认监听仍在线：
     // `once` 的回调会先把自己 off 掉（splice 原数组），如果直接 `for (i...) arr[i]`，
@@ -132,7 +163,12 @@ abstract class ICEEventTarget {
         continue;
       }
       item.callback.call(item.scope, iceEvent);
+      // stopImmediatePropagation()：当前目标上剩下的监听器不再执行（W3C 语义）
+      if (iceEvent.__iceImmediateStopped) {
+        break;
+      }
     }
+    iceEvent.currentTarget = previousCurrentTarget;
     return true;
   }
 
@@ -156,6 +192,7 @@ abstract class ICEEventTarget {
     (callback as any).__onceOriginal = fn;
 
     that.on(eventName, callback, scope);
+    return this;
   }
 
   /**
@@ -167,6 +204,7 @@ abstract class ICEEventTarget {
     if (eventName && !this.suspendedEventNames.includes(eventName)) {
       this.suspendedEventNames.push(eventName);
     }
+    return this;
   }
 
   /**
@@ -179,6 +217,7 @@ abstract class ICEEventTarget {
     if (index !== -1) {
       this.suspendedEventNames.splice(index, 1);
     }
+    return this;
   }
 
   /**
@@ -188,6 +227,7 @@ abstract class ICEEventTarget {
   public purgeEvents() {
     this.listeners = {};
     this.suspendedEventNames = [];
+    return this;
   }
 
   /**
@@ -206,7 +246,9 @@ abstract class ICEEventTarget {
     if (!arr) return false;
     for (let i = 0; i < arr.length; i++) {
       const item = arr[i];
-      if (item.callback === fn && item.scope === scope) {
+      // 与 off() 用同一套匹配：`once` 注册的是包装函数，原始回调挂在 __onceOriginal 上
+      const cb: any = item.callback;
+      if ((cb === fn || (cb && cb.__onceOriginal === fn)) && item.scope === scope) {
         return true;
       }
     }
@@ -214,12 +256,32 @@ abstract class ICEEventTarget {
   }
 }
 
-//增加别名，模拟 W3C 的 EventTarget 接口
+/**
+ * W3C `EventTarget` 别名 —— **真方法**，不是把 `on/off/trigger` 直接挂过去。
+ *
+ * 旧实现是 `prototype.addEventListener = prototype.on`：三个签名全不对 ——
+ * `addEventListener(type, fn, options)` 的第三参（`{ once: true }` / `true` 捕获标志）
+ * 会被当成 `scope`；`dispatchEvent(event)` 期望收**事件对象**，实际却当成了事件名。
+ * 按 W3C 写法接进来的代码因此"看着能用、行为不是那回事"。
+ */
+//@ts-ignore —— 这三个方法不在本类的声明里（故意保持宽松，见类注释）
+ICEEventTarget.prototype.addEventListener = function (type: string, listener: any, options?: any) {
+  if (options && typeof options === 'object' && options.once) {
+    return this.once(type, listener);
+  }
+  // 第三参是布尔（capture）时忽略：引擎的组件树只有冒泡阶段，没有捕获阶段
+  return this.on(type, listener);
+};
 //@ts-ignore
-ICEEventTarget.prototype.addEventListener = ICEEventTarget.prototype.on;
+ICEEventTarget.prototype.removeEventListener = function (type: string, listener: any) {
+  return this.off(type, listener);
+};
 //@ts-ignore
-ICEEventTarget.prototype.removeEventListener = ICEEventTarget.prototype.off;
-//@ts-ignore
-ICEEventTarget.prototype.dispatchEvent = ICEEventTarget.prototype.trigger;
+ICEEventTarget.prototype.dispatchEvent = function (event: any) {
+  if (event && typeof event.type === 'string') {
+    return this.trigger(event.type, event);
+  }
+  return this.trigger(event);
+};
 
 export default ICEEventTarget;

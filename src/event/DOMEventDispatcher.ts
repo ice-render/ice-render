@@ -203,21 +203,59 @@ class DOMEventDispatcher {
 
   /**
    * 把事件派发给命中的组件与事件总线。
-   * 组件先收到，总线后收到（与既有语义一致：总线始终会收到一次）。
+   *
+   * 组件**按树冒泡**（命中组件 → 各级父容器），总线最后收一次。
+   *
+   * 两条语义要分清：
+   * - 组件链上的 `stopPropagation()` 只阻止**继续向祖先冒泡**（同层其他监听器照常执行，
+   *   语义与 W3C 一致）；
+   * - **总线一定会收到一次**，不受 `stopPropagation()` 影响 —— 总线是引擎内部通道
+   *   （控制面板选中、连线插槽、悬停、键盘作用域都挂在上面），让组件里的一次
+   *   `stopPropagation()` 把它整条掐掉，会变成"看着只是阻止冒泡，实际引擎失灵"。
    */
-  private __dispatch(evtName: string, evt: any, componentCache: any): void {
-    if (componentCache) {
-      evt.target = componentCache;
-      componentCache.trigger(evtName, evt);
+  private __dispatch(evtName: string, evt: any, target: any): void {
+    if (target) {
+      this.__dispatchThroughTree(evtName, evt, target);
     }
-    //this.ice.evtBus 本身一定会触发一次鼠标和键盘事件。
-    this.ice.evtBus.trigger(evtName, evt, { component: componentCache });
+    // 总线本身一定会触发一次（鼠标 / 键盘 / 指针 / 触摸 / 滚轮都是）
+    this.ice.evtBus.trigger(evtName, evt, { component: target });
+  }
+
+  /**
+   * 沿组件树冒泡派发：命中组件（`AT_TARGET`）→ 父容器 → 祖父 ……（`BUBBLING_PHASE`）。
+   *
+   * 为什么必须冒泡：canvas 内部的组件树就是 DOM 树的对应物，"子组件上的点击父容器也能知道"
+   * 是容器型组件（面板 / 卡片 / 抽屉 / 巡览）唯一能用的组合方式 —— 旧实现只把事件投给命中组件，
+   * 于是 `ice-web-components` 里出现了"在面板自己身上再挂一次 click 去 stopPropagation"这类
+   * **既无效（没有冒泡可阻止）又危险（ICEEvent 的桩方法会抛异常）**的写法。
+   */
+  private __dispatchThroughTree(evtName: string, evt: any, target: any): void {
+    // param 在组件路径与总线路径保持一致（旧实现里组件路径拿不到 param，只有总线有）
+    evt.param = { ...(evt.param || {}), component: target };
+    const path: any[] = [];
+    let node: any = target;
+    while (node && path.indexOf(node) === -1) {
+      path.push(node);
+      node = node.parentNode || null;
+    }
+    for (let i = 0; i < path.length; i++) {
+      const current = path[i];
+      evt.target = target;
+      evt.__iceTarget = target;
+      evt.eventPhase = i === 0 ? 2 : 3; // 2 = AT_TARGET，3 = BUBBLING_PHASE
+      current.trigger(evtName, evt);
+      if (evt.__iceStopped) {
+        break;
+      }
+    }
+    evt.eventPhase = 0;
+    evt.currentTarget = null;
   }
 
   /** 只派发给指定组件（不触发总线）——"拖拽归属"补派抬起事件用。 */
   private __dispatchToComponentOnly(evtName: string, evt: any, component: any): void {
-    evt.target = component;
-    component.trigger(evtName, evt);
+    // 与正常路径同源：补派的抬起事件同样沿树冒泡（否则"按下 A、松手在 B"时 A 的父容器收不到）
+    this.__dispatchThroughTree(evtName, evt, component);
   }
 
   /**
