@@ -51,6 +51,15 @@
     旧实现是 `Date.now()` 墙钟）。
     回归：`tests/event/api-consistency.test.ts`（9 条：交叉注册/移除、`once` 等价、`{handleEvent}`、
     `capture` 身份、`passive` 屏蔽 + 提醒、`signal` 摘除、`dispatchEvent` 返回值、单调时间戳）。
+  - **连带修掉的两处"冒泡副作用"**（都是这次实测发现的）：
+    ① `TransformControlPanel.keyboardEvtHandler` 把键盘事件**转发**给选中组件时没改 `evt.target` ——
+    新引擎的默认键盘处理带 `evt.target === this` 守卫，转发过去会被当成"冒泡上来的祖先事件"丢掉，
+    表现为"选中组件后用手柄按方向键没反应"。现在转发前改写 `target`（回归：`tests/control-panel/transform-control.test.ts`
+    的"转发时改写 evt.target"，无修复时该用例直接红）。
+    ② 容器的 click 处理若只想认"点在自己身上"，要用 `evt.target === this` 守卫（新引擎里子节点点击会冒泡上来）——
+    这条约定写进了 [05 事件系统](docs/architecture/05-event-system.md) 与 `AGENTS.md`；
+    下游 `ice-web-components` 的模态遮罩 / 悬浮按钮 / 下拉选择器 / 图片预览遮罩共 5 处按这条收口
+    （守卫在 2.17.0 上也成立，跨版本安全）。
 
   ⚠️ **下游需要跟着改**（本版未一并改，列在这里以免漏）：`ice-web-components` 里
   `ICEModal` / `ICEDrawer` / `ICETour` / `ICETable` / `ICEKeyScope` 那几处对 **ICEEvent** 调

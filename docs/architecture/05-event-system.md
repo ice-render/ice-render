@@ -21,13 +21,25 @@ graph TD
 
 | 方法 | 作用 |
 |---|---|
-| `on(name, fn, scope)` | 注册监听（`(fn, scope)` 去重） |
-| `off(name, fn, scope)` | 移除监听 |
-| `trigger(name, originalEvent, param)` | 触发事件，回调拿到 `ICEEvent` |
-| `once(name, fn, scope)` | 触发一次后自动移除 |
+| `on(name, fn, scope?, options?)` | 注册监听（去重按 `(fn, scope, capture)`；`options` 见下） |
+| `off(name, fn?, scope?)` | 移除监听；`off(name)`（不传回调）清空该事件全部监听 |
+| `trigger(name, originalEvent, param)` | 触发事件，回调拿到 `ICEEvent`；返回「是否派发成功」（无监听器/被 suspend 时为 false） |
+| `once(name, fn, scope?)` | 触发一次后自动移除（记录标记，不再是自摘包装函数） |
+| `addEventListener(type, fn, options?)` / `removeEventListener(type, fn, options?)` / `dispatchEvent(event)` | W3C 别名：**与上面同一实现**，参数形状按 W3C（`removeEventListener` 忽略 scope；`dispatchEvent` 返回 `!defaultPrevented`） |
 | `suspend(name)` / `resume(name)` | 挂起/恢复某事件（挂起后 `trigger` 直接返回 false） |
 | `purgeEvents()` | 清空所有监听 |
 | `hasListener(name, fn, scope)` | 查询是否已监听 |
+
+`options`：`{ once, passive, capture, signal }`；`listener` 可以是函数或 `{ handleEvent }` 对象。
+
+**两条写代码时会踩的约定（2026-09-19）**：
+
+1. **想把事件转给别的组件，必须先把 `evt.target` 改成那个组件**：`ICEComponent` 的默认拖动/键盘处理
+   带守卫（`evt.target !== this` 就返回），转发时不改 `target` 会被守卫当成「冒泡上来的祖先事件」丢掉
+   （例：`TransformControlPanel.keyboardEvtHandler` 转发键盘给选中组件）。
+2. **容器的 click 处理若只想认「点在自己身上」，用 `evt.target === this` 守卫**：冒泡之后子节点的点击
+   也会到容器（例：`ICEModal` 的遮罩只在点背景时关闭、`ICEFloatButton` 只在点按钮本体时展开）。
+   这条守卫在**新旧引擎上都成立**，是跨版本安全的写法；`stopPropagation()` 在新引擎才生效（旧版会抛异常）。
 
 ### 两套 API 的对应关系（2026-09-19 收口：**同一个实现，两种参数形状**）
 

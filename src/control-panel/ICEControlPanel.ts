@@ -15,6 +15,8 @@ import ICEComponent from '../graphic/ICEComponent';
  * - ICEControlPanel 本身总是直接画在 canvas 上，不是任何组件的孩子。
  * - ICEControlPanel 本身不会被序列化。
  * - ICEControlPanel 的 zIndex 总是大于其它组件，当 ICEControlPanel 显示时，总是会优先判定为被选中的组件，会导致对应的 _targetComponent 收不到鼠标和键盘事件，所以 ICEControlPanel 的实现类需要自己考虑是否需要进行事件转发。
+ * - ⚠️ **事件冒泡（2026-09-19）不改变这条**：面板在**工具层**，不是目标组件的祖先 —— 冒泡只沿 `parentNode` 链走，
+ *   所以「面板盖住目标 → 目标收不到 → 面板自己转发」这套照旧；转发时记得把 `evt.target` 改成目标组件（见 TransformControlPanel）。
  * - 控制面板的所有实例都在 ICEControlPanelManager 中创建和管理。
  *
  * @see ICEControlPanelManager
