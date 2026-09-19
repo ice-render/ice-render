@@ -54,9 +54,14 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
     `+n` 抬到 auto 层**之上**（浮层）。⚠️ 正数钉住的兄弟会盖住**之后新加入**的 auto 组件 ——
     这是 CSS 口径（别再当 bug 修）；要"永远在最上"用工具层（`ice.addTool`）。
   ③ **四个 z 序 API 只在同一父容器内生效**：`bringToFront()` / `sendToBack()` / `moveUp()` /
-    `moveDown()`（返回 `this` 可链式）。实现是把**同层**重编号成 **`-(n-1) … 'auto'`（最上 = auto 层）**，
-    不是"自己加一减一" —— 平手时加减一挪不动。**auto 那一档留给最上层**是为了让"置顶之后新加入的组件
-    仍然画在最上面"（auto 那一档按加入顺序）。口径唯一出处 `zIndexForPaintRank`。
+    `moveDown()`（返回 `this` 可链式）。作用域 = 同层的**可排层**（排序键 ≤ 0：`'auto'` 与负值），
+    重编号成 **`-(m-1) … 'auto'`（最上 = auto 层）**，不是"自己加一减一" ——
+    平手时加减一挪不动。**auto 那一档留给最上层**是为了让"置顶之后新加入的组件仍然画在最上面"。
+    口径唯一出处 `zIndexForPaintRank`。
+    ⚠️ **应用自己钉成正数的兄弟不参与、值也不会被改写**（浮层 / 水印 / 吸顶条永远是应用自己那一档）——
+    2026-09-19 收紧：旧实现"整层重编号"会把钉子一起洗掉（置顶一次，浮层就掉下去了）。
+    目标自己被钉住时退化处理：`bringToFront` → `max+1`；`sendToBack` → `min-1`；
+    `moveUp/moveDown` → 只在正数钉子之间交换数值。
     `childNodes` 数组本身**保持加入顺序**，断言次序要看**绘制次序**，不要看数组。
   ④ **存盘：默认值（`'auto'`，等价于 0）不写、显式值原样写**（`Serializer.__encodeChildren`）。旧的"归一化成
     `0..n-1`"随计数器一起废掉 —— 它会把应用刻意钉的浮层值改写掉；现在文档里写的就是次序本身。
@@ -71,6 +76,11 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   回归：`tests/graphic/z-index-order.test.ts`（默认 0 / 加入顺序 / 跨会话倒挂 / 正负钉子 /
   平手重编号 / 置顶后新建仍最上 / 存盘往返）+ `tests/renderer/CanvasRenderer.queue.test.ts`
   （数值变次序不变不重建 / 跨邻居重建 / 嵌套容器 / 两层队列互不影响）。
+  ⑦ **改动 `zIndex` 要走 `setState({ zIndex })`（或配 `requestRepaint()`）**：渲染器只有在
+    `ice.dirty` 为真时才跑队列检查（`CanvasRenderer.frameEvtHandler` 的守卫）。直接写
+    `component.state.zIndex = x` **不会置脏** —— 检测本身可靠（下一次有脏帧就会按新值重排），
+    但"这一刻没有别的待重绘"时画面不会自己刷新。家族里的 `raiseSubtree` 是"顺手也改了 left/top"
+    才没暴露这个坑，别照抄。
 - **主题写入契约（2026-09-17 确立，v2.14.0）**：一个 `ICE` 实例上的主题分**两层**，谁写哪层是定死的 ——
   ① **基座**：`ice.setTheme(...)` / `ice.setChrome(...)`（UI 主题、应用主题走这条）；
   ② **命名补丁**：`ice.setThemePatch(id, patch)` / `ice.clearThemePatch(id)`（**领域库**走这条：图表调色板、设计器外壳），

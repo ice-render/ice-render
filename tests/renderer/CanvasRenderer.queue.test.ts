@@ -198,6 +198,28 @@ describe('CanvasRenderer 渲染队列缓存', () => {
     expect(q.tools).toContain(tool);
   });
 
+  /**
+   * `addChild(child, markDirty=false)` 的语义是**「不要主动置脏」**，不是「把脏清掉」。
+   *
+   * 旧写法 `this.ice.dirty = markDirty` 是赋值：批量装子件（`addChildren` 走的就是
+   * `addChild(x, false)`）会把同帧里已经攒下的待重绘一起清掉 —— 症状是"这一帧该重绘却没绘制"，
+   * 表现为"改了 zIndex / 加了组件，画面没反应"（2026-09-19 实测复现）。
+   */
+  it('★ addChild(child, false) 不清掉待重绘，队列仍包含新子件', () => {
+    const ice = makeIce();
+    const group = new ICEGroup({ width: 50, height: 50 });
+    ice.addChild(group);
+    (ice.renderer as any).refreshQueue();
+
+    ice.dirty = true; // 模拟"这一帧已有别的待重绘"
+    const child = new ICEComponent({ width: 10, height: 10 });
+    group.addChild(child, false);
+
+    expect(ice.dirty).toBe(true); // 只"别主动置脏"，不能清掉
+    (ice.renderer as any).refreshQueue();
+    expect((ice.renderer as any).componentQueue).toContain(child);
+  });
+
   it('removeChild 后队列重建不再包含被移除组件', () => {
     const ice = makeIce();
     const a = new ICEComponent({ width: 10, height: 10 });

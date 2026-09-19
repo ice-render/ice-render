@@ -413,7 +413,8 @@ class ICEGroup extends ICERect {
     //如果 this.ice 不为空，说明当前的 Group 已经被添加到了 ICE 中
     if (this.ice) {
       this.syncChildEvents(child);
-      this.ice.dirty = markDirty;
+      // `markDirty=false` 只是"别主动置脏"，不能把实例上已有的待重绘清掉（见 ICE.addChild 的说明）
+      if (markDirty) this.ice.dirty = true;
       if (this.ice.renderer) this.ice.renderer.markQueueDirty();
     }
     // 布局接管：新加入的子组件必须立即参与重排。
@@ -504,7 +505,8 @@ class ICEGroup extends ICERect {
     child.trigger(ICE_EVENT_NAME_CONSTS.AFTER_REMOVE);
     this.__applyDirty(markDirty);
     if (this.ice) {
-      this.ice.dirty = markDirty;
+      // 同上：只置真、不置假
+      if (markDirty) this.ice.dirty = true;
       if (this.ice.renderer) this.ice.renderer.markQueueDirty();
     }
     child.destory();

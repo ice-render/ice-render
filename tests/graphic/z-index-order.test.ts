@@ -256,6 +256,90 @@ describe('z 序操作 API（只在同一父容器内）', () => {
     a.bringToFront(); // 会把 a、b 都重编号
     expect({ dirty: b.dirty, paramsDirty: b.paramsDirty }).toEqual({ dirty: true, paramsDirty: false });
   });
+
+  /**
+   * **2026-09-19 收紧：四个 z 序 API 只排「可排层」**（排序键 ≤ 0：`'auto'` 与负值），
+   * 应用自己钉成正数的兄弟（浮层 / 水印 / 吸顶条）不参与、值也不会被改写。
+   * 旧实现"整层重编号"会把钉子一起洗掉 —— "置顶一次，浮层就掉下去了"。
+   */
+  it('★ 正数钉子不参与重排，也不会被改写（仍压在可排层之上）', () => {
+    const ice = makeIce();
+    const group: any = new ICEGroup({ id: 'g', left: 0, top: 0, width: 300, height: 300 });
+    ice.addChild(group);
+    const pinned = rect('pinned', { zIndex: 9 });
+    const a = rect('a');
+    const b = rect('b', { left: 20 });
+    group.addChild(pinned);
+    group.addChild(a);
+    group.addChild(b);
+
+    a.bringToFront();
+    expect(pinned.state.zIndex).toBe(9); // 钉子原样
+    expect(paint(group)).toEqual(['b', 'a', 'pinned']); // 钉子仍然在最上面
+    expect(a.state.zIndex).toBe(Z_INDEX_AUTO); // 可排层内部：a 排到了最上
+    expect(b.state.zIndex).toBe(-1);
+  });
+
+  it('★ 目标自己就是钉子：bringToFront 抬到最大值之上，sendToBack 压到最小值之下', () => {
+    const ice = makeIce();
+    const group: any = new ICEGroup({ id: 'g', left: 0, top: 0, width: 300, height: 300 });
+    ice.addChild(group);
+    const p9 = rect('p9', { zIndex: 9 });
+    const p5 = rect('p5', { zIndex: 5 });
+    const a = rect('a');
+    group.addChild(p9);
+    group.addChild(p5);
+    group.addChild(a);
+
+    expect(paint(group)).toEqual(['a', 'p5', 'p9']);
+    p5.bringToFront();
+    expect(p5.state.zIndex).toBe(10); // 同层最大值 9 + 1
+    expect(p9.state.zIndex).toBe(9); // 别的钉子不动
+    expect(paint(group)).toEqual(['a', 'p9', 'p5']);
+
+    p5.sendToBack();
+    expect(paint(group)).toEqual(['p5', 'a', 'p9']); // 压到含 auto 层在内的最小值之下
+    expect(zIndexOf(p5)).toBeLessThan(0);
+  });
+
+  it('钉子之间上移一位：与相邻的钉子交换数值（不碰可排层）', () => {
+    const ice = makeIce();
+    const group: any = new ICEGroup({ id: 'g', left: 0, top: 0, width: 300, height: 300 });
+    ice.addChild(group);
+    const p5 = rect('p5', { zIndex: 5 });
+    const p9 = rect('p9', { zIndex: 9 });
+    const a = rect('a');
+    group.addChild(p5);
+    group.addChild(p9);
+    group.addChild(a);
+
+    p5.moveUp(); // 与相邻钉子 p9 交换数值
+    expect(paint(group)).toEqual(['a', 'p9', 'p5']);
+    expect(p5.state.zIndex).toBe(9);
+    expect(p9.state.zIndex).toBe(5);
+    expect(a.state.zIndex).toBe(Z_INDEX_AUTO); // 可排层没被碰
+
+    p5.moveDown(); // 再换回来（p5 已在钉子档最上，下移一位即与 p9 交换）
+    expect(paint(group)).toEqual(['a', 'p5', 'p9']);
+  });
+
+  it('可排层里的组件不会被"上移"越过钉子（钉子永远是应用自己那一档）', () => {
+    const ice = makeIce();
+    const group: any = new ICEGroup({ id: 'g', left: 0, top: 0, width: 300, height: 300 });
+    ice.addChild(group);
+    const pinned = rect('pinned', { zIndex: 9 });
+    const a = rect('a');
+    const b = rect('b', { left: 20 });
+    group.addChild(pinned);
+    group.addChild(a);
+    group.addChild(b);
+
+    a.moveUp(); // 在可排层里与 b 换位
+    expect(paint(group)).toEqual(['b', 'a', 'pinned']);
+    a.moveUp(); // 已是可排层最上 → 不动（不会挤到钉子之上）
+    expect(paint(group)).toEqual(['b', 'a', 'pinned']);
+    expect(pinned.state.zIndex).toBe(9);
+  });
 });
 
 describe('存盘：默认值不写、显式值原样写', () => {
