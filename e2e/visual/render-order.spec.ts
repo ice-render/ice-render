@@ -49,4 +49,39 @@ test.describe('渲染顺序', () => {
 
     expect(errors).toEqual([]);
   });
+
+  /**
+   * **容器的派生部件先于内容**（2026-09-19 补）的真机判据。
+   *
+   * 页面里三层容器（池 → 泳道 → 任务）刻意写成"底 zIndex 9、任务 zIndex -9"的最坏情况：
+   * 光看队列不够，这里读像素 —— 任务那块该是绿的就得是绿的。
+   */
+  test('容器的底 zIndex 更大也先画：三层嵌套的内容都可见（像素）', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+
+    await page.goto('/examples/render-order/tree-order.html');
+    await page.waitForFunction(() => !!(window as any).__renderOrder);
+    await page.waitForTimeout(400);
+
+    // 池 40,260 420×220；泳道（池内 8,8 300×204）；任务（泳道内 20,40 200×120）
+    const taskCenter = await pixelAt(page, 168, 368);
+    expect(taskCenter, '任务被自己所在泳道/池的底色盖住了（派生部件不再先画）').toBe('#198754');
+    expect(await pixelAt(page, 320, 400)).toBe('#6610f2'); // 任务之外、泳道之内 → 泳道底
+    expect(await pixelAt(page, 400, 400)).toBe('#0d6efd'); // 泳道之外、池之内 → 池底
+
+    // 重排 API 只作用于真实子节点：把任务"压到最下"之后仍然可见，派生部件的 zIndex 也没被改写
+    const zAfterReorder = await page.evaluate(() => {
+      const { task, lane } = (window as any).__renderOrder;
+      task.sendToBack();
+      return { taskZ: task.state.zIndex, laneBackgroundZ: lane.background.state.zIndex };
+    });
+    await page.waitForTimeout(300);
+    expect(await pixelAt(page, 168, 368)).toBe('#198754');
+    expect(zAfterReorder.taskZ, '重排 API 应当作用于真实子节点（任务被压到最下）').not.toBe(-9);
+    expect(zAfterReorder.laneBackgroundZ, '派生部件（泳道底）的 zIndex 不该被重排改写').toBe(9);
+
+    expect(errors).toEqual([]);
+  });
 });

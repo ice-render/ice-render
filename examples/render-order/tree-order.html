@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>渲染顺序：树序 + 兄弟按 zIndex</title>
   <body style="margin: 0; background: #f7f7f7">
-    <canvas id="canvas-1" width="900" height="360" style="background-color: #ffffff"></canvas>
+    <canvas id="canvas-1" width="900" height="560" style="background-color: #ffffff"></canvas>
     <script src="../../dist/index.umd.js"></script>
   </body>
   <script type="text/javascript">
@@ -60,6 +60,69 @@
     ice.addChild(green);
     ice.addChild(yellow);
 
-    window.__renderOrder = { ice, parentLater, childFirst, green, yellow };
+    /**
+     * 第三组（2026-09-19 补）：**容器的派生部件永远画在自己的内容之下**。
+     *
+     * 复合组件（`hasDerivedChildren()`）把自己的底作为派生子组件挂在 childNodes 里，
+     * 而内容是真子节点 —— 两者是**同层兄弟**。这里刻意把三层的底都写成 zIndex 9、
+     * 把最里面的任务写成 zIndex -9（"底在上、内容在下"的最坏写法）：
+     * 底仍必须先画，否则整段内容被自己的底色盖住（BPMN 池里的任务矩形消失、
+     * 状态机复合状态变空框，2026-09 的两个真实事故都是这么来的）。
+     */
+    class CardWithBackground extends ICE.ICEGroup {
+      constructor(props) {
+        super({ fill: false, stroke: false, ...props });
+        this.background = new ICE.ICERect({
+          id: `${props.id}-background`,
+          width: props.width,
+          height: props.height,
+          zIndex: props.backgroundZ,
+          stroke: false,
+          style: { fillStyle: props.backgroundFill },
+        });
+        this.addChild(this.background);
+      }
+      hasDerivedChildren() {
+        return true;
+      }
+      getSerializableChildren() {
+        return this.childNodes.filter((child) => child !== this.background);
+      }
+    }
+
+    const pool = new CardWithBackground({
+      id: 'bp-pool',
+      left: 40,
+      top: 260,
+      width: 420,
+      height: 220,
+      backgroundZ: 9,
+      backgroundFill: '#0D6EFD', // 蓝：池底
+    });
+    const lane = new CardWithBackground({
+      id: 'bp-lane',
+      left: 8,
+      top: 8,
+      width: 300,
+      height: 204,
+      zIndex: -20000, // 结构层：泳道在业务图元之下
+      backgroundZ: 9,
+      backgroundFill: '#6610F2', // 紫：泳道底
+    });
+    const task = new ICE.ICERect({
+      id: 'bp-task',
+      left: 20,
+      top: 40,
+      width: 200,
+      height: 120,
+      zIndex: -9, // 最坏写法：比所有底都低
+      stroke: false,
+      style: { fillStyle: '#198754' }, // 绿：任务，必须可见
+    });
+    lane.addChild(task);
+    pool.addChild(lane);
+    ice.addChild(pool);
+
+    window.__renderOrder = { ice, parentLater, childFirst, green, yellow, pool, lane, task };
   </script>
 </html>
