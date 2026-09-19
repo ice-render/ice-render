@@ -516,7 +516,14 @@ class ICE {
       this.animationManager.add(component);
     }
 
-    this.dirty = markDirty;
+    /**
+     * `markDirty=false` 的语义是**「不要主动置脏」**，不是「把脏清掉」——
+     * 旧写法 `this.dirty = markDirty` 是**赋值**：批量装子件（`addChildren` 走的就是
+     * `addChild(x, false)`）时会把同帧里已经攒下的待重绘一起清掉，症状是"这一帧该重绘却没绘制"
+     * （2026-09-19 实测：`ice.dirty = true` 之后 `group.addChild(c, false)`，`ice.dirty` 变成 false）。
+     * 所以这里只能"按需置真"，绝不能置假。
+     */
+    if (markDirty) this.dirty = true;
     if (this.renderer) this.renderer.markQueueDirty();
 
     // 实例级主题：同步一次 preset（见 addTool 中的说明）
@@ -545,7 +552,8 @@ class ICE {
     // AFTER_REMOVE 必须在 destory() 之前触发（destory 会 purgeEvents），否则组件级监听收不到
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_REMOVE, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_REMOVE);
-    this.dirty = markDirty;
+    // 同上：`markDirty=false` 只是"别主动置脏"，不能把已有的待重绘清掉
+    if (markDirty) this.dirty = true;
     if (this.renderer) this.renderer.markQueueDirty();
     component.destory();
   }

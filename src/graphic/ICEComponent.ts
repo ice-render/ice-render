@@ -8,7 +8,13 @@
 import { glMatrix, mat2d, vec2 } from 'gl-matrix';
 import { cloneDeep } from '../util/lang';
 import { merge } from '../util/lang';
-import { bumpVisibilityEpoch, getVisibilityEpoch, sortSiblingsByZIndex, zIndexForPaintRank } from '../util/data-util';
+import {
+  bumpVisibilityEpoch,
+  getVisibilityEpoch,
+  sortSiblingsByZIndex,
+  zIndexOf,
+  zIndexForPaintRank,
+} from '../util/data-util';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import Z_INDEX_AUTO from '../consts/Z_INDEX_AUTO';
 import root from '../cross-platform/root';
@@ -1923,7 +1929,13 @@ abstract class ICEComponent extends ICEEventTarget {
    * 背景/边框在首帧是空路径 —— 页面上表现为「白底白字、完全看不见的按钮」。
    */
   protected __applyDirty(markDirty: boolean): void {
-    this.dirty = markDirty || !this.__everRendered;
+    /**
+     * `markDirty=false` = 「不要主动置脏」，**不是**「把脏清掉」。
+     * 旧写法 `markDirty || !this.__everRendered` 在不传 markDirty 时会把已经脏了的容器置干净，
+     * 与同帧里别的待重绘一起被丢掉（2026-09-19 与 `ICE.addChild` / `ICEGroup.addChild` 一并修正）。
+     * 从未渲染过的组件必须保持脏（否则它自己的路径缓存永远不会建立）。
+     */
+    this.dirty = this.dirty || markDirty || !this.__everRendered;
   }
 
   public set paramsDirty(flag: boolean) {
@@ -2206,30 +2218,28 @@ abstract class ICEComponent extends ICEEventTarget {
    * 所以这四个方法也只动**同一个父容器里的次序**，不跨层、不影响别的容器。
    * 四个方法都返回 `this`，可链式：`rect.setSize(10, 10).bringToFront()`。
    *
-   * ⚠️ 实现是**改写同层全部 zIndex**（而不是只改自己那一个数）：`zIndex` 相等时次序由
-   * **加入顺序**决定（稳定排序），只把用户那个数加一减一在"平手"场景下根本挪不动位置。
+   * **作用域 = 同层的「可排层」**：排序键 ≤ 0 的那些兄弟（`'auto'` 默认值 + 应用写的负值）。
+   * 应用**自己钉成正数**的兄弟（浮层 / 水印 / 吸顶条，如 `zIndex: 9000`）**不参与、值也不会被改写**
+   * —— 它们是应用自己那一档，永远压在可排层之上。这条是 2026-09-19 收紧的：
+   * 之前"整层重编号"会把应用的钉子一起洗掉，导致"置顶一次，浮层就掉下去了"。
    *
-   * 编号口径：`-(n-1) … 0`，**最上面那个是 `0`**（= 默认值那档）。这样"置顶"之后，
-   * **之后新加入的组件仍然画在最上面**（同层相等 → 按加入顺序，新加入的最后画）。
-   * ⚠️ 它只排**同层**：同层的显式值会被重写（包括应用自己钉的浮层值）。
+   * 编号口径：可排层重编号成 **`-(m-1) … 'auto'`**（`m` = 可排层兄弟数；最上面那个是 `'auto'`）。
+   * 这样"置顶"之后，**之后新加入的组件仍然画在最上面**（同层相等 → 按加入顺序，新加入的最后画）。
+   * ⚠️ 不重编号单个数值（不是"自己加一减一"）：平手时（`'auto'` 全相等）次序由加入顺序决定，
+   * 加减一根本挪不动位置。
+   *
+   * ⚠️ **目标自己被钉成正数**时，可排层的规则管不着它，退化处理：
+   * - `bringToFront()` → 抬到**同层最大值之上**（`max + 1`）；
+   * - `sendToBack()` → 压到**同层最小值之下**（`min - 1`，落在负数档）；
+   * - `moveUp()` / `moveDown()` → 只在**正数钉子之间**与相邻者交换数值；没有这样的邻居就不动。
    */
   public bringToFront(): this {
-    const order = this.__siblingOrder();
-    if (!order || order.length < 2) return this;
-    const rest = order.filter((item) => item !== this);
-    if (rest.length === order.length) return this; // 不在兄弟列表里（未挂载）
-    this.__applySiblingOrder([...rest, this]);
-    return this;
+    return this.__moveWithinLayer(1);
   }
 
   /** 移到同层最下（`bringToFront` 的逆操作）。 */
   public sendToBack(): this {
-    const order = this.__siblingOrder();
-    if (!order || order.length < 2) return this;
-    const rest = order.filter((item) => item !== this);
-    if (rest.length === order.length) return this;
-    this.__applySiblingOrder([this, ...rest]);
-    return this;
+    return this.__moveWithinLayer(-1);
   }
 
   /** 在同层里上移一位（超出最上层时不动）。 */
@@ -2249,6 +2259,18 @@ abstract class ICEComponent extends ICEEventTarget {
     return sortSiblingsByZIndex(list);
   }
 
+  /** 同层里**没被应用钉成正数**的那些兄弟的绘制次序（四个 z 序 API 的作用域）。 */
+  private __orderableSiblings(): any[] | null {
+    const order = this.__siblingOrder();
+    if (!order) return null;
+    return order.filter((item: any) => zIndexOf(item) <= 0);
+  }
+
+  /** 本组件是否被应用钉成正数（`zIndex > 0`）。 */
+  private __isPinned(): boolean {
+    return zIndexOf(this) > 0;
+  }
+
   /** 本组件所属的兄弟列表：优先父容器，其次 ICE 的组件层 / 工具层。 */
   private __siblingList(): any[] | null {
     if (this.parentNode && Array.isArray(this.parentNode.childNodes)) {
@@ -2263,32 +2285,89 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   private __shiftInSiblings(delta: number): this {
-    const order = this.__siblingOrder();
-    if (!order || order.length < 2) return this;
+    const list = this.__siblingList();
+    if (!list || list.indexOf(this) === -1) return this;
+    if (this.__isPinned()) {
+      return this.__shiftAmongPinned(delta);
+    }
+    const order = this.__orderableSiblings();
+    if (!order) return this;
     const at = order.indexOf(this);
     if (at === -1) return this;
     const to = at + delta;
-    if (to < 0 || to >= order.length) return this;
+    if (to < 0 || to >= order.length) return this; // 已到可排层的最上 / 最下
     const next = order.slice();
     next.splice(at, 1);
     next.splice(to, 0, this);
-    this.__applySiblingOrder(next);
+    this.__applyOrderableOrder(next);
+    return this;
+  }
+
+  /** 同层最上（`to='front'`）/ 最下（`to='back'`）。 */
+  private __moveWithinLayer(to: 1 | -1): this {
+    const list = this.__siblingList();
+    if (!list || list.indexOf(this) === -1) return this; // 不在兄弟列表里（未挂载）
+    if (this.__isPinned()) {
+      return this.__raiseBeyondPinned(to);
+    }
+    const order = this.__orderableSiblings();
+    if (!order) return this;
+    const rest = order.filter((item: any) => item !== this);
+    if (rest.length === order.length) return this;
+    this.__applyOrderableOrder(to === 1 ? [...rest, this] : [this, ...rest]);
+    return this;
+  }
+
+  /** 目标被钉成正数时：抬到同层最大值之上 / 压到同层最小值之下（只改目标自己）。 */
+  private __raiseBeyondPinned(to: 1 | -1): this {
+    const order = this.__siblingOrder();
+    if (!order) return this;
+    let bound = 0;
+    for (let i = 0; i < order.length; i++) {
+      const sibling: any = order[i];
+      if (sibling === this) continue;
+      const value = zIndexOf(sibling);
+      bound = to === 1 ? Math.max(bound, value) : Math.min(bound, value);
+    }
+    const next = to === 1 ? bound + 1 : bound - 1;
+    if (this.state.zIndex !== next) {
+      this.setState({ zIndex: next }, { paramsDirty: false });
+    }
+    return this;
+  }
+
+  /** 目标被钉成正数时，只在正数钉子之间与相邻者**交换数值**（没有这样的邻居就不动）。 */
+  private __shiftAmongPinned(delta: number): this {
+    const order = this.__siblingOrder();
+    if (!order) return this;
+    const pinned = order.filter((item: any) => zIndexOf(item) > 0);
+    const at = pinned.indexOf(this);
+    const to = at + delta;
+    if (at === -1 || to < 0 || to >= pinned.length) return this;
+    const other: any = pinned[to];
+    const mine = zIndexOf(this);
+    const theirs = zIndexOf(other);
+    if (mine === theirs) return this; // 数值相同：交换等于没动
+    this.setState({ zIndex: theirs }, { paramsDirty: false });
+    other.setState({ zIndex: mine }, { paramsDirty: false });
     return this;
   }
 
   /**
-   * 把目标次序落到同层的 `zIndex`（没变的兄弟不动，避免无谓置脏）。
+   * 把目标次序落到**可排层**的 `zIndex`（没变的兄弟不动，避免无谓置脏）。
    *
-   * 编号口径是 **`-(n-1) … 0`：最上面那个是 `0`**（口径的唯一出处：`zIndexForPaintRank`）。
-   * 为什么不编成 `0..n-1`：`0` 是默认值（auto 层），把它留给**最上层**，
-   * 之后新加入的组件（默认也是 0、按加入顺序排在同层最后）就仍然画在**最上面** ——
+   * 编号口径是 **`-(m-1) … 'auto'`：最上面那个落回 auto 层**（口径的唯一出处：`zIndexForPaintRank`）。
+   * 为什么不编成 `0..m-1`：auto 层是默认值那一档，把它留给**最上层**，
+   * 之后新加入的组件（默认也是 auto、按加入顺序排在同层最后）就仍然画在**最上面** ——
    * "置顶过之后，新建的图元又跑到下面去了"这种体验缺口不会出现。
    * 被压下去的兄弟落成负数，正好与 CSS 的负 z-index 同义（在 auto 层之下）。
+   * 传进来的 `order` 只包含可排层（正数钉子不在里面，也不会被改写）。
    */
-  private __applySiblingOrder(order: any[]): void {
-    for (let i = 0; i < order.length; i++) {
+  private __applyOrderableOrder(order: any[]): void {
+    const count = order.length;
+    for (let i = 0; i < count; i++) {
       const sibling: any = order[i];
-      const zIndex = zIndexForPaintRank(i, order.length);
+      const zIndex = zIndexForPaintRank(i, count);
       if (sibling && sibling.state && sibling.state.zIndex !== zIndex) {
         // `paramsDirty: false`：zIndex 在引擎自己的「动画安全键」白名单里（改它不影响
         // 尺寸 / 点集 / 文本量测），重排一次同层不该把所有兄弟的派生参数都标记重算。

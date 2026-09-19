@@ -140,10 +140,13 @@ render() {
   并盖住自己的子树，v2.13.0 修正，回归见 `tests/renderer/render-order.test.ts`）。
 - **调整同层次序用四个 API**（都返回 `this`，可链式）：`bringToFront()` / `sendToBack()` /
   `moveUp()` / `moveDown()`。它们只动**同一个父容器内**的次序（`zIndex` 只在兄弟间比较，
-  所以接口也按这个作用域设计）。实现是把**同层重编号成 `-(n-1) … 0`（最上面那个是 0）**：
-  因此**平手**（zIndex 相同、次序靠加入顺序）时同样挪得动，而且**置顶之后新加入的组件
-  仍然画在最上面**（0 那一档按加入顺序，新加入的最后画）。口径的唯一出处：
-  `util/data-util.ts` 的 `zIndexForPaintRank`。`childNodes` 数组本身保持插入顺序。
+  所以接口也按这个作用域设计）。作用域进一步收窄到**可排层**（排序键 ≤ 0：`'auto'` 与负值），
+  重编号成 **`-(m-1) … 'auto'`（最上面那个落回 auto 层）**：因此**平手**（zIndex 相同、
+  次序靠加入顺序）时同样挪得动，而且**置顶之后新加入的组件仍然画在最上面**。
+  口径的唯一出处：`util/data-util.ts` 的 `zIndexForPaintRank`。
+  ⚠️ **应用自己钉成正数的兄弟不参与、值也不会被改写**（浮层 / 水印 / 吸顶条）；目标自己被钉住时，
+  `bringToFront` 抬到 `max+1`、`sendToBack` 压到 `min-1`、`moveUp/moveDown` 只在钉子之间交换数值。
+  `childNodes` 数组本身保持插入顺序。
 - **工具层用的是另一套编号**（`consts/BIG_ZINDEX_NUMBER` = 1e7 起步，控制面板 / 手柄 / 连线插槽 /
   对齐提示线）：它们进的是**另一条队列** `toolsQueue`，永远整体画在组件层之上 ——
   **组件层写再大的 `zIndex` 也压不住工具层**，两层之间没有数字比较。

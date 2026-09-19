@@ -30,6 +30,13 @@
   另：`zIndex >= 1e7`（`BIG_ZINDEX_NUMBER`）不再是"组件层别用的保留号段"，它只是**工具层自己**
   的编号；组件层写多大的数都压不住工具层（两层是两条独立队列，本来就不比较）。
 
+- **四个 z 序 API 不再改写应用自己钉的正数**（`bringToFront` / `sendToBack` / `moveUp` / `moveDown`）：
+  它们的作用域收窄到同层的**可排层**（排序键 ≤ 0：`'auto'` 默认值与负值），应用钉成正数的兄弟
+  （浮层 / 水印 / 吸顶条）不参与、值也不会被改写。旧实现"整层重编号"会把钉子一起洗掉 ——
+  表现为"置顶一次，浮层就掉到下面去了"。目标自己被钉住时按退化规则处理：
+  `bringToFront` → `max+1`；`sendToBack` → `min-1`；`moveUp/moveDown` → 只在正数钉子之间交换数值。
+  回归：`tests/graphic/z-index-order.test.ts`（钉子不被改写 / 目标即钉子 / 钉子间换位 / 不越档）。
+
 ### 新增
 
 - **z 序操作 API**：`ICEComponent` 的 `bringToFront()` / `sendToBack()` / `moveUp()` / `moveDown()`
@@ -72,6 +79,15 @@
   「尺寸/样式可配置」那批已做完，实质缺口只剩两条（控制面板按类型选工具、斜切手柄）。
 
 ### 修复
+
+- **`addChild(child, false)` 会把同帧的待重绘清掉**（`ICE.addChild` / `ICE.removeChild` /
+  `ICEGroup.addChild` / `ICEGroup.removeChild` 四处）：这几处写的是 `this.dirty = markDirty`
+  （`ICEGroup` 那两处是 `this.ice.dirty = markDirty`）——**赋值**，而参数语义是"**不要主动置脏**"。
+  后果是批量装子件（`addChildren` 内部走 `addChild(x, false)`）时，把同帧里已经攒下的重绘一起丢掉，
+  表现为"这一帧该重绘却没绘制"（实测：`ice.dirty = true` 之后 `group.addChild(c, false)`，
+  `ice.dirty` 变成 false）。改成只置真、不置假；`ICEComponent.__applyDirty` 同步收紧为
+  `this.dirty || markDirty || !__everRendered`（从未渲染过的组件必须保持脏）。
+  回归：`tests/renderer/CanvasRenderer.queue.test.ts`（不清脏 + 队列仍含新子件）。
 
 - **存盘时 `zIndex` 的写法收敛成一条规则**（**数据格式的写法变了**，读旧数据不受影响）：
   **默认值（0）不写、显式值原样写**（`Serializer.__encodeChildren`）。旧的"归一化成 `0..n-1`"
