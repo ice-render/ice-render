@@ -7,6 +7,56 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+## [2.19.0] - 2026-09-19
+
+> 这一版把「容器与它的内容」的绘制次序补完整：**容器的派生部件（自己的底 / 标题 / 角标）永远画在
+> 自己的内容之下**（CSS 的背景语义），并且**四个 z 序 API 只作用于真实子节点**。
+>
+> ⚠️ **行为变化只影响声明了 `getSerializableChildren()` 的复合组件**（截至目前只有
+> ice-entity-designer 的流程图 / BPMN 节点与池、状态机的复合状态）；**没有该钩子的组件行为逐字不变**。
+> 应用侧从这一版起可以删掉"给容器的底写一个比内容更低的 `zIndex`"那种魔数 —— 引擎给保证了。
+
+### 变更
+
+- **容器的派生部件先于内容绘制**（2026-09-19，分支 `fix/reorder-scope-and-derived-paint-order`）。
+
+  背景是两个真实事故（ice-entity-designer 的示例，2026-09）：**BPMN 池里的任务矩形全部消失**
+  （只剩连线和文字）、**状态机的复合状态变成一个空框**。
+
+  根因：复合组件（`hasDerivedChildren() === true`）把自己的底 / 标题 / 角标也挂在 `childNodes` 里
+  （形状由子组件绘制是刻意的 —— 菱形 / 事件圆 / 圆角框都靠它），而渲染顺序铁律是
+  「树序 + 兄弟按 `zIndex`」。于是**容器的底和容器里的内容是同层兄弟**：池的底是默认 `'auto'`（0）、
+  泳道是 `-20000` → 泳道连同泳道里的全部节点先画完，池的底最后盖上来，整段内容被自己的底色吃掉。
+  实测把引擎换回 2.12.3（渲染顺序改版之前）画面正常、2.13.0 起逐帧一致 —— 属既有 z 序口径与新
+  渲染顺序错配，不是信号问题也不是示例写错。
+
+  现在：`util/data-util.ts` 的 `paintOrderChildrenOf(container)` 把一层的子节点排成
+  「**派生部件（按 z 升序）→ 真实子节点（按 z 升序）**」。应用侧不用再猜"多低才算够低"。
+  ⚠️ 递归展平时**不能**把这个分组结果再按 zIndex 洗一遍（分组次序不是 zIndex 升序），
+  因此 `flattenTree` 拆出了内部函数 `flattenOrdered`；`SvgExporter.collectOrdered` 同源改口径
+  （渲染队列 / SVG 导出 / 命中检测三者必须同源）。
+
+- **四个 z 序 API 的作用域收窄到"真实子节点"**（`bringToFront` / `sendToBack` / `moveUp` / `moveDown`）。
+
+  派生部件不是文档内容：被重编号会把容器内容盖掉，而且组件重建即复位（改了也留不下来），
+  纯噪声。现在作用域由 `siblingScopeOf(container)` 给出 = `getSerializableChildren()` 声明的那些；
+  没有该钩子的容器行为不变。实测（状态机示例）：复合状态的框不再在子状态 `sendToBack()` 之后压住它。
+
+- **对外导出 `paintOrderChildrenOf`**：与 `sortSiblingsByZIndex` / `zIndexOf` / `zIndexForPaintRank`
+  并列的"排序口径"公开出口，让应用与测试能**在无头环境断言真实绘制次序**（不必起浏览器）。
+
+### 回归
+
+- 单元：`tests/renderer/derived-children-paint-order.test.ts`（9 条，修复前 8 条红）——
+  底排在内容之后仍先画、纯容器行为不变、分组内各自按 z、池→泳道→节点三层嵌套、
+  四个 API 不动派生部件的 `zIndex`、派生部件自己调用是空操作、SVG 导出与画布同源。
+- 真机像素：`e2e/visual/render-order.spec.ts` 新增「三层嵌套下底 `zIndex` 更大也先画」，
+  配套 `examples/render-order/tree-order.html` 的第三组；改动前的引擎上这条报
+  `Expected "#198754" Received "#0d6efd"`（任务被池底盖住）。
+- 家族全量：12 个包（chart / chart-dsl / web-components / web-components-dsl / entity-designer /
+  entity-designer-dsl / render-dsl / smart-water / game / agent-console / doc / react-demo）
+  指向本版引擎跑单测 + e2e，全绿。
+
 ## [2.18.0] - 2026-09-19
 
 > ⚠️ **破坏性：事件传播语义改版**。事件开始沿组件树冒泡（命中组件 → 各级父容器 → 总线），
