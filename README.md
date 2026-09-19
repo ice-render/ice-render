@@ -141,7 +141,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
 **性能与工程质量**
 
 - **高性能** —— 脏标记 + **脏矩形局部重绘**（默认，不满足局部条件时自动回退全量），配合组件级离屏缓存、渲染队列缓存与矩阵零分配。性能数字以**本机** `npm run bench 5000` 为准（2026-09-11 在 Apple Silicon 开发机上实测约 2.2ms/帧，见上文第 2 条「局部重绘」）。
-- **完整工程化** —— **153 个测试套件 / 1284 个用例**（jest，带「只许上调」的覆盖率门槛，2026-09-19 实测）、Playwright 可视化回归（103 条：golden-image + 脏矩形像素一致性 + 视口/对齐/交互 + 93 个示例页冒烟）、发布包完整性门禁（`publint` + `attw`）、eslint、架构设计文档。
+- **完整工程化** —— **153 个测试套件 / 1284 个用例**（jest，带「只许上调」的覆盖率门槛，2026-09-19 实测）、Playwright 可视化回归（103 条：golden-image + 脏矩形像素一致性 + 视口/对齐/交互 + 94 个示例页冒烟）、发布包完整性门禁（`publint` + `attw`）、eslint、架构设计文档。
 
 ## 🚀 快速开始
 
@@ -212,6 +212,34 @@ class DataPage extends ICEContainer {
 组件库侧对应的容器契约见 [`ice-web-components`](https://github.com/ice-render/ice-web-components)
 的 `docs/guides/layout.md` 第六节。
 
+### 事件：先订阅，再渲染
+
+组件与全局总线（`ice.evtBus`）共用一套 API。**组件上用 `on` / `off` / `once`，DOM 元素才用
+`addEventListener`** —— 两套在组件上是**同一个实现、两种参数形状**，不存在"哪套更强"。
+
+```js
+const rect = new ICERect({ left: 100, top: 100, width: 120, height: 80 });
+ice.addChild(rect);
+
+const onPick = (evt) => console.log('点到谁：', evt.target.constructor.name);
+rect.on('click', onPick);      // 订阅
+rect.off('click', onPick);     // 取消：必须是同一个函数引用
+rect.once('click', onPick);    // 只触发一次
+rect.trigger('my-event', null, { source: 'demo' }); // 手动触发（第三个参数是 param）
+
+// 全局总线：组件之间解耦通信用它，引擎的生命周期事件（AFTER_RENDER / 选中变化…）也在这里
+ice.evtBus.on('click', (evt) => console.log('总线最后收到一次：', evt.param.component));
+```
+
+派发路径固定三段：**命中组件（`AT_TARGET`）→ 各级父容器（`BUBBLING_PHASE`）→ 全局总线（最后收一次）**。
+`evt.target` 恒为命中的组件，`evt.currentTarget` 随"正在处理它的组件"走；
+`stopPropagation()` 只挡祖先、**挡不住总线**（总线是引擎内部通道）；容器只想认「点在自己身上」用
+`evt.target === this` 守卫。
+
+完整口径（两套 API 的对应关系、常见困惑排查表、从 2.17 升级要改的三处）见
+[事件系统](https://ice-render.github.io/ice-render-doc/docs/guide/events)；
+可运行示例见 [`examples/event/`](./examples/event)（冒泡 / 键盘 / 双击 / 总线 / POJO 事件）。
+
 ### 导出 SVG（矢量，不依赖 canvas）
 
 画布的 `toDataURL()` / `toBlob()` 是**光栅快照**（分辨率写死、放大就糊）。引擎的路径对象是
@@ -254,7 +282,7 @@ PNG / PDF 不内置依赖：SVG 是通用中间格式，`resvg`、`sharp`、`rsv
 ## 📚 文档
 
 - **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：共 22 篇 —— 运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容 / 路线图与边界 / Worker 与离屏渲染 / 视口缩放 / 对齐吸附 / 能力缺口分析 / 无障碍 / 应用驱动复盘 / 连线端点（插槽）扩展评估 / 主题与样式机制 / 布局（LayoutManager）。
-- **示例** —— [`examples/`](./examples/index.html) 目录提供 **92 个**可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、文本、视口、对齐、插件、无障碍、性能基准等）。
+- **示例** —— [`examples/`](./examples/index.html) 目录提供 **94 个**可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、文本、视口、对齐、插件、无障碍、性能基准等）。
 
 ## 🧪 工程化
 
@@ -309,7 +337,7 @@ export default class Relation extends ICEVisioLink {
 ## 📸 截图
 
 > 截图由 `examples/` 下的示例页直接采集（Playwright、2× 像素比、**按内容包围盒裁切**，不含浏览器外壳与页面留白）。
-> 全部 92 个示例都可以在 [`examples/index.html`](./examples/index.html) 里点开运行。
+> 全部 94 个示例都可以在 [`examples/index.html`](./examples/index.html) 里点开运行。
 
 **图元与样式** —— 形状库、渐变、阴影、虚线等（`examples/shapes/shapes-basic.html`）
 
