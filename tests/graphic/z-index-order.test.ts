@@ -16,6 +16,7 @@ import ICE from '../../src/ICE';
 import ICEGroup from '../../src/graphic/container/ICEGroup';
 import ICERect from '../../src/graphic/shape/ICERect';
 import EventBus from '../../src/event/EventBus';
+import ICEControlPanelManager from '../../src/control-panel/ICEControlPanelManager';
 import Serializer from '../../src/persistence/Serializer';
 import Deserializer from '../../src/persistence/Deserializer';
 
@@ -85,6 +86,20 @@ describe('默认 zIndex 与计数器的同步', () => {
       .map((c: any) => c.state.id);
     expect(paintOrder[paintOrder.length - 1]).toBe(fresh.state.id);
     expect(ids).toContain(fresh.state.id);
+  });
+
+  it('★ 工具层的 1e7 号段不参与计数器：建完控制面板，普通组件默认值仍是小数字', () => {
+    const ice = makeIce();
+    const before = new ICERect({ left: 0, top: 0, width: 10, height: 10 });
+
+    new ICEControlPanelManager(ice); // 面板与手柄用的是 bigZIndexNum(1e7) 起步的号段
+
+    const after = new ICERect({ left: 0, top: 0, width: 10, height: 10 });
+    // 修复前：after.state.zIndex ≈ 10001003（被工具层号段顶上去）
+    // 面板自身会创建十几个子组件（手柄），所以计数器会往前挪一点 —— 但只能是"十几个"这个量级。
+    // ⚠️ 不能断言绝对值：本文件前面的用例会显式写 zIndex=5000，计数器本来就已经被抬到那儿了。
+    expect(after.state.zIndex - before.state.zIndex).toBeLessThan(100);
+    expect(after.state.zIndex).toBeGreaterThan(before.state.zIndex);
   });
 });
 
@@ -193,6 +208,47 @@ describe('z 序操作 API（只在同一父容器内）', () => {
       .sort((x: any, y: any) => (x.state.zIndex || 0) - (y.state.zIndex || 0))
       .map((x: any) => x.state.id);
     expect(order).toEqual(['b', 'a']);
+  });
+
+  it('重排只改次序：兄弟被重编号后不得被标成"派生参数要重算"', () => {
+    const { a, b } = three();
+    b.paramsDirty = false;
+    a.bringToFront(); // 会把 a、b 都重编号
+    expect({ dirty: b.dirty, paramsDirty: b.paramsDirty }).toEqual({ dirty: true, paramsDirty: false });
+  });
+
+  /**
+   * **重编号的结果只与本容器有关，与进程级计数器无关**。
+   *
+   * 这条不是"实现细节"：默认 `zIndex` 取自 `ICEComponent.instanceCounter++`（进程级、跨 ICE 实例
+   * 还会继续涨），所以"写死一个 zIndex: 90 表示在最上层"这种写法并不可靠 —— 同一个场景在两个
+   * ICE 实例里拿到的默认值不同（实测 18~25 vs 109~116），90 在一边压得住、在另一边压不住
+   * （2026-09-19 在 dirty-rect 像素用例上踩到）。要"置顶"就用 `bringToFront()`：
+   * 它把同层重编号成 0..n-1，与计数器无关，两个实例结果一致。
+   */
+  it('★ 置顶后的同层 zIndex 是 0..n-1，与进程级计数器无关（两个实例结果一致）', () => {
+    const build = () => {
+      const ice = makeIce();
+      const group: any = new ICEGroup({ left: 0, top: 0, width: 300, height: 300 });
+      ice.addChild(group);
+      const list: any[] = [];
+      for (let i = 0; i < 3; i++) {
+        const c: any = new ICERect({ id: 'c' + i, left: i * 20, top: 0, width: 10, height: 10 });
+        group.addChild(c);
+        list.push(c);
+      }
+      return { ice, group, list };
+    };
+    const one = build();
+    const two = build(); // 进程级计数器已经涨过一截，第二个实例的默认值完全不同
+    one.list[0].bringToFront();
+    two.list[0].bringToFront();
+
+    const zs = (g: any) => g.childNodes.map((c: any) => c.state.zIndex).sort((x: number, y: number) => x - y);
+    expect(zs(one.group)).toEqual([0, 1, 2]);
+    expect(zs(two.group)).toEqual([0, 1, 2]);
+    expect(one.list[0].state.zIndex).toBe(2);
+    expect(two.list[0].state.zIndex).toBe(2);
   });
 });
 

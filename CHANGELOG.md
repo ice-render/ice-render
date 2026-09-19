@@ -29,6 +29,11 @@
 
 - `ICEVisioLink` 的构造参数**补全了文档**（`escapeDistance` / `linkShape` / `links` /
   `arrow` / `style.label.offset` 等，原本只有一句 `FIXME`）。
+- `BIG_ZINDEX_NUMBER`（1e7）的注释改成它**真实**的语义：它**不是**"比所有组件都大"的全局
+  最大值，而是**工具层内部**的排序号段 —— 工具层与组件层是两条独立队列，组件层写再大的
+  `zIndex` 也压不住工具层。[02 组件模型](docs/architecture/02-component-model.md) 与
+  [04 渲染](docs/architecture/04-rendering-performance.md) 同步：补保留号段约定、
+  补"数值变了 ≠ 次序变了"这条队列缓存判据及其实测数字。
 - [07 交互与动画](docs/architecture/07-interaction-animation.md) 补了「正交路由怎么算」一节：
   候选 → 三道过滤 → 避障 → 打分，连同那条案例数据（24 处穿线 → 0）和两个踩过的坑。
 - [09 路线图](docs/architecture/09-roadmap.md) 的「连接线」一行补上 2.15.0 的标签偏移与
@@ -37,6 +42,13 @@
   「尺寸/样式可配置」那批已做完，实质缺口只剩两条（控制面板按类型选工具、斜切手柄）。
 
 ### 修复
+
+- **工具层的 1e7 号段污染"默认 zIndex 计数器"**：`new ICEControlPanelManager()` 之后，
+  普通组件拿到的默认 `zIndex` 从个位数跳到 **10001003**（面板与手柄显式写了 1e7 起步的值，
+  而构造期会把计数器顶到显式值之上）。天文数字本身无害，但会让"组件层请用 `< 1e7`"这条
+  约定名存实亡，也让存盘归一化之前的中间态变得难读。修法：落在保留号段里的值
+  （`>= BIG_ZINDEX_NUMBER`）不参与计数器同步 —— 工具层的编号空间和组件层本来就不互相比较。
+  回归：`tests/graphic/z-index-order.test.ts`（建完面板后新建组件，默认值仍在"十几个"的量级）。
 
 - **存盘时的 `zIndex` 归一化**（**数据格式的写法变了**，读旧数据不受影响）：存盘不再把
   计数器留下的天文数字写进文档 —— 绘制次序与插入次序一致时**不写** `zIndex`，
@@ -76,6 +88,20 @@
   （实现里早已把组件从动画管理器摘除，回归在 `tests/animation/animation.extended.test.ts`）；
   `DOMEventDispatcher` 的「控制面板会遮挡组件」（2026-09-08 命中检测已跳过 `isControlPanel`，
   回归在 `tests/event/DOMEventDispatcher.test.ts`）。
+
+### 性能
+
+- **改 `zIndex` 不再无条件重建渲染队列**：以前只要 zIndex **数值**变了就整队重建
+  （重新 `flattenTree` 整棵树 + 每个父容器各自排序）。但"数值变了、次序没变"是常见的一类
+  （批量把一批子件重写成同一组值、动画缓动 zIndex 但没跨过邻居）—— 这时整队重建纯属白干。
+  现在先花一次 O(n) 判断"队列在每个父容器内是否**已经**有序"（判据用展平时写下的 `_level`/`_pid`，
+  只比相邻同组节点，无 Map、无分配），有序则只刷新快照；次序**真**变了才重建。
+  实测 10000 组件：稳态帧 0.20ms、改 1 个 `left`（对照）0.93ms、改 1 个 `zIndex` 但次序不变
+  1.26ms（**零次整队重建**）、改 `zIndex` 跨过邻居 1.37ms（整队重建 0.69ms）。
+  判序那一步本身也从 0.41ms 降到 0.28ms（旧写法按 pid 建 Map，真帧里要遍历 1 万个分散在堆上的对象，
+  是内存访问的代价）。
+- 无障碍树（`buildAccessibilityTree`）的同级排序**改用引擎里那一份** `sortSiblingsByZIndex`，
+  不再各写一套"按 zIndex 升序"的比对 —— 顺序规则只有一处出处。
 
 ## [2.16.0] - 2026-09-18
 

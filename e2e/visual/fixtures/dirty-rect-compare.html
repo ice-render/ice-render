@@ -159,10 +159,18 @@
               [0, 50],
               [700, 50],
             ],
-            zIndex: 90,
             style: { strokeStyle: '#334155', lineWidth: 2 },
           });
           ice.addChild(crossing);
+          /**
+           * ⚠️ 这里**不能**写死 `zIndex: 90` 来保证连线在最上层。
+           * 默认 zIndex 取自**进程级计数器**（`ICEComponent.instanceCounter++`），跨 ICE 实例还在涨 ——
+           * 同一个 fixture 里 canvas-a（full）拿到的默认值是 18~25、canvas-b（dirty-rect）是 109~116，
+           * 于是写死的 90 在 a 上压得住、在 b 上压不住，两个画布像素对不上
+           * （2026-09-19 实测踩到：step 0 就 766 个像素差异，正好落在 y=49~50 这条线上）。
+           * `bringToFront()` 按**本容器的实际次序**把同层重编号成 0..n-1，与计数器无关，两边一致。
+           */
+          crossing.bringToFront();
         }
 
         let link = null;
