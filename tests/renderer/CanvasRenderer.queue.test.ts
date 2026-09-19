@@ -93,8 +93,9 @@ describe('CanvasRenderer 渲染队列缓存', () => {
    */
   it('★ zIndex 数值变但次序不变：复用同一队列数组（不重建）', () => {
     const ice = makeIce();
-    const a = new ICEComponent({ width: 10, height: 10 });
-    const b = new ICEComponent({ width: 10, height: 10 });
+    // 默认值现在是 0（auto 层）→ 两个组件相等，必须显式给值才能造出"a 在下、b 在上"
+    const a = new ICEComponent({ width: 10, height: 10, zIndex: 1 });
+    const b = new ICEComponent({ width: 10, height: 10, zIndex: 2 });
     ice.addChild(a);
     ice.addChild(b);
     (ice.renderer as any).refreshQueue();
@@ -141,8 +142,8 @@ describe('CanvasRenderer 渲染队列缓存', () => {
     const ice = makeIce();
     const group = new ICEGroup({ width: 100, height: 100 });
     ice.addChild(group);
-    const c1 = new ICEComponent({ width: 10, height: 10 });
-    const c2 = new ICEComponent({ width: 10, height: 10 });
+    const c1 = new ICEComponent({ width: 10, height: 10, zIndex: 1 });
+    const c2 = new ICEComponent({ width: 10, height: 10, zIndex: 2 });
     group.addChild(c1);
     group.addChild(c2);
     (ice.renderer as any).refreshQueue();
@@ -163,8 +164,8 @@ describe('CanvasRenderer 渲染队列缓存', () => {
     const ice = makeIce();
     const group = new ICEGroup({ width: 100, height: 100 });
     ice.addChild(group);
-    const c1 = new ICEComponent({ width: 10, height: 10 });
-    const c2 = new ICEComponent({ width: 10, height: 10 });
+    const c1 = new ICEComponent({ width: 10, height: 10, zIndex: 1 });
+    const c2 = new ICEComponent({ width: 10, height: 10, zIndex: 2 });
     group.addChild(c1);
     group.addChild(c2);
     (ice.renderer as any).refreshQueue();

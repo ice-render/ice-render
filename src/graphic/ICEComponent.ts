@@ -8,9 +8,8 @@
 import { glMatrix, mat2d, vec2 } from 'gl-matrix';
 import { cloneDeep } from '../util/lang';
 import { merge } from '../util/lang';
-import { bumpVisibilityEpoch, getVisibilityEpoch, sortSiblingsByZIndex } from '../util/data-util';
+import { bumpVisibilityEpoch, getVisibilityEpoch, sortSiblingsByZIndex, zIndexForPaintRank } from '../util/data-util';
 import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
-import bigZIndexNum from '../consts/BIG_ZINDEX_NUMBER';
 import root from '../cross-platform/root';
 import EventBus from '../event/EventBus';
 import ICEEvent from '../event/ICEEvent';
@@ -150,7 +149,8 @@ import { uuid } from '../util/uuid';
  *
  * 每个组件实例不再各自复制一份默认 style/transform/lineDash/animations，而是通过
  * `Object.create(DEFAULT_PROPS)` 原型继承；只有用户显式传入的字段才写到实例上
- * （merge 对嵌套对象做写时复制）。`id` / `zIndex` 是每实例唯一值，不在共享默认里。
+ * （merge 对嵌套对象做写时复制）。`id` 是每实例唯一值，不在共享默认里；
+ * `zIndex` 默认是 `0`（`auto` 层），是只读的共享默认值，可以在默认表里。
  *
  * 这是内存优化的一部分：大量静态图元的默认配置从「每实例一份」变成「全局一份」。
  */
@@ -162,6 +162,14 @@ import { uuid } from '../util/uuid';
  * 换字段名、加到子类 `ICERect` 上同样复现）。布局约束只在布局期读写，侧表没有任何代价。
  */
 const MIN_SIZE = new WeakMap<any, [number, number]>();
+
+/**
+ * 主题作用域缓存的**编号来源**（`__scopeId`）。
+ *
+ * 它以前蹭的是「默认 zIndex 计数器」，2026-09-19 那个计数器被删掉（默认 zIndex 改成 0 / auto 层），
+ * 这里就单独给一个模块级小计数器 —— 只要求"进程内唯一、稳定"，与叠放次序无关。
+ */
+let THEME_SCOPE_SEQ = 0;
 
 const DEFAULT_PROPS = {
   left: 0,
@@ -177,6 +185,23 @@ const DEFAULT_PROPS = {
   lineBorderWidth: 1.5,
   // 留空 = 跟随主题的 chrome.lineBorder（显式给色值才用给定的）
   lineBorderColor: '',
+  /**
+   * **同层叠放次序**：数值越大越靠上，**只在同一个父容器（兄弟）之间比较**。
+   *
+   * 默认 `0` 就是 CSS 里的 `z-index: auto` 那一档（2026-09-19 起，之前是"构造顺序计数器"）：
+   * 没显式写过 zIndex 的兄弟彼此相等，次序退化为**加入顺序** —— 于是"后加入的默认画在最上面"，
+   * 且不会再有"计数器涨到几百之后，新建的图元被已有内容盖住"那种跨会话倒挂。
+   *
+   * 显式写值就是**钉子**，一视同仁地参与比较（与 CSS 同义）：
+   * - `-n`：压到 `auto` 层**之下**（背景、底纹）；
+   * - `+n`：抬到 `auto` 层**之上**（浮层、水印）。注意这一档会盖住**之后新加入**的组件 ——
+   *   要"永远在最上"就用工具层（`ice.addTool`）或 `bringToFront()`。
+   *
+   * 改次序优先用 `bringToFront()` / `sendToBack()` / `moveUp()` / `moveDown()`：
+   * 它们把同层重编号成 `-(n-1) … 0`（最上面那个是 0，仍留在 `auto` 层），口径见
+   * `util/data-util.ts` 的 `zIndexForPaintRank`。
+   */
+  zIndex: 0,
   fill: true,
   stroke: true,
   animations: Object.freeze({}),
@@ -273,42 +298,6 @@ abstract class ICEComponent extends ICEEventTarget {
   public evtBus: EventBus;
   //所有组件都有父组件，但不一定都有子组件，只有容器型的组件才有子组件。如果父组件为 null ，说明直接添加在 canvas 中。
   public parentNode: any;
-  //@static
-  //静态属性，实例计数器
-  protected static instanceCounter: number = 0;
-
-  /**
-   * 把「默认 zIndex 计数器」抬到某个显式 `zIndex` 之上。
-   *
-   * 存在的理由：默认 `zIndex` 是 `instanceCounter++`（进程级），而 `zIndex` 又是**进快照**的字段。
-   * 只要有人显式写了一个大值（应用写死 `zIndex: 1e6`、或者**打开一份旧文档** ——
-   * 反序列化就是 `new Clazz(nodeData.state)`），计数器就落后了，之后新建的组件会拿到更小的值，
-   * 于是画在已有内容**下面**（被盖住时表现为"新建的图元看不见"）。
-   *
-   * 所以任何"显式写入 zIndex"的入口都要经这里：构造函数（含反序列化）与 `setState`。
-   */
-  protected static __syncInstanceCounter(zIndex: any): void {
-    const value = Number(zIndex);
-    if (!Number.isFinite(value)) {
-      return;
-    }
-    /**
-     * **工具层的编号空间不参与这个计数器。**
-     *
-     * 控制面板与它的手柄用的是 `bigZIndexNum`(1e7) 起步的号段，而工具层与组件层是
-     * **两个独立队列**（工具层整体画在组件层之上），两边的数字永不互相比较 ——
-     * 把 1e7 同步进默认值计数器，只会让"建完面板之后新建的普通组件"默认拿到 1e7 这种天文数字
-     * （实测：`new ICEControlPanelManager()` 之后 counter 直接跳到 10001003）。
-     * 号段是保留的，落在里面的一律当内部值处理。
-     */
-    if (value >= bigZIndexNum) {
-      return;
-    }
-    const next = Math.floor(value) + 1;
-    if (next > ICEComponent.instanceCounter) {
-      ICEComponent.instanceCounter = next;
-    }
-  }
 
   protected __dirty: boolean = true;
 
@@ -406,7 +395,7 @@ abstract class ICEComponent extends ICEEventTarget {
    *   origin:'localCenter',
    *   localOrigin: [0,0],                          //相对于组件本地坐标系（组件内部的左上角为 [0,0] 点）计算的原点坐标
    *   absoluteOrigin: [0,0],                       //相对于全局坐标系（canvas 的左上角 [0,0] 点）计算的原点坐标
-   *   zIndex: ICEComponent.instanceCounter++,      //类似于 CSS 中的 zIndex
+   *   zIndex: 0,                                   //类似 CSS 的 z-index：默认 0 = auto 层，只在兄弟之间比较
    *   display:true,                                //如果 display 为 false ， Renderer 不会调用其 render 方法，对象在内存中存在，但是不会被渲染出来。如果 display 为 false ，所有子组件也不会被渲染出来。
    *   draggable:true,                              //是否可以拖动
    *   transformable:true,                          //是否可以进行变换：scale/rotate/skew ，以及 resize ，但是不控制拖动
@@ -460,18 +449,10 @@ abstract class ICEComponent extends ICEEventTarget {
     this.props = Object.create(DEFAULT_PROPS);
     // 显式 id 优先（A2UI / 反序列化 / 业务绑定都依赖稳定 id），没有时才生成 UUID。
     this.props.id = props && props.id !== undefined ? props.id : 'ICE_' + uuid();
-    this.props.zIndex = ICEComponent.instanceCounter++;
+    // 注意：`zIndex` 不再按构造顺序发号 —— 默认值走共享默认表的 `0`（auto 层）。
+    // 旧的"进程级计数器"是跨会话倒挂的根：默认值随进程里构造过的组件数量一路涨，
+    // 打开一份元件很多的文档再新建组件时，新组件的号反而更小、被画到已有内容下面。
     merge(this.props, props);
-    /**
-     * 显式传了 `zIndex`（应用写死 / **反序列化**走的就是这条路：`new Clazz(nodeData.state)`）时，
-     * 把默认值计数器顶到它上面。
-     *
-     * 为什么必须做：`zIndex` 默认取**进程级计数器**，而它是**进快照**的字段 —— 两个不同时钟的东西
-     * 绑在一起就会倒挂：打开一份"元件比较多"的文档（里面的 zIndex 已到几百），新会话的计数器还在个位数，
-     * 于是**新建的组件 zIndex 更小 → 画在已有内容下面**（实测：文档里 198~200，新建的是 4）。
-     * 见 `tests/graphic/z-index-order.test.ts` 的回归。
-     */
-    ICEComponent.__syncInstanceCounter(this.props.zIndex);
     // 用户没写 style 时，给一份「主题派生」的默认样式（不是共享的 frozen 默认，避免被实例污染）
     if (!props || props.style === undefined) {
       this.__usesThemeDefaultStyle = true;
@@ -574,8 +555,7 @@ abstract class ICEComponent extends ICEEventTarget {
       return base;
     }
     const revision = (ice && ice.__themeRevision) || 0;
-    const key =
-      revision + '|' + scoped.map((c) => c.__scopeId || (c.__scopeId = 's' + ICEComponent.instanceCounter++)).join(',');
+    const key = revision + '|' + scoped.map((c) => c.__scopeId || (c.__scopeId = 's' + THEME_SCOPE_SEQ++)).join(',');
     if (this.__themeCache && this.__themeCache.key === key) {
       return this.__themeCache.theme;
     }
@@ -1774,11 +1754,6 @@ abstract class ICEComponent extends ICEEventTarget {
    * @param newState
    */
   public setState(newState: any, options?: { paramsDirty?: boolean }) {
-    // 显式写 zIndex 时把「默认 zIndex 计数器」顶到它上面 —— 否则下一次 `new Xxx()` 拿到的
-    // 默认值会比它小，新建的组件会**画到最下面**（见 __syncInstanceCounter 的注释）。
-    if (newState && newState.zIndex !== undefined) {
-      ICEComponent.__syncInstanceCounter(newState.zIndex);
-    }
     const sizeChanged = this.__beforeStateMerge(newState);
     merge(this.state, newState);
     // 运行时写 style（setState({style}) / 动画 / preset 重解析）可能引入主题引用：
@@ -2229,9 +2204,12 @@ abstract class ICEComponent extends ICEEventTarget {
    * 所以这四个方法也只动**同一个父容器里的次序**，不跨层、不影响别的容器。
    * 四个方法都返回 `this`，可链式：`rect.setSize(10, 10).bringToFront()`。
    *
-   * ⚠️ 实现是**改写同层 zIndex 为 0..n-1**（而不是只改自己那一个数）：
-   * `zIndex` 相等时次序由**插入顺序**决定（稳定排序），只把用户那个数加一减一在"平手"场景下
-   * 根本挪不动位置。统一重编号之后，次序与数值一一对应，行为和直觉一致。
+   * ⚠️ 实现是**改写同层全部 zIndex**（而不是只改自己那一个数）：`zIndex` 相等时次序由
+   * **加入顺序**决定（稳定排序），只把用户那个数加一减一在"平手"场景下根本挪不动位置。
+   *
+   * 编号口径：`-(n-1) … 0`，**最上面那个是 `0`**（= 默认值那档）。这样"置顶"之后，
+   * **之后新加入的组件仍然画在最上面**（同层相等 → 按加入顺序，新加入的最后画）。
+   * ⚠️ 它只排**同层**：同层的显式值会被重写（包括应用自己钉的浮层值）。
    */
   public bringToFront(): this {
     const order = this.__siblingOrder();
@@ -2296,15 +2274,24 @@ abstract class ICEComponent extends ICEEventTarget {
     return this;
   }
 
-  /** 把目标次序落到同层的 `zIndex`（0..n-1；没变的兄弟不动，避免无谓置脏）。 */
+  /**
+   * 把目标次序落到同层的 `zIndex`（没变的兄弟不动，避免无谓置脏）。
+   *
+   * 编号口径是 **`-(n-1) … 0`：最上面那个是 `0`**（口径的唯一出处：`zIndexForPaintRank`）。
+   * 为什么不编成 `0..n-1`：`0` 是默认值（auto 层），把它留给**最上层**，
+   * 之后新加入的组件（默认也是 0、按加入顺序排在同层最后）就仍然画在**最上面** ——
+   * "置顶过之后，新建的图元又跑到下面去了"这种体验缺口不会出现。
+   * 被压下去的兄弟落成负数，正好与 CSS 的负 z-index 同义（在 auto 层之下）。
+   */
   private __applySiblingOrder(order: any[]): void {
     for (let i = 0; i < order.length; i++) {
       const sibling: any = order[i];
-      if (sibling && sibling.state && sibling.state.zIndex !== i) {
+      const zIndex = zIndexForPaintRank(i, order.length);
+      if (sibling && sibling.state && sibling.state.zIndex !== zIndex) {
         // `paramsDirty: false`：zIndex 在引擎自己的「动画安全键」白名单里（改它不影响
         // 尺寸 / 点集 / 文本量测），重排一次同层不该把所有兄弟的派生参数都标记重算。
         // 注意 `dirty` 仍然是 true（要重绘），只是跳过重量测那段。
-        sibling.setState({ zIndex: i }, { paramsDirty: false });
+        sibling.setState({ zIndex }, { paramsDirty: false });
       }
     }
   }

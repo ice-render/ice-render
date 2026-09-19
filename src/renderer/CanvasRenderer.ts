@@ -9,7 +9,7 @@ import ICE_EVENT_NAME_CONSTS from '../consts/ICE_EVENT_NAME_CONSTS';
 import ICEEvent from '../event/ICEEvent';
 import ICEEventTarget from '../event/ICEEventTarget';
 import ICE from '../ICE';
-import { flattenTree } from '../util/data-util';
+import { flattenTree, zIndexOf } from '../util/data-util';
 import root from '../cross-platform/root';
 import {
   stylePaintPad,
@@ -259,12 +259,12 @@ class CanvasRenderer extends ICEEventTarget {
       if (nodes.length < 2) {
         return true;
       }
-      // 上一个节点 + 它的 zIndex 都缓存下来：循环里每个节点只读一次 z（1 万组件实测省掉一半取数）
+      // 上一个节点 + 它的 zIndex 都缓存下来：循环里每个节点只取一次数（1 万组件实测省掉一半取数）
       let prev = nodes[0];
-      let prevZ = (prev.state && prev.state.zIndex) || 0;
+      let prevZ = zIndexOf(prev);
       for (let i = 1; i < nodes.length; i++) {
         const cur = nodes[i];
-        const z = (cur.state && cur.state.zIndex) || 0;
+        const z = zIndexOf(cur);
         // 不同组（父容器不同 / 层不同）本来就不可比，跳过；同组逆序才算乱序
         if (cur._level === prev._level && cur._pid === prev._pid && z < prevZ) {
           return false;

@@ -80,8 +80,11 @@ describe('ICELinkSlotManager 碰撞检测', () => {
   });
 
   it('z 序最高者胜出（与渲染/点击语义一致）', () => {
-    // 显式造出「父 zIndex 更高」的情形：此时父容器在视觉上盖住子组件，
-    // 命中父容器才是正确的（渲染顺序也是按全局 zIndex 排序的）
+    // 显式造出「父 zIndex 更高」的情形 —— **它不再意味着父盖住子**：
+    // v2.13.0 的渲染顺序铁律是「树序（先父后子）+ 兄弟按 zIndex」，父永远先画、子画在父之上。
+    // 所以这里正确的命中是 child。
+    // （旧实现自己在展平结果上再全局按 zIndex 排了一遍 → 会把 group 排到 child 之后、
+    //  判成命中 group，与真实的绘制/点击语义不一致；2026-09-19 随 zIndex 语义收口一并去掉。）
     const group = new ICEGroup({ left: 0, top: 0, width: 200, height: 200, zIndex: 9 });
     const child = new ICERect({ left: 40, top: 40, width: 20, height: 20, zIndex: 5 });
     group.addChild(child);
@@ -89,9 +92,9 @@ describe('ICELinkSlotManager 碰撞检测', () => {
     child.getMinBoundingBox(true);
 
     const manager: any = ice.linkSlotManager;
-    // 钩子的盒取子组件的盒 → 父子都相交，应命中 z 序更高的 child
+    // 钩子的盒取子组件的盒 → 父子都相交，按绘制次序取"最后一个" = child
     manager.hookMouseMoveHandler({ target: makeHook(child) } as any);
-    expect(manager.collision).toBe(group);
+    expect(manager.collision).toBe(child);
   });
 
   it('不可见（祖先 display:false）的组件不作为连接目标', () => {

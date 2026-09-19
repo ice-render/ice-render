@@ -60,8 +60,11 @@ export default class ICELinkSlotManager {
     // 从不重置，一旦碰到过就会一直粘在那个组件上。
     // 用拉平后的全集而不是只看顶层：嵌套组件（如卡片里的实体）也要能被连线命中。
     // 命中语义与点击一致 —— z 序最高者胜出，否则父容器会一直盖住它的子组件。
+    // ⚠️ 这里**不要**再 `sort` 一次：`flattenTree` 给出的已经是绘制次序
+    //（树序 + 兄弟按 zIndex），下面"后者覆盖前者"就等价于"z 序最高者胜出"。
+    // 旧实现在展平结果上再全局按 zIndex 排一遍，会让**子节点越级**到祖先的兄弟之上，
+    // 与渲染顺序铁律（v2.13.0 起）不一致（2026-09-19 随 zIndex 语义收口一并去掉）。
     const all = flattenTree([], this.ice.childNodes);
-    all.sort((a: any, b: any) => a.state.zIndex - b.state.zIndex);
     this.collision = null;
     for (let i = 0; i < all.length; i++) {
       const component: any = all[i];

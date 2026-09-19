@@ -57,9 +57,10 @@ function queueIds(ice: ICE): string[] {
 describe('渲染顺序：树序 + 兄弟按 zIndex', () => {
   it('回归：父容器**晚于**子组件构造时，子组件仍画在父之上（父不再盖住自己的子树）', () => {
     const ice = makeIce();
-    // 故意"先子后父"：这是画不出来的那种写法（默认 zIndex = 构造顺序计数器）
-    const child = new ICERect({ id: 'child', width: 40, height: 40 });
-    const parent = new ICEGroup({ id: 'parent', width: 200, height: 200 });
+    // 故意"先子后父"，并**显式**把父的 zIndex 写得比子大 —— 这是旧实现下画不出来的那种写法
+    //（默认值现在是 0/auto 层，必须显式给值才能造出"父的号比子大"）
+    const child = new ICERect({ id: 'child', width: 40, height: 40, zIndex: 1 });
+    const parent = new ICEGroup({ id: 'parent', width: 200, height: 200, zIndex: 99 });
     parent.addChild(child);
     ice.addChild(parent);
     // 让"父的 zIndex 比子大"这件事显式成立 —— 旧实现下就是它把子盖住的

@@ -7,12 +7,36 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 变更（⚠️ 默认 `zIndex` 的语义变了）
+
+- **`zIndex` 改成 CSS 口径：默认值是 `0`，就是 `z-index: auto` 那一档**（2026-09-19）。
+  同层没显式写过 `zIndex` 的兄弟**彼此相等**，次序退化为**加入顺序** —— 后加入的默认画在最上面；
+  **显式写的值是一视同仁的钉子**：`-n` 压到 auto 层之下（背景），`+n` 抬到 auto 层之上（浮层）。
+
+  这一改**删掉了"构造顺序计数器"**（`ICEComponent.instanceCounter`）以及配套的计数器同步，
+  连带消灭了它带来的两类问题：
+
+  - **跨会话倒挂**：打开一份"元件比较多"的文档（zIndex 已到 198~200）后新建组件，新会话的计数器
+    还在个位数，新建的拿到 4 → **画到已有内容下面**（症状是"新建的图元看不见"）；
+  - **"写死一个 zIndex 表示在最上层"不可靠**：计数器是**进程级、跨 ICE 实例共享**的，默认值会
+    一直涨 —— 同一个场景在两个实例里的默认值实测是 18~25 vs 109~116，写死的 `zIndex: 90`
+    在一边压得住、在另一边压不住（这条把 `dirty-rect-pixel` 像素用例打红，才被挖出来）。
+
+  ⚠️ **代价（有意为之，CSS 同义）**：显式钉了正数的兄弟会盖住**之后新加入**的 auto 组件。
+  要"永远在最上面"就用工具层（`ice.addTool`，工具层整体在组件层之上）或 `bringToFront()`。
+  ⚠️ **数组次序语义不变**：`childNodes` 仍是加入顺序，绘制次序看 `zIndex`。
+
+  另：`zIndex >= 1e7`（`BIG_ZINDEX_NUMBER`）不再是"组件层别用的保留号段"，它只是**工具层自己**
+  的编号；组件层写多大的数都压不住工具层（两层是两条独立队列，本来就不比较）。
+
 ### 新增
 
 - **z 序操作 API**：`ICEComponent` 的 `bringToFront()` / `sendToBack()` / `moveUp()` / `moveDown()`
   （都返回 `this`，可链式）。作用域是**同一个父容器**（与"`zIndex` 只在兄弟之间比较"同源），
-  实现是把同层重编号成 `0..n-1` —— 所以**平手**（多个组件 `zIndex` 相同、次序由插入顺序决定）
-  时也挪得动，这是"自己加一减一"做不到的。回归：`tests/graphic/z-index-order.test.ts`。
+  实现是把同层重编号成 **`-(n-1) … 0`（最上面那个是 `0`）** —— 所以**平手**（多个组件
+  `zIndex` 相同、次序由加入顺序决定）时也挪得动（这是"自己加一减一"做不到的），
+  而且**置顶之后新加入的组件仍然画在最上面**（`0` 那一档按加入顺序，新加入的最后画）。
+  口径唯一出处 `util/data-util.ts` 的 `zIndexForPaintRank`。回归：`tests/graphic/z-index-order.test.ts`。
 - **控制面板手柄尺寸可配置**：
   `ICE.init(ctx, { controlPanel: { resizeControlSize, rotateControlSize, rotateControlOffsetY, lineControlSize } })`。
 
@@ -34,6 +58,11 @@
   `zIndex` 也压不住工具层。[02 组件模型](docs/architecture/02-component-model.md) 与
   [04 渲染](docs/architecture/04-rendering-performance.md) 同步：补保留号段约定、
   补"数值变了 ≠ 次序变了"这条队列缓存判据及其实测数字。
+- 「默认 `zIndex` 语义改版」相关的文档一次改齐：[02 组件模型](docs/architecture/02-component-model.md)
+  的「容器与 `zIndex`」一节（0 = auto 层 / 正负钉子 / 四个 API 的编号口径）、
+  [04 渲染](docs/architecture/04-rendering-performance.md)（渲染顺序铁律的判据来源）、
+  [06 序列化](docs/architecture/06-serialization.md)（默认不写、显式原样写），
+  以及 `AGENTS.md` 的 zIndex 契约块（含"别再把计数器修回来"的原因）。
 - [07 交互与动画](docs/architecture/07-interaction-animation.md) 补了「正交路由怎么算」一节：
   候选 → 三道过滤 → 避障 → 打分，连同那条案例数据（24 处穿线 → 0）和两个踩过的坑。
 - [09 路线图](docs/architecture/09-roadmap.md) 的「连接线」一行补上 2.15.0 的标签偏移与
@@ -43,25 +72,18 @@
 
 ### 修复
 
-- **工具层的 1e7 号段污染"默认 zIndex 计数器"**：`new ICEControlPanelManager()` 之后，
-  普通组件拿到的默认 `zIndex` 从个位数跳到 **10001003**（面板与手柄显式写了 1e7 起步的值，
-  而构造期会把计数器顶到显式值之上）。天文数字本身无害，但会让"组件层请用 `< 1e7`"这条
-  约定名存实亡，也让存盘归一化之前的中间态变得难读。修法：落在保留号段里的值
-  （`>= BIG_ZINDEX_NUMBER`）不参与计数器同步 —— 工具层的编号空间和组件层本来就不互相比较。
-  回归：`tests/graphic/z-index-order.test.ts`（建完面板后新建组件，默认值仍在"十几个"的量级）。
-
-- **存盘时的 `zIndex` 归一化**（**数据格式的写法变了**，读旧数据不受影响）：存盘不再把
-  计数器留下的天文数字写进文档 —— 绘制次序与插入次序一致时**不写** `zIndex`，
-  不一致才写 `0..n-1` 的序号（`Serializer.__encodeChildren`）。读回时子节点按文件顺序构造，
-  因此**往返之后绘制次序逐项不变**。旧数据照常读（`zIndex` 本来就是可选字段）。
-
-- **跨会话 zIndex 倒挂**：打开一份"元件比较多"的文档后新建组件，它会画到**已有内容下面**。
-  根因是默认 `zIndex` 取自**进程级计数器**（`instanceCounter++`），而 `zIndex` 又**进快照** ——
-  两个不同时钟的东西绑在一起：文档里的值已到 198~200，新会话的计数器还在个位数，
-  新建组件拿到的 4 自然排在最后（实测复现，症状是"新建的图元看不见"）。
-  修法：任何**显式写入 `zIndex`** 的路径都把计数器顶到它上面（`ICEComponent.__syncInstanceCounter`，
-  构造期与 `setState` 两个入口；反序列化走 `new Clazz(nodeData.state)`，因此自动覆盖）。
+- **存盘时 `zIndex` 的写法收敛成一条规则**（**数据格式的写法变了**，读旧数据不受影响）：
+  **默认值（0）不写、显式值原样写**（`Serializer.__encodeChildren`）。旧的"归一化成 `0..n-1`"
+  随计数器一起废掉 —— 它会把应用刻意钉住的浮层值（如 `zIndex: 9000`）改写成小整数，
+  把"钉住"这件事丢掉。现在文档里写的就是次序本身；读回时子节点按文件顺序构造（= 加入次序），
+  **往返之后绘制次序逐项不变**。读旧数据不受影响（`zIndex` 本来就是可选字段）。
   回归：`tests/graphic/z-index-order.test.ts`。
+
+- **连接点碰撞检测不再自己"全局按 zIndex 排序"**：`ICELinkSlotManager` 在 `flattenTree` 的结果上
+  又排了一遍**全局** zIndex，等于把"树序 + 兄弟按 zIndex"退回旧的全局语义 —— 父容器会因为
+  zIndex 更大被判成"比子组件更上层"（实测：`group(z=9)` + `child(z=5)` 时命中 group，
+  与真实绘制/点击语义相反）。现在直接用展平结果（它已经是绘制次序），"后者覆盖前者"即
+  "z 序最高者胜出"。回归：`tests/link/link-slot-collision.test.ts`。
 
 - **离屏层跟随主画布的文本语言（`lang` / `dir`）**：同一个汉字有简/繁/日/韩多套字形，
   Canvas 按元素的**语言**选字形 —— 而引擎对静态层与组件缓存承诺"与主画布**逐像素一致**"。
