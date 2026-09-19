@@ -42,6 +42,16 @@ export type ICEEngineEventName = (typeof ICE_EVENT_NAME_CONSTS)[keyof typeof ICE
 export type ICEEventName = ICEEngineEventName | ICEDOMEventName;
 
 /**
+ * **事件从哪里来**（`evt.source`，2026-09-19 起）。
+ *
+ * 见 `ICEEvent.source` 的字段说明：`'canvas'` = 画布内的原始输入（可能有命中组件，也可能点空白）、
+ * `'window'` = 画布之外的原始输入（工具栏 / 页面空白，没有命中组件）、
+ * `'engine'` = 代码创建（`trigger()` / `dispatchEvent()`）。
+ * 应用只关心画布内交互时：`if (evt.source !== 'canvas') return;`。
+ */
+export type ICEEventSource = 'canvas' | 'window' | 'engine';
+
+/**
  * **事件名 → `evt.param` 形状**（只收录引擎自己确实这么用的事件，以代码为准）。
  *
  * ⚠️ 引擎事件的"载荷"分布在两处（历史原因，先如实描述、不强行统一）：

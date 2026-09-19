@@ -30,6 +30,11 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   某些运行时（测试桩 / 小程序）返回同一个可变对象，增量恒为 0，内容盒再也不跟着走。
   回归用例见 `tests/ICE.input-rect.test.ts`、`tests/event/DOMEventDispatcher.input.test.ts`、
   `e2e/visual/input-rect-shift.spec.ts`。
+- **事件来源契约铁律（2026-09-19 补，与事件系统铁律配套）**：`ICEEvent` 上 **`source` / `target` / `eventPhase` 是"引擎的派发结果"，不是事件源的属性** —— 三条都不能被传入对象的字段平铺覆盖（`NON_COPYABLE_FIELDS`）：
+  ① **`evt.source`**：`'canvas'`（画布内的原始输入）/ `'window'`（画布外的原始输入 —— 原始输入监听挂在 window 上，工具栏按钮 / 页面空白也会到总线）/ `'engine'`（`trigger()` / `dispatchEvent()`）；
+  ② **`evt.target` 要么是命中的组件、要么是 `null`，永远不是 DOM 元素**（DOM 元素在 `evt.originalEvent.target`）——以前从 DOM 事件平铺进来，应用只能靠 `instanceof` 猜；应用过滤画布外输入用 `evt.source !== 'canvas'`；
+  ③ **总线那一段 `eventPhase` 恒为 `0`**（总线是传播终点）：没有命中组件的事件走不到组件链，必须在 `__dispatch` 里显式归零，否则会沿用 DOM 的 `BUBBLING_PHASE(3)`，同一个字段出现两种含义。
+  回归：`tests/event/event-source.test.ts`（8 条，含"画布外输入仍会命中"这条已知行为的钉桩）。⚠️ 已知未改项：画布外输入**仍然做命中测试**（坐标按画布矩形换算，可能落到画布内并命中组件）——要改成"不做命中"需单独评估（会牵动键盘转发与 HTML 浮层）。
 - **外观入口铁律（2026-09-14 确立）**：**外观一律写进 `style`**（子元素用 `style.label` 这类嵌套，
   不要新开 `xxxStyle` 容器）；它才走"绘制那一刻解析"，才能引用主题 token、被 `props.states` 覆盖。
   **顶层 props 只放两类东西**：① 动画要写的 key（引擎按顶层 `state[key]` 写值，如 `lineDashOffset`），

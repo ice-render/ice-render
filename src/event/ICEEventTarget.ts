@@ -236,6 +236,25 @@ abstract class ICEEventTarget {
       iceEvent.originalEvent = originalEvent.originalEvent ? originalEvent.originalEvent : originalEvent;
       iceEvent.type = eventName || iceEvent.type;
       iceEvent.param = { ...param };
+      /**
+       * **这里才是 DOM 事件身份字段的消毒点**（2026-09-19）。
+       *
+       * `new ICEEvent(原始 DOM 事件)` 会按 `for...in` 平铺字段，于是 DOM 的 `target` /
+       * `srcElement` / `currentTarget` / `eventPhase` 会被拷进来 —— 但在这套系统里：
+       * - `target` 的语义是「**命中的组件**」（画布外输入 / 纯代码触发时为 `null`）；
+       * - `eventPhase` 由引擎按传播段设置（命中 `2` / 祖先 `3` / 传播结束 `0`）。
+       *
+       * 必须**只在这个入口消毒**，不能在 `ICEEvent` 构造函数里一刀切禁掉 `target` ——
+       * `new ICEEvent({ target: this })` 是引擎自己的合法用法（`ICELinkHook` 用它把
+       * 「拖动的是哪个端点手柄」广播给 `ICELinkSlotManager`），禁掉就会让连线端点拖拽当场报错
+       * （`null.getMaxBoundingBox`，2026-09-19 家族回归实测）。
+       *
+       * 原始 DOM 元素**不丢**：它在 `evt.originalEvent.target` 上。
+       */
+      iceEvent.target = null;
+      iceEvent.srcElement = null;
+      iceEvent.currentTarget = null;
+      iceEvent.eventPhase = 0;
     } else {
       iceEvent = new ICEEvent({
         type: eventName,
