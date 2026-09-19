@@ -12,7 +12,7 @@ import { resolveLetterSpacingPx, resolveTextDecorations } from '../graphic/text/
 import ICEImage from '../graphic/ICEImage';
 import { SHADOW_PRESETS } from '../graphic/ICEComponent';
 import { isTokenRef, resolveThemeValue } from '../theme/ICETheme';
-import { sortSiblingsByZIndex } from '../util/data-util';
+import { paintOrderChildrenOf, sortSiblingsByZIndex } from '../util/data-util';
 
 /**
  * @file SVG 导出
@@ -450,21 +450,24 @@ function exportLayersResult(targets: any[], options: SvgExportOptions = {}): Svg
     const isIceRoot = !!(target.childNodes && target.getRenderViewport);
     const ice = isIceRoot ? target : target.ice;
     const queue: any[] = [];
-    // 层内顺序 = 渲染顺序（树序 + 兄弟按 zIndex，见 `util/data-util.ts` 的渲染顺序铁律）：
-    // 递归时先把兄弟排好，**不做全局排序** —— 全局排序会把父容器排到自己的子树之上。
-    const collect = (nodes: any[]): void => {
-      const ordered = sortSiblingsByZIndex(nodes);
+    // 层内顺序 = 渲染顺序（树序 + 兄弟按 zIndex + 容器的派生部件先画，见 `util/data-util.ts`
+    // 的渲染顺序铁律）：递归时逐层取好次序，**不做全局排序** —— 全局排序会把父容器排到自己的子树之上。
+    // ⚠️ 必须与渲染队列同源（`flattenTree` 也走 `paintOrderChildrenOf`），否则导出的叠放次序
+    // 会和画布不一致。
+    /** 收集**已经排好序**的一层兄弟：逐个入队，再把每个节点的子层按同一口径展开。 */
+    const collectOrdered = (ordered: any[]): void => {
       for (let j = 0; j < ordered.length; j++) {
         const node = ordered[j];
         queue.push(node);
         if (node.childNodes && node.childNodes.length) {
-          collect(node.childNodes);
+          collectOrdered(paintOrderChildrenOf(node));
         }
       }
     };
-    collect(isIceRoot ? target.childNodes : [target]);
+    // 顶层（ICE 的组件层 / 工具层）直接就是一串兄弟，没有"容器的派生部件"这回事
+    collectOrdered(sortSiblingsByZIndex(isIceRoot ? target.childNodes : [target]));
     if (options.includeTools && ice && ice.toolNodes) {
-      collect(ice.toolNodes);
+      collectOrdered(sortSiblingsByZIndex(ice.toolNodes));
     }
     layers.push({ ice, queue });
   }

@@ -130,6 +130,10 @@ render() {
 - 普通组件直接 `ICE.addChild()` 加到 canvas；容器组件用 `ICEGroup.addChild()` 形成树。
 - **渲染顺序 = 树序（先父后子）+ 兄弟按 `zIndex` 升序**（相等时保持加入顺序）：`flattenTree` 逐层展平，
   每层兄弟按 `state.zIndex` 排序；工具层整体画在组件层之上。见 [04 渲染](04-rendering-performance.md)。
+- **容器的派生部件先于它的内容**（2026-09-19 补）：复合组件（`hasDerivedChildren()`）把"自己的底 /
+  标题 / 角标"也放在 `childNodes` 里，`getSerializableChildren()` 声明的才是真实子节点 ——
+  绘制时**先派生部件、再真实子节点**（CSS 的背景语义：元素自己的背景永远在内容之下）。
+  没有 `getSerializableChildren()` 的组件（普通容器 / 纯图形）行为不变。
 - **`zIndex` 只在兄弟之间比较**，不是全局序列。默认值是 **`'auto'`（`Z_INDEX_AUTO`），
   排序时当 `0` 用 —— 就是 CSS 的 `z-index: auto` 那一档**
   （2026-09-19 改版，之前是"构造顺序计数器"）：同层没显式写过 zIndex 的兄弟彼此相等，
@@ -141,9 +145,12 @@ render() {
 - **调整同层次序用四个 API**（都返回 `this`，可链式）：`bringToFront()` / `sendToBack()` /
   `moveUp()` / `moveDown()`。它们只动**同一个父容器内**的次序（`zIndex` 只在兄弟间比较，
   所以接口也按这个作用域设计）。作用域进一步收窄到**可排层**（排序键 ≤ 0：`'auto'` 与负值），
-  重编号成 **`-(m-1) … 'auto'`（最上面那个落回 auto 层）**：因此**平手**（zIndex 相同、
+ 重编号成 **`-(m-1) … 'auto'`（最上面那个落回 auto 层）**：因此**平手**（zIndex 相同、
   次序靠加入顺序）时同样挪得动，而且**置顶之后新加入的组件仍然画在最上面**。
   口径的唯一出处：`util/data-util.ts` 的 `zIndexForPaintRank`。
+  ⚠️ **父容器声明了 `getSerializableChildren()` 时，作用域再收窄到"真实子节点"**
+  （`util/data-util.ts` 的 `siblingScopeOf`）：容器的底 / 标题 / 角标是派生部件，不是文档内容，
+  被重编号会把容器内容盖掉（而且组件重建即复位，改了也留不下来）。
   ⚠️ **应用自己钉成正数的兄弟不参与、值也不会被改写**（浮层 / 水印 / 吸顶条）；目标自己被钉住时，
   `bringToFront` 抬到 `max+1`、`sendToBack` 压到 `min-1`、`moveUp/moveDown` 只在钉子之间交换数值。
   `childNodes` 数组本身保持插入顺序。

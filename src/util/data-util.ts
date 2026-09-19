@@ -173,7 +173,17 @@ export function flattenTree(result: any[] = [], childNodes: any[] = [], level: n
    * 注意：**只排兄弟**，且排的是**副本**（`childNodes` 本身保持加入顺序 ——
    * 调用方按 `childNodes[0]` 取"第一个子节点"是既有语义，不能被动过）。
    */
-  const ordered = sortSiblingsByZIndex(childNodes);
+  // 顶层（ICE 的组件层 / 工具层）没有"容器自己的派生部件"这回事，直接按兄弟 zIndex 排。
+  return flattenOrdered(result, sortSiblingsByZIndex(childNodes), level, pid);
+}
+
+/**
+ * 与 `flattenTree` 同语义，但**输入已经排好序**：递归专用。
+ *
+ * 为什么必须分开：`paintOrderChildrenOf` 会把一层的子节点排成「派生部件在前、真实子节点在后」，
+ * 这个次序**不是** zIndex 升序，再洗一次就散了 —— 子层的分组（容器的底在内容之下）会静默失效。
+ */
+function flattenOrdered(result: any[], ordered: any[], level: number, pid: any): any[] {
   for (let i = 0; i < ordered.length; i++) {
     const node = ordered[i];
     node._level = level;
@@ -182,9 +192,70 @@ export function flattenTree(result: any[] = [], childNodes: any[] = [], level: n
     // 注意：真实组件的 id 定义在 props 上（旧实现取 node.id 恒为 undefined，父子关系丢失）；
     // 同时兼容「普通对象 + 顶层 id」的调用方式（如单测夹具、外部把扁平数据当树用的场景）。
     const childPid = node.props && node.props.id !== undefined ? node.props.id : node.id;
-    flattenTree(result, node.childNodes || [], level + 1, childPid);
+    flattenOrdered(result, paintOrderChildrenOf(node), level + 1, childPid);
   }
   return result;
+}
+
+/**
+ * 一个容器**子节点的绘制次序**：先「容器自己的派生部件」、再「真实子节点」，两组内部各自按
+ * `state.zIndex` 升序（相等保持加入顺序）。
+ *
+ * 为什么要有这条：复合组件（`hasDerivedChildren() === true`）把自己的底 / 标题 / 角标也挂在
+ * `childNodes` 里（形状由子组件绘制，这样才能画菱形、事件圆、圆角框），而 `getSerializableChildren()`
+ * 明确指出"哪些才是真实子节点"。**这是 CSS 的背景语义**：元素自己的背景永远画在自己的内容之下。
+ *
+ * 不这么做的后果（2026-09 在 BPMN / 状态机示例上真实发生）：容器的底与容器里的内容是同层兄弟，
+ * 底的 zIndex 一旦排在内容之后（默认 `'auto'` 就很容易），整段内容会被**自己的底色**盖住 ——
+ * BPMN 案例里任务矩形全部消失、状态机案例里复合状态变成一个空框。应用为了绕开它只能给底写一个
+ * 「比内容更低」的魔数，而"多低才算够低"取决于应用自己的分层约定，引擎给不出保证。
+ *
+ * 没有 `getSerializableChildren()` 的组件（普通容器 / 纯图形）行为**逐字不变**：
+ * 全部子节点视为真实子节点，只按 zIndex 排一次。
+ *
+ * @internal 供渲染队列（`flattenTree`）与 SVG 导出（`SvgExporter`）共用，两处必须同源。
+ */
+export function paintOrderChildrenOf(container: any): any[] {
+  const all: any[] = (container && container.childNodes) || [];
+  if (all.length < 2) {
+    return all;
+  }
+  const real = typeof container.getSerializableChildren === 'function' ? container.getSerializableChildren() : null;
+  // 没有声明真实子节点（全是派生部件，如流程图的普通节点）或全都是真实子节点：
+  // 没有"分组"可言，保持原来的整体排序。⚠️ 这里也必须返回**排好序**的新数组：
+  // 调用方（flattenTree / SvgExporter）拿到的是最终次序，不会（也不能）再排一次。
+  if (!Array.isArray(real) || real.length === 0 || real.length === all.length) {
+    return sortSiblingsByZIndex(all);
+  }
+  const realSet = new Set(real);
+  const derived: any[] = [];
+  for (let i = 0; i < all.length; i++) {
+    if (!realSet.has(all[i])) {
+      derived.push(all[i]);
+    }
+  }
+  return sortSiblingsByZIndex(derived).concat(sortSiblingsByZIndex(real));
+}
+
+/**
+ * **同层重排（`bringToFront` / `sendToBack` / `moveUp` / `moveDown`）的作用域**：
+ * 容器的**真实子节点**（`getSerializableChildren()` 声明的那些）。
+ *
+ * 派生部件不是文档内容：四个 z 序 API 的重编号会把它们的 `zIndex` 一起改写 ——
+ * 而派生部件的 zIndex 由容器自己的构造决定（例如"池的底要比泳道低"），被重排洗一遍就会
+ * 把容器内容盖掉；而且它们根本不进文档，改了也留不下来（组件重建即复位），属于纯噪声。
+ *
+ * 与 `paintOrderChildrenOf` 一样，没有 `getSerializableChildren()` 的容器行为不变。
+ *
+ * @internal 供 `ICEComponent.__siblingList` 使用。
+ */
+export function siblingScopeOf(container: any): any[] {
+  const all: any[] = (container && container.childNodes) || [];
+  if (typeof container.getSerializableChildren !== 'function') {
+    return all;
+  }
+  const real = container.getSerializableChildren();
+  return Array.isArray(real) ? real : all;
 }
 
 /**

@@ -133,6 +133,17 @@ ice.requestRepaint(); // 置脏 + 标记渲染队列重排；幂等，可链式
 - **绘制顺序 = 树序（先父后子）+ 兄弟按 `state.zIndex` 升序**（相等时保持加入顺序）；
   **工具层整体画在组件层之上**（`componentQueue` → `toolsQueue`，两层之间不按 zIndex 交叉）。
   口径的唯一出处是 `util/data-util.ts` 的 `flattenTree()`（渲染顺序铁律，v2.13.0）。
+- **容器的派生部件永远画在自己的内容之下**（2026-09-19 补，CSS 背景语义）：复合组件
+  （`hasDerivedChildren() === true`）把自己的底 / 标题 / 角标也挂在 `childNodes` 里
+  （形状由子组件绘制，菱形 / 事件圆 / 圆角框都靠它），而 `getSerializableChildren()` 明确指出
+  哪些才是**真实子节点** —— `paintOrderChildrenOf(container)` 据此把一层子节点排成
+  「派生部件（按 z 升序）→ 真实子节点（按 z 升序）」。
+  ⚠️ 不这么做的后果：容器的底与内容是同层兄弟，底的 `zIndex` 一旦排在内容之后（默认 `'auto'` 就很容易），
+  **整段内容被自己的底色盖住**（2026-09 两个真实事故：BPMN 池里的任务矩形全部消失、状态机复合状态变成空框）。
+  应用侧因此不需要再给底写"比内容更低"的魔数。**三处必须同源**：`flattenTree`、
+  `SvgExporter.collectOrdered`（导出叠放次序）与 `CanvasRenderer.__rebuildQueue`（走 `flattenTree`）；
+  命中检测复用渲染队列，自动同源。没有 `getSerializableChildren()` 的组件行为**逐字不变**。
+  回归：`tests/renderer/derived-children-paint-order.test.ts`。
 - `flattenTree(childNodes)` 递归遍历，产出 `componentQueue`（普通组件）与 `toolsQueue`（工具组件），同时标注 `_level`/`_pid`。
   ⚠️ **只排兄弟**，而且排的是**副本** —— `childNodes` 本身保持加入顺序（调用方按 `childNodes[0]` 取"第一个子节点"是既有语义）。
 
