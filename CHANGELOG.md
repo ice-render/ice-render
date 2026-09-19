@@ -9,7 +9,8 @@
 
 ### 变更（⚠️ 默认 `zIndex` 的语义变了）
 
-- **`zIndex` 改成 CSS 口径：默认值是 `0`，就是 `z-index: auto` 那一档**（2026-09-19）。
+- **`zIndex` 改成 CSS 口径：默认值是 `'auto'` 哨兵（`Z_INDEX_AUTO`），排序时当 `0` 用 ——
+  就是 `z-index: auto` 那一档**（2026-09-19）。
   同层没显式写过 `zIndex` 的兄弟**彼此相等**，次序退化为**加入顺序** —— 后加入的默认画在最上面；
   **显式写的值是一视同仁的钉子**：`-n` 压到 auto 层之下（背景），`+n` 抬到 auto 层之上（浮层）。
 
@@ -33,9 +34,9 @@
 
 - **z 序操作 API**：`ICEComponent` 的 `bringToFront()` / `sendToBack()` / `moveUp()` / `moveDown()`
   （都返回 `this`，可链式）。作用域是**同一个父容器**（与"`zIndex` 只在兄弟之间比较"同源），
-  实现是把同层重编号成 **`-(n-1) … 0`（最上面那个是 `0`）** —— 所以**平手**（多个组件
+  实现是把同层重编号成 **`-(n-1) … 'auto'`（最上面那个落回 auto 层）** —— 所以**平手**（多个组件
   `zIndex` 相同、次序由加入顺序决定）时也挪得动（这是"自己加一减一"做不到的），
-  而且**置顶之后新加入的组件仍然画在最上面**（`0` 那一档按加入顺序，新加入的最后画）。
+  而且**置顶之后新加入的组件仍然画在最上面**（auto 那一档按加入顺序，新加入的最后画）。
   口径唯一出处 `util/data-util.ts` 的 `zIndexForPaintRank`。回归：`tests/graphic/z-index-order.test.ts`。
 - **控制面板手柄尺寸可配置**：
   `ICE.init(ctx, { controlPanel: { resizeControlSize, rotateControlSize, rotateControlOffsetY, lineControlSize } })`。

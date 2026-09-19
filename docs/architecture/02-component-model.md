@@ -23,7 +23,7 @@ ICERender 的组件模型概念上对齐 React：
   transform: { translate, scale, skew, rotate },
   linearMatrix: [], composedMatrix: [], // 矩阵缓存（见 03）
   origin: 'localCenter', localOrigin, absoluteOrigin,
-  zIndex: 0,                            // 同层叠放次序；默认 0 = auto 层（只在兄弟之间比较）
+  zIndex: 'auto',                       // 同层叠放次序；默认 'auto'（排序当 0），只在兄弟之间比较
   display: true,                        // false 则整棵子树不渲染
   draggable, transformable, interactive, linkable,
 }
@@ -130,7 +130,8 @@ render() {
 - 普通组件直接 `ICE.addChild()` 加到 canvas；容器组件用 `ICEGroup.addChild()` 形成树。
 - **渲染顺序 = 树序（先父后子）+ 兄弟按 `zIndex` 升序**（相等时保持加入顺序）：`flattenTree` 逐层展平，
   每层兄弟按 `state.zIndex` 排序；工具层整体画在组件层之上。见 [04 渲染](04-rendering-performance.md)。
-- **`zIndex` 只在兄弟之间比较**，不是全局序列。默认值是 **`0`，就是 CSS 的 `z-index: auto` 那一档**
+- **`zIndex` 只在兄弟之间比较**，不是全局序列。默认值是 **`'auto'`（`Z_INDEX_AUTO`），
+  排序时当 `0` 用 —— 就是 CSS 的 `z-index: auto` 那一档**
   （2026-09-19 改版，之前是"构造顺序计数器"）：同层没显式写过 zIndex 的兄弟彼此相等，
   次序退化为**加入顺序** —— 后加入的默认画在最上面。**显式写的值是钉子**，一视同仁地参与比较：
   `-n` 压到 auto 层之下（背景），`+n` 抬到 auto 层之上（浮层）；⚠️ 正数钉住的兄弟会盖住

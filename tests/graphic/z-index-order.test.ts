@@ -19,6 +19,7 @@ import ICE from '../../src/ICE';
 import ICEGroup from '../../src/graphic/container/ICEGroup';
 import ICERect from '../../src/graphic/shape/ICERect';
 import EventBus from '../../src/event/EventBus';
+import Z_INDEX_AUTO from '../../src/consts/Z_INDEX_AUTO';
 import { sortSiblingsByZIndex, zIndexOf } from '../../src/util/data-util';
 import Serializer from '../../src/persistence/Serializer';
 import Deserializer from '../../src/persistence/Deserializer';
@@ -42,14 +43,16 @@ function paint(container: any): string[] {
 }
 
 describe('默认 zIndex = 0（auto 层）', () => {
-  it('默认值是 0，不再是"构造顺序计数器"', () => {
+  it('默认值是 `auto` 哨兵，不再是"构造顺序计数器"', () => {
     const ice = makeIce();
     const list = [0, 1, 2].map((i) => {
       const c = rect('c' + i);
       ice.addChild(c);
       return c;
     });
-    expect(list.map((c: any) => c.state.zIndex)).toEqual([0, 0, 0]);
+    expect(list.map((c: any) => c.state.zIndex)).toEqual([Z_INDEX_AUTO, Z_INDEX_AUTO, Z_INDEX_AUTO]);
+    // 排序时当 0 用
+    expect(list.map((c: any) => zIndexOf(c))).toEqual([0, 0, 0]);
   });
 
   it('★ 次序看"加入顺序"，不看构造顺序：先加 b 再加 a → a 画在最上', () => {
@@ -87,7 +90,7 @@ describe('默认 zIndex = 0（auto 层）', () => {
     const fresh = rect('fresh', { left: 5, top: 5 });
     groupB.addChild(fresh);
 
-    expect(fresh.state.zIndex).toBe(0);
+    expect(fresh.state.zIndex).toBe(Z_INDEX_AUTO);
     const order = paint(groupB);
     expect(order[order.length - 1]).toBe('fresh'); // 新建的仍在最上层
   });
@@ -126,6 +129,20 @@ describe('默认 zIndex = 0（auto 层）', () => {
     expect(zIndexOf(a)).toBe(0);
     expect(zIndexOf(b)).toBe(0);
     expect(paint(group)).toEqual(['a', 'b']); // 不会被 NaN 比较搅成未知次序
+  });
+
+  it('显式 `zIndex: 0` 与 `auto` 等价（同层都算 auto 层，平手按加入顺序）', () => {
+    const ice = makeIce();
+    const group: any = new ICEGroup({ id: 'g', left: 0, top: 0, width: 300, height: 300 });
+    ice.addChild(group);
+    const a = rect('a', { zIndex: 0 }); // 显式 0
+    const b = rect('b'); // auto
+    group.addChild(a);
+    group.addChild(b);
+
+    expect(zIndexOf(a)).toBe(0);
+    expect(zIndexOf(b)).toBe(0);
+    expect(paint(group)).toEqual(['a', 'b']); // 平手 → 加入顺序
   });
 });
 
@@ -178,20 +195,22 @@ describe('z 序操作 API（只在同一父容器内）', () => {
     expect(paint(group)).toEqual(['b', 'c', 'a']);
     c.sendToBack();
     expect(paint(group)).toEqual(['c', 'b', 'a']);
-    // 编号口径：-(n-1) … 0，最上面那个是 0（= 默认值那档），无重复、无空洞
-    expect(group.childNodes.map((x: any) => x.state.zIndex).sort((x: number, y: number) => x - y)).toEqual([-2, -1, 0]);
+    // 编号口径：-(n-1) … 'auto'（最上面那个 = auto 层），无重复、无空洞
+    expect(group.childNodes.map((x: any) => zIndexOf(x)).sort((x: number, y: number) => x - y)).toEqual([-2, -1, 0]);
+    // 最上面那个写回的是 `auto` 哨兵本身（不写显式 0）
+    expect(group.childNodes.filter((x: any) => x.state.zIndex === Z_INDEX_AUTO).length).toBe(1);
   });
 
   it('★ 置顶之后新加入的组件仍然画在最上面（重编号把 0 留给最上层）', () => {
     const { a, group } = three();
     a.bringToFront();
-    expect(a.state.zIndex).toBe(0);
+    expect(a.state.zIndex).toBe(Z_INDEX_AUTO);
     expect(paint(group)).toEqual(['b', 'c', 'a']);
 
     const d = rect('d', { left: 60 });
     group.addChild(d);
     // d 是默认值（auto 层），与 a 相等 → 按加入顺序排在 a 之后 = 最上面
-    expect(d.state.zIndex).toBe(0);
+    expect(d.state.zIndex).toBe(Z_INDEX_AUTO);
     expect(paint(group)).toEqual(['b', 'c', 'a', 'd']);
   });
 
