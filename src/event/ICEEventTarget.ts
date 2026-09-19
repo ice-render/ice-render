@@ -8,6 +8,7 @@
 import { isEmpty } from '../util/lang';
 import root from '../cross-platform/root';
 import ICEEvent from './ICEEvent';
+import type { ICEEventListenerOptions, ICEEventName, ICEEventOf } from './event-types';
 
 /**
  * 事件时间戳用**单调时钟**（`performance.now()` 的时间原点），与 W3C 一致。
@@ -76,7 +77,7 @@ abstract class ICEEventTarget {
    * - `options.capture`：**只作为注册身份**参与去重/移除（引擎的组件树只有冒泡阶段，没有捕获阶段）；
    * - `options.signal`：传入 `AbortSignal`，abort 时自动摘除；已 abort 的直接不注册。
    */
-  private __register(eventName: string, listener: any, scope: any, options?: any): this {
+  private __register(eventName: string, listener: any, scope: any, options?: ICEEventListenerOptions): this {
     if (!listener) {
       return this;
     }
@@ -157,7 +158,14 @@ abstract class ICEEventTarget {
    * @param scope 回调里的 `this`
    * @param options `{ once, passive, capture, signal }`（与 `addEventListener` 同一套语义）
    */
-  public on(eventName: string, fn: any, scope: any = root, options?: any) {
+  public on<K extends ICEEventName>(
+    eventName: K,
+    fn: (evt: ICEEventOf<K>) => any,
+    scope?: any,
+    options?: ICEEventListenerOptions
+  ): this;
+  public on(eventName: string, fn: (evt: any) => any, scope?: any, options?: ICEEventListenerOptions): this;
+  public on(eventName: string, fn: any, scope: any = root, options?: ICEEventListenerOptions) {
     this.__register(eventName, fn, scope, options);
     // 链式（与引擎其余 API 一致）：`target.on('click', fn).on('keydown', fn2)`
     return this;
@@ -203,6 +211,8 @@ abstract class ICEEventTarget {
    * @param param
    * @returns
    */
+  public trigger<K extends ICEEventName>(eventName: K, originalEvent?: any, param?: any): boolean;
+  public trigger(eventName: string, originalEvent?: any, param?: any): boolean;
   public trigger(eventName: string, originalEvent: any = null, param = {}) {
     if (isEmpty(this.listeners[eventName])) return false;
     if (this.suspendedEventNames.includes(eventName)) return false;
@@ -278,6 +288,8 @@ abstract class ICEEventTarget {
    * @param eventName
    * @param fn
    */
+  public once<K extends ICEEventName>(eventName: K, fn: (evt: ICEEventOf<K>) => any, scope?: any): this;
+  public once(eventName: string, fn: (evt: any) => any, scope?: any): this;
   public once(eventName: string, fn: any, scope: any = root) {
     /**
      * `once` 不再包一层"自摘函数"，而是把 `once` 记成监听记录上的一个标记（见 `__register`）。

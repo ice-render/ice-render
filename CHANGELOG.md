@@ -60,6 +60,18 @@
     这条约定写进了 [05 事件系统](docs/architecture/05-event-system.md) 与 `AGENTS.md`；
     下游 `ice-web-components` 的模态遮罩 / 悬浮按钮 / 下拉选择器 / 图片预览遮罩共 5 处按这条收口
     （守卫在 2.17.0 上也成立，跨版本安全）。
+  - **事件名与事件对象有了类型**（应用层一致性收口）：`ICE_EVENT_NAME_CONSTS` 改 `as const`，
+    新增 `event/event-types.ts`（`ICEEventName` = 内置事件 + DOM 语义事件、`ICEEventOf<K>`、
+    `ICEEventParamMap` 事件名 → `evt.param` 形状、`ICEEventListenerOptions`），
+    `on / once / trigger` 加重载：写引擎名/DOM 语义名时回调里的 `evt` 有类型
+    （`evt.param.component`、`evt.offsetX` 都能过编译），写自定义事件名回退 `any`；
+    `ICEEvent` 补齐归一化输入字段声明。
+    ⚠️ 载荷仍分两处（`evt.param` 与「事件对象字段」，后者是变换类事件的历史写法），
+    类型表**如实反映**、未强行统一 —— "全部走 param"是行为变更，等有需要再做。
+  - **门禁补一条**：`tests/**` 原本不在 `tsconfig.json` 的 `include`（只有 `src`）里，
+    新增的 `tests/types/event-names.ts` 类型断言本来是**死的**（实测：断言写错也不报错）。
+    新增 `tsconfig.typecheck.json` 把 `tests/types` 纳入，`npm run types:check` 现在跑两份；
+    配套的家族侧替换（引擎事件名改用常量）见各仓提交。
 
   ⚠️ **下游需要跟着改**（本版未一并改，列在这里以免漏）：`ice-web-components` 里
   `ICEModal` / `ICEDrawer` / `ICETour` / `ICETable` / `ICEKeyScope` 那几处对 **ICEEvent** 调

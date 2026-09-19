@@ -40,9 +40,10 @@ const NON_COPYABLE_KEYS = [
 /** `passive` 监听器里调 `preventDefault()` 的提醒：**按事件名只提醒一次**（生产构建会剥掉 console.*）。 */
 const PASSIVE_WARNED = new Set<string>();
 
-class ICEEvent implements Event {
+class ICEEvent<TParam = any> implements Event {
   public originalEvent: any;
-  public param: any;
+  /** 事件载荷（各事件名的形状见 `event/event-types.ts` 的 `ICEEventParamMap`）。 */
+  public param: TParam;
 
   constructor(evt: any = {}, data: any = {}) {
     /**
@@ -63,7 +64,7 @@ class ICEEvent implements Event {
     this.currentTarget = null;
     this.timeStamp = typeof evt.timeStamp === 'number' ? evt.timeStamp : Date.now();
     this.originalEvent = null;
-    this.param = {};
+    this.param = {} as TParam;
 
     for (const p in evt) {
       if (NON_COPYABLE_KEYS.indexOf(p) === -1) this[p] = evt[p];
@@ -77,7 +78,7 @@ class ICEEvent implements Event {
     if (typeof this.cancelable !== 'boolean') this.cancelable = false;
     if (typeof this.defaultPrevented !== 'boolean') this.defaultPrevented = false;
     if (typeof this.eventPhase !== 'number') this.eventPhase = 0;
-    if (this.param === undefined || this.param === null) this.param = {};
+    if (this.param === undefined || this.param === null) this.param = {} as TParam;
   }
   bubbles: boolean;
   cancelBubble: boolean;
@@ -92,6 +93,32 @@ class ICEEvent implements Event {
   target: EventTarget;
   timeStamp: number;
   type: string;
+  /**
+   * **归一化后的输入字段**（只有经 `DOMEventDispatcher` 派发的指针 / 鼠标 / 触摸 / 键盘事件才有）。
+   *
+   * 这些字段由 `event/input-normalize.ts` 在事件边界写入（见该文件顶部说明），
+   * 组件、拖拽、变换手柄、对齐吸附都直接读它们。以前类上没声明 —— 应用侧写 TS 时
+   * 要么 `evt: any` 要么报错；现在声明出来，`on('mousedown', (evt) => evt.offsetX)` 能过编译。
+   *
+   * ⚠️ 键盘事件没有坐标（只有 `key` 与修饰键）。
+   */
+  offsetX?: number;
+  offsetY?: number;
+  clientX?: number;
+  clientY?: number;
+  movementX?: number;
+  movementY?: number;
+  pointerType?: string;
+  pointerId?: number;
+  button?: number;
+  buttons?: number;
+  isPrimary?: boolean;
+  isTouchInput?: boolean;
+  key?: string;
+  shiftKey?: boolean;
+  ctrlKey?: boolean;
+  altKey?: boolean;
+  metaKey?: boolean;
   composedPath(): EventTarget[] {
     /**
      * 事件的传播路径：**命中组件 → 各级父容器**（不含引擎内部的工具层）。

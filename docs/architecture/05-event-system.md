@@ -41,6 +41,31 @@ graph TD
    也会到容器（例：`ICEModal` 的遮罩只在点背景时关闭、`ICEFloatButton` 只在点按钮本体时展开）。
    这条守卫在**新旧引擎上都成立**，是跨版本安全的写法；`stopPropagation()` 在新引擎才生效（旧版会抛异常）。
 
+## 事件名与事件对象的类型（2026-09-19）
+
+`ICE_EVENT_NAME_CONSTS` 现在是 `as const`，配合 `event/event-types.ts` 提供一套类型：
+
+| 类型 | 用途 |
+|---|---|
+| `ICEEventName` | 引擎认识的事件名 = 内置事件（`ICEEngineEventName`）+ DOM 语义输入事件（`ICEDOMEventName`） |
+| `ICEEventOf<K>` | 按事件名取出事件对象类型（`ICEEvent<对应 param>`）；自定义事件名回退 `any` |
+| `ICEEventParamMap` | 事件名 → `evt.param` 形状（**只收录引擎实际这么用的**，见下方说明） |
+| `ICEEventListenerOptions` | `on` 的第四参 / `addEventListener` 的第三参：`{ once, passive, capture, signal }` |
+
+`on / once / trigger` 都带了重载：写引擎名或 DOM 语义名时回调里的 `evt` 是**有类型的**
+（`evt.param.component`、`evt.offsetX` 都能过编译），写应用自定义事件名时回退 `any`（不限制扩展）。
+`ICEEvent` 上也补齐了归一化输入字段（`offsetX/offsetY/movementX/movementY/pointerType/key/修饰键…`），
+它们由 `event/input-normalize.ts` 在事件边界写入。
+
+⚠️ **载荷仍分两处存放**（如实描述，未强行统一）：`evt.param`（`trigger` 第三参）与
+**事件对象字段**（变换类事件把 `quadrant` / `rotate` 直接写事件上，消费方也直接读字段）。
+"全部走 `param`"是一次行为变更，等有需要再做。
+
+**类型级回归**：`tests/types/event-names.ts`（用 `Expect<Equal<…>>` 断言三条：内置事件 param 有类型、
+DOM 事件能读输入字段、自定义事件回退 any）。⚠️ 这个目录**不在原 `tsconfig.json` 的 include 里**
+（它只有 `src`），所以新增了 `tsconfig.typecheck.json`，`npm run types:check` 现在跑两份 ——
+否则这类断言是死的（实测：断言写错也不会报错）。
+
 ### 两套 API 的对应关系（2026-09-19 收口：**同一个实现，两种参数形状**）
 
 | jQuery 风格（引擎与家族在用的那套） | W3C 风格 | 说明 |

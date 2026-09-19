@@ -7,6 +7,8 @@
  */
 
 //!ICE 自定的事件名称常量，原生 DOM 事件的名称不变。
+// `as const`：让每个值都是**字面量类型**，应用侧才能拿到补全与拼写检查
+//（`on(ICE_EVENT_NAME_CONSTS.AFTER_MOVE, fn)` 的 `evt` 因此有类型；见 `event/event-types.ts`）。
 const ICE_EVENT_NAME_CONSTS = {
   ICE_FRAME_EVENT: 'ICE_FRAME_EVENT',
   BEFORE_RENDER: 'BEFORE_RENDER',
@@ -26,6 +28,9 @@ const ICE_EVENT_NAME_CONSTS = {
   BEFORE_MOVE: 'BEFORE_MOVE',
   AFTER_MOVE: 'AFTER_MOVE',
   THEME_CHANGE: 'THEME_CHANGE', //setTheme() / setChrome() 应用完成之后触发（见 ICE.onThemeChange）
-};
+} as const;
+
+/** 引擎内置事件名的联合类型（=`ICE_EVENT_NAME_CONSTS` 的取值）。 */
+export type ICEEngineEventNameConst = (typeof ICE_EVENT_NAME_CONSTS)[keyof typeof ICE_EVENT_NAME_CONSTS];
 
 export default ICE_EVENT_NAME_CONSTS;
