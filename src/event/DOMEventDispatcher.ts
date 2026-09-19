@@ -87,6 +87,12 @@ class DOMEventDispatcher {
 
         //1) 归一化坐标与位移（pointer/mouse/touch 统一）。键盘等无坐标事件返回 null。
         const rawEvt: any = rawEvent;
+        //1.0) **事件来源**（`evt.source`）：画布内 vs 画布外。
+        //     原始输入监听挂在 window 上（拖拽移出画布也要跟手），所以工具栏按钮 / 页面空白上的
+        //     输入也会走到这里 —— 那些事件没有命中组件，`evt.target` 为 null（DOM 元素在
+        //     `originalEvent.target`），应用用 `evt.source !== 'canvas'` 一句就能过滤掉。
+        //     见 `ICEEvent.source` 的字段说明。
+        (evt as any).source = this.__isOutsideCanvas(rawEvt) ? 'window' : 'canvas';
         //0) 指针捕获：拖拽时必须捕获，否则指针移出画布就收不到后续事件
         this.__handlePointerCapture(iceEvtName, rawEvt);
         const input = normalizeInput(rawEvt, this.__resolveCanvasRect(nativeEvtName), this.__lastInput);
@@ -217,7 +223,16 @@ class DOMEventDispatcher {
     if (target) {
       this.__dispatchThroughTree(evtName, evt, target);
     }
-    // 总线本身一定会触发一次（鼠标 / 键盘 / 指针 / 触摸 / 滚轮都是）
+    /**
+     * 总线本身一定会触发一次（鼠标 / 键盘 / 指针 / 触摸 / 滚轮都是）。
+     *
+     * ⚠️ 触发前把相位归零：**总线是传播的终点，不在任何传播段里**。
+     * 不归零会出现"同一个字段两种含义"——组件链有命中时末尾已归零（总线看到 0），
+     * 而没有命中组件时（画布外输入 / 点空白）根本走不到组件链，相位就沿用原始 DOM 事件的
+     * `BUBBLING_PHASE(3)`。应用按 `eventPhase` 判断"这是不是冒泡段"就会踩坑（2026-09 实测）。
+     */
+    evt.eventPhase = 0;
+    evt.currentTarget = null;
     this.ice.evtBus.trigger(evtName, evt, { component: target });
   }
 
@@ -311,6 +326,27 @@ class DOMEventDispatcher {
     }
     const tag = target.tagName ? String(target.tagName).toUpperCase() : '';
     return tag === 'CANVAS';
+  }
+
+  /**
+   * 事件是不是**打在本实例 canvas 之外**（工具栏按钮 / 页面空白 / 别的元素）。
+   *
+   * 用途：写 `evt.source`（`'window'` vs `'canvas'`）。原始输入监听挂在 window 上，
+   * 画布外的输入也会被转发到总线 —— 那种事件没有命中组件，应用多半要忽略它。
+   *
+   * 判据与 `__isForeignCanvasTarget` 同一套（本 canvas / canvas 内的元素算"内"）；
+   * 取不到 target 时按"内"处理（键盘事件没有元素目标，按画布内交互对待）。
+   */
+  private __isOutsideCanvas(rawEvt: any): boolean {
+    const canvasEl: any = (this.ice as any).canvasEl;
+    const target: any = rawEvt && rawEvt.target;
+    if (!canvasEl || !target || target === canvasEl) {
+      return false;
+    }
+    if (typeof canvasEl.contains === 'function' && canvasEl.contains(target)) {
+      return false;
+    }
+    return true;
   }
 
   public set stopped(flag: boolean) {

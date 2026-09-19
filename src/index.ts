@@ -51,7 +51,7 @@ export { default as ICEEvent } from './event/ICEEvent';
  * 事件名 / 事件对象的类型（应用侧写 TS 时用得到）：
  * `ICEEventName`（引擎内置 + DOM 语义名）、`ICEEventOf<K>`（按名取事件类型）、
  * `ICEEventParamMap`（事件名 → `evt.param` 形状）、`ICEEventListenerOptions`（`on`/`addEventListener` 的选项）、
- * `ICEDOMEventName`。见 docs/architecture/05-event-system.md。
+ * `ICEDOMEventName`、`ICEEventSource`（`evt.source`：canvas / window / engine）。见 docs/architecture/05-event-system.md。
  */
 export type {
   ICEEventName,
@@ -59,6 +59,7 @@ export type {
   ICEEventParamMap,
   ICEEventListenerOptions,
   ICEDOMEventName,
+  ICEEventSource,
 } from './event/event-types';
 export type { ICEEngineEventNameConst } from './consts/ICE_EVENT_NAME_CONSTS';
 export { default as GeoLine } from './geometry/GeoLine';

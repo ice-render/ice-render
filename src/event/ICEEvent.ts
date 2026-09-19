@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import type { ICEEventSource } from './event-types';
+
 /**
  * @class ICEEvent
  *
@@ -40,10 +42,44 @@ const NON_COPYABLE_KEYS = [
 /** `passive` 监听器里调 `preventDefault()` 的提醒：**按事件名只提醒一次**（生产构建会剥掉 console.*）。 */
 const PASSIVE_WARNED = new Set<string>();
 
+/**
+ * 这些**字段**同样不允许被传入对象覆盖 —— 它们是「引擎自己的派发语义」，不是事件源的属性。
+ *
+ * 为什么必须单独列出来：`new ICEEvent(原始 DOM 事件)` 是引擎的输入入口（见 `ICEEventTarget.trigger`），
+ * 而构造函数按 `for...in` 平铺字段，于是 DOM 事件上的 `target` / `currentTarget` / `eventPhase`
+ * 会被一起拷进来。但这套系统里：
+ * - `target` 的语义是「**命中的组件**」（画布外输入 / 纯代码触发时为 `null`）—— 塞进一个
+ *   `HTMLButtonElement` 会让应用只能靠 `instanceof` 去猜"这到底是不是组件"；
+ * - `eventPhase` 由引擎按传播段自己设（命中 `2` / 祖先 `3` / 传播结束 `0`），DOM 的相位对不上；
+ * - 原始 DOM 的 `target` **并不会丢**：它在 `evt.originalEvent.target` 上。
+ *
+ * 2026-09-19 起：`evt.target` 要么是组件、要么是 `null`，**永远不是 DOM 元素**；
+ * 想知道"这条事件来自画布内还是画布外"，看 `evt.source`。
+ *
+ * ⚠️ 注意**只挡这三样**，`target` / `srcElement` 仍然可以显式传（`new ICEEvent({ target: this })`
+ * 是引擎自己的用法，见 `ICELinkHook`）；DOM 事件的泄漏在**包装入口**（`ICEEventTarget.trigger`
+ * 的 `originalEvent` 分支）统一消毒，见那里的注释 —— 一刀切禁掉 target 会把 `ICELinkHook` 打断。
+ */
+const NON_COPYABLE_FIELDS = ['currentTarget', 'eventPhase', 'source'];
+
 class ICEEvent<TParam = any> implements Event {
   public originalEvent: any;
   /** 事件载荷（各事件名的形状见 `event/event-types.ts` 的 `ICEEventParamMap`）。 */
   public param: TParam;
+
+  /**
+   * **事件从哪里来**（2026-09-19 起）：
+   *
+   * - `'canvas'`：画布内的原始输入事件（指针 / 鼠标 / 触摸 / 滚轮 / 键盘）。有命中组件时
+   *   `target` 是那个组件；点在画布空白处时 `target` 为 `null`（事件照旧上总线）。
+   * - `'window'`：**画布之外**的原始输入事件（工具栏按钮 / 页面空白）。原始输入监听挂在
+   *   `window` 上（拖拽移出画布也要跟手），所以这些事件也会到总线 —— 但它们没有命中组件：
+   *   `target` 为 `null`，那个 DOM 元素在 `originalEvent.target`。
+   * - `'engine'`：代码创建的事件（`trigger()` / `dispatchEvent()` / 引擎内部派发）。
+   *
+   * 应用只关心画布内交互时，一句 `if (evt.source !== 'canvas') return;` 就够了。
+   */
+  public source: ICEEventSource;
 
   constructor(evt: any = {}, data: any = {}) {
     /**
@@ -62,15 +98,24 @@ class ICEEvent<TParam = any> implements Event {
     this.eventPhase = 0;
     this.target = null;
     this.currentTarget = null;
+    this.srcElement = null; // legacy 别名，与 target 同语义
+    // W3C 那几个"声明了就该有值"的字段：以前只在拷贝到 DOM 事件字段时才有值，
     this.timeStamp = typeof evt.timeStamp === 'number' ? evt.timeStamp : Date.now();
+    this.isTrusted = false;
+    this.composed = false;
+    this.cancelBubble = false;
+    this.returnValue = true;
     this.originalEvent = null;
     this.param = {} as TParam;
+    // 事件来源：代码创建默认 `'engine'`；经输入层派发时由 `DOMEventDispatcher` 改写成
+    // `'canvas'` / `'window'`（见字段声明处的说明）。
+    this.source = 'engine';
 
     for (const p in evt) {
-      if (NON_COPYABLE_KEYS.indexOf(p) === -1) this[p] = evt[p];
+      if (NON_COPYABLE_KEYS.indexOf(p) === -1 && NON_COPYABLE_FIELDS.indexOf(p) === -1) this[p] = evt[p];
     }
     for (const p in data) {
-      if (NON_COPYABLE_KEYS.indexOf(p) === -1) this[p] = data[p];
+      if (NON_COPYABLE_KEYS.indexOf(p) === -1 && NON_COPYABLE_FIELDS.indexOf(p) === -1) this[p] = data[p];
     }
     // 上面两个循环可能把默认值覆盖成 undefined（调用方显式传了 undefined 字段时）
     if (typeof this.type !== 'string') this.type = '';
@@ -84,13 +129,13 @@ class ICEEvent<TParam = any> implements Event {
   cancelBubble: boolean;
   cancelable: boolean;
   composed: boolean;
-  currentTarget: EventTarget;
+  currentTarget: EventTarget | null;
   defaultPrevented: boolean;
   eventPhase: number;
   isTrusted: boolean;
   returnValue: boolean;
-  srcElement: EventTarget;
-  target: EventTarget;
+  srcElement: EventTarget | null;
+  target: EventTarget | null;
   timeStamp: number;
   type: string;
   /**
