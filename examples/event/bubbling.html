@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ICERender-event-bubbling</title>
+  <body style="margin: 0">
+    <div style="padding: 8px 12px; font: 13px/1.6 sans-serif">
+      事件沿组件树冒泡：<b>命中组件（AT_TARGET）→ 各级父容器（BUBBLING_PHASE）→ 全局总线（最后收一次）</b>。
+      点画布里的蓝色方块 / 橙色圆，看下面的日志；总线那一次 <code>stopPropagation()</code> 挡不住。
+      <div style="margin-top: 6px">
+        <button id="btn-stop">命中组件：不停冒泡</button>
+        <button id="btn-clear">清空日志</button>
+      </div>
+    </div>
+    <canvas id="canvas-1" width="1024" height="560" style="background-color: #f7f7f7"></canvas>
+    <pre
+      id="log"
+      style="margin: 0; padding: 10px 12px; height: 220px; overflow: auto; background: #0f172a; color: #e2e8f0; font: 12px/1.6 ui-monospace, Menlo, monospace"
+    >
+事件日志：</pre
+    >
+    <script src="../../dist/index.umd.js"></script>
+    <script type="text/javascript">
+      const { ICE, ICEComponent, ICEGroup, ICERect, ICECircle } = window.ICE;
+      const ice = new ICE().init('canvas-1');
+      const log = document.getElementById('log');
+      const push = (message) => {
+        log.textContent += '\n' + message;
+        log.scrollTop = log.scrollHeight;
+      };
+      const phaseName = (phase) => (phase === 2 ? 'AT_TARGET' : phase === 3 ? 'BUBBLING_PHASE' : `PHASE(${phase})`);
+      let stopInChild = false;
+
+      // 父容器 + 两个子节点：父子关系由 addChild 建立，冒泡就沿这条链往上走
+      const parent = new ICEGroup({
+        left: 40,
+        top: 40,
+        width: 640,
+        height: 260,
+        radius: 14,
+        style: { fillStyle: '#EFF6FF', strokeStyle: '#93C5FD', lineWidth: 2, shadow: 'none' },
+      });
+      const rect = new ICERect({
+        left: 60,
+        top: 60,
+        width: 200,
+        height: 140,
+        radius: 10,
+        style: { fillStyle: '#3B82F6', strokeStyle: '#1D4ED8', lineWidth: 2, shadow: 'none' },
+      });
+      const circle = new ICECircle({
+        left: 460,
+        top: 130,
+        radius: 70,
+        style: { fillStyle: '#F97316', strokeStyle: '#C2410C', lineWidth: 2, shadow: 'none' },
+      });
+      parent.addChild(rect);
+      parent.addChild(circle);
+      ice.addChild(parent);
+
+      const who = (component) =>
+        component === parent ? '父容器' : component === rect ? '方块' : component === circle ? '圆' : String(component);
+
+      [rect, circle].forEach((child) => {
+        child.on('click', (evt) => {
+          push(`[组件链] ${phaseName(evt.eventPhase)}  target=${who(evt.target)}  currentTarget=${who(child)}`);
+          if (stopInChild) {
+            evt.stopPropagation();
+            push('         ↳ stopPropagation()：祖先不再收到，但总线仍然收到一次');
+          }
+        });
+      });
+      parent.on('click', (evt) => {
+        push(`[组件链] ${phaseName(evt.eventPhase)}  target=${who(evt.target)}  currentTarget=父容器`);
+      });
+      ice.evtBus.on('click', (evt) => {
+        // 画布外的点击也会到总线（原始输入监听挂在 window 上），那一次 target 是 DOM 元素
+        if (!(evt.target instanceof ICEComponent)) return;
+        push(`[总线]   target=${who(evt.target)}  currentTarget=EventBus`);
+      });
+
+      const stopBtn = document.getElementById('btn-stop');
+      stopBtn.onclick = () => {
+        stopInChild = !stopInChild;
+        stopBtn.textContent = stopInChild ? '命中组件：stopPropagation()' : '命中组件：不停冒泡';
+      };
+      document.getElementById('btn-clear').onclick = () => {
+        log.textContent = '事件日志：';
+      };
+    </script>
+  </body>
+</html>
