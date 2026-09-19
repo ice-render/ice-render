@@ -48,7 +48,7 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 - **容器的派生部件先于内容 + 重排只作用于真实子节点（2026-09-19 补，与"渲染顺序铁律"同源）**：复合组件（`hasDerivedChildren() === true`）把"自己的底 / 标题 / 角标"也挂在 `childNodes` 里（形状由子组件绘制，菱形 / 事件圆 / 圆角框都靠它），`getSerializableChildren()` 声明的才是**真实子节点**。两条口径都落在 `util/data-util.ts`，**渲染与导出必须同源**（`flattenTree` / `SvgExporter.collectOrdered`；命中检测复用渲染队列，自动同源）：
   ① **`paintOrderChildrenOf(container)`：先派生部件、再真实子节点**（两组内各自按 zIndex 升序）—— 就是 CSS 的背景语义，容器的底永远画在内容之下。不这么做，底的 `zIndex` 一旦排在内容之后（默认 `'auto'` 就很容易）就会**把整段内容盖成一片底色**（2026-09 两个真实事故：BPMN 池里的任务矩形全部消失、状态机复合状态变成空框）；应用侧只能靠"给底写个更低的魔数"绕，而多低才算够低它自己也不知道。
   ② **`siblingScopeOf(container)`：四个 z 序 API（`bringToFront` / `sendToBack` / `moveUp` / `moveDown`）的作用域 = 真实子节点** —— 派生部件不是文档内容，被重编号会把容器内容盖掉，而且组件重建即复位，纯噪声。
-  ⚠️ 递归展平时**不能**把 `paintOrderChildrenOf` 的产物再按 zIndex 洗一遍（`flattenTree` 因此拆出 `flattenOrdered`）：分组次序不是 zIndex 升序，洗一次就静默失效。没有 `getSerializableChildren()` 的组件**行为逐字不变**。回归：`tests/renderer/derived-children-paint-order.test.ts`。
+  ⚠️ 递归展平时**不能**把 `paintOrderChildrenOf` 的产物再按 zIndex 洗一遍（`flattenTree` 因此拆出 `flattenOrdered`）：分组次序不是 zIndex 升序，洗一次就静默失效。没有 `getSerializableChildren()` 的组件**行为逐字不变**。回归：`tests/renderer/derived-children-paint-order.test.ts`（单元口径）+ `e2e/visual/render-order.spec.ts`（真机像素：三层嵌套下"底 zIndex 更大也先画"，配套 `examples/render-order/tree-order.html`）。
 - **zIndex 是"0 = auto 层"的 CSS 口径（2026-09-19 改版，**默认值语义变了**）**：
   ① **默认 `zIndex` 是 `'auto'` 哨兵（`Z_INDEX_AUTO`），排序时当 `0` 用** —— 就是 CSS 的
     `z-index: auto` 那一档。同层没显式写过 zIndex 的兄弟
