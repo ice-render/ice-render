@@ -134,6 +134,14 @@ render() {
   所以同一层里后加入的默认画在上面；可用 `setState({ zIndex })` 调整同层次序。
   跨层不存在"谁盖谁"——子永远画在父之上（旧实现"展平后全局排序"会让后构造的父容器反超并盖住自己的子树，
   v2.13.0 修正，回归见 `tests/renderer/render-order.test.ts`）。
+- **调整同层次序用四个 API**（都返回 `this`，可链式）：`bringToFront()` / `sendToBack()` /
+  `moveUp()` / `moveDown()`。它们只动**同一个父容器内**的次序（`zIndex` 只在兄弟间比较，
+  所以接口也按这个作用域设计），实现是把同层重编号成 `0..n-1` —— 因此**平手**（多个组件
+  `zIndex` 相同、次序靠插入顺序）时同样挪得动。`childNodes` 数组本身保持插入顺序。
+- **显式写 `zIndex` 会把默认值计数器顶上去**：`setState({ zIndex })`、构造期传 `zIndex`、
+  **反序列化**（`new Clazz(nodeData.state)`）三条路径都算。这样"打开一份元件比较多的文档、
+  再新建一个组件"时，新组件的默认 `zIndex` 仍然大于文档里的最大值 —— **画在最上层**，
+  而不会因为新会话的计数器还在个位数而躲到已有内容下面（回归：`tests/graphic/z-index-order.test.ts`）。
 
 ## 组件的生命周期
 

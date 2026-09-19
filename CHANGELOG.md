@@ -9,6 +9,10 @@
 
 ### 新增
 
+- **z 序操作 API**：`ICEComponent` 的 `bringToFront()` / `sendToBack()` / `moveUp()` / `moveDown()`
+  （都返回 `this`，可链式）。作用域是**同一个父容器**（与"`zIndex` 只在兄弟之间比较"同源），
+  实现是把同层重编号成 `0..n-1` —— 所以**平手**（多个组件 `zIndex` 相同、次序由插入顺序决定）
+  时也挪得动，这是"自己加一减一"做不到的。回归：`tests/graphic/z-index-order.test.ts`。
 - **控制面板手柄尺寸可配置**：
   `ICE.init(ctx, { controlPanel: { resizeControlSize, rotateControlSize, rotateControlOffsetY, lineControlSize } })`。
 
@@ -33,6 +37,19 @@
   「尺寸/样式可配置」那批已做完，实质缺口只剩两条（控制面板按类型选工具、斜切手柄）。
 
 ### 修复
+
+- **存盘时的 `zIndex` 归一化**（**数据格式的写法变了**，读旧数据不受影响）：存盘不再把
+  计数器留下的天文数字写进文档 —— 绘制次序与插入次序一致时**不写** `zIndex`，
+  不一致才写 `0..n-1` 的序号（`Serializer.__encodeChildren`）。读回时子节点按文件顺序构造，
+  因此**往返之后绘制次序逐项不变**。旧数据照常读（`zIndex` 本来就是可选字段）。
+
+- **跨会话 zIndex 倒挂**：打开一份"元件比较多"的文档后新建组件，它会画到**已有内容下面**。
+  根因是默认 `zIndex` 取自**进程级计数器**（`instanceCounter++`），而 `zIndex` 又**进快照** ——
+  两个不同时钟的东西绑在一起：文档里的值已到 198~200，新会话的计数器还在个位数，
+  新建组件拿到的 4 自然排在最后（实测复现，症状是"新建的图元看不见"）。
+  修法：任何**显式写入 `zIndex`** 的路径都把计数器顶到它上面（`ICEComponent.__syncInstanceCounter`，
+  构造期与 `setState` 两个入口；反序列化走 `new Clazz(nodeData.state)`，因此自动覆盖）。
+  回归：`tests/graphic/z-index-order.test.ts`。
 
 - **离屏层跟随主画布的文本语言（`lang` / `dir`）**：同一个汉字有简/繁/日/韩多套字形，
   Canvas 按元素的**语言**选字形 —— 而引擎对静态层与组件缓存承诺"与主画布**逐像素一致**"。
