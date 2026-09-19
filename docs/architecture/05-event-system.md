@@ -29,11 +29,29 @@ graph TD
 | `purgeEvents()` | 清空所有监听 |
 | `hasListener(name, fn, scope)` | 查询是否已监听 |
 
-**W3C 别名（2026-09-19 起是真方法，不再是挂过去的同一函数）**：
-`addEventListener(type, fn, { once })` / `removeEventListener(type, fn)` / `dispatchEvent(event)`。
-旧实现把 `on/off/trigger` 直接挂到这三个名字上，签名全不对 —— `addEventListener` 的第三参
+### 两套 API 的对应关系（2026-09-19 收口：**同一个实现，两种参数形状**）
+
+| jQuery 风格（引擎与家族在用的那套） | W3C 风格 | 说明 |
+|---|---|---|
+| `on(name, fn, scope?, options?)` | `addEventListener(type, fn, options?)` | 同一个 `__register`；`scope` 决定回调里的 `this`（默认跨平台 root），W3C 形状没有 `scope` |
+| `off(name, fn?, scope?)` | `removeEventListener(type, fn, options?)` | `off(name)` 清空该事件全部监听；`off` 按 `(fn, scope)` 精确匹配，`removeEventListener` **忽略 scope**（W3C 心智：身份是 `(type, listener, capture)`） |
+| `trigger(name, originalEvent?, param?)` → `boolean` | `dispatchEvent(event)` → `boolean` | 后者按 W3C 语义返回 `!defaultPrevented`（"有没有监听器"不影响返回值） |
+| `once(name, fn, scope?)` | `addEventListener(type, fn, { once: true })` | 同一份实现：`once` 是监听记录上的标记，不再是"自摘包装函数" |
+| `suspend(name)` / `resume(name)` | —— | 引擎专有（按事件名冻结派发），W3C 无对应概念 |
+
+共同支持（两套形状语义逐条一致）：`listener` 可以是函数或 `{ handleEvent }` 对象；
+`options` 支持 `{ once, passive, capture, signal }`：
+
+- `passive`：该监听器里调 `preventDefault()` **不生效**（与 W3C 一致），并按事件名提醒一次 ——
+  静默失效是最难查的一类失败；
+- `capture`：**只作为注册身份**参与去重/移除（引擎的组件树只有冒泡阶段，没有捕获阶段）；
+- `signal`：`AbortSignal` abort 时自动摘除；已 abort 的直接不注册。
+
+旧实现把 `on/off/trigger` 直接挂到这三个 W3C 名字上，签名全不对 —— `addEventListener` 的第三参
 （`{ once: true }` / `true` 捕获标志）会被当成 `scope`，`dispatchEvent` 期望收**事件对象**
 却被当成了事件名；按 W3C 写法接进来的代码因此"看着能用、行为不是那回事"。
+回归：`tests/event/api-consistency.test.ts`（交叉注册/移除、`once` 等价、`{handleEvent}`、
+`capture` 身份、`passive` 屏蔽 + 提醒、`signal` 摘除、`dispatchEvent` 返回值、单调时间戳）。
 
 **监听器结构**（`listeners`）：
 

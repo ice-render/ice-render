@@ -39,6 +39,18 @@
     `removeEventListener` / `dispatchEvent(event)` 改成**签名正确的真方法**（旧实现是把
     `on/off/trigger` 挂过去，第三参被当成 `scope`、`dispatchEvent` 收事件对象却当成事件名）；
     `ICEEvent` 与 `ICE_EVENT_NAME_CONSTS` 之外，**`ICEEvent` 类本身也对外导出**了。
+  - **两套 API 是同一个实现、两种参数形状**（这是本轮明确收口的目标）：
+    `on(name, fn, scope?, options?)` 与 `addEventListener(type, fn, options?)` 共用同一份
+    `__register` / `__remove`；`off` 按 `(fn, scope)` 精确匹配、`removeEventListener` **忽略 scope**
+    （W3C 身份 = `(type, listener, capture)`）；`dispatchEvent` 按 W3C 返回 `!defaultPrevented`。
+    `options` 支持 `{ once, passive, capture, signal }`：`passive` 监听器里 `preventDefault()` 不生效
+    （按事件名提醒一次，别静默）、`capture` 只作注册身份（引擎无捕获阶段）、`signal` abort 自动摘除；
+    `listener` 可以是函数或 `{ handleEvent }` 对象。`once` 改成**监听记录上的标记**
+    （不再是"自摘包装函数 + `__onceOriginal`"那套双身份），`off/hasListener/removeEventListener`
+    因此用**同一个身份**匹配。引擎自造事件的 `timeStamp` 改用**单调时钟**（`performance.now()` 时间原点，
+    旧实现是 `Date.now()` 墙钟）。
+    回归：`tests/event/api-consistency.test.ts`（9 条：交叉注册/移除、`once` 等价、`{handleEvent}`、
+    `capture` 身份、`passive` 屏蔽 + 提醒、`signal` 摘除、`dispatchEvent` 返回值、单调时间戳）。
 
   ⚠️ **下游需要跟着改**（本版未一并改，列在这里以免漏）：`ice-web-components` 里
   `ICEModal` / `ICEDrawer` / `ICETour` / `ICETable` / `ICEKeyScope` 那几处对 **ICEEvent** 调

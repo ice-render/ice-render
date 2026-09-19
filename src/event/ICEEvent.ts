@@ -34,7 +34,11 @@ const NON_COPYABLE_KEYS = [
   '__iceStopped',
   '__iceImmediateStopped',
   '__iceTarget',
+  '__icePassiveListener',
 ];
+
+/** `passive` 监听器里调 `preventDefault()` 的提醒：**按事件名只提醒一次**（生产构建会剥掉 console.*）。 */
+const PASSIVE_WARNED = new Set<string>();
 
 class ICEEvent implements Event {
   public originalEvent: any;
@@ -123,6 +127,21 @@ class ICEEvent implements Event {
    * `ice-web-components` 里则留下了若干"看着防了、其实一调用就炸"的写法。
    */
   preventDefault(): void {
+    /**
+     * `passive` 监听器里 `preventDefault()` 不生效（与 W3C 一致）。
+     *
+     * 但**不能静默**：这类"以为生效了"的失败正是最难查的那一类，所以按事件名提醒一次。
+     * （`addEventListener('wheel', fn, { passive: true })` 是滚动场景的常规写法。）
+     */
+    if (this.__icePassiveListener) {
+      if (!PASSIVE_WARNED.has(this.type)) {
+        PASSIVE_WARNED.add(this.type);
+        console.warn(
+          `[ICE] passive 监听器里调用 preventDefault() 不生效（事件「${this.type}」）。需要阻止默认行为时，请注册非 passive 的监听器。`
+        );
+      }
+      return;
+    }
     if (!this.cancelable) {
       return;
     }
@@ -152,6 +171,8 @@ class ICEEvent implements Event {
   public __iceImmediateStopped = false;
   /** @internal 真正的派发起点（`target` 可能被应用改写，这里保留引擎认定的起点）。 */
   public __iceTarget: any = null;
+  /** @internal 当前正在执行的是不是一个 `passive` 监听器（由 ICEEventTarget 在调用前置位）。 */
+  public __icePassiveListener = false;
   readonly AT_TARGET = 2 as const;
   readonly BUBBLING_PHASE = 3 as const;
   readonly CAPTURING_PHASE = 1 as const;
