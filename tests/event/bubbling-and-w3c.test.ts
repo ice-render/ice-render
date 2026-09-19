@@ -225,7 +225,29 @@ describe('沿组件树冒泡（DOMEventDispatcher）', () => {
    * 冒泡的**第一顺位连带后果**：默认的拖动/键盘处理只应作用于**被命中的组件**。
    * 否则"拖子组件 → 父容器也注册了 mousemove → 一起动"会立刻变成回归。
    */
-  it('★ 拖子组件时祖先容器不跟着动（默认拖动处理只认命中组件）', () => {
+  it('★ 抓不可拖的子节点（如文字标签）时，由外面那层可拖容器接管', () => {
+    const { ice, parent, leaf } = makeTree();
+    new DOMEventDispatcher(ice).start();
+    leaf.setState({ draggable: false }); // 标签类子节点：可交互（能命中）但不可拖
+    const moved: string[] = [];
+    parent.moveGlobalPosition = () => moved.push('parent');
+    leaf.moveGlobalPosition = () => moved.push('leaf');
+
+    dispatchMouseDown(ice); // 命中 leaf，冒泡到 parent
+    ice.evtBus.trigger('ICE_MOUSEMOVE', {
+      type: 'mousemove',
+      offsetX: 2,
+      offsetY: 2,
+      movementX: 2,
+      movementY: 2,
+      bubbles: true,
+    });
+
+    // 最近的 interactive+draggable 是 parent（leaf 不可拖）→ 由 parent 接管
+    expect(moved).toEqual(['parent']);
+  });
+
+  it('★ 拖可拖子组件时祖先容器不跟着动（默认拖动处理只认最近的接管者）', () => {
     const { ice, parent, leaf } = makeTree();
     new DOMEventDispatcher(ice).start();
     const moved: string[] = [];
