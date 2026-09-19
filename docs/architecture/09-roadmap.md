@@ -63,7 +63,9 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | 多运行时 | `root.createPath2D()`（原生 `Path2D` / `PolyfillPath2D` 降级）、离屏 canvas、图片、像素比全部有平台适配；`requestFrame` 无 rAF 时定时器兜底（Node / headless / 小程序低版本也能启动） |
 | 脏矩形 | 局部重绘支持缩放/平移/`dpr>1`/多块裁剪；门控按「相交」判定；**离屏缓存与直接落墨逐像素一致**（位图栅格对齐设备像素，零重采样）；连线可缓存；脏盒合并带「划算护栏」，细长盒不会被串成整屏大盒。应用层实测：拖动实体时局部重绘 0 → 20 次、渲染 −31%/帧、局部 ≡ 全量 0 差异 |
 | 导出与无头 | **SVG 矢量导出**：`ice.toSvg()` / `exportSvg()` 与画布**共用同一套绘制命令流**，渐变、虚线、阴影、子树透明度、裁剪、连线标签、实心端点箭头都进产物（路径命令流底座见 `src/graphic/path`）；**无头实例** `ICE.headless()` 让 Node / 服务端建树出图不依赖 DOM 与 rAF（导出时先刷新派生几何）；`examples/node/export.mjs` 演示落盘 SVG、装了 `@resvg/resvg-js` 时再转 2× PNG |
-| 工程化 | 91 个测试文件 / 708 个用例 + 覆盖率棘轮门槛、Playwright 可视化与像素一致性回归（含**离屏缓存保真**专项）、`publint` + `attw` 发布包门禁、lockfile 入库 + CI 用 `npm ci`、CHANGELOG |
+| 工程化 | **148 个单测套件 / 1215 个用例**（2026-09-19 实测，`npm test`）+ 覆盖率棘轮门槛（语句 65 / 分支 58 / 函数 72 / 行 65，只许上调）、**21 个 Playwright spec / 102 条用例**（`npm run test:visual`，含**像素一致性**与**离屏缓存保真**专项）、`publint` + `attw` 发布包门禁、lockfile 入库 + CI 用 `npm ci`、CHANGELOG |
+
+> 数字只是**当天的快照**（加一条测试它就会变），看当前值直接跑 `npm test` / `npx playwright test --list`。
 
 ### 仍未做（引擎侧）
 

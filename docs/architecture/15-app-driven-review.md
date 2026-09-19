@@ -30,8 +30,8 @@
 | 脏矩形 + HiDPI + 视口缩放 | ✅ 足够 | 引擎文档的实测（拖动实体局部重绘 0→20 次、渲染 −31%/帧、局部 ≡ 全量 0 差异）；XP 的 Retina 发虚一行 `init({ dpr })` 解决 |
 | 布局（measure/arrange 协议） | 🟡 有原语、缺协议 | 见 §3-3：`requestLayout` / `getPreferredSize` 在，但「尺寸变了要重排」没有统一语义，组件要自己补钩子 |
 | 文本 | 🟡 引擎有，组件没用满 | 引擎有 `wrap`/`maxLines`/`ellipsis`/grapheme 与**编辑态（含 IME）**；我们组件库却手写 `keydown`，导致中文输不进去（见 §2） |
-| 栈序（zIndex） | 🟡 脆弱 | 只有「创建顺序 = zIndex」，两个案例反复手写 `raise()` 抬子树；无 stacking context / `bringToFront()` |
-| 命中与容器的语义 | 🟡 缺开关 | 容器默认参与命中 → 「后创建的容器吃掉子控件点击」这一族 bug 反复出现（见 §3-4） |
+| 栈序（zIndex） | 🟢 语义已修（2026-09-19 复核） | v2.13.0 起 `zIndex` **只在兄弟之间**比较（即本文建议的"子树 zIndex 相对父容器"，见 §3-5 的复核注记）；仍缺的是 `bringToFront()` / `sendToBack()` 这类**便利 API** |
+| 命中与容器的语义 | 🟢 开关一直在，且语义已修（2026-09-19 复核） | 开关是 `state.interactive = false`（**逐组件**跳过，不牵连子项）；命中按**渲染顺序倒序**扫描（子先于父），"容器吃掉子控件点击"这一族已不成立（见 §3-4 的复核注记） |
 | 序列化 / 插件 / a11y 原语 | ✅ 有，但案例未验证 | `registerType` / `ICE.use` / `getAccessibilityTree` 都在；本次未做整场景往返与 DOM 镜像 |
 
 **一句话**：作为「在 canvas 上做 Swing 风格控件」的地基，引擎够强也够稳；作为「通用 UI 引擎」，
@@ -164,6 +164,15 @@
 「`getFocused()` 是 null」。我们靠约定（一律 `interactive: false`）和一次修复（`ICESplitter` 默认关闭命中）
 缓解，但每个新组件都可能再踩。
 
+> **2026-09-19 复核（以代码为准）**：这条已经**不再成立**，两半各有出处 ——
+> ① 「后创建的容器 zIndex 更高」是旧的**全局**排序语义；v2.13.0 起 `zIndex` 只在**兄弟之间**比较，
+> 子永远画在父之上（`util/data-util.ts` 的渲染顺序铁律）；
+> ② 命中检测**与渲染顺序同源**（`hitTestComponents` 复用渲染队列并**倒序**扫描，第一个命中即最上层），
+> 所以子组件先于它的容器被命中。回归：`tests/renderer/hit-test-ordered.test.ts`
+> （含"不可交互 / `display:false` / 被祖先裁剪的组件都不命中"的逐点预言机比对）。
+> 开关本身一直存在且是**逐组件**的：`state.interactive = false` 只让该组件不参与命中，
+> **不牵连它的子项** —— 所以"纯布局容器关掉命中、内部控件照常可点"是支持的做法。
+
 建议给引擎加**类 CSS `pointer-events` 的语义**：布局/装饰节点默认不参与命中，需要时显式打开；
 或者至少让 `ICEGroup`（容器）默认 `interactive: false`、由具体控件自行开启。
 
@@ -172,6 +181,11 @@
 「晚创建 = 在上层」对小型场景好用，但在 admin / XP 这种多层 UI 里会不断需要「把这个子树抬上来」：
 卡片内容、悬浮按钮、任务栏、浮动按钮组、工具层……两个案例里 `raise(node, z)` 出现了十几次。
 建议提供 `bringToFront()/sendToBack()` 或引入 stacking context（子树的 zIndex 相对父容器）。
+
+> **2026-09-19 复核（以代码为准）**：建议的**后半句已经落地** —— v2.13.0 起 `zIndex` 只在兄弟之间比较，
+> 语义上就是"每层一个 stacking context"（见 [02](02-component-model.md) 与 [04](04-rendering-performance.md)）。
+> 应用里那个 `raise(node, z)` 手写助手如今只要在**同一父容器内**改 `setState({ zIndex })` 即可；
+> **还没做**的是 `bringToFront()` / `sendToBack()` 这类便利 API（引擎里没有，`grep bringToFront src/` 为空）。
 
 ### 3.6 滚动是组件级实现（P2，归属：引擎）
 

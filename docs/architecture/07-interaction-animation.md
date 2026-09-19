@@ -2,6 +2,29 @@
 
 ## 交互层：控制面板
 
+### 手柄尺寸可配（`ICE.init` 的 `controlPanel` 选项）
+
+变换手柄与连线端点手柄的尺寸不是写死的，宿主可以在初始化时传：
+
+```js
+const ice = new ICE().init(canvas, {
+  controlPanel: {
+    resizeControlSize: 20, // 8 个缩放控点的边长（默认 16）
+    rotateControlSize: 12, // 旋转手柄半径（默认 8）
+    rotateControlOffsetY: 80, // 旋转手柄离包围盒顶边的距离（默认 60）
+    lineControlSize: 24, // 连线端点手柄 ICELinkHook 的边长（默认 16）
+  },
+});
+```
+
+- 四个值**全部可选**，缺省即历史行为；触摸端通常调大、密集图纸可以调小；
+- **非法值（0 / 负数 / NaN / 非数字）一律退回默认** —— 配错的症状会是"手柄看不见也点不中"，
+  那比"配不上"难查得多；
+- 它们是**构造期**参数（手柄在面板构造时就按这些尺寸建出来了）；运行期要改就重建面板。
+
+回归：`tests/control-panel/control-panel-options.test.ts`（默认值 / 构造可配 / `ICE.init` 透传 /
+非法值退回，且都验到"手柄真的按配置建出来"，不只是字段被赋值）。
+
 `ICEControlPanelManager` 负责管理**选中与变换工具**（纯逻辑组件，无外观）：
 
 ```mermaid

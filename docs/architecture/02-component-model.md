@@ -128,8 +128,12 @@ render() {
 ## 容器与 `zIndex`
 
 - 普通组件直接 `ICE.addChild()` 加到 canvas；容器组件用 `ICEGroup.addChild()` 形成树。
-- **渲染顺序由 `zIndex` 决定**：每帧 `flattenTree` 把组件树展平成数组，再按 `state.zIndex` 升序排序（见 [04 渲染](04-rendering-performance.md)）。
-- `zIndex` 默认取 `instanceCounter++`（构造顺序），因此后加入的组件默认画在上面；可通过 `setState({ zIndex })` 手动调整层级。
+- **渲染顺序 = 树序（先父后子）+ 兄弟按 `zIndex` 升序**（相等时保持加入顺序）：`flattenTree` 逐层展平，
+  每层兄弟按 `state.zIndex` 排序；工具层整体画在组件层之上。见 [04 渲染](04-rendering-performance.md)。
+- **`zIndex` 只在兄弟之间比较**，不是全局序列：默认取 `instanceCounter++`（构造顺序），
+  所以同一层里后加入的默认画在上面；可用 `setState({ zIndex })` 调整同层次序。
+  跨层不存在"谁盖谁"——子永远画在父之上（旧实现"展平后全局排序"会让后构造的父容器反超并盖住自己的子树，
+  v2.13.0 修正，回归见 `tests/renderer/render-order.test.ts`）。
 
 ## 组件的生命周期
 
