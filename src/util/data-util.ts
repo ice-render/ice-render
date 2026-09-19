@@ -162,10 +162,13 @@ export function flattenTree(result: any[] = [], childNodes: any[] = [], level: n
    * 展平的顺序就是绘制顺序：**先父后子**，同一父容器下的兄弟按 `state.zIndex` 升序
    * （相等时保持加入顺序 —— `Array.prototype.sort` 自 ES2019 起稳定）。
    *
-   * 为什么不再"全局按 zIndex 排序"：默认 `zIndex` 是**构造顺序计数器**
-   * （`ICEComponent.instanceCounter++`），全局排序下"父容器比子组件后构造"会让父的 zIndex
+   * 为什么不再"全局按 zIndex 排序"：全局排序下，**父容器只要 zIndex 比子组件大**就会
    * 反超自己的子树 → **父把自己的子组件整个盖住**（画出来一片空白、且不报错）。
    * 树序下这种倒挂不可能发生：子永远画在父之上。
+   *
+   * 默认 `zIndex` 是 **0（`auto` 层，2026-09-19 起）**：同一层里没显式写过 zIndex 的兄弟
+   * 彼此相等，次序由**加入顺序**决定 —— 于是"后加入的默认画在最上面"。
+   * 显式写 `-n` 就是压到 `auto` 层之下（背景类），写 `+n` 就是抬到 `auto` 层之上（浮层类）。
    *
    * 注意：**只排兄弟**，且排的是**副本**（`childNodes` 本身保持加入顺序 ——
    * 调用方按 `childNodes[0]` 取"第一个子节点"是既有语义，不能被动过）。
@@ -185,6 +188,38 @@ export function flattenTree(result: any[] = [], childNodes: any[] = [], level: n
 }
 
 /**
+ * 取组件用于**排序**的 zIndex 数值 —— 全引擎唯一的取数口径。
+ *
+ * 默认值是 `0`（`auto` 层）：没显式写过 zIndex 的兄弟彼此相等，次序退化为**加入顺序**。
+ * 非数值 / 缺字段 / `NaN` 一律当 0（历史里出现过字符串哨兵的写法，这里顺手兼容掉），
+ * 避免"一个脏值把整层排序变成 NaN 比较"这种静默事故（`Array.sort` 的 NaN 比较恒为 false，
+ * 结果是次序原地不动、看着像没生效）。
+ */
+export function zIndexOf(component: any): number {
+  const raw = component && component.state ? component.state.zIndex : 0;
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return raw;
+  }
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * **同层重编号**的编码口径：把"绘制次序"（0 = 最下 → n-1 = 最上）编码成 zIndex。
+ *
+ * 编码成 **`-(n-1) … 0`**（最上面那个是 0）而不是 `0 … n-1`，是为了让 `0` 这一档
+ * 继续等于**默认值**：
+ * - 被置顶的组件落在 `auto` 层（0），**之后新加入的组件仍然排在它上面**
+ *   （同层相等 → 按加入顺序，新加入的最后画）—— "新建的图元永远在最上层"这条不会被重排 API 破坏；
+ * - 被压下去的兄弟落成负数，正好表达"在 `auto` 层之下"，与 CSS 的负 z-index 同义。
+ *
+ * 用法与口径只有一处：`ICEComponent.__applySiblingOrder`（四个 z 序 API 都走它）。
+ */
+export function zIndexForPaintRank(paintRank: number, count: number): number {
+  return paintRank - (count - 1);
+}
+
+/**
  * 兄弟节点按 `zIndex` 升序排序（稳定）。**长度 < 2 时不复制**，直接返回原数组 ——
  * 绝大多数容器只有 0~1 个子节点，这条快路径让"每次展平都复制一份 childNodes"的开销归零。
  */
@@ -193,7 +228,7 @@ export function sortSiblingsByZIndex(childNodes: any[]): any[] {
     return childNodes || [];
   }
   const copy = childNodes.slice();
-  copy.sort((a: any, b: any) => (a && a.state ? a.state.zIndex || 0 : 0) - (b && b.state ? b.state.zIndex || 0 : 0));
+  copy.sort((a: any, b: any) => zIndexOf(a) - zIndexOf(b));
   return copy;
 }
 

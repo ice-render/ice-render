@@ -166,5 +166,11 @@ export { TYPE_ID_PATTERN, isTypeId, assertTypeId, parseTypeId, makeTypeId } from
 // 稳定错误码：引擎不做 i18n，但把「可翻译的 id」交给应用层（见 docs/architecture/17-i18n-boundary.md）
 export { ICE_ERROR_CODES, iceError, getICEErrorCode, isICEError } from './util/errors';
 export type { ICEError, ICEErrorCode, ICEErrorDetails } from './util/errors';
+/**
+ * 同层叠放次序的**唯一口径**（2026-09-19 起默认 `zIndex = 0`，即 CSS 的 `z-index: auto` 那一档）：
+ * 应用层要自己排/比同层次序时用这几个，不要各写一套 `x.state.zIndex || 0` ——
+ * 一个脏值（字符串 / NaN）就能让整层排序悄悄地不生效。见 docs/architecture/02-component-model.md。
+ */
+export { sortSiblingsByZIndex, zIndexOf, zIndexForPaintRank } from './util/data-util';
 export { buildAccessibilityTree } from './a11y/accessibility';
 export type { ICEAccessibleNode, ICEAccessibleRole, ICEAccessibilityOptions } from './a11y/accessibility';

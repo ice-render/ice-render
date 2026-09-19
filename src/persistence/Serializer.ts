@@ -8,7 +8,7 @@
 import ICE from '../ICE';
 import { toIsoTime } from './document-time';
 import ICELayoutManager from '../layout/ICELayoutManager';
-import { sortSiblingsByZIndex } from '../util/data-util';
+import { zIndexOf } from '../util/data-util';
 
 /**
  * 序列化时排除的运行时缓存/计算值：这些值在反序列化后会由引擎重新计算，
@@ -115,33 +115,30 @@ export default class Serializer {
   }
 
   /**
-   * 序列化一批兄弟节点，并把它们的 `zIndex` **归一化**成绘制次序里的序号。
+   * 序列化一批兄弟节点。
    *
-   * 为什么要在存盘时归一化：默认 `zIndex` 是**进程级计数器**（`instanceCounter++`），
-   * 直接存的话文档里会留下一串"构造顺序"留下的大数字 —— 换一个会话打开时，
-   * 那个会话的计数器还在个位数，新建的组件就会画到已有内容下面（实测：文档里 198~200、
-   * 新建的是 4）。归一化之后文档里表达的是**次序本身**，与计数器无关。
+   * `zIndex` 的写法（2026-09-19 起，与"默认值是 0 / auto 层"配套）：
+   * - **默认值（0）不写**：读回时就是默认值，文档更干净，也不会出现一整片 `zIndex: 0`；
+   * - **显式值原样写**（含 `bringToFront()` 之类重排 API 落下的负数）：次序信息本来就在这些数里，
+   *   不归一化、不改写 —— 文档里"写的就是用户/API 表达的次序本身"。
    *
-   * 只在"绘制次序 ≠ 插入次序"时才写（写的是绘制次序里的下标 0..n-1）：
-   * 常见情况下什么都没改，文档里就不出现 `zIndex`；需要显式表达次序时才落一个干净的小整数。
-   * 读回时子节点按文件顺序构造（= 插入次序），所以往返之后的绘制次序与存盘前一致。
+   * 为什么不再归一化成 `0..n-1`：归一化存在的理由是"默认 `zIndex` 是进程级计数器，
+   * 会把构造顺序留下的大数字写进文档"。**计数器已经删掉**（默认 0），文档里不可能再出现
+   * 那种天文数字；此时归一化反而会把应用刻意钉的浮层值（如 `zIndex: 9000`）改写成小整数，
+   * 把"钉住"这件事丢掉。读回时子节点按文件顺序构造（= 加入次序），配合写下的数值，
+   * 往返之后绘制次序逐项不变。
    */
   private __encodeChildren(children: any[], parentData: any): void {
     if (!children || !children.length) {
       return;
     }
-    const paintOrder = sortSiblingsByZIndex(children);
-    const paintIndex = new Map<any, number>();
-    for (let i = 0; i < paintOrder.length; i++) {
-      paintIndex.set(paintOrder[i], i);
-    }
     for (let i = 0; i < children.length; i++) {
-      this.encodeRecursively(children[i], parentData, { paint: paintIndex.get(children[i]) ?? i, insertion: i });
+      this.encodeRecursively(children[i], parentData);
     }
   }
 
   //递归序列化  //递归序列化
-  private encodeRecursively(component, parentData, order?: { paint: number; insertion: number }) {
+  private encodeRecursively(component, parentData) {
     // 优先用注册表反查稳定 typeId（与类名解耦，压缩改名不破坏数据）；
     // 未注册的自定义类型回退到 constructor.name（保持既有约定），但会记录 + 告警：
     // 这类数据（尤其是被 mangle 过的类名）下次可能读不回来。
@@ -164,13 +161,9 @@ export default class Serializer {
       // 容器的布局策略属于文档内容（"怎么排"），见 __encodeLayout
       layout: undefined,
     };
-    // zIndex 归一化（口径见 __encodeChildren）：次序没变就不写，变了才写序号
-    if (order) {
-      if (order.paint === order.insertion) {
-        delete currentData.state.zIndex;
-      } else {
-        currentData.state.zIndex = order.paint;
-      }
+    // zIndex 默认值（0 = auto 层）不进文档；显式值原样保留（口径见 __encodeChildren）
+    if (zIndexOf(component) === 0) {
+      delete currentData.state.zIndex;
     }
     this.__encodeLayout(component, currentData);
 

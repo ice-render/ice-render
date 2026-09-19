@@ -23,7 +23,7 @@ ICERender 的组件模型概念上对齐 React：
   transform: { translate, scale, skew, rotate },
   linearMatrix: [], composedMatrix: [], // 矩阵缓存（见 03）
   origin: 'localCenter', localOrigin, absoluteOrigin,
-  zIndex: instanceCounter++,            // 渲染层级
+  zIndex: 0,                            // 同层叠放次序；默认 0 = auto 层（只在兄弟之间比较）
   display: true,                        // false 则整棵子树不渲染
   draggable, transformable, interactive, linkable,
 }
@@ -130,23 +130,24 @@ render() {
 - 普通组件直接 `ICE.addChild()` 加到 canvas；容器组件用 `ICEGroup.addChild()` 形成树。
 - **渲染顺序 = 树序（先父后子）+ 兄弟按 `zIndex` 升序**（相等时保持加入顺序）：`flattenTree` 逐层展平，
   每层兄弟按 `state.zIndex` 排序；工具层整体画在组件层之上。见 [04 渲染](04-rendering-performance.md)。
-- **`zIndex` 只在兄弟之间比较**，不是全局序列：默认取 `instanceCounter++`（构造顺序），
-  所以同一层里后加入的默认画在上面；可用 `setState({ zIndex })` 调整同层次序。
-  跨层不存在"谁盖谁"——子永远画在父之上（旧实现"展平后全局排序"会让后构造的父容器反超并盖住自己的子树，
-  v2.13.0 修正，回归见 `tests/renderer/render-order.test.ts`）。
+- **`zIndex` 只在兄弟之间比较**，不是全局序列。默认值是 **`0`，就是 CSS 的 `z-index: auto` 那一档**
+  （2026-09-19 改版，之前是"构造顺序计数器"）：同层没显式写过 zIndex 的兄弟彼此相等，
+  次序退化为**加入顺序** —— 后加入的默认画在最上面。**显式写的值是钉子**，一视同仁地参与比较：
+  `-n` 压到 auto 层之下（背景），`+n` 抬到 auto 层之上（浮层）；⚠️ 正数钉住的兄弟会盖住
+  **之后新加入**的 auto 组件（CSS 口径），要"永远在最上"用工具层或 `bringToFront()`。
+  跨层不存在"谁盖谁"——子永远画在父之上（旧实现"展平后全局排序"会让 zIndex 更大的父容器反超
+  并盖住自己的子树，v2.13.0 修正，回归见 `tests/renderer/render-order.test.ts`）。
 - **调整同层次序用四个 API**（都返回 `this`，可链式）：`bringToFront()` / `sendToBack()` /
   `moveUp()` / `moveDown()`。它们只动**同一个父容器内**的次序（`zIndex` 只在兄弟间比较，
-  所以接口也按这个作用域设计），实现是把同层重编号成 `0..n-1` —— 因此**平手**（多个组件
-  `zIndex` 相同、次序靠插入顺序）时同样挪得动。`childNodes` 数组本身保持插入顺序。
-- **显式写 `zIndex` 会把默认值计数器顶上去**：`setState({ zIndex })`、构造期传 `zIndex`、
-  **反序列化**（`new Clazz(nodeData.state)`）三条路径都算。这样"打开一份元件比较多的文档、
-  再新建一个组件"时，新组件的默认 `zIndex` 仍然大于文档里的最大值 —— **画在最上层**，
-  而不会因为新会话的计数器还在个位数而躲到已有内容下面（回归：`tests/graphic/z-index-order.test.ts`）。
-- **`zIndex >= 1e7` 是保留号段（工具层内部编号）**：控制面板 / 手柄 / 连线插槽 / 对齐提示线
-  用的是这个号段（`consts/BIG_ZINDEX_NUMBER`），它们进的是**另一条队列** `toolsQueue`，
-  永远整体画在组件层之上 —— **组件层写再大的 `zIndex` 也压不住工具层**，两层之间没有数字比较。
-  落在保留号段里的值不参与上面那条「默认值计数器同步」，免得建完一个控制面板之后，
-  新建组件的默认 `zIndex` 直接跳到 10001003 这种天文数字；**组件层请用 `< 1e7`**。
+  所以接口也按这个作用域设计）。实现是把**同层重编号成 `-(n-1) … 0`（最上面那个是 0）**：
+  因此**平手**（zIndex 相同、次序靠加入顺序）时同样挪得动，而且**置顶之后新加入的组件
+  仍然画在最上面**（0 那一档按加入顺序，新加入的最后画）。口径的唯一出处：
+  `util/data-util.ts` 的 `zIndexForPaintRank`。`childNodes` 数组本身保持插入顺序。
+- **工具层用的是另一套编号**（`consts/BIG_ZINDEX_NUMBER` = 1e7 起步，控制面板 / 手柄 / 连线插槽 /
+  对齐提示线）：它们进的是**另一条队列** `toolsQueue`，永远整体画在组件层之上 ——
+  **组件层写再大的 `zIndex` 也压不住工具层**，两层之间没有数字比较。
+  （2026-09-19 起 1e7 只是工具层的内部编号，不再是"组件层别用的保留号段"——
+  没有计数器要保护了。）
 
 ## 组件的生命周期
 
