@@ -12,8 +12,8 @@ import EventBus from '../../src/event/EventBus';
 import { token, DEFAULT_THEME, setTheme } from '../../src/theme/ICETheme';
 
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D(), createOffscreenCanvas: () => null } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder(), createOffscreenCanvas: () => null } };
 });
 global.Path2D = class {
   rect() {}

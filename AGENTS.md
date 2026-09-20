@@ -5,6 +5,12 @@
 Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依赖仅 `gl-matrix`（`lodash` 已用 `src/util/lang.ts` 自研工具替代）。
 本文件是仓库级共享约定，agent 与人类协作者都应遵循。
 
+> **目标运行时（2026-09-20 收敛）**：**现代浏览器 + Node/headless**。**小程序支持已整体移除** ——
+> 不要再加 `wx.*` 适配、不要再为"没有原生 `Path2D` 也要能画"添加命令重放、也不要恢复
+> 「小程序形状运行时」夹具（`tests/mini-program/` 已删）。可以假定 `Path2D` / DOM / PointerEvent 可用；
+> 但 **Node/headless 仍须能跑**（SVG 导出走 `Path2DRecorder` 的命令流、无 rAF 时定时器兜底、
+> `ICE.init(ctx)` 入口）—— 这是两条互不冲突的要求，别把"去小程序"顺手做成"去 headless"。
+
 ## 引擎架构铁律（改动前必读）
 
 - 运行时链路：`FrameManager`（全局单例，包装 rAF）→ `EventBus`（每 ICE 实例一条）→ 各 Manager 订阅 → `CanvasRenderer`。

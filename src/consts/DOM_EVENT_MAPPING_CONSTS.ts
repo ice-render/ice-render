@@ -5,7 +5,7 @@
  * 输入通道策略（见 docs/architecture/05-event-system.md）：
  * - 运行时支持 PointerEvent → 只监听 pointer*（统一覆盖鼠标 / 触控笔 / 触摸），
  *   并额外监听没有 pointer 对应事件的 click / dblclick / contextmenu。
- * - 否则（老浏览器 / 小程序）→ 监听 mouse* + touch*，touch 通道由派发器
+ * - 否则（不支持 PointerEvent 的老浏览器）→ 监听 mouse* + touch*，touch 通道由派发器
  *   归一化后以鼠标语义名转发，上层组件无需区分。
  *
  * @author 大漠穷秋<damoqiongqiu@126.com>
@@ -39,7 +39,7 @@ export const nonPointerMouseEvents: Array<[string, string]> = [
   ['contextmenu', 'ICE_CONTEXTMENU'],
 ];
 
-/** 触摸输入通道（无 PointerEvent 的运行时使用，如小程序）。 */
+/** 触摸输入通道（无 PointerEvent 的老浏览器使用）。 */
 export const touchEvents: Array<[string, string]> = [
   ['touchstart', 'ICE_TOUCHSTART'],
   ['touchmove', 'ICE_TOUCHMOVE'],

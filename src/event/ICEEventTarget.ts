@@ -15,7 +15,7 @@ import { markEventNameListened } from './listened-event-names';
  * 事件时间戳用**单调时钟**（`performance.now()` 的时间原点），与 W3C 一致。
  *
  * 旧实现用 `Date.now()`（墙钟）：既受系统时间调整影响，语义也和应用里 `evt.timeStamp - performance.now()`
- * 这类算法对不上。拿不到 `performance`（小程序 / 测试桩）时退回 `Date.now()`。
+ * 这类算法对不上。拿不到 `performance`（测试桩 / headless）时退回 `Date.now()`。
  */
 function monotonicNow(): number {
   const perf: any = (root as any) && (root as any).performance;

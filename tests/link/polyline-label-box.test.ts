@@ -10,8 +10,8 @@
 import ICEPolyLine from '../../src/graphic/link/ICEPolyLine';
 
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 
 /** label = '1 : N'（5 字符）、fontSize = 20 → 降级估算宽度 = 5 * 20 = 100 */

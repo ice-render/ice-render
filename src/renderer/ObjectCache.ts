@@ -141,8 +141,8 @@ class ObjectCache {
   /**
    * 运行时是否**没有**离屏 canvas 能力。
    *
-   * 小程序老基础库没有 `wx.createOffscreenCanvas`，极简 headless 环境也没有 —— 这类运行时
-   * 建位图会抛错；由于 build 发生在帧回调里，抛出去就是未捕获异常（小程序直接白屏）。
+   * 极简 headless / 测试桩没有离屏 canvas 能力 —— 这类运行时建位图会抛错；
+   * 由于 build 发生在帧回调里，抛出去就是未捕获异常（宿主页面白屏）。
    * 一旦探测到这种情况就整体关掉缓存，退化为直接落墨。
    */
   private __offscreenUnavailable = false;
@@ -209,7 +209,7 @@ class ObjectCache {
     // 视口变化帧一律不缓存：位图栅格与设备栅格已错位，重建代价又和直接落墨同阶。
     // 见 `beginFrame()`。（只是一次字段读 —— 本方法在热路径上每个组件每帧都会被调用。）
     if (this.__vpChanged) return false;
-    // 运行时没有离屏 canvas（老基础库的 `wx.createOffscreenCanvas` 缺失、极简 headless 环境）：
+    // 运行时没有离屏 canvas（极简 headless / 测试桩）：
     // 缓存整条不可用，一律直接落墨。见 `render()` 里对 build 失败的兜底。
     if (this.__offscreenUnavailable) return false;
     //@perf 廉价前置判断：下面能判真的分支只有四类 —— 文本 / 连线 / 点集路径 / 半透明落墨。
@@ -465,9 +465,9 @@ class ObjectCache {
       try {
         cache = this.build(component, this.contentKey(component), cloneKeyVector(keys), linearKey, rs, ox, oy);
       } catch (err) {
-        // 离屏 canvas 建不出来（小程序老基础库没有 wx.createOffscreenCanvas / 极简运行时）：
+        // 离屏 canvas 建不出来（极简 headless / 测试桩）：
         // 这里**不能**把异常抛出去 —— build 是在帧回调里被调用的，抛出去就是未捕获异常，
-        // 在小程序里表现为直接白屏。降级为「不缓存、直接落墨」，并记住这个运行时没有离屏能力。
+        // 宿主页面会直接白屏。降级为「不缓存、直接落墨」，并记住这个运行时没有离屏能力。
         this.__offscreenUnavailable = true;
         this.map.delete(component);
         return false;

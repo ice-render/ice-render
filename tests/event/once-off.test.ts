@@ -10,8 +10,8 @@
  * 写 `this.ice.dirty` 时抛 `Cannot set properties of null (setting 'dirty')`。
  */
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 
 import ICERect from '../../src/graphic/shape/ICERect';

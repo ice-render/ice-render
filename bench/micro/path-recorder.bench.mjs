@@ -24,9 +24,7 @@ import { ICERect, ICECircle, ICEStar, exportSvg, walk, buildTree } from './_fixt
 
 /** 只转发、不记录 —— 用来隔离「记录」这一项成本 */
 class ForwardOnlyPath2D {
-  constructor() {
-    this._isPolyfill = true;
-  }
+  constructor() {}
   moveTo() {}
   lineTo() {}
   bezierCurveTo() {}

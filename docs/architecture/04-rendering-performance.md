@@ -12,7 +12,7 @@
    - **文本语言也是"画出来是什么"的一部分**（2025 年补）：同一个汉字有简/繁/日/韩多套字形，
      Canvas 按元素的 **`lang`** 选字形，`dir` 影响双向文本的排布。离屏层（静态层位图、组件缓存位图）
      因此必须与主画布**同语言** —— 所以 `root.createOffscreenCanvas(w, h, sourceEl)` 会从主画布
-     镜像 `lang` / `dir`（不支持该属性的运行时忽略，小程序宿主对象写不进去时静默跳过）。
+     镜像 `lang` / `dir`（不支持该属性的运行时会忽略）。
      回归：`tests/renderer/offscreen-text-lang.test.ts`（含"宿主对象写不进去不阻断渲染"的降级分支）。
 
 ```mermaid
@@ -44,7 +44,7 @@ graph TD
 | 上述 risky 组件**刚变脏、只是位置变化**、且**是文本** | 命中离屏缓存则放行，否则全量 | 文本字形墨迹可能超出几何盒，只有走离屏缓存（主画布只是 `drawImage` 平移复用位图、clip 只作用于整像素采样）才能保证逐像素一致 |
 | 上述 risky 组件**干净**、且已离屏缓存 | 不阻塞局部重绘 | 主画布只是 `drawImage` 一张不透明位图，clip 只作用位图的整像素采样，不改变字形内部 AA |
 | 场景含折线（`isLine`）且其带宽盒较大 | 富场景下会**稳定回退全量** | 折线包围盒修复为真实值后属「clip 会切断描边抗锯齿」的风险类别。这是**正确的保守行为** —— 此前「能走局部重绘」恰恰是因为盒子退化、漏画了折线（见 [13](13-gap-analysis.md) §4.4） |
-| 新/旧包围盒含 NaN；ctx 无 clip/save/restore（老小程序 canvas） | 全量 | 安全兜底 |
+| 新/旧包围盒含 NaN；ctx 无 clip/save/restore（老浏览器 / 测试桩） | 全量 | 安全兜底 |
 
 **不再回退的两类（2026-09-11 落地）**：以前「视口非单位变换」与「dpr ≠ 1」都直接回退全量 ——
 理由是「世界盒与屏幕 `clearRect/clip` 不一致」。但这两类恰好就是真实使用场景（编辑器必然缩放平移；
@@ -95,7 +95,7 @@ graph TD
 实现要点：
 
 - `root.createOffscreenCanvas(width, height)`：浏览器 `document.createElement('canvas')`，
-  小程序 `wx.createOffscreenCanvas({ type: '2d', width, height })`；物理尺寸按 `root.devicePixelRatio` 缩放。
+  由 `root.createOffscreenCanvas()` 统一创建；物理尺寸按 `root.devicePixelRatio` 缩放。
 - `ICEComponent.renderTo(targetCtx, baseMatrix)`：渲染期间临时重定向 `this.ctx`，
   最终 CTM = `baseMatrix · composedMatrix`（`baseMatrix` 把世界盒平移到离屏左上角）。`render()` 语义不变。
 - 缓存决策（`ObjectCache.render`）：
@@ -196,7 +196,7 @@ ice.requestRepaint(); // 置脏 + 标记渲染队列重排；幂等，可链式
 - 对每个组件注入 `root/ctx/evtBus/ice` 后调用 `component.render()`（稳态下这些引用已一致，跳过重复注入）。
 - 一轮结束后 `ice.dirty=false`，并触发 `ROUND_FINISH` 事件（供 `linkSlotManager` 等订阅）。
 - **折线的端点箭头**：`ICEPolyLine.calcArrowPoints()` 把三角形顶点**插进点集**（`[P0,A1,A2,P0,…]`），路径本身只描边；填充是描边之后单独做的一次 `fill`（用线色，`arrowStyle:'hollow'` 可关闭）。
-  ⚠️ 那次 `fill` **必须先 `beginPath()`**：无全局 `Path2D` 的运行时（小程序低版本 / Node）走 `replayPath()`，它会把整条开放折线留在 ctx 当前路径上，不重开路径会把折线一并填满。
+  ⚠️ 那次 `fill` **必须先 `beginPath()`**：它依赖"ctx 当前路径"的语义，不重开路径会把上一条开放折线一并填满。
 
 ## 性能基线
 
@@ -451,7 +451,7 @@ micro 基准 `anim 每帧全量 compose` **0.93×** —— 关键项全部**快�
 3. **位图栅格对齐纪律与离屏缓存逐字相同**：缩放取渲染视口 `scale`、贴图落点取整数设备像素、
    `drawImage(img, dx, dy)` 不传目标宽高（1:1、零重采样）。贴之前必须把 CTM 归回单位变换 ——
    组件渲染不还原 CTM，沿用上一个组件的矩阵会把整层画歪（这条踩过）。
-4. **渲染进离屏位图时的异常绝不能抛出去**：此刻在帧回调里，抛出去就是未捕获异常（小程序直接白屏）。
+4. **渲染进离屏位图时的异常绝不能抛出去**：此刻在帧回调里，抛出去就是未捕获异常（宿主页面直接白屏）。
    捕获后整个会话关掉静态层，退回逐组件重画（与 `ObjectCache` 的降级口径一致）。
 
 **像素验收**：`e2e/visual/static-layer-pixel.spec.ts`（dpr=1 / dpr=2 各 10 步；

@@ -14,23 +14,21 @@
  * 而引擎的这几件事都需要**路径的几何描述**，不只是「画出来」：
  *
  * - 导出（SVG / 打印 / 服务端出图）：要把路径转成 `d` 属性；
- * - 服务端 / 小程序（无原生 Path2D）：要靠命令流重放到 ctx（原先只有 PolyfillPath2D 能做到）；
  * - 测试与调试：可以直接断言「这个形状生成了哪几条命令」，不必截图比对像素。
  *
  * 设计取舍：
  * - **有原生 Path2D 时仍然用原生对象上屏**（`native`），命令流只是顺带记录，渲染路径与旧版
  *   完全一致；`ICEPath.doRender()` 用 `path2D.native || path2D` 取上屏对象。
- * - **没有原生 Path2D 时**（小程序低版本 / Node）退化为纯记录器：`_isPolyfill` 为真，
- *   `ICEPath` 走「重放命令到 ctx」的老路径，行为与之前的 PolyfillPath2D 一致。
+ * - **没有原生 Path2D 时**（headless / 测试桩）退化为纯记录器：命令流仍然可用（导出、断言），
+ *   但**不会自己重放命令去上屏** —— 那条支路是给"没有 Path2D 也要能画"的旧运行时用的，
+ *   2026-09-20 已删（现在没有原生 Path2D 就不再支持上屏）。
  * - 路径是**几何变化时才重建**（`doRender` 只在 dirty 时调用 `createPathObject()`），因此
  *   记录带来的开销只发生在路径重建时，不在每帧热路径上。
  *
- * 命令格式与 PolyfillPath2D 一致（也被 `replayPath()` 复用）：
+ * 命令格式（与外部消费者 / 导出器约定一致）：
  * `[['moveTo', x, y], ['rect', x, y, w, h], ...]`
  */
 export default class Path2DRecorder {
-  /** 标记「没有原生 Path2D，需要重放命令」——与 PolyfillPath2D 的语义保持一致 */
-  public _isPolyfill: boolean;
   /** 记录的命令序列 */
   public _commands: Array<Array<any>> = [];
   /** closePath 是幂等标记（doRender 每帧调用），不重复入队 */
@@ -44,12 +42,6 @@ export default class Path2DRecorder {
 
   constructor(native: any = null) {
     this.native = native || null;
-    this._isPolyfill = !this.native;
-  }
-
-  /** 上屏对象：有原生就用原生，否则用记录器自己（配合 replayPath 重放） */
-  public get drawable(): any {
-    return this.native || this;
   }
 
   public moveTo(x: number, y: number): void {
@@ -157,8 +149,8 @@ export default class Path2DRecorder {
   }
 
   /**
-   * 圆弧。**必须实现**：事件圆等形状用的是 `arc`，此前 PolyfillPath2D 没有它，
-   * 于是「无原生 Path2D」的运行时（Node / 小程序低版本）画这类形状会直接抛
+   * 圆弧。**必须实现**：事件圆等形状用的是 `arc`，早先的记录器没有实现它，
+   * 于是「无原生 Path2D」的运行时（headless / 测试桩）画这类形状会直接抛
    * `path.arc is not a function` —— 这正是服务端出图要修的第一件事。
    */
   public arc(

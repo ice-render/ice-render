@@ -531,7 +531,7 @@ class CanvasRenderer extends ICEEventTarget {
       // 第三个参数：静态层要跟随主画布的文本语言（汉字字形随 lang 变，见 root.createOffscreenCanvas）
       off = root.createOffscreenCanvas(pw, ph, this.ice && this.ice.canvasEl);
     } catch (err) {
-      return null; // 运行时没有离屏 canvas（小程序老基础库）：静默退回逐组件重画
+      return null; // 运行时没有离屏 canvas（极简 headless / 测试桩）：静默退回逐组件重画
     }
     const base = [rs, 0, 0, rs, ox - dx, oy - dy];
     try {
@@ -542,9 +542,9 @@ class CanvasRenderer extends ICEEventTarget {
         this.__capture(c);
       }
     } catch (err) {
-      // 渲染进离屏位图时抛异常 —— 原因是这个运行时的离屏 ctx 能力不全（小程序 2D 子集 /
+      // 渲染进离屏位图时抛异常 —— 原因是这个运行时的离屏 ctx 能力不全（极简 headless /
       // 测试替身缺方法）。**绝不能把异常抛出去**：这里在帧回调里，抛出去就是未捕获异常，
-      // 在小程序里直接表现为白屏。整个会话关掉静态层，退回逐组件重画（与 ObjectCache
+      // 宿主页面直接白屏。整个会话关掉静态层，退回逐组件重画（与 ObjectCache
       // 遇到 `createOffscreenCanvas` 不可用时的降级口径一致）。
       this.__layerEnabled = false;
       this.__layer = null;

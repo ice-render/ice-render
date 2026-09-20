@@ -37,7 +37,7 @@ import AnimationTimeline from './AnimationTimeline';
  */
 /**
  * 读系统偏好 `prefers-reduced-motion: reduce`。
- * 无 DOM / 没有 matchMedia 的运行时（Node、小程序）返回 false —— 引擎不替应用猜偏好。
+ * 无 DOM / 没有 matchMedia 的运行时（Node / headless）返回 false —— 引擎不替应用猜偏好。
  */
 function readPrefersReducedMotion(): boolean {
   try {

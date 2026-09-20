@@ -5,8 +5,8 @@
  * 的类名→构造函数映射重建树）的往返一致性。这是引擎「持久化」能力的核心，之前完全没有自动化覆盖。
  */
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 global.Path2D = class {
   rect() {}

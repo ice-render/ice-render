@@ -15,7 +15,6 @@ import EventBus from '../../src/event/EventBus';
 import root from '../../src/cross-platform/root';
 
 class FakePath2D {
-  _isPolyfill = true;
   _commands: any[] = [];
   _closed = false;
   moveTo(...a: any[]) {

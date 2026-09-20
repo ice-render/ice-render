@@ -12,13 +12,13 @@ import DOMEventDispatcher from '../../src/event/DOMEventDispatcher';
 import EventBus from '../../src/event/EventBus';
 
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
   // 声明 PointerEvent：走 pointer 输入通道（`ICE_POINTERDOWN`），与浏览器实际一致
   class PointerEvent {}
   return {
     __esModule: true,
     default: {
-      createPath2D: () => new PolyfillPath2D(),
+      createPath2D: () => new Path2DRecorder(),
       PointerEvent,
       addEventListener: () => {},
       removeEventListener: () => {},

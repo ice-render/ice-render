@@ -10,8 +10,8 @@
  *    就是这么写的），而不是直接读子项的盒子；Flow/Box/Border 跳过不可见子项、GridLayout 保留格子。
  */
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 
 import ICEGroup from '../../src/graphic/container/ICEGroup';

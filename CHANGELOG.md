@@ -7,6 +7,35 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+## [3.0.0] - 2026-09-20
+
+> ⚠️ **破坏性：不再支持小程序**（2026-09-20，分支 `remove/mini-program-support`）。
+> 目标运行时收敛为**现代浏览器 + Node/headless**。小程序接入方留在 2.x（或自行维护适配层）。
+
+### 变更（破坏性：移除小程序支持）
+
+删掉的都是为"小程序形状的运行时"而存在的东西：
+
+- `cross-platform/root.ts` 的 `wx.*` 分支：`loadFont` / `createImage` / `devicePixelRatio` /
+  `createOffscreenCanvas`（浏览器与 headless 的路径不变）；
+- **无原生 `Path2D` 时的命令重放**与 `PolyfillPath2D`（连同 `ICEPath.replayPath()`）。
+  没有原生 `Path2D` 的运行时不再支持上屏；命令流本身照旧（SVG / 服务端出图、形状断言）；
+- 「小程序形状」回归夹具 `tests/mini-program/`（摘掉 `document`/`window`/`Path2D`/`rAF`/`FontFace`/
+  `OffscreenCanvas`、只留 `wx.*`，并对 Canvas 2D 成员做白名单越界检查）与宿主适配示例
+  `examples/mini-program/`；
+- README / 文档站里"小程序是一等公民"的承诺、接入指引与跨平台章节（`08-compatibility` 重写为
+  「浏览器 + Node/headless」）。
+
+**保留**（不是小程序专属，删了会伤浏览器或服务端出图）：`root` 适配层本身、
+无 rAF 的定时器兜底（Node / headless）、`Path2DRecorder` 的命令流、离屏 canvas 缺失时的缓存降级、
+`ICE.init(ctx)` 入口、指针/触摸输入归一化（老浏览器仍在用）。
+
+**顺带解绑**：`worker + OffscreenCanvas` 路线原先专门写了"小程序线程模型不同 → 不做"的排除理由，
+现在随之消失（见 `docs/architecture/10-worker-offscreen.md` §6）。
+
+回归：引擎 `verify:full` + 家族全量（chart / web-components / entity-designer / game /
+smart-water / agent-console 等）单测与 e2e。
+
 ### 性能
 
 - **按需派发：没人听的事件名整段早退**（2026-09-20，分支 `perf/dispatch-and-bench`）。

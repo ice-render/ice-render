@@ -998,8 +998,8 @@ class ICEPolyLine extends ICEDotPath {
     }
     const ctx = this.ctx;
     ctx.save();
-    // 必须 beginPath：PolyfillPath2D 运行时 ICEPath 的 replayPath() 会把整条折线留在
-    // ctx 的当前路径上，不重开路径会把开放的折线一并填满。
+    // 必须 beginPath：下面逐面构建路径，依赖 ctx 的当前路径语义 ——
+    // 不重开路径会把上一条开放折线一并填满。
     ctx.beginPath();
     for (let i = 0; i < faces.length; i++) {
       const [a, b, c] = faces[i];

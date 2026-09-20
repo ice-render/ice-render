@@ -12,11 +12,11 @@
  * 桩的 measure：每字符 10px（含尾随字间距，与真实 canvas 的 letterSpacing 语义一致）。
  */
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
   return {
     __esModule: true,
     default: {
-      createPath2D: () => new PolyfillPath2D(),
+      createPath2D: () => new Path2DRecorder(),
       loadFont: jest.fn(() => Promise.resolve('ok')),
       document: {
         getElementById: () => null,

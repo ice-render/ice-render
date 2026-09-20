@@ -15,8 +15,8 @@ import Serializer from '../../src/persistence/Serializer';
 import Deserializer from '../../src/persistence/Deserializer';
 
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 
 /** 录制型 ctx：记录 canvas 上被赋过哪些 fillStyle/strokeStyle，以及创建了哪些渐变 */

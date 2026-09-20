@@ -13,7 +13,6 @@ import ICEGroup from '../../src/graphic/container/ICEGroup';
 import ICERect from '../../src/graphic/shape/ICERect';
 
 class FakePath2D {
-  _isPolyfill = true;
   _commands: any[] = [];
   rect(...a: any[]) {
     this._commands.push(['rect', ...a]);

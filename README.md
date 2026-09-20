@@ -40,14 +40,17 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流
   2026-09-11 在 Apple Silicon 开发机上实测 **约 2.2ms/帧**（场景 A 静态重绘，5000 图元、多层嵌套）。
   这里刻意不再写一个固定数字 —— 这类数字跨机器可差数倍，写死就会像本文旧版本那样变成不可复现的宣称。
 
-**3. 小程序是一等公民**
+**3. 浏览器与 Node 双运行时，不依赖任何专有 API**
 
-- 一套代码同时面向 **Web 浏览器**与**各类小程序**：所有全局对象访问收敛到 `cross-platform/root` 适配层。
-- **无全局 `Path2D` 的运行时自动降级**：`PolyfillPath2D` 记录路径命令、渲染时重放，与原生 `Path2D` 逐像素一致（老版本小程序基础库可用）。
-- 字体、图片、离屏画布、像素比全部有平台适配（`FontFace` / 小程序 `loadFont`、`Image` / 小程序 `createImage`、`document.createElement('canvas')` / 小程序 `createOffscreenCanvas`、`devicePixelRatio` / 小程序系统信息）。
-- `ICE.init(ctx)` 支持直接传入 Canvas 上下文，完全绕开 DOM。
-- **每次提交都在「小程序形状」的运行时里回归**：[`tests/mini-program/`](./tests/mini-program/) 摘掉 `document` / `window` / `Path2D` / `requestAnimationFrame` / `FontFace` / `OffscreenCanvas`，只留 `wx.*`，画布对象只有 `width` / `height` / `getContext` —— 覆盖启动、出帧、路径重放、离屏缓存降级、文本量测降级、触摸输入、序列化与 SVG 导出。
-- **接入示例与宿主契约**：[`examples/mini-program/`](./examples/mini-program/)，含可直接拷进小程序项目的页面与触摸坐标适配层。
+- 目标运行时只有两个：**现代浏览器**与 **Node / headless**（服务端出图、单测、React 服务端渲染）。
+  所有全局对象访问收敛到 `cross-platform/root` 适配层；没有小程序适配层。
+- **路径几何可导出**：路径对象一律走 `Path2DRecorder`（一边转发原生 `Path2D`、一边记录命令流），
+  于是同一份场景既能上屏，也能导出 SVG 与断言形状（见 `docs/architecture/08-compatibility.md`）。
+- `ICE.init(ctx)` 支持直接传入 Canvas 上下文，绕开 DOM —— 测试与 headless 场景用得上。
+- **无 rAF 时用定时器兜底**（Node / headless），引擎在这些环境里也能启动、出帧。
+
+> ⚠️ 2026-09-20 起**不再支持小程序**（此前是"一等公民"）：`wx.*` 适配、无 `Path2D` 时的命令重放、
+> 「小程序形状运行时」回归夹具与该示例都已移除。见 CHANGELOG 的破坏性小节。
 
 ## ✨ 核心特性
 

@@ -1,7 +1,7 @@
 /**
  * uuid 运行时兼容回归。
  *
- * 部分环境（Jest jsdom、小程序基础库、非安全上下文）没有 randomUUID；
+ * 部分环境（Jest jsdom、非安全上下文）没有 randomUUID；
  * 组件构造依赖 uuid，不能在缺能力时直接抛错，也不能退化成不合法格式。
  */
 import root from '../../src/cross-platform/root';
