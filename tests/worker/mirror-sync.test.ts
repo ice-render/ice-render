@@ -315,6 +315,49 @@ describe('MirrorBridge ↔ MirrorTarget 等价性', () => {
     expect(h.sent[0].ids).toEqual([group.props.id]);
   });
 
+  it('视口：setViewport 推给镜像，worker 侧用的是同一个视口', () => {
+    const h = makeHarness();
+    buildTree(h.main);
+    h.bridge.flush();
+    h.deliver();
+
+    h.main.setViewport(0.62, 40, 10);
+    h.bridge.flush();
+    expect(h.sent).toHaveLength(1);
+    expect(h.sent[0].t).toBe('viewport');
+    expect([h.sent[0].scale, h.sent[0].tx, h.sent[0].ty]).toEqual([0.62, 40, 10]);
+    h.deliver();
+
+    expect(h.mirror.viewport).toEqual({ scale: 0.62, tx: 40, ty: 10 });
+    // 同值重复设置不发消息（引擎自己也把"视口没变"当成无变化）
+    h.main.setViewport(0.62, 40, 10);
+    expect(h.bridge.flush()).toBe(0);
+  });
+
+  it('视口是"现状"：一帧里连缩多次只发最后一次，且全量重同步后要补发', () => {
+    const h = makeHarness();
+    const { group, rect } = buildTree(h.main);
+    h.bridge.flush();
+    h.deliver();
+
+    h.main.setViewport(0.8, 10, 5);
+    h.main.setViewport(0.6, 20, 8);
+    expect(h.bridge.pendingViewport).toEqual({ scale: 0.6, tx: 20, ty: 8 });
+    h.bridge.flush();
+    expect(h.sent).toHaveLength(1);
+    h.deliver();
+    expect(h.mirror.viewport.scale).toBeCloseTo(0.6, 6);
+
+    // 结构变更 → 全量场景（新树视口回到默认）→ 同一条 flush 里补发视口与选择
+    notifyToolTarget(h.main, rect);
+    group.addChild(new ICECircle({ left: 1, top: 1, radius: 5 }));
+    h.bridge.flush();
+    expect(h.sent.map((m) => m.t)).toEqual(['scene', 'selection', 'viewport']);
+    h.deliver();
+    expect(h.mirror.viewport.scale).toBeCloseTo(0.6, 6);
+    expect(h.mirror.selectionList.map((c: any) => c.props.id)).toEqual([rect.props.id]);
+  });
+
   it('全量场景重建了整棵树：选择在同一条 flush 里补发（否则"结构一变手柄就没了"）', () => {
     const h = makeHarness();
     const { group, rect } = buildTree(h.main);

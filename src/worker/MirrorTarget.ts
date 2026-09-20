@@ -48,6 +48,8 @@ export default class MirrorTarget {
   public appliedOps = 0;
   /** 累计应用的选择状态条数 */
   public appliedSelections = 0;
+  /** 累计应用的视口变更条数 */
+  public appliedViewports = 0;
   /** 累计收到的全量场景数 */
   public appliedScenes = 0;
 
@@ -161,7 +163,24 @@ export default class MirrorTarget {
     if (msg.t === 'selection') {
       return this.applySelection(msg.ids);
     }
+    if (msg.t === 'viewport') {
+      return this.applyViewport(msg);
+    }
     return null;
+  }
+
+  /**
+   * 应用渲染视口（缩放 / 平移）。
+   *
+   * 直接调引擎自己的 `setViewport`：缩放/平移的所有后续处理（缓存按新栅格重建、静态层失效、
+   * 跟随者同步）都由引擎负责 —— 镜像侧不另写一套。
+   */
+  public applyViewport(viewport: { scale: number; tx: number; ty: number }): { scale: number } {
+    if (typeof this.ice.setViewport === 'function') {
+      this.ice.setViewport(viewport.scale, viewport.tx, viewport.ty);
+      this.appliedViewports++;
+    }
+    return { scale: viewport.scale };
   }
 
   /**

@@ -45,6 +45,13 @@ export type MirrorCommand =
    * worker 侧用**自己的**控制面板画手柄（工具层不序列化）—— 这条消息就是"选中了谁"。
    */
   | { t: 'selection'; v: number; seq: number; ids: string[] }
+  /**
+   * 渲染视口（缩放 / 平移）。
+   *
+   * 编辑器里缩放/平移是最常见的重型负载（视口一变，缓存整批失效、所有图元都要按新栅格重画）——
+   * 镜像侧必须跟着走，否则"主线程看得见的画面"和"worker 画的"不是同一个视口。
+   */
+  | { t: 'viewport'; v: number; seq: number; scale: number; tx: number; ty: number }
   /** 渲染节拍：`time` 用主线程的 `DOMHighResTimeStamp`（双时钟会漂，见 §5） */
   | { t: 'frame'; v: number; time: number; full?: boolean }
   /** 画布尺寸变化（设备像素） */
@@ -62,6 +69,8 @@ export type MirrorStats = {
   appliedOps: number;
   /** 已应用的选择状态条数（累计） */
   appliedSelections?: number;
+  /** 已应用的视口变更条数（累计） */
+  appliedViewports?: number;
 };
 
 /** worker → 主线程。 */
@@ -168,6 +177,8 @@ export function isMirrorCommand(msg: any): boolean {
   if (msg.t === 'scene') return !!msg.doc && typeof msg.doc === 'object';
   if (msg.t === 'ops') return Array.isArray(msg.ops);
   if (msg.t === 'selection') return Array.isArray(msg.ids);
+  if (msg.t === 'viewport')
+    return typeof msg.scale === 'number' && typeof msg.tx === 'number' && typeof msg.ty === 'number';
   if (msg.t === 'frame') return typeof msg.time === 'number';
   if (msg.t === 'resize') return typeof msg.width === 'number' && typeof msg.height === 'number';
   return false;

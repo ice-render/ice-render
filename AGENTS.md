@@ -46,6 +46,20 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 `ICEControlPanelManager` 按目标自己造、两边 id 不同，主线程手柄的 `setState({display:false})`
 发过去就是一堆未知 id（`missing` 风暴）。统一走 `ICEControlPanelManager.applySelection()` ——
 顺带覆盖"点空白处只隐藏面板、不清空选中列表"这条语义（镜像选中列表会留下半个状态）。
+⑦ **"现状"要在 `prime()` 里对齐**：桥只采得到建立**之后**的变更，而宿主往往是应用跑了一阵才接上
+worker 的 —— 视口/选择要一起发过去，否则新镜像从默认视口出发（画面跳一下、之后一直错着）。
+⑧ **几何通道必须覆盖引擎用到的每个 ctx 成员**（含 `fillText`/`strokeText`）：漏一个，
+真实应用第一次画到那里就抛（2026-09-20 被 IED 流程图抓到）。守卫：`tests/worker/mirror-host.test.ts`
+扫源码把"新用了一个 ctx 成员却没登记"钉红。
+⑨ **`MirrorHost` 的 2d 合成前要复位画布状态**（`setTransform(单位)` + alpha/composite）：
+主画布上下文里留着上一个组件的 CTM，直接 `drawImage` 会把整张位图贴歪 —— 实测切回主线程后
+画面被缩放 1.6 倍；用隐藏画布取像素的比对**看不到**这个问题（那张画布上下文是干净的）。
+⑩ **任何 `setState` 覆盖要么调 `super.setState`、要么自己调 `notifyStateChange`**：
+`ICEGroup.setState` 是完全覆盖，漏了它所有容器型组件（流程图节点这类）的状态都进不了镜像
+（不报错、只是画面不动）。守卫：`tests/worker/mirror-hooks-guard.test.ts`。
+⑪ **保真边界 = 序列化格式的保真边界**：派生子件不进文档 → worker 重建后 id 不同 → 应用层对它们
+的更新镜像不过去（几何逐项一致，只有这些子件的视觉细节有差）。真实验证数据见
+`docs/architecture/10-worker-offscreen.md` §7.0。
 
 ## 引擎架构铁律（改动前必读）
 

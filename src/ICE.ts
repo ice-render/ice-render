@@ -88,7 +88,7 @@ function tagGradient(native: any, desc: any): any {
 import { flattenAllComponents, hitTestComponents } from './util/data-util';
 import { deepMerge } from './theme/ICETheme';
 import { HIT_BOX_TOLERANCE } from './renderer/dirty-rect-util';
-import { notifyChildAdded, notifyChildRemoved } from './worker/mirror-hooks';
+import { notifyChildAdded, notifyChildRemoved, notifyViewportChange } from './worker/mirror-hooks';
 
 /**
  * @class ICE
@@ -1223,6 +1223,10 @@ class ICE {
     // 每帧白打掉一次队列就等于每帧丢一次静态层（实测这类调用下静态层每帧重建，反而慢 35%）。
     if (this.renderer && !unchanged) {
       this.renderer.markQueueDirty();
+    }
+    // 镜像钩子：视口必须跟着走，否则两边"看的是不同区域"（见 mirror-hooks 的说明）
+    if (!unchanged) {
+      notifyViewportChange(this, next);
     }
     this.__notifyViewportFollowers();
     return this;

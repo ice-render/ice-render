@@ -129,7 +129,9 @@ export default class MirrorHost {
 
     // 4) 尺寸 + 首帧
     this.bridge.resize(this.canvas.width || this.ice.canvasWidth, this.canvas.height || this.ice.canvasHeight);
-    this.bridge.markSceneNeeded();
+    // `prime()` 而不是 `markSceneNeeded()`：宿主可能是应用跑了一阵之后才接上来的，
+    // 视口/选择要一起对齐（否则新镜像从默认视口出发，两边看的是不同区域）
+    this.bridge.prime();
     this.__paintPending = true;
     this.frame();
 
@@ -228,13 +230,28 @@ export default class MirrorHost {
   /** 把 worker 的位图贴到可见画布上（位图渲染上下文是零拷贝路径）。 */
   private __composite(bitmap: any): void {
     if (this.bitmapCtx && typeof this.bitmapCtx.transferFromImageBitmap === 'function') {
+      // 位图渲染上下文是"整块替换"语义：没有变换、没有形状状态，直接交出去最省
       this.bitmapCtx.transferFromImageBitmap(bitmap);
       return;
     }
     const ctx = this.canvas.getContext && this.canvas.getContext('2d');
     if (ctx && typeof ctx.drawImage === 'function') {
+      /**
+       * **必须先 `setTransform` 到单位矩阵**（2026-09-20 由 ice-entity-designer 的流程图抓出来）。
+       *
+       * 主画布的 2d 上下文里可能还留着**上一个组件的 CTM**（渲染器逐组件设完变换就继续，不负责复位）；
+       * 带着那个变换去 `drawImage`，整张位图会被平移/缩放地贴上去 —— 症状是"镜像画面整体错位"，
+       * 而用隐藏画布取像素的比对看不出来（那张画布的上下文是干净的）。
+       *
+       * 顺带复位可能残留的裁剪与透明度：合成是"整块替换"，任何残留状态都不该影响它。
+       */
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
       ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
       ctx.drawImage(bitmap, 0, 0);
+      ctx.restore();
     }
     if (bitmap && typeof bitmap.close === 'function') {
       bitmap.close();
@@ -299,6 +316,7 @@ export function createGeometryOnlyContext(realCtx: any): any {
     imageSmoothingEnabled: true,
     imageSmoothingQuality: 'low',
   };
+  /** 引擎实际用到的 canvas 方法（见下方守卫测试；`measureText` 在下面单独委派）。 */
   const methods = [
     'clearRect',
     'fillRect',
@@ -329,9 +347,12 @@ export function createGeometryOnlyContext(realCtx: any): any {
     'getLineDash',
     'putImageData',
     'createPattern',
+    'createImageData',
     'isPointInPath',
     'isPointInStroke',
-    'getImageData',
+    // 文本绘制必须吞掉（主线程不再产出像素），但 measureText 例外 —— 它在下面单独委派
+    'fillText',
+    'strokeText',
   ];
   for (let i = 0; i < methods.length; i++) {
     ctx[methods[i]] = noop;
@@ -355,6 +376,12 @@ export function createGeometryOnlyContext(realCtx: any): any {
     return realCtx && typeof realCtx.getTransform === 'function'
       ? realCtx.getTransform()
       : { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+  };
+  // 读像素在几何通道里没有意义，但不能让调用方拿到 undefined 再去取 .data（那是另一类崩溃）
+  ctx.getImageData = function (x: number, y: number, w: number, h: number) {
+    const width = Math.max(0, w | 0);
+    const height = Math.max(0, h | 0);
+    return { data: new Uint8ClampedArray(width * height * 4), width, height, colorSpace: 'srgb' };
   };
   const gradient = () => ({ addColorStop: noop });
   ctx.createLinearGradient = gradient;

@@ -59,6 +59,7 @@ function renderAndPost(seq) {
         frames,
         appliedOps: target.appliedOps,
         appliedSelections: target.appliedSelections,
+        appliedViewports: target.appliedViewports,
       },
     },
     [bitmap]

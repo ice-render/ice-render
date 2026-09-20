@@ -72,6 +72,10 @@ export default class MirrorBridge {
    * 选择是空的，"结构一变手柄就消失"。它与 `selectionIds` 的区别是前者"待发"，后者"现状"。
    */
   private lastSelectionIds: string[] | null = null;
+  /** 待发的视口（null = 无变化）；与选择一样，`scene` 重建之后要补发 */
+  private viewport: { scale: number; tx: number; ty: number } | null = null;
+  /** 最近一次已知视口（"现状"，scene 重建后补发用） */
+  private lastViewport: { scale: number; tx: number; ty: number } | null = null;
   /** 组件 id → 在 `ops` 里的下标（补丁合并用） */
   private opIndex = new Map<string, number>();
   private seq = 0;
@@ -115,6 +119,26 @@ export default class MirrorBridge {
     this.pendingScene = true;
   }
 
+  /**
+   * **对齐"当前状态"**：把此刻的视口 / 选择 / 全量场景一次排进待发队列。
+   *
+   * 为什么必须有这一步：桥只采得到"建立之后的变更"。而宿主（`MirrorHost`）通常是在应用已经跑了一阵
+   * 之后才接上 worker 的 —— 那一刻 ICE 的视口可能已经被用户缩放/平移过、也可能有选中项。
+   * 不补这一下，新起的镜像会从**默认视口**出发，主线程与 worker 看的是不同区域
+   * （症状：接上 worker 的瞬间画面"跳"一下；之后没人再动视口，它就永远错着）。
+   */
+  public prime(): this {
+    const ice: any = this.ice;
+    if (ice && ice.viewport) {
+      this.recordViewportChange(ice.viewport);
+    }
+    if (ice && Array.isArray(ice.selectionList) && ice.selectionList.length) {
+      this.recordSelectionChange(ice.selectionList);
+    }
+    this.markSceneNeeded();
+    return this;
+  }
+
   /** 上次 worker 回传的统计（宿主做 FPS/耗时面板用）。 */
   public get lastEvent(): MirrorEvent | null {
     return this.lastStats;
@@ -132,7 +156,7 @@ export default class MirrorBridge {
    * postMessage，也让 worker 白白渲染同一帧（真实场景里"用户没操作"占了绝大多数时间）。
    */
   public hasPending(): boolean {
-    return this.pendingScene || this.selectionIds !== null || this.ops.length > 0;
+    return this.pendingScene || this.selectionIds !== null || this.viewport !== null || this.ops.length > 0;
   }
 
   /**
@@ -206,6 +230,31 @@ export default class MirrorBridge {
     return this.selectionIds;
   }
 
+  /**
+   * 采集一次视口变更（`ICE.setViewport` 的钩子）。
+   *
+   * 只保留最后一次（缩放动画一帧里可能调多次），并像选择那样记进"现状" ——
+   * 全量场景重建后 worker 的视口会回到默认值，必须补发一次，否则整套画面错位。
+   */
+  public recordViewportChange(viewport: any): void {
+    if (!viewport) return;
+    this.lastViewport = {
+      scale: Number(viewport.scale) || 1,
+      tx: Number(viewport.tx) || 0,
+      ty: Number(viewport.ty) || 0,
+    };
+    this.viewport = {
+      scale: Number(viewport.scale) || 1,
+      tx: Number(viewport.tx) || 0,
+      ty: Number(viewport.ty) || 0,
+    };
+  }
+
+  /** 待发视口（null = 无变化）。 */
+  public get pendingViewport(): { scale: number; tx: number; ty: number } | null {
+    return this.viewport;
+  }
+
   /** 把排队的增量/全量发出去；返回实际发出的消息条数（0 = 没有变化）。 */
   public flush(): number {
     if (!this.send_) return 0;
@@ -224,9 +273,12 @@ export default class MirrorBridge {
       this.send_(this.buildSceneMessage());
       this.sent++;
       sent++;
-      // 新树没有选择 —— 把"现状"重新排进待发队列（同一条 flush 里跟在 scene 后面）
+      // 新树没有选择、视口回到默认 —— 把"现状"重新排进待发队列（同一条 flush 里跟在 scene 后面）
       if (this.lastSelectionIds) {
         this.selectionIds = this.lastSelectionIds.slice();
+      }
+      if (this.lastViewport) {
+        this.viewport = { ...this.lastViewport };
       }
     }
     if (this.selectionIds) {
@@ -237,6 +289,18 @@ export default class MirrorBridge {
         ids: this.selectionIds,
       };
       this.selectionIds = null;
+      this.send_(msg);
+      this.sent++;
+      sent++;
+    }
+    if (this.viewport) {
+      const msg: MirrorCommand = {
+        t: 'viewport',
+        v: MIRROR_PROTOCOL_VERSION,
+        seq: ++this.seq,
+        ...this.viewport,
+      };
+      this.viewport = null;
       this.send_(msg);
       this.sent++;
       sent++;

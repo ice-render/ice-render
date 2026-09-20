@@ -63,6 +63,19 @@ export function notifyToolTarget(ice: any, component: any): void {
 }
 
 /**
+ * 渲染视口变了（`ICE.setViewport` / `zoomAt`）。
+ *
+ * 为什么必须镜像：视口一变，主线程与 worker 的"可见区域 + 栅格"就分叉了 ——
+ * 编辑器里缩放/平移是最常见的重型操作，分叉的表现是"缩放了但镜像里还是老视口"。
+ */
+export function notifyViewportChange(ice: any, viewport: any): void {
+  const bridge = ice && ice.__mirrorBridge;
+  if (bridge) {
+    bridge.recordViewportChange(viewport);
+  }
+}
+
+/**
  * 找到这次结构变更归属的桥。
  *
  * 父组件可能是 `ICE` 本身（顶层增删，`ice.ice` 不存在），也可能是组件的 `ice`；

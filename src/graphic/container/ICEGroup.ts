@@ -11,7 +11,7 @@ import ICEComponent from '../ICEComponent';
 import { bumpVisibilityEpoch, rebindComponentTree } from '../../util/data-util';
 import ICERect from '../shape/ICERect';
 import type ICELayoutManager from '../../layout/ICELayoutManager';
-import { notifyChildAdded, notifyChildRemoved } from '../../worker/mirror-hooks';
+import { notifyChildAdded, notifyChildRemoved, notifyStateChange } from '../../worker/mirror-hooks';
 
 /**
  * @class ICEGroup 容器型组件
@@ -571,6 +571,17 @@ class ICEGroup extends ICERect {
     if (this.ice) {
       this.ice.dirty = true;
     }
+    /**
+     * 镜像钩子：**这里必须自己调一次**。
+     *
+     * `ICEGroup.setState` 是**完全覆盖**（语义不同：容器自身 state 一变，要把整棵子树的 `dirty`
+     * 都置上），因此不会经过 `ICEComponent.setState` 里那个钩子。漏了它的症状很隐蔽：
+     * **容器型组件的状态永远不同步到 worker**（2026-09-20 由 ice-entity-designer 的流程图抓出来 ——
+     * IED 的 `FlowNode extends ICEGroup`，拖节点、改标题全都不进镜像，而"没报错、画面没动"最难查）。
+     * 守卫：`tests/worker/mirror-hooks-guard.test.ts` 会扫源码，任何 `setState` 覆盖要么调 `super`、
+     * 要么自己调这个钩子。
+     */
+    notifyStateChange(this, newState);
     // 与 ICEComponent.setState 保持同一套后置处理（尺寸变化 → 请求父容器重排）
     this.__afterStateMerge(sizeChanged);
   }
