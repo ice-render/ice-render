@@ -507,7 +507,7 @@ class CanvasRenderer extends ICEEventTarget {
     for (let i = run.start; i < run.end; i++) {
       const c = queue[i];
       c.__paintWorldBox(tmp);
-      const pad = stylePaintPad(c.state);
+      const pad = stylePaintPad(c.state, rs);
       tmp[0] -= pad;
       tmp[1] -= pad;
       tmp[2] += pad;
@@ -949,7 +949,7 @@ class CanvasRenderer extends ICEEventTarget {
       }
       const box = c.getMaxBoundingBox(true);
       const mm = box.getMinAndMaxPoint();
-      const pad = stylePaintPad(c.state);
+      const pad = stylePaintPad(c.state, this.__renderViewport().scale);
       const out = [mm.minX - pad, mm.minY - pad, mm.maxX + pad, mm.maxY + pad];
       return isFiniteBox(out) ? out : null;
     } catch (err) {
@@ -967,7 +967,7 @@ class CanvasRenderer extends ICEEventTarget {
       this.__snap.set(c, out);
     }
     c.__paintWorldBox(out);
-    const pad = stylePaintPad(c.state);
+    const pad = stylePaintPad(c.state, this.__renderViewport().scale);
     out[0] -= pad;
     out[1] -= pad;
     out[2] += pad;

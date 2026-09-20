@@ -68,7 +68,7 @@ async function runSteps(page: any, url: string, strict: boolean) {
   await page.waitForTimeout(800);
 
   const stats: any = await page.evaluate(() => (window as any).__cacheStats());
-  const STEPS = 12;
+  const STEPS = 14;
   for (let i = 0; i < STEPS; i++) {
     const ok = await page.evaluate((s: number) => (window as any).__step(s), i);
     expect(ok, `step ${i} 应当存在`).toBe(true);

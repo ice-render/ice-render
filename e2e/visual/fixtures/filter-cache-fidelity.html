@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>ctx.filter 的缓存保真（缓存 vs 直接落墨）</title>
+  <body style="font: 13px/1.6 sans-serif; padding: 12px;">
+    <p>
+      <code>style.filter</code>（透传给 <code>ctx.filter</code>）在引擎里有两条落墨路径：
+      <code>canvas-a</code> 走**离屏缓存**（引擎默认），<code>canvas-b</code> 把
+      <code>cache.isCachable</code> 置假（**直接落墨**）。二者必须**逐像素一致**。
+    </p>
+    <p>
+      <b>这份夹具盯的是滤镜特有的两个坑</b>：
+      ① 模糊/投影会把墨迹画到几何盒之外，位图与脏矩形的扩边量算错就切掉尾巴；
+      ② 滤镜的长度参数是**设备像素、不随视图缩放** —— 而引擎的扩边量是世界坐标，
+      两者差一个渲染视口缩放（<code>?scale=0.62</code> 专门覆盖这一条：实测改造前
+      <code>drop-shadow</code> 差 118 像素、<code>blur(8px)</code> 差 76 像素）。
+      改动滤镜还必须让位图失效（内容指纹），否则 <code>canvas-a</code> 会继续贴旧滤镜的位图。
+    </p>
+    <canvas id="canvas-a" width="640" height="360" style="background:#fff; border:1px solid #ccc;"></canvas>
+    <canvas id="canvas-b" width="640" height="360" style="background:#fff; border:1px solid #ccc;"></canvas>
+  </body>
+  <script src="../../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+      const qs = new URLSearchParams(location.search);
+      const SCALE = Number(qs.get('scale') || 1);
+
+      function buildScene(canvasId, useCache) {
+        const ice = new ICE.ICE();
+        ice.init(canvasId, { renderMode: 'full' });
+        if (!useCache) {
+          ice.renderer.cache.isCachable = function () {
+            return false;
+          };
+        }
+
+        // 圆角矩形 + 模糊：模糊尾巴会溢出几何盒（每条边约 3σ = 24px）
+        const blurRect = new ICE.ICERect({
+          left: 80, top: 60, width: 120, height: 80, radius: 10,
+          style: { fillStyle: '#0EA5E9', strokeStyle: '#0F172A', lineWidth: 2, filter: 'blur(8px)' },
+        });
+        ice.addChild(blurRect);
+
+        // 文本 + 投影：投影的偏移与模糊同样是设备像素
+        const shadowText = new ICE.ICEText({
+          left: 320, top: 70,
+          text: 'drop-shadow 投影',
+          style: { fontSize: 20, fillStyle: '#9D174D', filter: 'drop-shadow(6px 6px 8px #000)' },
+        });
+        ice.addChild(shadowText);
+
+        // 旋转文本 + 模糊（旋转下位图落点最容易露馅），刻意不与上面两个重叠
+        const rotated = new ICE.ICEText({
+          left: 110, top: 210,
+          text: 'blur + rotate',
+          style: { fontSize: 22, fillStyle: '#1D4ED8', filter: 'blur(4px)' },
+          transform: { rotate: 18 },
+        });
+        ice.addChild(rotated);
+
+        if (SCALE !== 1) ice.setViewport(SCALE, 30, 20);
+
+        return { ice, blurRect, shadowText, rotated };
+      }
+
+      const A = buildScene('canvas-a', true);
+      const B = buildScene('canvas-b', false);
+      window.__A = A;
+      window.__B = B;
+
+      function pair(fn) {
+        fn(A);
+        fn(B);
+      }
+      const setFilter = (node, filter) => node.setState({ style: { ...node.state.style, filter } });
+
+      window.__cacheStats = function () {
+        const cache = A.ice.renderer.cache;
+        const queue = A.ice.renderer.componentQueue;
+        let cached = 0;
+        for (let i = 0; i < queue.length; i++) {
+          if (cache.has(queue[i])) cached++;
+        }
+        return { cached, total: queue.length };
+      };
+
+      window.__step = function (i) {
+        switch (i) {
+          case 0: // 初始帧
+            break;
+          case 1: // 改滤镜（blur 半径变小 → 位图扩边量也变小，必须重建）
+            pair((s) => setFilter(s.blurRect, 'blur(3px)'));
+            break;
+          case 2: // 换滤镜类型（blur → drop-shadow）
+            pair((s) => setFilter(s.blurRect, 'drop-shadow(-4px 10px 3px #000)'));
+            break;
+          case 3: // 去掉滤镜（回到不透明落墨，缓存资格也会变）
+            pair((s) => setFilter(s.blurRect, 'none'));
+            break;
+          case 4: // 只改颜色、不扩墨迹的滤镜
+            pair((s) => setFilter(s.blurRect, 'grayscale(1) saturate(1.4)'));
+            break;
+          case 5: // 文本投影参数变化
+            pair((s) => setFilter(s.shadowText, 'drop-shadow(0 12px 4px #000)'));
+            break;
+          case 6: // 亚像素位移（位图必须重建，不能靠整数设备像素位移复用）
+            pair((s) => s.rotated.moveGlobalPosition(0.35, 2.6));
+            break;
+          case 7: // 视口缩放变化（放最后：缩放改变后不再动内容）
+            pair((s) => s.ice.setViewport(0.62, 40, 10));
+            break;
+          default:
+            return false;
+        }
+        return true;
+      };
+
+      window.__compare = function () {
+        const read = (id) => {
+          const c = document.getElementById(id);
+          return { w: c.width, h: c.height, d: c.getContext('2d').getImageData(0, 0, c.width, c.height).data };
+        };
+        const a = read('canvas-a');
+        const b = read('canvas-b');
+        let diffCount = 0;
+        let alphaDiffCount = 0;
+        let maxChannelDelta = 0;
+        let maxPremultDelta = 0;
+        let firstIndex = -1;
+        const pm = (c, al) => Math.round((c * al) / 255);
+        for (let i = 0; i < a.d.length; i += 4) {
+          const aa = a.d[i + 3];
+          const ba = b.d[i + 3];
+          let delta = 0;
+          for (let k = 0; k < 4; k++) {
+            delta = Math.max(delta, Math.abs(a.d[i + k] - b.d[i + k]));
+          }
+          if (delta !== 0) {
+            diffCount++;
+            if (firstIndex < 0) firstIndex = i;
+          }
+          if (aa !== ba) alphaDiffCount++;
+          maxChannelDelta = Math.max(maxChannelDelta, Math.abs(a.d[i] - b.d[i]), Math.abs(a.d[i + 1] - b.d[i + 1]), Math.abs(a.d[i + 2] - b.d[i + 2]));
+          maxPremultDelta = Math.max(
+            maxPremultDelta,
+            Math.abs(pm(a.d[i], aa) - pm(b.d[i], ba)),
+            Math.abs(pm(a.d[i + 1], aa) - pm(b.d[i + 1], ba)),
+            Math.abs(pm(a.d[i + 2], aa) - pm(b.d[i + 2], ba)),
+            Math.abs(aa - ba)
+          );
+        }
+        const ink = (d) => {
+          let n = 0;
+          for (let i = 3; i < d.length; i += 4) {
+            if (d[i] > 8) n++;
+          }
+          return n;
+        };
+        return {
+          equal: diffCount === 0,
+          diffCount,
+          alphaDiffCount,
+          maxChannelDelta,
+          maxPremultDelta,
+          firstIndex,
+          inkA: ink(a.d),
+          inkB: ink(b.d),
+        };
+      };
+    })();
+  </script>
+</html>

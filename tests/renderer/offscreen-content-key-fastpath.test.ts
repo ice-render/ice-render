@@ -155,6 +155,9 @@ describe('内容指纹快速路径', () => {
       (t) => t.setState({ style: { ...t.state.style, fillStyle: '#00ff00' } }),
       (t) => t.setState({ style: { ...t.state.style, textDecoration: 'underline' } }),
       (t) => t.setState({ style: { ...t.state.style, letterSpacing: 3 } }),
+      // 滤镜是"透传到 ctx"的现代 Canvas 成员（ctx.filter）：它被烤进离屏位图，
+      // 漏出指纹就会表现为「改了滤镜画面不动，贴的还是旧位图」
+      (t) => t.setState({ style: { ...t.state.style, filter: 'blur(2px)' } }),
     ];
     for (const probe of probes) {
       const t = make();

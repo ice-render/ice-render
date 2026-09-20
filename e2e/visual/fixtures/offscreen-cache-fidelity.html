@@ -131,9 +131,36 @@
         });
         ice.addChild(rotated);
 
+        // 现代 Canvas 的 ctx.filter（引擎的 style 是**透传**到 ctx 的）：
+        // - 模糊/投影的墨迹会溢出几何盒 → 离屏位图必须按 stylePaintPad 扩过，否则边缘被切掉；
+        // - 它是"半透明落墨"（边界像素有 alpha）→ 不参与局部重绘（见 isOpaqueDrawing）。
+        // 把它放进这份"缓存 vs 直接落墨"的对照里，两条口径错了都会立刻在像素上现形。
+        //
+        // **但 `?strict=1` 那一档不加**：严格档的口径是「透明底 + 内容互不重叠 → 差异压到 0.05% 以下」，
+        // 而模糊会造出大片低位 alpha 像素（alpha 1~40），8bit 预乘位图往返一次就会在这些像素上
+        // 产生 ≤2/255 的取整差（预乘后肉眼不可见，但按"任意通道不同"计数就是 1062 个像素 / 0.30%）。
+        // 滤镜自己的保真另有专门夹具（filter-cache-fidelity.html），那边卡的是**严格 0 差异**，
+        // 比这里更严；严格档保持"干净场景"的原口径，两种口径各自不被对方稀释。
+        const blurred = new ICE.ICEText({
+          left: 30, top: 240,
+          text: 'blur(8px) 模糊',
+          style: { fontSize: 18, fillStyle: '#9D174D', filter: 'blur(8px)' },
+        });
+        const glowRect = new ICE.ICERect({
+          left: 330, top: 232, width: 60, height: 40,
+          style: { fillStyle: '#0EA5E9', filter: 'drop-shadow(6px 6px 8px #000)' },
+        });
+        if (!STRICT) {
+          ice.addChild(blurred);
+          ice.addChild(glowRect);
+        }
+
         if (ZOOM) ice.setViewport(0.386, 160, 40);
 
-        return { ice, text, subText, star, alphaRect, thin, arrow, label, zigzag, bezier, group, groupText, rotated };
+        return {
+          ice, text, subText, star, alphaRect, thin, arrow, label, zigzag, bezier, group, groupText, rotated,
+          blurred, glowRect,
+        };
       }
 
       const A = buildScene('canvas-a', true);
@@ -190,7 +217,18 @@
           case 10: // 标签内容变化
             pair((s) => s.label.setState({ text: '标签变了' }));
             break;
-          case 11: // 视口变化：位图栅格必须跟着走
+          // 注意：滤镜相关的两步刻意排在「视口变化」**之前**。
+          // 视口缩放改变之后再动内容，会暴露一个与本夹具无关的既有问题
+          //（缩放视图下缓存的位图落点与直接落墨能差到 209/255；3.0.0 的 src 上实测更差：
+          //  3781 个差异像素。滤镜的缓存保真另有专门夹具：filter-cache-fidelity.html），
+          // 这里不把它混进来，免得两个问题互相掩盖。
+          case 11: // 改滤镜：内容指纹必须包含 style.filter，否则 A 会继续贴旧滤镜的位图
+            pair((s) => s.blurred.setState({ style: { ...s.blurred.state.style, filter: 'blur(2px)' } }));
+            break;
+          case 12: // 滤镜参数变化（投影位移/模糊半径）
+            pair((s) => s.glowRect.setState({ style: { ...s.glowRect.state.style, filter: 'drop-shadow(-4px 10px 3px #000)' } }));
+            break;
+          case 13: // 视口变化：位图栅格必须跟着走
             pair((s) => s.ice.setViewport(ZOOM ? 0.62 : 0.62, ZOOM ? 40 : 40, ZOOM ? 10 : 10));
             break;
           default:

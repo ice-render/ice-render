@@ -24,12 +24,64 @@ export const HIT_BOX_TOLERANCE = 1;
 /** 阴影简写 → 阴影外扩量（shadowBlur + max(|offsetX|,|offsetY|)），与 ICEComponent.SHADOW_PRESETS 数值一致。 */
 const SHADOW_PAD = { sm: 4 + 1, md: 10 + 3, lg: 20 + 6 };
 
+/** `blur(Npx)` / `drop-shadow(dx dy N)` —— 取 `ctx.filter` 里会**把墨迹画到几何盒外**的两项。 */
+const FILTER_BLUR_RE = /blur\(\s*(-?[0-9]*\.?[0-9]+)(?:px)?\s*\)/g;
+const FILTER_DROP_SHADOW_RE =
+  /drop-shadow\(\s*(-?[0-9]*\.?[0-9]+)(?:px)?\s+(-?[0-9]*\.?[0-9]+)(?:px)?(?:\s+([0-9]*\.?[0-9]+)(?:px)?)?/g;
+
+/**
+ * `ctx.filter` 的落墨外扩量（**设备像素**）。
+ *
+ * 为什么必须算：滤镜是在**光栅化阶段**生效的，模糊/投影会把墨迹画到几何盒之外。
+ * 不扩盒的后果很具体 —— 离屏位图按几何盒切、脏矩形按几何盒裁，边缘会被切掉一条
+ * （和文档里已经记过的「下划线被切掉半截」是同一类事故）。
+ *
+ * 系数一，真机实测（Chromium，`blur(Npx)` 画一个 50×50 实心块，量 alpha>0 的最远像素）：
+ * `blur(4)` 溢出 10px、`blur(10)` 溢出 24px、`blur(20)` 溢出 49px —— 即 **≈2.5σ**；
+ * `drop-shadow(6 8 10)` 四向溢出 18/16/30/32（≈2.5σ ± 偏移）。
+ * 这里取 **3σ**（比实测再宽一点），与阴影沿用同一套「宁可多扩、不可切边」的口径。
+ *
+ * 系数二（**这一条是踩过的坑**）：滤镜的长度参数是**设备像素**，**不随视图缩放变化**。
+ * 实测把同一个 `blur(8px)` 画在 `setTransform(1 / 0.62 / 0.5)` 下，溢出恒为 18~19 设备像素
+ * —— 与 `stroke` / `shadowBlur`（这两个在用户坐标里、随变换缩放）**是反的**。
+ * 因此 `stylePaintPad()` 用它时必须除以渲染视口缩放，否则缩略视图下位图会切掉滤镜的尾巴
+ * （真机复现：scale=0.62 时 `drop-shadow` 差 118 像素、`blur(8px)` 差 76 像素）。
+ *
+ * 其它滤镜函数（`grayscale` / `saturate` / `sepia` / `contrast` …）只改颜色、不扩墨迹，返回 0。
+ */
+export function filterDevicePad(filter: any): number {
+  if (typeof filter !== 'string' || !filter) return 0;
+  // 绝大多数组件没有滤镜：先做一次廉价的子串判断，别为它们付正则的钱（本函数在每帧每组件上跑）
+  if (filter.indexOf('blur') < 0 && filter.indexOf('drop-shadow') < 0) return 0;
+
+  let pad = 0;
+  FILTER_BLUR_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = FILTER_BLUR_RE.exec(filter)) !== null) {
+    const blur = Number(m[1]) || 0;
+    if (blur > 0) pad = Math.max(pad, Math.ceil(blur * 3));
+  }
+  FILTER_DROP_SHADOW_RE.lastIndex = 0;
+  while ((m = FILTER_DROP_SHADOW_RE.exec(filter)) !== null) {
+    const dx = Math.abs(Number(m[1]) || 0);
+    const dy = Math.abs(Number(m[2]) || 0);
+    const blur = Number(m[3]) || 0;
+    pad = Math.max(pad, Math.ceil(blur * 3) + Math.ceil(Math.max(dx, dy)));
+  }
+  return pad;
+}
+
 /**
  * 计算组件「实际绘制会溢出几何边界多少像素」的保守 padding。
  * 依据 state（style.lineWidth / lineBorderWidth / shadow 等）实时估算，
  * 用于把几何包围盒扩成「真实落墨盒」。
+ *
+ * @param state 组件 state（只读）
+ * @param scale 渲染视口缩放（世界 → 设备），默认 1。
+ *   **只有 `ctx.filter` 用得上它** —— 滤镜的长度参数是设备像素、不随变换缩放，
+ *   而本函数返回的是**世界坐标**的 pad，两者相差一个 `scale`（见 `filterDevicePad`）。
  */
-export function stylePaintPad(state: any): number {
+export function stylePaintPad(state: any, scale: number = 1): number {
   const style = (state && state.style) || {};
   let pad = PAD_AA;
 
@@ -47,6 +99,10 @@ export function stylePaintPad(state: any): number {
   } else if (typeof style.shadow === 'string' && SHADOW_PAD[style.shadow]) {
     pad += SHADOW_PAD[style.shadow];
   }
+
+  // 滤镜（ctx.filter）：blur / drop-shadow 的墨迹会溢出几何盒，且它的长度是**设备像素** ——
+  // 除以 scale 才能与世界坐标的 pad 相加（scale ≤ 0 视作 1，避免除零）
+  pad += filterDevicePad(style.filter) / (scale > 0 ? scale : 1);
 
   // 文本装饰线：下划线画在**基线下方**（0.12em + 半个线宽），会溢出「贴合字形墨迹」的几何盒。
   // 不把这段算进落墨盒，脏矩形会把它裁掉半截、离屏位图也会切掉 —— 表现为「下划线时有时无」。
@@ -325,6 +381,8 @@ export function isOpaqueDrawing(state: any): boolean {
   if (style.globalAlpha !== undefined && style.globalAlpha !== 1) return false;
   if (style.globalCompositeOperation && style.globalCompositeOperation !== 'source-over') return false;
   if (style.shadow || (Number(style.shadowBlur) || 0) > 0) return false;
+  // 滤镜（ctx.filter）：模糊/投影会画出几何盒之外，且边界像素是半透明的 —— 与阴影同一档处理
+  if (style.filter && style.filter !== 'none') return false;
   for (const key of ['fillStyle', 'strokeStyle']) {
     const v = style[key];
     if (typeof v === 'string' && ALPHA_COLOR_PATTERN.test(v)) return false;

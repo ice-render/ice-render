@@ -44,6 +44,34 @@ describe('stylePaintPad', () => {
   test('shadow 简写 md 映射到 13', () => {
     expect(stylePaintPad({ style: { shadow: 'md' } })).toBe(PAD_AA + 13);
   });
+
+  test('ctx.filter 的 blur / drop-shadow 计入外扩（墨迹会溢出几何盒）', () => {
+    // blur(Npx)：真机实测溢出 ≈2.5N，这里取 3N（保守）
+    expect(stylePaintPad({ style: { filter: 'blur(10px)' } })).toBe(PAD_AA + 30);
+    expect(stylePaintPad({ style: { filter: 'blur(4px) grayscale(1)' } })).toBe(PAD_AA + 12);
+    // drop-shadow(dx dy blur)：模糊量 + 最大位移
+    expect(stylePaintPad({ style: { filter: 'drop-shadow(6px 8px 10px #000)' } })).toBe(PAD_AA + 30 + 8);
+    expect(stylePaintPad({ style: { filter: 'drop-shadow(0 4px)' } })).toBe(PAD_AA + 4);
+  });
+
+  test('filter 的长度是**设备像素**：pad 要按渲染视口缩放换算回世界坐标', () => {
+    // 真机实测：blur(8px) 在 setTransform(1 / 0.62 / 0.5) 下的溢出恒为 18~19 **设备**像素
+    // —— 与 stroke / shadowBlur（随变换缩放）相反。所以缩到 0.5 时世界坐标的 pad 要翻倍，
+    // 否则离屏位图与脏矩形会切掉滤镜的尾巴（缩略视图里最先暴露）。
+    expect(stylePaintPad({ style: { filter: 'blur(8px)' } }, 0.5)).toBe(PAD_AA + 48);
+    expect(stylePaintPad({ style: { filter: 'blur(8px)' } }, 2)).toBe(PAD_AA + 12);
+    expect(stylePaintPad({ style: { filter: 'blur(8px)' } }, 1)).toBe(PAD_AA + 24);
+    // 非法/缺省缩放视作 1（不为除零炸掉整帧）
+    expect(stylePaintPad({ style: { filter: 'blur(8px)' } }, 0)).toBe(PAD_AA + 24);
+    // 描边/阴影仍按用户坐标算，不受缩放影响
+    expect(stylePaintPad({ style: { lineWidth: 6, filter: 'blur(8px)' } }, 0.5)).toBe(PAD_AA + 6 + 48);
+  });
+
+  test('只改颜色、不扩墨迹的滤镜函数不参与外扩', () => {
+    expect(stylePaintPad({ style: { filter: 'grayscale(1)' } })).toBe(PAD_AA);
+    expect(stylePaintPad({ style: { filter: 'none' } })).toBe(PAD_AA);
+    expect(stylePaintPad({ style: { filter: 'saturate(1.5) contrast(1.2)' } })).toBe(PAD_AA);
+  });
 });
 
 describe('盒运算', () => {
@@ -88,6 +116,14 @@ describe('isOpaqueDrawing（局部重绘场景级门控判定）', () => {
     expect(isOpaqueDrawing({ style: { fillStyle: '#10B98180' } })).toBe(false);
     expect(isOpaqueDrawing({ style: { fillStyle: 'transparent' } })).toBe(false);
     expect(isOpaqueDrawing({ style: { fillStyle: 'red', strokeStyle: 'hsla(0,0%,0%,0.2)' } })).toBe(false);
+  });
+
+  test('带 ctx.filter 的组件按非不透明落墨处理（边界像素半透明、墨迹溢出几何盒）', () => {
+    expect(isOpaqueDrawing({ style: { fillStyle: '#10B981', filter: 'blur(6px)' } })).toBe(false);
+    expect(isOpaqueDrawing({ style: { fillStyle: '#10B981', filter: 'grayscale(1)' } })).toBe(false);
+    // 默认 / 显式 none 仍是不透明
+    expect(isOpaqueDrawing({ style: { fillStyle: '#10B981', filter: 'none' } })).toBe(true);
+    expect(isOpaqueDrawing({ style: { fillStyle: '#10B981' } })).toBe(true);
   });
 
   test('阴影 / globalAlpha / 合成模式视为非不透明', () => {
