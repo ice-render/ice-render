@@ -18,8 +18,9 @@
 >   工具层按**选择**镜像 —— worker 用**自己的**控制面板画手柄。参考宿主 `MirrorHost`，
 >   回归 `e2e/visual/worker-mirror.spec.ts` 的交互用例（点选 / 拖拽 / 空点隐藏手柄，逐像素 0 差异）。
 > - **仍未做**：输入转发（DOM 事件留主线程这条不变，这里指"把原生事件也透给 worker"）、
->   字体/图片下发（worker 内文本的 `lang`/字形口径与主线程可能分叉）、`transferControlToOffscreen`、
->   把补间搬进 worker。引擎的**默认**渲染仍是主线程；worker 渲染要宿主显式接线。
+>   **图片**下发（图片链路是 `ImageCache` 的 `Image` + `onload`，worker 里要用 `createImageBitmap`
+>   另开一条解码路径）、把补间搬进 worker、结构增量里的"换父级"（`adoptChild` 目前按"删 + 加"两条 op 走）。
+>   引擎的**默认**渲染仍是主线程；worker 渲染要宿主显式接线。
 > 小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
 
 ## 1. 目标与边界
