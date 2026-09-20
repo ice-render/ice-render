@@ -99,6 +99,28 @@ describe('SVG 导出', () => {
     });
   });
 
+  it('roundRect 命令：四角半径不同的圆角矩形也导出成四条小弧', () => {
+    // 自定义形状直接用规范里的 roundRect（数组半径 = 四角不同），导出器必须认这条命令 ——
+    // 认不出来会走 `commandsToPathData` 的兜底分支，静默画成直角矩形。
+    class CornerShape extends ICEPath {
+      protected createPathObject(): any {
+        this.path2D = (this.constructor as any).__recorder();
+        this.path2D.roundRect(0, 0, 100, 50, [4, 8, 12, 16]);
+        this.path2D.closePath();
+        return this.path2D;
+      }
+    }
+    (CornerShape as any).__recorder = () => root.createPath2D();
+
+    const svg = exportSvg(new CornerShape({ width: 100, height: 50, fill: true, stroke: true }));
+    const d = (svg.match(/<path d="([^"]+)"/) || [])[1] || '';
+
+    // 四角半径原样出现在各自的弧上（左上 4 / 右上 8 / 右下 12 / 左下 16）
+    expect(d).toBe(
+      'M4,0 L92,0 A8,8 0 0 1 100,8 L100,38 A12,12 0 0 1 88,50 L16,50 A16,16 0 0 1 0,34 L0,4 A4,4 0 0 1 4,0 Z'
+    );
+  });
+
   it('实心端点箭头导出为填充路径（回归：此前只有描边，箭头在 SVG 里变空心）', () => {
     // 画布的实心箭头是 drawArrowFills() 用 fill() 补的，不在路径描边里；
     // 导出器必须显式补一块填充路径，否则 BPMN 消息流 / UML 依赖 / 流程图箭头全部变空心。

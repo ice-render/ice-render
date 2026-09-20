@@ -34,6 +34,9 @@ class FakeNativePath2D {
   rect(...a: any[]) {
     this.calls.push(['rect', ...a]);
   }
+  roundRect(...a: any[]) {
+    this.calls.push(['roundRect', ...a]);
+  }
   arc(...a: any[]) {
     this.calls.push(['arc', ...a]);
   }
@@ -99,6 +102,62 @@ describe('Path2DRecorder', () => {
 
     expect(path._commands).toEqual([['arc', 10, 10, 5, 0, Math.PI * 2, false]]);
     expect(native.calls[0][0]).toBe('arc');
+  });
+
+  it('roundRect 有原生实现：命令流记一条、原生收到一次调用', () => {
+    const native = new FakeNativePath2D();
+    const path = new Path2DRecorder(native);
+
+    path.roundRect(1, 2, 100, 50, 8);
+
+    // 改造前 ICERect 是 4 次 arcTo（10 条命令）手撸，现在是规范成员 roundRect 一条
+    expect(path._commands).toEqual([['roundRect', 1, 2, 100, 50, 8]]);
+    expect(native.calls).toEqual([['roundRect', 1, 2, 100, 50, 8]]);
+    // 与 canvas 一致：roundRect 是闭合子路径，当前点停在左上角弧的起点
+    expect(path.currentPoint).toEqual([9, 2]);
+  });
+
+  it('roundRect 没有原生实现：命令流仍是一条，原生收到等价的 arcTo 序列（不少画一层圆角）', () => {
+    const native = new FakeNativePath2D();
+    // 模拟老运行时（Safari < 16.4 / 某些 headless 的 Path2D）
+    (native as any).roundRect = undefined;
+    const path = new Path2DRecorder(native);
+
+    path.roundRect(0, 0, 100, 50, 10);
+
+    expect(path._commands).toEqual([['roundRect', 0, 0, 100, 50, 10]]);
+    // 展开只转发给原生对象，**不进命令流**（否则同一次调用会既记 roundRect 又记展开）
+    expect(native.calls.map((c) => c[0])).toEqual([
+      'moveTo',
+      'lineTo',
+      'arcTo',
+      'lineTo',
+      'arcTo',
+      'lineTo',
+      'arcTo',
+      'lineTo',
+      'arcTo',
+      'closePath',
+    ]);
+    expect(native.calls[2]).toEqual(['arcTo', 100, 0, 100, 10, 10]);
+  });
+
+  it('roundRect 全 0 半径退化为 rect（规范口径）', () => {
+    const native = new FakeNativePath2D();
+    const path = new Path2DRecorder(native);
+
+    path.roundRect(0, 0, 10, 20, 0);
+
+    expect(path._commands).toEqual([['rect', 0, 0, 10, 20]]);
+    expect(native.calls).toEqual([['rect', 0, 0, 10, 20]]);
+  });
+
+  it('roundRect 非法半径抛 RangeError（与原生同口径，不静默降级）', () => {
+    const path = new Path2DRecorder(new FakeNativePath2D());
+    expect(() => path.roundRect(0, 0, 10, 10, -1)).toThrow(RangeError);
+    expect(() => path.roundRect(0, 0, 10, 10, [1, 2, 3, 4, 5])).toThrow(RangeError);
+    // 抛错时不留半条命令
+    expect(path._commands).toEqual([]);
   });
 
   it('命令流是自洽的、可被外部消费（服务端出图 / 形状断言）', () => {

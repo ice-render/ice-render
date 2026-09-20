@@ -398,6 +398,10 @@ class ObjectCache {
       st.shadowBlur,
       st.shadowOffsetX,
       st.shadowOffsetY,
+      // `filter`（ctx.filter，现代 Canvas 成员）：引擎把 style **透传**给 ctx，滤镜会被烤进
+      // 离屏位图。漏出指纹的表现是「改了滤镜画面不动 —— 贴回来的还是旧位图」，
+      // 与 shadow* 同一类问题，因此和它们放在一起。
+      st.filter,
     ].join('|');
   }
 
@@ -492,10 +496,15 @@ class ObjectCache {
     return opacity === undefined || opacity === 1;
   }
 
-  /** 组件的「真实落墨盒」（世界坐标）：几何盒 + paint pad。 */
-  private __paintBox(component: any): { minX: number; minY: number; maxX: number; maxY: number } {
+  /**
+   * 组件的「真实落墨盒」（世界坐标）：几何盒 + paint pad。
+   *
+   * `scale` 必须传：`ctx.filter` 的长度参数是设备像素，pad 要按它换算回世界坐标
+   *（见 dirty-rect-util 的 `filterDevicePad`）—— 否则缩略视图下位图会切掉滤镜的尾巴。
+   */
+  private __paintBox(component: any, scale: number): { minX: number; minY: number; maxX: number; maxY: number } {
     const mm = component.getMaxBoundingBox().getMinAndMaxPoint();
-    const pad = stylePaintPad(component.state);
+    const pad = stylePaintPad(component.state, scale);
     return { minX: mm.minX - pad, minY: mm.minY - pad, maxX: mm.maxX + pad, maxY: mm.maxY + pad };
   }
 
@@ -511,7 +520,7 @@ class ObjectCache {
     // 先量测尺寸 + 合成矩阵，得到含 pad 的世界盒，确定离屏画布大小与 base 矩阵。
     component.refreshParams();
     component.composeMatrix();
-    const box = this.__paintBox(component);
+    const box = this.__paintBox(component, rs);
 
     // 贴图落点取整到**设备像素栅格**，且四周各留 1px 透明余量：
     //   - 取整 → 贴回时是纯整数拷贝，零重采样；
@@ -554,8 +563,9 @@ class ObjectCache {
    * @returns false = 位图已罩不住新盒（或位移非设备像素对齐）→ 调用方必须重建。
    */
   private refreshPosition(component: any, cache: CachedSurface): boolean {
-    const box = this.__paintBox(component);
     const rs = cache.rs;
+    // 用建位图时的 rs：pad 里的滤镜项是设备像素，换算回世界坐标必须与建位图那一次同口径
+    const box = this.__paintBox(component, rs);
     const shiftX = rs * (box.minX - cache.buildMinX);
     const shiftY = rs * (box.minY - cache.buildMinY);
     // 位移必须恰好是**整数设备像素**：否则贴图只能做整数位移，会引入 ≤0.5px 的亚像素错位。

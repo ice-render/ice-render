@@ -37,6 +37,42 @@
   那条支路原本是给"没有 Path2D 的小程序低版本"用的，2026-09-20 随小程序支持一起删掉了。
   命令流本身照旧可用（导出、断言）。
 
+## 现代 Canvas 能力：用哪些、兜底是什么（2026-09-20 复核）
+
+目标运行时收敛到「现代浏览器 + Node/headless」之后，规范里那些"前几年才有"的成员可以从
+「不敢用」变成「优先用」—— 但**每一条都要带兜底**：Node/headless 侧的 canvas 实现
+（node-canvas 之类）与各浏览器跟进节奏并不一致，而 headless 出图（SVG / 服务端）是引擎的
+一等公民。当前账目：
+
+| 能力 | 状态 | 说明 / 兜底 |
+|---|---|---|
+| `Path2D.roundRect`（2021 进规范） | **已采用** | 圆角矩形从「4 次 `arcTo` 手撸」改为一次 `roundRect`：每个圆角矩形的命令流 **14 条 → 1 条**（1000 个图形 14000 → 1000 条），路径重建 **127.9µs → 88.0µs**（500 个形状，实测见下）。没有原生 `roundRect` 的运行时由 `Path2DRecorder` 展开成**等价**的 `moveTo / lineTo / arcTo` 序列。归一化规则（1~4 个半径的补齐、负宽高镜像、超限半径等比缩放）只写一份，放在 `src/util/round-rect.ts`，记录器与 SVG 导出器共用。真机逐像素对照：`e2e/visual/round-rect-parity.spec.ts`（12 组边角场景 **0 差异**）。 |
+| `ctx.filter`（写在 `style.filter`） | **画布可用；SVG 未支持** | `style` 一律透传给 ctx，所以 `style.filter = 'blur(8px)'` 本来就生效；配套的三条机制缺一不可：`LEAKY_CTX_PROPS` 的 `['filter','none']`（画完复位，不漏给同帧后面的组件）、`ObjectCache.__styleKey()` 带上 `st.filter`（改了滤镜必须重建位图）、`stylePaintPad()` 的 `filterDevicePad()`（模糊/投影的墨迹会溢出几何盒，位图与脏矩形都要扩边）。导出侧的留白见下。 |
+| `createConicGradient` | **已采用** | `ice.createConicGradient()`；运行时没有它则退回中间色纯色（`ICEComponent` 的渐变分支）。 |
+| `ctx.letterSpacing` / `wordSpacing` 等文本状态 | **已采用** | 进 `LEAKY_CTX_PROPS`；量测**之前**写进 ctx（`measureText` 会把字间距算进宽度）。 |
+| `OffscreenCanvas` + Worker | **未采用** | 独立工程，见 `10-worker-offscreen.md`（小程序解绑后路线已开放）。 |
+| `ImageBitmap` / `createImageBitmap` | **未采用** | 引擎的图片链路是 `ImageCache`（`Image` + `onload`）。换成 ImageBitmap 的收益是「预解码 + 可 transfer 进 worker」；在单线程渲染路径上它只是同一份位图换个壳，等 worker 路线落地时再一起评估。 |
+| `ctx.reset()`（2023） | **未采用** | 它会连带重置变换与裁剪，而引擎逐组件 `save/restore` 状态、每帧自持变换；现有 `__resetLeakyCtxState()` 按**位掩码只复位写过的那几项**，比整体 reset 更省。换过去等于重做状态模型，收益不明。 |
+
+两条**踩过的坑**（都写在代码注释里，改这块之前先看）：
+
+- **滤镜的长度参数是设备像素，不随视图缩放。** 真机实测：同一个 `blur(8px)` 在
+  `setTransform(1 / 0.62 / 0.5)` 下溢出恒为 18~19 **设备**像素 —— 与 `stroke` / `shadowBlur`
+  （随变换缩放）**方向相反**。所以 `stylePaintPad(state, scale)` 必须把滤镜那部分**除以渲染视口缩放**，
+  否则缩略视图下位图会切掉滤镜的尾巴（实测 scale=0.62 时 `drop-shadow` 差 118 像素、`blur(8px)` 差 76 像素）。
+  回归：`e2e/visual/filter-cache-fidelity.spec.ts`（`?scale=0.62` 那一档卡严格 0 差异）。
+- **命令流加了新命令，导出器就必须认识它。** `roundRect` 若在 `SvgExporter.commandsToPathData()` 里
+  没有分支，会静默走兜底逻辑画成直角 —— 表现为「画布上是圆角、导出成直角」。
+  消费者（读 `_commands` 自行重放的第三方）同理：命令词汇表是**约定**，新增命令属破坏性变更。
+
+### SVG 导出的留白：`ctx.filter`
+
+CSS 滤镜函数在 SVG 里没有一对一命令：`blur()` 要拼 `feGaussianBlur`、`grayscale()` 要拼
+`feColorMatrix`、`drop-shadow()` 对应 `feDropShadow`，且模糊半径的定义（标准差 vs 模糊量）两边
+并不统一。因此**导出器目前忽略 `style.filter`** —— 与虚线流动、雪碧图切图同属「有意留白」。
+需要矢量产物里也带效果时，请改用引擎显式支持的阴影 / 渐变（它们有对应映射），或走位图通道
+（`compose-layers` 的截图模式）。
+
 ## rAF 的封装：FrameManager
 
 `FrameManager` 是唯一的 rAF 入口，把 `root.requestFrame` 的回调统一转成 `ICE_FRAME_EVENT` 广播。因此：

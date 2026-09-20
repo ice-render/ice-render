@@ -5,6 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import { resolveRoundRect } from '../util/round-rect';
+import type { RoundRectRadii } from '../util/round-rect';
+
 /**
  * @class Path2DRecorder
  *
@@ -26,7 +29,7 @@
  *   记录带来的开销只发生在路径重建时，不在每帧热路径上。
  *
  * 命令格式（与外部消费者 / 导出器约定一致）：
- * `[['moveTo', x, y], ['rect', x, y, w, h], ...]`
+ * `[['moveTo', x, y], ['rect', x, y, w, h], ['roundRect', x, y, w, h, radii], ...]`
  */
 export default class Path2DRecorder {
   /** 记录的命令序列 */
@@ -35,6 +38,13 @@ export default class Path2DRecorder {
   public _closed = false;
   /** 原生 Path2D（有则上屏直接用它，命令流仍然记录）；无则为 null */
   public readonly native: any = null;
+  /**
+   * 原生对象是否支持 `roundRect`（构造时判定一次，路径重建是热路径）。
+   *
+   * `roundRect` 是 2021 年进入 Canvas 2D 规范的成员（Chrome 99 / Safari 16.4 / Firefox 112 起），
+   * 目标运行时（现代浏览器 + Node/headless）基本都有；**没有时不能少画一层圆角**，见 `roundRect()` 的兜底。
+   */
+  private readonly __nativeRoundRect: boolean;
   /** 当前点（画布 arcTo / 圆弧的语义依赖它），[x, y]；空表示没有当前子路径 */
   private __current: [number, number] | null = null;
   /** 当前子路径的起点（closePath 后当前点回到这里） */
@@ -42,6 +52,7 @@ export default class Path2DRecorder {
 
   constructor(native: any = null) {
     this.native = native || null;
+    this.__nativeRoundRect = !!(this.native && typeof this.native.roundRect === 'function');
   }
 
   public moveTo(x: number, y: number): void {
@@ -146,6 +157,71 @@ export default class Path2DRecorder {
     if (this.native) {
       this.native.rect(x, y, width, height);
     }
+  }
+
+  /**
+   * 圆角矩形（`roundRect`，2021 年进入 Canvas 2D 规范的成员）。
+   *
+   * 这是引擎里**最值得吃规范红利**的一个：圆角矩形是流程图 / 卡片 / 面板 / 图例的主力形状，
+   * 改造前由 `ICERect` 用 4 次 `arcTo` 手撸（每条 10 条命令，每个角一次
+   * `sqrt/acos/tan/atan2` 三角运算），而平台自己一次调用就能做完。
+   *
+   * 三件事分开记，各取所需：
+   * - **命令流**只记 1 条 `['roundRect', x, y, w, h, radii]` —— 导出器拿它生成等价的 SVG `d`；
+   * - **有原生 `roundRect`**：原样转发（渲染交给平台）；
+   * - **没有**（老 Safari / 某些 headless 的路径实现）：就地展开成
+   *   `moveTo / lineTo / arcTo` 序列转给原生对象 —— 与原生**逐像素一致**
+   *   （真机 12 组边角场景实测差异像素 0/120000，回归 `e2e/visual/round-rect-parity.spec.ts`）。
+   *
+   * 语义对齐原生：`radii` 支持数字或 1~4 个值的数组，负半径抛 `RangeError`，
+   * 全 0 退化为 `rect()`，负宽高按视觉方向镜像。规则集中在 `util/round-rect.ts`。
+   */
+  public roundRect(x: number, y: number, width: number, height: number, radii: RoundRectRadii): void {
+    // 先校验再入队/转发：非法半径（负数 / 数组长度不是 1~4）原生会抛，这里同样抛，
+    // 免得上屏用的是原生（抛）而导出走记录器（不抛），两边对同一份数据给出不同结论。
+    const geometry = resolveRoundRect(x, y, width, height, radii);
+    if (geometry.plain) {
+      // 规范：四角都为 0 时 roundRect 与 rect 等价
+      this.rect(x, y, width, height);
+      return;
+    }
+    this._commands.push(['roundRect', x, y, width, height, radii]);
+    if (this.native) {
+      if (this.__nativeRoundRect) {
+        this.native.roundRect(x, y, width, height, radii);
+      } else {
+        this.__forwardRoundRectAsArcTo(geometry);
+      }
+    }
+    // 与原生一致：roundRect 已是一条闭合子路径，当前点停在「左上角弧的起点」
+    const [tl] = geometry.radii;
+    this.__current = [geometry.x + tl, geometry.y];
+    this.__subpathStart = [geometry.x + tl, geometry.y];
+  }
+
+  /**
+   * 没有原生 `roundRect` 时的**转发**兜底：把归一化后的几何拆成 `moveTo / lineTo / arcTo`，
+   * 直接交给原生对象（**不进命令流** —— 命令流里那一条 `roundRect` 才是这次调用的记录）。
+   *
+   * 用 `arcTo` 而不是自己算 `arc`：canvas 的切线圆角语义由平台实现，少一层三角函数、也少一处可能算错的地方。
+   */
+  private __forwardRoundRectAsArcTo(g: { x: number; y: number; width: number; height: number; radii: number[] }): void {
+    const [tl, tr, br, bl] = g.radii;
+    const x = g.x;
+    const y = g.y;
+    const w = g.width;
+    const h = g.height;
+    const native = this.native;
+    native.moveTo(x + tl, y);
+    native.lineTo(x + w - tr, y);
+    native.arcTo(x + w, y, x + w, y + tr, tr);
+    native.lineTo(x + w, y + h - br);
+    native.arcTo(x + w, y + h, x + w - br, y + h, br);
+    native.lineTo(x + bl, y + h);
+    native.arcTo(x, y + h, x, y + h - bl, bl);
+    native.lineTo(x, y + tl);
+    native.arcTo(x, y, x + tl, y, tl);
+    native.closePath();
   }
 
   /**
