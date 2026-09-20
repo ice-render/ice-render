@@ -37,6 +37,15 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 ④ **v1 的边界写进协议头注释**：状态增量、结构全量。要加子树增量之前先想清楚"id 对不上时怎么办"
 （现在的答案是 `missing` → 主线程重发全量，限流 500ms）。回归：`tests/worker/`、
 `e2e/visual/worker-mirror.spec.ts`。
+⑤ **输入永远不跨线程**：DOM 事件、命中检测、拖拽、控制面板交互都在主线程。代价是主线程必须继续跑
+渲染管线 —— 命中检测读的是**渲染期的世界盒快照**（`CanvasRenderer.getWorldBox` → `__snap`），
+不跑管线就"从未渲染过的组件命中不到"。但主线程不必产出像素：`ICE.setPaintTarget(几何通道)`
+把落墨换成"吞掉绘制调用、只留 `measureText`/`create*Gradient`"的桩（参考 `MirrorHost` 的
+`createGeometryOnlyContext`），并关掉主线程的离屏位图缓存。
+⑥ **工具层不镜像状态、不镜像结构**，只镜像**「面板显示给谁」**：控制面板/手柄由
+`ICEControlPanelManager` 按目标自己造、两边 id 不同，主线程手柄的 `setState({display:false})`
+发过去就是一堆未知 id（`missing` 风暴）。统一走 `ICEControlPanelManager.applySelection()` ——
+顺带覆盖"点空白处只隐藏面板、不清空选中列表"这条语义（镜像选中列表会留下半个状态）。
 
 ## 引擎架构铁律（改动前必读）
 

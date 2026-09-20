@@ -2,27 +2,29 @@
 
 <html lang="zh-CN">
   <meta charset="utf-8" />
-  <title>Worker 镜像渲染（状态/命令跨线程协议）</title>
+  <title>Worker 镜像渲染 + 主线程交互（状态/命令协议）</title>
   <body style="font: 13px/1.6 sans-serif; padding: 12px">
-    <h2 style="margin: 0 0 6px">Worker 镜像渲染 · 阶段二第一块（状态/命令协议）</h2>
-    <p style="max-width: 920px; color: #444">
-      主线程持有组件树与状态（唯一真相，命中检测也在主线程），worker 只持有**镜像树**并负责画出来。
-      状态走增量补丁 <code>['state', id, patch]</code>，结构变更走全量重同步（v1 的明确边界）。
-      <code>#ref</code> 是主线程自己渲染的参考，<code>#view</code> 是 worker 传回的位图，
-      <code>#probe</code> 用同一张位图取像素供**逐像素验收**。三者应当一致。
+    <h2 style="margin: 0 0 6px">Worker 镜像渲染 · 输入留在主线程</h2>
+    <p style="max-width: 980px; color: #444">
+      主线程持有组件树与状态、处理 DOM 事件与命中检测，但**不产出像素** —— 渲染管线照跑（命中检测
+      读的是渲染期的世界盒快照），落墨走一个"几何通道"桩。真正的光栅化在 worker 里。
+      选择状态会推给 worker，让**worker 侧自己的控制面板**画出手柄（工具层不序列化）。
+      <br />
+      可见画布刻意**偏离页面左上角**（下面两个画布都有 margin）：输入矩形按可见画布算，
+      事件在页面上任何位置都不该错位。
     </p>
     <div style="display: flex; gap: 12px; align-items: flex-start">
-      <div>
-        <div style="font-weight: 700">主线程参考（同一棵树直绘）</div>
-        <canvas id="ref" width="640" height="400" style="background: #fff; border: 1px solid #ccc"></canvas>
-      </div>
-      <div>
-        <div style="font-weight: 700">worker 镜像（transferToImageBitmap）</div>
+      <div style="margin-left: 100px; margin-top: 40px">
+        <div style="font-weight: 700">可见画布（显示 worker 位图 · 输入来源）</div>
         <canvas id="view" width="640" height="400" style="background: #fff; border: 1px solid #ccc"></canvas>
         <canvas id="probe" width="640" height="400" style="display: none"></canvas>
       </div>
+      <div style="margin-top: 40px">
+        <div style="font-weight: 700">参考：同一份文档的主线程直绘（仅供比对）</div>
+        <canvas id="ref" width="640" height="400" style="background: #fff; border: 1px solid #ccc"></canvas>
+      </div>
     </div>
-    <pre id="out" style="margin-top: 10px; background: #f6f8fa; padding: 8px; min-height: 90px"></pre>
+    <pre id="out" style="margin-top: 10px; background: #f6f8fa; padding: 8px; min-height: 80px"></pre>
   </body>
   <script src="../../dist/index.umd.js"></script>
   <script type="text/javascript">
@@ -35,133 +37,146 @@
       const W = 640;
       const H = 400;
 
-      /**
-       * 主线程：**唯一真相**。它自己也渲染 —— 这份渲染就是"参考像素"（同一棵树、同一套引擎代码）。
-       * 正式宿主里这一份也可能是屏幕上的主画布；examples 里分开只为方便对照。
-       */
+      // ---- 主线程：唯一真相（组件树 + 状态 + 事件 + 命中）----
       const ice = new ICE.ICE();
-      ice.init('ref', { renderMode: 'full' });
+      ice.init('view', { renderMode: 'full' });
 
       function buildScene(target) {
         const bg = new ICE.ICERect({
-          left: 0, top: 0, width: W, height: H, fill: true, stroke: false,
+          left: 0, top: 0, width: W, height: H, fill: true, stroke: false, interactive: false,
           style: { fillStyle: '#ffffff' },
         });
         target.addChild(bg);
         const group = new ICE.ICEGroup({
-          left: 24, top: 24, width: 280, height: 160,
+          left: 40, top: 40, width: 260, height: 150, interactive: false,
           style: { fillStyle: '#EFF6FF', strokeStyle: '#3B82F6', lineWidth: 2 },
         });
         target.addChild(group);
         const rect = new ICE.ICERect({
-          left: 16, top: 16, width: 120, height: 60, radius: 10,
+          left: 20, top: 20, width: 120, height: 60, radius: 10,
+          interactive: true, draggable: true, transformable: true,
           style: { fillStyle: '#2563EB', strokeStyle: '#0F172A', lineWidth: 2 },
         });
         group.addChild(rect);
-        const circle = new ICE.ICECircle({ left: 190, top: 44, radius: 28, style: { fillStyle: '#16A34A' } });
-        group.addChild(circle);
-        const line = new ICE.ICEPolyLine({
-          points: [[24, 300], [220, 250], [420, 330], [600, 260]],
-          style: { strokeStyle: '#111827', lineWidth: 3 },
+        const circle = new ICE.ICECircle({
+          left: 190, top: 60, radius: 30,
+          interactive: true, draggable: true, transformable: true,
+          style: { fillStyle: '#16A34A' },
         });
-        target.addChild(line);
-        return { bg, group, rect, circle, line };
+        target.addChild(circle);
+        return { bg, group, rect, circle };
       }
 
       const nodes = buildScene(ice);
 
-      // ---- 镜像桥 + worker ----
-      const worker = new Worker('mirror-worker.js');
-      const frames = [];
-      const bridge = new ICE.MirrorBridge(ice, {
-        send: (msg) => worker.postMessage(msg),
-        onEvent: (evt) => {
-          if (evt.t === 'error') log.push(`[evt] error: ${evt.message}${evt.code ? ' (' + evt.code + ')' : ''}`);
-          if (evt.t === 'missing') log.push(`[evt] missing: ${evt.ids.join(',')}`);
-        },
-      });
+      // ---- 参考渲染：同一份文档 + 同一份选择，用主线程真实上下文画一遍（只为比对）----
+      const reference = new ICE.ICE();
+      reference.init('ref', { renderMode: 'full' });
+      reference.fromJSONObject(ice.toJSONObject());
+      /**
+       * 主线程现在把面板**显示**给了谁（= 镜像要复现的那份状态）。
+       *
+       * 判定必须看面板的 `display`，不能只看 `targetComponent`：点空白处时引擎只是
+       * `disable()`（display:false），targetComponent 还留着旧值。
+       */
+      const panelTargetOf = (target) => {
+        const m = target.controlPanelManager;
+        if (!m) return null;
+        const visible = (panel) => !!(panel && panel.state && panel.state.display && panel.targetComponent);
+        if (visible(m.transformControlPanel)) return m.transformControlPanel.targetComponent;
+        if (visible(m.lineControlPanel)) return m.lineControlPanel.targetComponent;
+        return null;
+      };
+      const syncReference = () => {
+        reference.fromJSONObject(ice.toJSONObject());
+        const shown = panelTargetOf(ice);
+        const node = shown ? findById(reference.childNodes, shown.props.id) : null;
+        if (node) reference.setSelection([node]);
+        // 控制面板要显式走这条公开入口（它不在 setSelection 里 —— 主线程是 mousedown 时挂的）
+        if (reference.controlPanelManager) {
+          reference.controlPanelManager.applySelection(node || null, false);
+        }
+      };
+      function findById(list, id) {
+        for (const node of list || []) {
+          if (node.props.id === id) return node;
+          const hit = findById(node.childNodes, id);
+          if (hit) return hit;
+        }
+        return null;
+      }
 
-      let latest = null;
-      worker.onmessage = (evt) => {
-        const msg = evt.data;
-        if (msg && msg.bitmap) {
-          // 先用 2d 画布拿像素（drawImage 不消耗位图），再交给 bitmaprenderer 展示
+      // ---- 宿主：几何通道 + 显示 worker 位图 + 节拍 ----
+      const host = new ICE.MirrorHost({
+        canvas: view,
+        ice,
+        workerUrl: 'mirror-worker.js',
+        onBitmap: (bitmap, stats) => {
+          // 取像素用的旁路：drawImage 不消耗位图，之后 MirrorHost 再把它交给 bitmaprenderer
           const pctx = probe.getContext('2d');
           pctx.clearRect(0, 0, W, H);
-          pctx.drawImage(msg.bitmap, 0, 0);
-          const bitmapCtx = view.getContext('bitmaprenderer');
-          if (bitmapCtx && bitmapCtx.transferFromImageBitmap) {
-            bitmapCtx.transferFromImageBitmap(msg.bitmap);
-          } else {
-            view.getContext('2d').drawImage(msg.bitmap, 0, 0);
-            msg.bitmap.close && msg.bitmap.close();
+          pctx.drawImage(bitmap, 0, 0);
+          log.push(
+            `[帧 ${stats.frames}] worker ${stats.renderMs.toFixed(2)}ms 组件=${stats.components} ops=${stats.appliedOps} 选择=${stats.appliedSelections || 0}`
+          );
+          out.textContent = log.slice(-8).join('\n');
+        },
+        onEvent: (evt) => {
+          if (evt.t === 'error' || evt.t === 'missing') {
+            log.push(`[evt] ${evt.t}${evt.ids ? ' ' + evt.ids.join(',') : ''}${evt.message ? ' ' + evt.message : ''}`);
+            out.textContent = log.slice(-8).join('\n');
           }
-          latest = { seq: msg.seq, stats: msg.stats };
-          frames.push(latest);
-          log.push(`[bitmap] seq=${msg.seq} renderMs=${msg.stats.renderMs.toFixed(2)} 组件=${msg.stats.components} ops=${msg.stats.appliedOps}`);
-          out.textContent = log.slice(-12).join('\n');
-          return;
-        }
-        bridge.handleEvent(msg);
-      };
-      worker.onerror = (e) => {
-        log.push('[worker error] ' + e.message);
-        out.textContent = log.join('\n');
-      };
+        },
+      });
+      host.start();
 
-      // ---- 驱动：主线程的 rAF 是唯一节拍（worker 收到 frame 才画） ----
-      function tick() {
-        bridge.frame(performance.now());
-        requestAnimationFrame(tick);
-      }
-      bridge.resize(W, H);
-      bridge.frame(performance.now());
-      requestAnimationFrame(tick);
-
-      // 调试/探针用的把手：e2e 只依赖 __ready / __stats / __step / __waitFrame / __compare
+      // ---- 探针把手（e2e 用）----
+      window.__ready = () => host.frames > 0;
+      window.__host = host;
       window.__nodes = nodes;
-      window.__bridge = bridge;
-      window.__ready = () => frames.length > 0;
+      window.__selection = () => (ice.selectionList || []).map((c) => c.props.id);
       window.__stats = () => ({
-        sent: bridge.sent,
-        frames: frames.length,
-        last: latest && latest.stats,
+        frames: host.frames,
+        sent: host.bridge.sent,
+        last: host.stats,
         log: log.slice(-6),
       });
-
       window.__step = function (i) {
         switch (i) {
           case 0:
             break;
-          case 1: // 状态增量：矩形位移 + 换色
+          case 1:
             nodes.rect.setState({ left: 60, top: 30, style: { fillStyle: '#DC2626' } });
             break;
-          case 2: // 状态增量：圆半径
-            nodes.circle.setState({ radius: 40 });
+          case 2:
+            nodes.circle.setState({ radius: 44 });
             break;
-          case 3: // 状态增量：折线换点（点集是派生参数）
-            nodes.line.setState({ points: [[24, 340], [200, 300], [430, 360], [610, 300]] });
-            break;
-          case 4: // 结构变更：加一个子节点（v1 走全量重同步）
+          case 3:
             nodes.group.addChild(
-              new ICE.ICERect({ left: 200, top: 110, width: 60, height: 30, radius: 6, style: { fillStyle: '#F59E0B' } })
+              new ICE.ICERect({
+                left: 150, top: 100, width: 70, height: 32, radius: 6, interactive: true, draggable: true,
+                style: { fillStyle: '#F59E0B' },
+              })
             );
             break;
-          case 5: // 结构变更：删掉它
+          case 4:
             nodes.group.removeChild(nodes.group.childNodes[nodes.group.childNodes.length - 1]);
             break;
           default:
             return false;
         }
+        // 宿主显式要一帧：空闲门控下"没有变化"不会自动发节拍，而夹具（与真实宿主一样）
+        // 需要"这一步之后的画面"是可等待的
+        host.paint();
         return true;
       };
 
-      /** 等 worker 再送来一帧（最多 3s）。 */
+      /** 等 worker 再送一帧（最多 3s）。 */
       window.__waitFrame = function (since) {
         return new Promise((resolve, reject) => {
           const t0 = Date.now();
           const poll = () => {
-            if (frames.length > since) return resolve(latest);
+            if (host.frames > since) return resolve(host.stats);
             if (Date.now() - t0 > 3000) return reject(new Error('等 worker 帧超时'));
             setTimeout(poll, 30);
           };
@@ -169,42 +184,68 @@
         });
       };
 
+      /** 组件在**页面**坐标里的中心点（用于真实鼠标事件；刻意不假设画布在左上角）。 */
+      window.__centerOf = function (key) {
+        const node = nodes[key];
+        const box = node.getMinBoundingBox(true).getMinAndMaxPoint();
+        const rect = view.getBoundingClientRect();
+        return { x: rect.left + (box.minX + box.maxX) / 2, y: rect.top + (box.minY + box.maxY) / 2 };
+      };
+
       /**
-       * 逐像素比对：worker 位图（经 2d probe）vs 主线程参考。
+       * 逐像素比对：worker 位图（经 2d probe）vs 参考渲染。
        *
-       * 口径与离屏缓存保真同源：**alpha 逐位相同**（覆盖率错位一票否决）、
-       * RGB 允许 ≤2/255 的取整差（8bit 预乘往返）。几何场景这里期望严格 0。
+       * 口径与离屏缓存保真同源：alpha 逐位相同；几何场景（无文本）钉严格 0 差异。
        */
       window.__compare = function () {
-        const read = (canvas) => canvas.getContext('2d').getImageData(0, 0, W, H).data;
-        const a = read(probe);
-        const b = read(document.getElementById('ref'));
-        let diff = 0;
-        let alphaDiff = 0;
-        let maxChannel = 0;
-        let maxPremult = 0;
-        let first = -1;
-        const pm = (c, al) => Math.round((c * al) / 255);
-        for (let i = 0; i < a.length; i += 4) {
-          const aa = a[i + 3];
-          const ba = b[i + 3];
-          let d = 0;
-          for (let k = 0; k < 4; k++) d = Math.max(d, Math.abs(a[i + k] - b[i + k]));
-          if (d) {
-            diff++;
-            if (first < 0) first = i / 4;
-          }
-          if (aa !== ba) alphaDiff++;
-          maxChannel = Math.max(maxChannel, Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]));
-          maxPremult = Math.max(
-            maxPremult,
-            Math.abs(pm(a[i], aa) - pm(b[i], ba)),
-            Math.abs(pm(a[i + 1], aa) - pm(b[i + 1], ba)),
-            Math.abs(pm(a[i + 2], aa) - pm(b[i + 2], ba)),
-            Math.abs(aa - ba)
-          );
+        syncReference();
+        // 参考渲染同步跑一帧再读像素：`applySelection` 只是标脏，等下一帧才落墨，
+        // 用 rAF 等一帧会跟 worker 的节拍赛跑（谁先谁后不确定）
+        reference.dirty = true;
+        reference.renderer.frameEvtHandler();
+        return new Promise((resolve) => {
+          requestAnimationFrame(() => {
+            const read = (canvas) => canvas.getContext('2d').getImageData(0, 0, W, H).data;
+            const a = read(probe);
+            const b = read(document.getElementById('ref'));
+            let diff = 0;
+            let alphaDiff = 0;
+            let maxChannel = 0;
+            let maxPremult = 0;
+            let first = -1;
+            const pm = (c, al) => Math.round((c * al) / 255);
+            for (let i = 0; i < a.length; i += 4) {
+              const aa = a[i + 3];
+              const ba = b[i + 3];
+              let d = 0;
+              for (let k = 0; k < 4; k++) d = Math.max(d, Math.abs(a[i + k] - b[i + k]));
+              if (d) {
+                diff++;
+                if (first < 0) first = i / 4;
+              }
+              if (aa !== ba) alphaDiff++;
+              maxChannel = Math.max(maxChannel, Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]));
+              maxPremult = Math.max(
+                maxPremult,
+                Math.abs(pm(a[i], aa) - pm(b[i], ba)),
+                Math.abs(pm(a[i + 1], aa) - pm(b[i + 1], ba)),
+                Math.abs(pm(a[i + 2], aa) - pm(b[i + 2], ba)),
+                Math.abs(aa - ba)
+              );
+            }
+            resolve({ diff, alphaDiff, maxChannel, maxPremult, firstPixel: first, total: W * H });
+          });
+        });
+      };
+
+      /** 控制面板手柄的颜色（主题 chrome.selection.stroke）：用来断言"选择反馈出现在 worker 画面里"。 */
+      window.__panelPixels = function () {
+        const d = probe.getContext('2d').getImageData(0, 0, W, H).data;
+        let n = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] > 200 && Math.abs(d[i] - 139) < 26 && d[i + 1] < 30 && d[i + 2] < 30) n++;
         }
-        return { diff, alphaDiff, maxChannel, maxPremult, firstPixel: first, total: (W * H) };
+        return n;
       };
     })();
   </script>

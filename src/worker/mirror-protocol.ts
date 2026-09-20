@@ -39,6 +39,12 @@ export type MirrorCommand =
   | { t: 'scene'; v: number; seq: number; doc: any; dropped?: string[] }
   /** 增量状态补丁：按序应用，`seq` 单调递增（用于对账/丢弃过期消息） */
   | { t: 'ops'; v: number; seq: number; ops: MirrorOp[]; dropped?: string[] }
+  /**
+   * 选择状态（`ids` 是选中组件的 id；空数组 = 取消选择）。
+   *
+   * worker 侧用**自己的**控制面板画手柄（工具层不序列化）—— 这条消息就是"选中了谁"。
+   */
+  | { t: 'selection'; v: number; seq: number; ids: string[] }
   /** 渲染节拍：`time` 用主线程的 `DOMHighResTimeStamp`（双时钟会漂，见 §5） */
   | { t: 'frame'; v: number; time: number; full?: boolean }
   /** 画布尺寸变化（设备像素） */
@@ -54,6 +60,8 @@ export type MirrorStats = {
   frames: number;
   /** 已应用的 op 条数（累计） */
   appliedOps: number;
+  /** 已应用的选择状态条数（累计） */
+  appliedSelections?: number;
 };
 
 /** worker → 主线程。 */
@@ -159,6 +167,7 @@ export function isMirrorCommand(msg: any): boolean {
   if (msg.v !== MIRROR_PROTOCOL_VERSION) return false;
   if (msg.t === 'scene') return !!msg.doc && typeof msg.doc === 'object';
   if (msg.t === 'ops') return Array.isArray(msg.ops);
+  if (msg.t === 'selection') return Array.isArray(msg.ids);
   if (msg.t === 'frame') return typeof msg.time === 'number';
   if (msg.t === 'resize') return typeof msg.width === 'number' && typeof msg.height === 'number';
   return false;

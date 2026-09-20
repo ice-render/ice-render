@@ -1,7 +1,7 @@
 # 10 · Worker / OffscreenCanvas 渲染（设计文档，Web-only）
 
-> 状态：**设计 + 最小可行性原型 + 阶段一（worker 一等宿主）+ 阶段二第一块（状态/命令协议）已落地**
-> （均 2026-09-20）。
+> 状态：**设计 + 最小可行性原型 + 阶段一（worker 一等宿主）+ 阶段二第一块（状态/命令协议）
+> + 第二块（输入留在主线程 + 工具层镜像）已落地**（均 2026-09-20）。
 >
 > - **阶段一** = 引擎作为库能在 worker 里**零注入**跑起来（取根 `globalThis` + `createOffscreenCanvas`
 >   的 `OffscreenCanvas` 分支）。回归 `e2e/visual/worker-perf.spec.ts`。
@@ -11,6 +11,10 @@
 >   `examples/worker/mirror-render.html` + `mirror-worker.js`，回归 `e2e/visual/worker-mirror.spec.ts`
 >   （状态增量 / 结构重同步之后，worker 画面与主线程参考**逐像素 0 差异**）。
 >   **v1 边界**：状态走增量补丁，**结构变更走全量重同步**。
+> - **阶段二第二块** = 让真实应用能接上：**输入永远在主线程**（DOM 事件、命中检测、拖拽都不跨线程），
+>   主线程改走"几何通道"（跑渲染管线但不产出像素）以维持命中检测依赖的世界盒；
+>   工具层按**选择**镜像 —— worker 用**自己的**控制面板画手柄。参考宿主 `MirrorHost`，
+>   回归 `e2e/visual/worker-mirror.spec.ts` 的交互用例（点选 / 拖拽 / 空点隐藏手柄，逐像素 0 差异）。
 > - **仍未做**：结构增量协议（增删子树的 op）、输入转发、字体/图片下发（worker 内文本的 `lang`/字形
 >   口径与主线程可能分叉）。引擎的**默认**渲染仍是主线程；worker 渲染要宿主显式接线。
 > 小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
@@ -48,6 +52,28 @@
        → transferToImageBitmap / (备选) transferControlToOffscreen
   主线程 ImageBitmapRenderingContext 展示
 ```
+
+### 3.1 输入留在主线程（阶段二第二块）
+
+**没有任何"输入消息"** —— 这是设计而不是省事：DOM 事件、命中检测、拖拽、控制面板的交互本来就
+只在主线程发生，跨线程转发一份坐标只会引入两套换算。真正的坑在别处：
+
+1. **命中检测读的是渲染期的世界盒快照**（`CanvasRenderer.getWorldBox()` → `__snap`，渲染时写入）。
+   所以主线程**必须继续跑渲染管线**，否则"从未渲染过的组件命中不到"。
+2. 但主线程**不该再产出像素**（那正是要交给 worker 的部分）。做法是把落墨换成一个"几何通道"
+   上下文：吞掉一切绘制调用，只把 `measureText` 与 `create*Gradient` 委派给真实上下文
+   （文本盒高与渐变对象都是引擎要读回来的东西）。引擎侧入口是 `ICE.setPaintTarget(ctx)`，
+   参考实现是 `MirrorHost` 里的 `createGeometryOnlyContext()`。
+3. 主线程同时**关掉离屏位图缓存**（`cache.isCachable = () => false`）：不产出像素时，位图缓存
+   只是白烧 CPU。
+4. **工具层不进序列化，也不作为 ops 镜像**。控制面板 / 手柄由 `ICEControlPanelManager` 按目标
+   自己造（`toolNodes` 明确不序列化），两边实例与 id 都不同 —— 把主线程手柄的
+   `setState({display:false})` 当 ops 发过去，worker 里没有这些 id，只会换来一串 `missing`
+   与重同步风暴。所以镜像的是**「面板显示给谁」**：`ICEControlPanelManager.applySelection()`
+   把目标推给 worker，worker 用它**自己的**面板画出同一套手柄（含 `transformable` / `linkEditable`
+   的门控，判定复用同一条路径，不另写一套）。
+   注意"点空白处"的语义：引擎只**隐藏面板**、不清空 `selectionList`，所以镜像的必须是面板状态，
+   而不是选中列表 —— 否则会出现"主线程手柄没了、worker 画面里还挂着"。
 
 ## 4. 双 buffer 方案对比
 
@@ -89,6 +115,11 @@ worker  → 主线程: { t:'ready',   v, caps }
 推给 worker，worker 不做补间 —— 因此"双时钟漂移"这一条在 v1 上**根本不成立**（没有插值就没有时钟）。
 六步（位移/换色、半径、点集、加子节点、删子节点）逐步比对，worker 画面与主线程参考
 **逐像素 0 差异**（alpha 与 RGB 都严格相等）。真正需要单一时钟的是**将来**把补间也搬进 worker 的那版。
+
+交互同样实测过（同文件第二个用例，参考宿主 `examples/worker/mirror-render.html`）：
+可见画布**刻意偏离页面左上角**（100px/40px）——点选、拖拽、空点隐藏手柄全部按可见画布的矩形换算，
+主线程选中与拖拽位移精确（+60/+40），worker 画面里的手柄随之出现/移动/消失，
+每一步与参考渲染**逐像素 0 差异**。
 
 ## 6. 开关策略（web-only）
 

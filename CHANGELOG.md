@@ -7,6 +7,28 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 新功能（Worker 镜像 · 阶段二第二块：输入留在主线程 + 工具层镜像）
+
+让真实应用能接上：主线程持有状态、处理输入；worker 渲染。**没有任何"输入消息"** ——
+DOM 事件、命中检测、拖拽、控制面板交互本来就只在主线程发生，跨线程转发只会引入两套坐标换算。
+
+- **`MirrorHost`（主线程宿主）**：把「可见画布（显示 + 输入矩形）/ 主线程几何通道 / worker 渲染」
+  接起来，含 rAF 节拍、`resize` 同步、`stop()` 还原、`onBitmap` / `onStats` 钩子。
+- **几何通道**：`ICE.setPaintTarget(ctx)` + `MirrorHost` 里的 `createGeometryOnlyContext()`。
+  命中检测读的是**渲染期的世界盒快照**（`CanvasRenderer.getWorldBox()`），所以主线程必须继续跑渲染
+  管线；但不必产出像素 —— 落墨换成一个吞掉绘制调用、只把 `measureText` / `create*Gradient`
+  委派给真实上下文的桩，主线程因此只剩几何与簿记（宿主同时关掉主线程的离屏位图缓存）。
+- **工具层按"选择"镜像**：控制面板/手柄由 `ICEControlPanelManager` 按目标自己造（`toolNodes` 不序列化），
+  两边实例与 id 都不同。所以镜像的是**「面板显示给谁」**：新增公开入口
+  `ICEControlPanelManager.applySelection(component | null)`（`mouseDownHandler` 与镜像同步共用），
+  经 `selection` 消息推给 worker，由 worker **自己的**面板画出手柄。
+  **工具层的状态与结构一律不镜像**（否则主线程手柄的 `setState` 会在 worker 里全是未知 id，
+  换来一串 `missing` 与重同步风暴）。
+- **节拍**：`frame` 消息仍然由主线程 rAF 驱动；worker 侧 `FrameManager.wake()` 只在有活时跑。
+- 参考宿主 `examples/worker/mirror-render.html`（可见画布刻意偏离页面左上角，专门压坐标换算）
+  + 回归 `e2e/visual/worker-mirror.spec.ts` 第二个用例：点选 / 拖拽（+60/+40）/ 空点隐藏手柄，
+  每一步与主线程参考渲染**逐像素 0 差异**，手柄确实出现在 worker 画面里。
+
 ### 新功能（Worker 镜像渲染 · 阶段二第一块：跨线程状态/命令协议）
 
 - **`MirrorBridge`（主线程）+ `MirrorTarget`（worker）+ 协议 v1**，公开导出。

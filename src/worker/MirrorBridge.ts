@@ -63,6 +63,15 @@ export default class MirrorBridge {
   private onEvent_: ((evt: MirrorEvent) => void) | null = null;
   private readonly resyncOnStructureChange: boolean;
   private ops: MirrorOp[] = [];
+  /** 待发的选择状态（undefined = 没有变化；空数组 = 明确"取消选择"） */
+  private selectionIds: string[] | null = null;
+  /**
+   * 最近一次已知的选择。
+   *
+   * 用途只有一个：**全量场景重建之后要把它补发一遍** —— 否则 worker 的镜像树是新的、
+   * 选择是空的，"结构一变手柄就消失"。它与 `selectionIds` 的区别是前者"待发"，后者"现状"。
+   */
+  private lastSelectionIds: string[] | null = null;
   /** 组件 id → 在 `ops` 里的下标（补丁合并用） */
   private opIndex = new Map<string, number>();
   private seq = 0;
@@ -117,12 +126,31 @@ export default class MirrorBridge {
   }
 
   /**
+   * 有没有"必须发出去"的东西（全量场景 / 选择 / 状态补丁）。
+   *
+   * 宿主用它做**空闲门控**：场景静止时不要以 60fps 空发 `frame` 消息 —— 那既费主线程的
+   * postMessage，也让 worker 白白渲染同一帧（真实场景里"用户没操作"占了绝大多数时间）。
+   */
+  public hasPending(): boolean {
+    return this.pendingScene || this.selectionIds !== null || this.ops.length > 0;
+  }
+
+  /**
    * 采集一次状态变更（由 `ICEComponent.setState` 的钩子调用）。
    *
    * `patch` 就是调用方交给 `setState` 的那个对象，语义完全一致（浅层 + 引擎的 `merge`）。
    */
   public recordStateChange(component: any, patch: any): void {
     if (!patch || typeof patch !== 'object') return;
+    /**
+     * **工具层的一切都不镜像**（状态与结构都不）。
+     *
+     * 工具组件（控制面板 / 缩放旋转手柄 / 端点手柄 / 对齐辅助线）在两边 **id 不同、实例不同**：
+     * 主线程的面板是它自己那套，worker 侧由 `ICEControlPanelManager` 造另一套，靠 `selection`
+     * 消息同步"显示给谁"。若把主线程手柄的 `setState({ display: false })` 也当 ops 发过去，
+     * worker 里根本没有这些 id → 每次都报 `missing` → 触发全量重同步风暴。
+     */
+    if (this.__isToolNode(component)) return;
     const id = componentIdOf(component);
     if (!id) {
       // 没有 id 的组件（应用自己造的宿主对象）无法寻址：整个镜像对不上，只能全量重同步
@@ -148,6 +176,8 @@ export default class MirrorBridge {
    * v1 不产生子树增量，直接标全量 —— 见类注释第 1 条。`kind` 目前只为可读性留着（日志/断言）。
    */
   public recordStructureChange(kind: 'add' | 'remove', _parent: any, _child: any): void {
+    // 工具层的结构变更（面板挂上/摘下、手柄按需创建）同样不镜像，理由见 recordStateChange
+    if (this.__isToolNode(_parent) || this.__isToolNode(_child)) return;
     if (this.resyncOnStructureChange) {
       this.markSceneNeeded();
     } else {
@@ -156,30 +186,75 @@ export default class MirrorBridge {
     }
   }
 
+  /**
+   * 采集一次选择变更（由 `ICE.setSelection` 的钩子调用）。
+   *
+   * 只保留**最后一次**：一帧里连点几次，worker 只需要知道最终选中了谁（选择是状态，不是事件流）。
+   */
+  public recordSelectionChange(components: any[]): void {
+    const ids: string[] = [];
+    for (let i = 0; i < components.length; i++) {
+      const id = componentIdOf(components[i]);
+      if (id) ids.push(id);
+    }
+    this.selectionIds = ids;
+    this.lastSelectionIds = ids.slice();
+  }
+
+  /** 还没发出去的选择状态（null = 无变化）。 */
+  public get pendingSelection(): string[] | null {
+    return this.selectionIds;
+  }
+
   /** 把排队的增量/全量发出去；返回实际发出的消息条数（0 = 没有变化）。 */
   public flush(): number {
     if (!this.send_) return 0;
+    let sent = 0;
+    /**
+     * 一条 flush 里可能发多条消息，顺序固定：**scene → selection → ops**。
+     *
+     * - scene 重建了 worker 的整棵树（选择也随之丢失）→ 后面必须补发一次选择，
+     *   否则"结构一变、手柄就消失"，而这正是最容易被忽略的那种半残状态；
+     * - ops 放在最后：它们描述的是"当前状态"，必须落在重建/选择之后的树上。
+     */
     if (this.pendingScene) {
-      const msg = this.buildSceneMessage();
       this.ops.length = 0;
       this.opIndex.clear();
       this.pendingScene = false;
+      this.send_(this.buildSceneMessage());
+      this.sent++;
+      sent++;
+      // 新树没有选择 —— 把"现状"重新排进待发队列（同一条 flush 里跟在 scene 后面）
+      if (this.lastSelectionIds) {
+        this.selectionIds = this.lastSelectionIds.slice();
+      }
+    }
+    if (this.selectionIds) {
+      const msg: MirrorCommand = {
+        t: 'selection',
+        v: MIRROR_PROTOCOL_VERSION,
+        seq: ++this.seq,
+        ids: this.selectionIds,
+      };
+      this.selectionIds = null;
       this.send_(msg);
       this.sent++;
-      return 1;
+      sent++;
     }
-    if (!this.ops.length) return 0;
-    const msg: MirrorCommand = {
-      t: 'ops',
-      v: MIRROR_PROTOCOL_VERSION,
-      seq: ++this.seq,
-      ops: this.ops,
-    };
-    this.ops = [];
-    this.opIndex.clear();
-    this.send_(msg);
-    this.sent++;
-    return 1;
+    if (this.ops.length) {
+      const msg: MirrorCommand = {
+        t: 'ops',
+        v: MIRROR_PROTOCOL_VERSION,
+        seq: ++this.seq,
+        ops: this.ops,
+      };
+      this.ops = [];
+      this.opIndex.clear();
+      this.send_(msg);
+      this.sent++;
+      sent++;
+    }
+    return sent;
   }
 
   /** 走一帧：先补发状态，再发节拍（顺序反了 worker 会拿旧状态画这一帧）。 */
@@ -209,6 +284,25 @@ export default class MirrorBridge {
     const cleanDoc = sanitizeTransferable(doc, this.dropped, 'scene');
     const dropped = this.dropped.length > droppedStart ? this.dropped.slice(droppedStart) : undefined;
     return { t: 'scene', v: MIRROR_PROTOCOL_VERSION, seq: ++this.seq, doc: cleanDoc, ...(dropped ? { dropped } : {}) };
+  }
+
+  /**
+   * 这个组件是不是工具层的（含其后代）？
+   *
+   * 判定方式：沿父链走到 ICE 为止，看有没有命中 `ice.toolNodes`。刻意**不用**打标/缓存集合：
+   * 手柄是 `enable()` 时**按需创建**的（`resizeControlInstanceCache`），打标会漏；而 `toolNodes`
+   * 通常只有个位数，`indexOf` 的代价可以忽略，换来的是"永远与当前工具树一致"。
+   */
+  private __isToolNode(component: any): boolean {
+    const ice = this.ice;
+    const tools: any[] = ice && ice.toolNodes;
+    if (!component || !tools || !tools.length) return false;
+    let node: any = component;
+    while (node && node !== ice) {
+      if (tools.indexOf(node) !== -1) return true;
+      node = node.parentNode;
+    }
+    return false;
   }
 
   /**

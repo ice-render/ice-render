@@ -44,6 +44,25 @@ export function notifyChildRemoved(parent: any, child: any): void {
 }
 
 /**
+ * 工具层"显示给谁"变了（`ICEControlPanelManager.applySelection`）。
+ *
+ * 镜像的为什么是它、而不是工具层本身：控制面板 / 手柄由 `ICEControlPanelManager` 按目标**自己造**
+ *（`toolNodes` 明确不序列化），worker 侧的引擎有同一套管理者 —— 把"给谁显示"推过去，
+ * 它就会用**自己的**面板画出同一套手柄，既不用序列化工具、也不会出现"两套面板"。
+ *
+ * 也正因为镜像的是这个（而不是 `selectionList`）：点空白处时引擎只**隐藏面板**、不清空选中列表，
+ * 只跟选中列表走就会留下"主线程手柄没了、worker 还挂着"的半个状态。
+ *
+ * @param component 面板的目标组件；null = 隐藏（worker 侧同样隐藏）
+ */
+export function notifyToolTarget(ice: any, component: any): void {
+  const bridge = ice && ice.__mirrorBridge;
+  if (bridge) {
+    bridge.recordSelectionChange(component ? [component] : []);
+  }
+}
+
+/**
  * 找到这次结构变更归属的桥。
  *
  * 父组件可能是 `ICE` 本身（顶层增删，`ice.ice` 不存在），也可能是组件的 `ice`；

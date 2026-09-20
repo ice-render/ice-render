@@ -46,6 +46,8 @@ export default class MirrorTarget {
   private index = new Map<string, any>();
   /** 累计应用成功的 op 条数（上报给主线程做对账） */
   public appliedOps = 0;
+  /** 累计应用的选择状态条数 */
+  public appliedSelections = 0;
   /** 累计收到的全量场景数 */
   public appliedScenes = 0;
 
@@ -97,6 +99,14 @@ export default class MirrorTarget {
     const missing: string[] = [];
     let applied = 0;
     let invalid = 0;
+    /** 本批里有没有动到"当前选中项" —— 动了就要让控制面板重新跟随（见下面的说明） */
+    let touchedSelection = false;
+    const selectedIds = new Set<string>();
+    const selection: any[] = (this.ice.selectionList as any[]) || [];
+    for (let i = 0; i < selection.length; i++) {
+      const id = idOf(selection[i]);
+      if (id) selectedIds.add(id);
+    }
     for (let i = 0; i < received; i++) {
       const op = ops[i];
       if (!isValidOp(op)) {
@@ -111,6 +121,23 @@ export default class MirrorTarget {
       target.setState(op[2]);
       applied++;
       this.appliedOps++;
+      if (selectedIds.has(op[1])) {
+        touchedSelection = true;
+      }
+    }
+    /**
+     * 被选中的组件动了 → 让控制面板重新跟随。
+     *
+     * 主线程上这件事是**事件驱动**的：拖动走 `moveGlobalPosition()`，它会触发 `AFTER_MOVE`，
+     * 面板监听到之后自己 `updatePanel()`。而镜像收到的只是 `setState` 补丁 —— 没有那个事件，
+     * 面板就会停在原地（症状：手柄画在旧位置、和组件脱开）。这里显式补一次跟随，
+     * 复用引擎自己那条公开入口，判定语义与主线程一致。
+     */
+    if (touchedSelection) {
+      const manager: any = this.ice.controlPanelManager;
+      if (manager && typeof manager.applySelection === 'function') {
+        manager.applySelection((this.ice.selectionList as any[])[0] || null, false);
+      }
     }
     return { received, applied, missing, invalid };
   }
@@ -131,7 +158,48 @@ export default class MirrorTarget {
     if (msg.t === 'ops') {
       return this.applyOps(msg.ops);
     }
+    if (msg.t === 'selection') {
+      return this.applySelection(msg.ids);
+    }
     return null;
+  }
+
+  /**
+   * 应用选择状态：把 id 解析成镜像里的组件，交给引擎自己的选择机制。
+   *
+   * 为什么这么做：控制面板 / 手柄由 `ICEControlPanelManager` 按选中项**自己造**，
+   * 工具层不进序列化。把选择推过去，worker 侧就会用同一套逻辑画出手柄 ——
+   * 既不用序列化工具对象，也不会出现"主线程与 worker 各画一套面板"。
+   *
+   * 找不到的 id 照旧进 `missing`（与状态补丁同一套自愈路径）。
+   */
+  public applySelection(ids: any[]): { selected: number; missing: string[] } {
+    const list: any[] = [];
+    const missing: string[] = [];
+    const source = Array.isArray(ids) ? ids : [];
+    for (let i = 0; i < source.length; i++) {
+      const id = String(source[i]);
+      const component = this.index.get(id);
+      if (component) {
+        list.push(component);
+      } else if (missing.indexOf(id) === -1) {
+        missing.push(id);
+      }
+    }
+    if (typeof this.ice.setSelection === 'function') {
+      this.ice.setSelection(list);
+      this.appliedSelections++;
+    }
+    /**
+     * 控制面板不是插件注册的，是 `ICEControlPanelManager` 在 mousedown 时**直接**挂的；
+     * worker 里没有 DOM 事件，所以这里显式调它那条公开入口 —— 语义与主线程点选完全一致
+     *（含 `transformable` / `linkEditable` 的门控），不另写一套判定。
+     */
+    const manager: any = this.ice.controlPanelManager;
+    if (manager && typeof manager.applySelection === 'function') {
+      manager.applySelection(list[0] || null, false);
+    }
+    return { selected: list.length, missing };
   }
 
   /** 重建 id 索引（全量）：沿 `ice.childNodes` 深度遍历，读 `props.id`（序列化文档里是 `state.id`）。 */

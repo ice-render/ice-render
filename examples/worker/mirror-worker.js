@@ -58,6 +58,7 @@ function renderAndPost(seq) {
         components: ice.renderer.componentQueue ? ice.renderer.componentQueue.length : 0,
         frames,
         appliedOps: target.appliedOps,
+        appliedSelections: target.appliedSelections,
       },
     },
     [bitmap]

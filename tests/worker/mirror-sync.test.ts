@@ -37,6 +37,7 @@ import Serializer from '../../src/persistence/Serializer';
 import Deserializer from '../../src/persistence/Deserializer';
 import MirrorBridge from '../../src/worker/MirrorBridge';
 import MirrorTarget from '../../src/worker/MirrorTarget';
+import { notifyToolTarget } from '../../src/worker/mirror-hooks';
 
 /** 最小可用的 ICE：与 `init()` 里那两行一致地装上序列化器（不启动任何 Manager）。 */
 function makeIce(): any {
@@ -83,7 +84,8 @@ function makeHarness(): Harness {
     for (const msg of sent.splice(0, sent.length)) {
       const result = target.applyCommand(msg);
       if (msg.t === 'scene' || msg.t === 'ops') applied++;
-      if (result && result.missing) {
+      // 注意 `[]` 是 truthy：必须判长度，否则空 missing 会被当成"缺组件"，触发一次白重发
+      if (result && result.missing && result.missing.length) {
         bridge.handleEvent({ t: 'missing', v: 1, seq: msg.seq, ids: result.missing });
       }
     }
@@ -261,5 +263,76 @@ describe('MirrorBridge ↔ MirrorTarget 等价性', () => {
     expect(h.bridge.pendingOps).toBe(0);
     h.bridge.flush();
     expect(h.sent).toHaveLength(0);
+  });
+
+  it('工具层"显示给谁"推给镜像，worker 侧用同一套机制选中同一个组件', () => {
+    const h = makeHarness();
+    const { rect } = buildTree(h.main);
+    h.bridge.flush();
+    h.deliver();
+
+    // 真实路径是 `ICEControlPanelManager.applySelection()` 里调这个钩子（管理器接线由
+    // tests/worker/mirror-tools.test.ts 与 e2e 覆盖；这里只钉桥的协议语义）
+    notifyToolTarget(h.main, rect);
+    h.bridge.flush();
+    expect(h.sent).toHaveLength(1);
+    expect(h.sent[0].t).toBe('selection');
+    expect(h.sent[0].ids).toEqual([rect.props.id]);
+    h.deliver();
+
+    expect(h.mirror.selectionList.map((c: any) => c.props.id)).toEqual([rect.props.id]);
+    // 镜像里选中项是**另一批对象**（同一棵树的两份）
+    expect(h.mirror.selectionList[0]).not.toBe(rect);
+  });
+
+  it('隐藏面板也会镜像（点空白处引擎只隐藏、不清空选中列表）', () => {
+    const h = makeHarness();
+    const { rect } = buildTree(h.main);
+    h.bridge.flush();
+    h.deliver();
+    notifyToolTarget(h.main, rect);
+    h.bridge.flush();
+    h.deliver();
+
+    notifyToolTarget(h.main, null);
+    h.bridge.flush();
+    expect(h.sent[0].t).toBe('selection');
+    expect(h.sent[0].ids).toEqual([]);
+  });
+
+  it('工具目标是状态不是事件流：一帧里连点多次只发最后一次', () => {
+    const h = makeHarness();
+    const { rect, circle, group } = buildTree(h.main);
+    h.bridge.flush();
+    h.deliver();
+
+    notifyToolTarget(h.main, rect);
+    notifyToolTarget(h.main, circle);
+    notifyToolTarget(h.main, group);
+    expect(h.bridge.pendingSelection).toEqual([group.props.id]);
+    h.bridge.flush();
+    expect(h.sent).toHaveLength(1);
+    expect(h.sent[0].ids).toEqual([group.props.id]);
+  });
+
+  it('全量场景重建了整棵树：选择在同一条 flush 里补发（否则"结构一变手柄就没了"）', () => {
+    const h = makeHarness();
+    const { group, rect } = buildTree(h.main);
+    h.bridge.flush();
+    h.deliver();
+    notifyToolTarget(h.main, rect);
+    h.bridge.flush();
+    h.deliver();
+    expect(h.mirror.selectionList.map((c: any) => c.props.id)).toEqual([rect.props.id]);
+
+    // 结构变更 → pendingScene；此时选择虽然"没变"，也必须跟着重建后的树补一次
+    group.addChild(new ICECircle({ left: 1, top: 1, radius: 5 }));
+    h.bridge.flush();
+    // 顺序固定：scene → selection
+    expect(h.sent.map((m) => m.t)).toEqual(['scene', 'selection']);
+    expect(h.sent[1].ids).toEqual([rect.props.id]);
+    h.deliver();
+    // 重建后的镜像树上，选择仍然在（手柄不会消失）
+    expect(h.mirror.selectionList.map((c: any) => c.props.id)).toEqual([rect.props.id]);
   });
 });
