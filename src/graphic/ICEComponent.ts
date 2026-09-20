@@ -25,6 +25,7 @@ import ICEEventTarget from '../event/ICEEventTarget';
 import GeoUtil from '../geometry/GeoUtil';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICE from '../ICE';
+import { notifyStateChange } from '../worker/mirror-hooks';
 import {
   STYLE_PRESETS,
   BOOTSTRAP_BASELINE,
@@ -1848,6 +1849,13 @@ abstract class ICEComponent extends ICEEventTarget {
     if (this.ice) {
       this.ice.dirty = true;
     }
+    /**
+     * 镜像钩子（worker 渲染用）：没装 `MirrorBridge` 时这里只有一次属性读 + 判空。
+     *
+     * 挂在 `setState` 上而不是包一层：动画写值通道走的也是 `setState`（`AnimationManager`），
+     * 包裹式采集会漏掉动画 —— 而那恰恰是"worker 镜像跟着动"的主路径。
+     */
+    notifyStateChange(this, newState);
     this.__afterStateMerge(sizeChanged);
   }
 

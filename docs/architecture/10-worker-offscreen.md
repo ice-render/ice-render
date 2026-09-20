@@ -1,11 +1,19 @@
 # 10 · Worker / OffscreenCanvas 渲染（设计文档，Web-only）
 
-> 状态：**设计 + 最小可行性原型 + 阶段一已落地（2026-09-20）**。
-> 阶段一 = 「引擎作为库能在 worker 里零注入跑起来」（取根 `globalThis` + `createOffscreenCanvas` 的
-> `OffscreenCanvas` 分支），原型里的 `self.window = self` 伪造已删除，e2e 会在真机 worker 里断言
-> 「没注入 / root 就是 self / 拿得到原生 Path2D / 能建离屏 canvas / 画布真有墨迹」。
-> **仍未做**：场景与状态的跨线程同步、输入转发、字体/图片下发 —— 即"把引擎正式移植到 worker"这件事本身；
-> 引擎核心渲染逻辑仍以主线程为目标。小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
+> 状态：**设计 + 最小可行性原型 + 阶段一（worker 一等宿主）+ 阶段二第一块（状态/命令协议）已落地**
+> （均 2026-09-20）。
+>
+> - **阶段一** = 引擎作为库能在 worker 里**零注入**跑起来（取根 `globalThis` + `createOffscreenCanvas`
+>   的 `OffscreenCanvas` 分支）。回归 `e2e/visual/worker-perf.spec.ts`。
+> - **阶段二第一块** = 跨线程**状态/命令协议**：主线程持有组件树与状态（唯一真相），worker 持有一棵
+>   **镜像树**并渲染，画面用 `transferToImageBitmap` 回传。协议与实现见
+>   `src/worker/mirror-protocol.ts` / `MirrorBridge` / `MirrorTarget`，参考宿主见
+>   `examples/worker/mirror-render.html` + `mirror-worker.js`，回归 `e2e/visual/worker-mirror.spec.ts`
+>   （状态增量 / 结构重同步之后，worker 画面与主线程参考**逐像素 0 差异**）。
+>   **v1 边界**：状态走增量补丁，**结构变更走全量重同步**。
+> - **仍未做**：结构增量协议（增删子树的 op）、输入转发、字体/图片下发（worker 内文本的 `lang`/字形
+>   口径与主线程可能分叉）。引擎的**默认**渲染仍是主线程；worker 渲染要宿主显式接线。
+> 小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
 
 ## 1. 目标与边界
 
@@ -50,10 +58,25 @@
 
 消息协议（draft）：
 ```
-主线程 → worker: { type:'scene', json } | { type:'delta', ids:[...], snapshotVersion }
-                | { type:'frame', t:DOMHighResTimeStamp }
-worker  → 主线程: { type:'bitmap', bitmap, stats:{renderMs} } | { type:'stats', ... }
+主线程 → worker: { t:'scene', v, seq, doc, dropped? }      // 全量（首次 / 结构变更后）
+                | { t:'ops',   v, seq, ops:[['state', id, patch]] }   // 状态增量
+                | { t:'frame', v, time }                    // 节拍（用主线程的时间戳）
+                | { t:'resize', v, width, height }
+worker  → 主线程: { t:'ready',   v, caps }
+                | { t:'rendered', v, seq, stats }           // 位图走 transfer（宿主自己收）
+                | { t:'missing', v, seq, ids }              // 镜像缺组件 → 主线程重发全量
+                | { t:'error',   v, message, code? }
 ```
+
+（上面是 v1 的**最终形态**，已实现；`v` 是协议版本，不匹配时接收方明确拒绝，不猜老格式。）
+
+**三条实现纪律**（改这块之前先读，`mirror-protocol.ts` 头注释里有完整理由）：
+1. 状态是**推**过去的，worker 从不回传组件状态 —— 没有双向冲突要解决；
+2. 消息发出前一律过 `sanitizeTransferable()`：结构化克隆带不走的值（函数 / DOM 节点 /
+   `CanvasGradient`）**就地丢弃并把路径记进 `dropped`**，否则 `postMessage` 抛 `DataCloneError`
+   会让整帧消息发不出去（症状是"画面卡住不动"）；
+3. 采集中在引擎内部四处（`setState` / `addChild` / `removeChild`，`ICE` 与 `ICEGroup` 各一份），
+   没装桥时只有一次属性读 —— 见 `src/worker/mirror-hooks.ts`。
 
 ## 5. 一致性要点
 
@@ -61,6 +84,11 @@ worker  → 主线程: { type:'bitmap', bitmap, stats:{renderMs} } | { type:'sta
 - 动画时钟单一化：worker 收到主线程 `frame` 命令的时间戳做补间，避免双时钟漂移。
 - 渲染路径直接复用 M1 的 `doRenderFull/doRenderDirtyRect` 分派（渲染器已可插拔），
   将来把 `dirtyIds/快照` 经消息通道传给 worker，worker 内同样受益于脏矩形局部重绘。
+
+**实测结论（2026-09-20，`e2e/visual/worker-mirror.spec.ts`）**：v1 把动画的**计算结果**（绝对状态值）
+推给 worker，worker 不做补间 —— 因此"双时钟漂移"这一条在 v1 上**根本不成立**（没有插值就没有时钟）。
+六步（位移/换色、半径、点集、加子节点、删子节点）逐步比对，worker 画面与主线程参考
+**逐像素 0 差异**（alpha 与 RGB 都严格相等）。真正需要单一时钟的是**将来**把补间也搬进 worker 的那版。
 
 ## 6. 开关策略（web-only）
 
@@ -71,6 +99,12 @@ worker  → 主线程: { type:'bitmap', bitmap, stats:{renderMs} } | { type:'sta
   排除理由随之消失（见 `08-compatibility.md` 的「已移除的能力」）。
 
 ## 7. 最小可行性原型（本轮交付）
+
+**阶段二第一块之后，参考宿主升级为"真协议"版**（`examples/worker/mirror-render.html` +
+`mirror-worker.js`）：主线程建树 → `MirrorBridge` 发 `scene`/`ops`/`frame` → worker 内
+`MirrorTarget` 落成镜像树 → `OffscreenCanvas` 渲染 → `transferToImageBitmap` 回传 →
+主线程用 `ImageBitmapRenderingContext` 展示（`#view`），同时把同一张位图画进 2d 画布（`#probe`）
+供逐像素验收；`#ref` 是主线程用同一棵树直绘的参考。下面这段是**更早的**单场景性能原型，保留备查。
 
 - `examples/performance/worker-main.html` + `worker-min.js`：
   - worker 内 `importScripts` UMD dist（**零注入**，阶段一之后不再需要伪造全局），在 `OffscreenCanvas`

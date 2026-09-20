@@ -193,3 +193,32 @@ export { default as Z_INDEX_AUTO } from './consts/Z_INDEX_AUTO';
 export { paintOrderChildrenOf, sortSiblingsByZIndex, zIndexOf, zIndexForPaintRank } from './util/data-util';
 export { buildAccessibilityTree } from './a11y/accessibility';
 export type { ICEAccessibleNode, ICEAccessibleRole, ICEAccessibilityOptions } from './a11y/accessibility';
+
+/**
+ * 帧控制器（全局单例）：`rAF` → `ICE_FRAME_EVENT` 的唯一入口。
+ *
+ * 导出它是为了 **worker 宿主**：worker 里没有 rAF，引擎走定时器兜底；宿主想按主线程的节拍驱动
+ * （收到 `frame` 消息再渲染一帧）时，用 `FrameManager.wake()` 把空闲停掉循环叫醒即可 ——
+ * 引擎默认「没有脏组件/活动动画就停帧」，所以不做任何事也不会空转。
+ */
+export { default as FrameManager } from './FrameManager';
+
+/**
+ * Worker 镜像渲染（阶段二 · 第一块：跨线程状态/命令协议）。
+ *
+ * 分工：**主线程持有组件树与状态**（唯一真相，命中检测也留在主线程），worker 持有一棵**镜像树** +
+ * `CanvasRenderer` + `OffscreenCanvas`，只负责把当前状态画出来、把位图传回去。
+ * v1 边界：**状态走增量补丁，结构变更走全量重同步**（见 `src/worker/mirror-protocol.ts` 的头注释）。
+ */
+export { default as MirrorBridge } from './worker/MirrorBridge';
+export type { MirrorBridgeOptions, MirrorSend } from './worker/MirrorBridge';
+export { default as MirrorTarget } from './worker/MirrorTarget';
+export type { ApplyOpsResult, ApplySceneResult } from './worker/MirrorTarget';
+export {
+  MIRROR_PROTOCOL_VERSION,
+  isMirrorCommand,
+  isMirrorEvent,
+  isValidOp,
+  sanitizeTransferable,
+} from './worker/mirror-protocol';
+export type { MirrorCommand, MirrorEvent, MirrorOp, MirrorStats } from './worker/mirror-protocol';

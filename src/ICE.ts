@@ -88,6 +88,7 @@ function tagGradient(native: any, desc: any): any {
 import { flattenAllComponents, hitTestComponents } from './util/data-util';
 import { deepMerge } from './theme/ICETheme';
 import { HIT_BOX_TOLERANCE } from './renderer/dirty-rect-util';
+import { notifyChildAdded, notifyChildRemoved } from './worker/mirror-hooks';
 
 /**
  * @class ICE
@@ -531,6 +532,9 @@ class ICE {
 
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
+
+    // 镜像钩子：结构变更（v1 只标记"需要全量重同步"，见 src/worker/MirrorBridge.ts）
+    notifyChildAdded(this, component);
   }
 
   public addChildren(arr: Array<ICEComponent>): void {
@@ -553,6 +557,8 @@ class ICE {
     // 同上：`markDirty=false` 只是"别主动置脏"，不能把已有的待重绘清掉
     if (markDirty) this.dirty = true;
     if (this.renderer) this.renderer.markQueueDirty();
+    // 镜像钩子：必须在 destory() 之前（destory 会把 child.ice 摘掉）
+    notifyChildRemoved(this, component);
     component.destory();
   }
 

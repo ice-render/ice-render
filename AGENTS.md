@@ -24,6 +24,20 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 **滤镜的长度参数是设备像素、不随视图缩放**（`stroke`/`shadowBlur` 相反），凡按它扩边
 （位图 / 脏矩形）都要除以渲染视口缩放，否则缩略视图下切掉滤镜尾巴。
 
+**Worker 镜像协议铁律（2026-09-20 确立，阶段二第一块）**：主线程持有组件树与状态（唯一真相，
+命中检测也在主线程），worker 只有一棵**镜像树**且只负责渲染。改这块时守四条：
+① **状态推过去、不回传** —— worker 回给主线程的只有像素与统计，永远不要让它回传组件状态
+（一旦双向就有冲突解决，v1 的简单性立刻没了）；
+② **消息发出前必须过 `sanitizeTransferable()`** —— 函数 / DOM 节点 / `CanvasGradient` 这类值
+结构化克隆带不走，`postMessage` 会抛 `DataCloneError` 让**整帧消息发不出去**（症状是"画面卡住不动"，
+不是报错闪退）。过不去的值就地丢弃 + 记路径（`bridge.dropped`），别静默也别炸；
+③ **采集点只有四处**（`ICEComponent.setState`、`ICE.addChild/removeChild`、`ICEGroup.addChild/removeChild`），
+统一走 `src/worker/mirror-hooks.ts`；**别用包裹 `setState` 的方式采集** —— 动画写值通道走的也是
+`setState`，包裹会漏掉动画，而那正是"镜像跟着动"的主路径；
+④ **v1 的边界写进协议头注释**：状态增量、结构全量。要加子树增量之前先想清楚"id 对不上时怎么办"
+（现在的答案是 `missing` → 主线程重发全量，限流 500ms）。回归：`tests/worker/`、
+`e2e/visual/worker-mirror.spec.ts`。
+
 ## 引擎架构铁律（改动前必读）
 
 - 运行时链路：`FrameManager`（全局单例，包装 rAF）→ `EventBus`（每 ICE 实例一条）→ 各 Manager 订阅 → `CanvasRenderer`。

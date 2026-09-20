@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>Worker 镜像渲染（状态/命令跨线程协议）</title>
+  <body style="font: 13px/1.6 sans-serif; padding: 12px">
+    <h2 style="margin: 0 0 6px">Worker 镜像渲染 · 阶段二第一块（状态/命令协议）</h2>
+    <p style="max-width: 920px; color: #444">
+      主线程持有组件树与状态（唯一真相，命中检测也在主线程），worker 只持有**镜像树**并负责画出来。
+      状态走增量补丁 <code>['state', id, patch]</code>，结构变更走全量重同步（v1 的明确边界）。
+      <code>#ref</code> 是主线程自己渲染的参考，<code>#view</code> 是 worker 传回的位图，
+      <code>#probe</code> 用同一张位图取像素供**逐像素验收**。三者应当一致。
+    </p>
+    <div style="display: flex; gap: 12px; align-items: flex-start">
+      <div>
+        <div style="font-weight: 700">主线程参考（同一棵树直绘）</div>
+        <canvas id="ref" width="640" height="400" style="background: #fff; border: 1px solid #ccc"></canvas>
+      </div>
+      <div>
+        <div style="font-weight: 700">worker 镜像（transferToImageBitmap）</div>
+        <canvas id="view" width="640" height="400" style="background: #fff; border: 1px solid #ccc"></canvas>
+        <canvas id="probe" width="640" height="400" style="display: none"></canvas>
+      </div>
+    </div>
+    <pre id="out" style="margin-top: 10px; background: #f6f8fa; padding: 8px; min-height: 90px"></pre>
+  </body>
+  <script src="../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      const ICE = window.ICE;
+      const log = [];
+      const out = document.getElementById('out');
+      const view = document.getElementById('view');
+      const probe = document.getElementById('probe');
+      const W = 640;
+      const H = 400;
+
+      /**
+       * 主线程：**唯一真相**。它自己也渲染 —— 这份渲染就是"参考像素"（同一棵树、同一套引擎代码）。
+       * 正式宿主里这一份也可能是屏幕上的主画布；examples 里分开只为方便对照。
+       */
+      const ice = new ICE.ICE();
+      ice.init('ref', { renderMode: 'full' });
+
+      function buildScene(target) {
+        const bg = new ICE.ICERect({
+          left: 0, top: 0, width: W, height: H, fill: true, stroke: false,
+          style: { fillStyle: '#ffffff' },
+        });
+        target.addChild(bg);
+        const group = new ICE.ICEGroup({
+          left: 24, top: 24, width: 280, height: 160,
+          style: { fillStyle: '#EFF6FF', strokeStyle: '#3B82F6', lineWidth: 2 },
+        });
+        target.addChild(group);
+        const rect = new ICE.ICERect({
+          left: 16, top: 16, width: 120, height: 60, radius: 10,
+          style: { fillStyle: '#2563EB', strokeStyle: '#0F172A', lineWidth: 2 },
+        });
+        group.addChild(rect);
+        const circle = new ICE.ICECircle({ left: 190, top: 44, radius: 28, style: { fillStyle: '#16A34A' } });
+        group.addChild(circle);
+        const line = new ICE.ICEPolyLine({
+          points: [[24, 300], [220, 250], [420, 330], [600, 260]],
+          style: { strokeStyle: '#111827', lineWidth: 3 },
+        });
+        target.addChild(line);
+        return { bg, group, rect, circle, line };
+      }
+
+      const nodes = buildScene(ice);
+
+      // ---- 镜像桥 + worker ----
+      const worker = new Worker('mirror-worker.js');
+      const frames = [];
+      const bridge = new ICE.MirrorBridge(ice, {
+        send: (msg) => worker.postMessage(msg),
+        onEvent: (evt) => {
+          if (evt.t === 'error') log.push(`[evt] error: ${evt.message}${evt.code ? ' (' + evt.code + ')' : ''}`);
+          if (evt.t === 'missing') log.push(`[evt] missing: ${evt.ids.join(',')}`);
+        },
+      });
+
+      let latest = null;
+      worker.onmessage = (evt) => {
+        const msg = evt.data;
+        if (msg && msg.bitmap) {
+          // 先用 2d 画布拿像素（drawImage 不消耗位图），再交给 bitmaprenderer 展示
+          const pctx = probe.getContext('2d');
+          pctx.clearRect(0, 0, W, H);
+          pctx.drawImage(msg.bitmap, 0, 0);
+          const bitmapCtx = view.getContext('bitmaprenderer');
+          if (bitmapCtx && bitmapCtx.transferFromImageBitmap) {
+            bitmapCtx.transferFromImageBitmap(msg.bitmap);
+          } else {
+            view.getContext('2d').drawImage(msg.bitmap, 0, 0);
+            msg.bitmap.close && msg.bitmap.close();
+          }
+          latest = { seq: msg.seq, stats: msg.stats };
+          frames.push(latest);
+          log.push(`[bitmap] seq=${msg.seq} renderMs=${msg.stats.renderMs.toFixed(2)} 组件=${msg.stats.components} ops=${msg.stats.appliedOps}`);
+          out.textContent = log.slice(-12).join('\n');
+          return;
+        }
+        bridge.handleEvent(msg);
+      };
+      worker.onerror = (e) => {
+        log.push('[worker error] ' + e.message);
+        out.textContent = log.join('\n');
+      };
+
+      // ---- 驱动：主线程的 rAF 是唯一节拍（worker 收到 frame 才画） ----
+      function tick() {
+        bridge.frame(performance.now());
+        requestAnimationFrame(tick);
+      }
+      bridge.resize(W, H);
+      bridge.frame(performance.now());
+      requestAnimationFrame(tick);
+
+      // 调试/探针用的把手：e2e 只依赖 __ready / __stats / __step / __waitFrame / __compare
+      window.__nodes = nodes;
+      window.__bridge = bridge;
+      window.__ready = () => frames.length > 0;
+      window.__stats = () => ({
+        sent: bridge.sent,
+        frames: frames.length,
+        last: latest && latest.stats,
+        log: log.slice(-6),
+      });
+
+      window.__step = function (i) {
+        switch (i) {
+          case 0:
+            break;
+          case 1: // 状态增量：矩形位移 + 换色
+            nodes.rect.setState({ left: 60, top: 30, style: { fillStyle: '#DC2626' } });
+            break;
+          case 2: // 状态增量：圆半径
+            nodes.circle.setState({ radius: 40 });
+            break;
+          case 3: // 状态增量：折线换点（点集是派生参数）
+            nodes.line.setState({ points: [[24, 340], [200, 300], [430, 360], [610, 300]] });
+            break;
+          case 4: // 结构变更：加一个子节点（v1 走全量重同步）
+            nodes.group.addChild(
+              new ICE.ICERect({ left: 200, top: 110, width: 60, height: 30, radius: 6, style: { fillStyle: '#F59E0B' } })
+            );
+            break;
+          case 5: // 结构变更：删掉它
+            nodes.group.removeChild(nodes.group.childNodes[nodes.group.childNodes.length - 1]);
+            break;
+          default:
+            return false;
+        }
+        return true;
+      };
+
+      /** 等 worker 再送来一帧（最多 3s）。 */
+      window.__waitFrame = function (since) {
+        return new Promise((resolve, reject) => {
+          const t0 = Date.now();
+          const poll = () => {
+            if (frames.length > since) return resolve(latest);
+            if (Date.now() - t0 > 3000) return reject(new Error('等 worker 帧超时'));
+            setTimeout(poll, 30);
+          };
+          poll();
+        });
+      };
+
+      /**
+       * 逐像素比对：worker 位图（经 2d probe）vs 主线程参考。
+       *
+       * 口径与离屏缓存保真同源：**alpha 逐位相同**（覆盖率错位一票否决）、
+       * RGB 允许 ≤2/255 的取整差（8bit 预乘往返）。几何场景这里期望严格 0。
+       */
+      window.__compare = function () {
+        const read = (canvas) => canvas.getContext('2d').getImageData(0, 0, W, H).data;
+        const a = read(probe);
+        const b = read(document.getElementById('ref'));
+        let diff = 0;
+        let alphaDiff = 0;
+        let maxChannel = 0;
+        let maxPremult = 0;
+        let first = -1;
+        const pm = (c, al) => Math.round((c * al) / 255);
+        for (let i = 0; i < a.length; i += 4) {
+          const aa = a[i + 3];
+          const ba = b[i + 3];
+          let d = 0;
+          for (let k = 0; k < 4; k++) d = Math.max(d, Math.abs(a[i + k] - b[i + k]));
+          if (d) {
+            diff++;
+            if (first < 0) first = i / 4;
+          }
+          if (aa !== ba) alphaDiff++;
+          maxChannel = Math.max(maxChannel, Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]));
+          maxPremult = Math.max(
+            maxPremult,
+            Math.abs(pm(a[i], aa) - pm(b[i], ba)),
+            Math.abs(pm(a[i + 1], aa) - pm(b[i + 1], ba)),
+            Math.abs(pm(a[i + 2], aa) - pm(b[i + 2], ba)),
+            Math.abs(aa - ba)
+          );
+        }
+        return { diff, alphaDiff, maxChannel, maxPremult, firstPixel: first, total: (W * H) };
+      };
+    })();
+  </script>
+</html>

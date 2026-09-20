@@ -11,6 +11,7 @@ import ICEComponent from '../ICEComponent';
 import { bumpVisibilityEpoch, rebindComponentTree } from '../../util/data-util';
 import ICERect from '../shape/ICERect';
 import type ICELayoutManager from '../../layout/ICELayoutManager';
+import { notifyChildAdded, notifyChildRemoved } from '../../worker/mirror-hooks';
 
 /**
  * @class ICEGroup 容器型组件
@@ -424,6 +425,8 @@ class ICEGroup extends ICERect {
     if (this.layoutManager && !this.__inBatch) {
       this.doLayout();
     }
+    // 镜像钩子：容器内结构变更（v1 只标记"需要全量重同步"）
+    notifyChildAdded(this, child);
   }
 
   public addChildren(arr: Array<ICEComponent>): void {
@@ -509,6 +512,8 @@ class ICEGroup extends ICERect {
       if (markDirty) this.ice.dirty = true;
       if (this.ice.renderer) this.ice.renderer.markQueueDirty();
     }
+    // 镜像钩子：必须在 destory() 之前（destory 会把 child.ice 摘掉）
+    notifyChildRemoved(this, child);
     child.destory();
     // 删除后同样需要重排，否则会留下空位
     if (this.layoutManager && !this.__inBatch) {

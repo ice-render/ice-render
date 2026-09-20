@@ -7,6 +7,35 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 新功能（Worker 镜像渲染 · 阶段二第一块：跨线程状态/命令协议）
+
+- **`MirrorBridge`（主线程）+ `MirrorTarget`（worker）+ 协议 v1**，公开导出。
+  主线程持有组件树与状态（唯一真相，命中检测也在主线程），worker 持有一棵**镜像树**只负责渲染，
+  画面经 `transferToImageBitmap` 回传。
+  - 消息：`scene`（全量文档）/ `ops`（`['state', id, patch]` 增量）/ `frame`（节拍）/ `resize`；
+    回传 `ready` / `rendered`（含 `renderMs`、组件数、已应用 op 数）/ `missing` / `error`。
+  - **v1 边界**：状态走增量补丁，**结构变更走全量重同步**（增删子节点低频，不值得先上子树增量协议）。
+  - **不可克隆值的处理**：消息发出前过 `sanitizeTransferable()`，函数 / DOM 节点 / `CanvasGradient`
+    这类结构化克隆带不走的值**就地丢弃并记录路径**（`bridge.dropped`），否则 `postMessage` 抛
+    `DataCloneError` 会让整帧消息发不出去（症状是"画面卡住不动"）。
+  - 采集中在引擎内部四处（`setState` / `addChild` / `removeChild`，`ICE` 与 `ICEGroup` 各一份），
+    没装桥时只有一次属性读（`src/worker/mirror-hooks.ts`）。
+  - 参考宿主：`examples/worker/mirror-render.html` + `mirror-worker.js`；回归
+    `e2e/visual/worker-mirror.spec.ts` —— 六步（位移/换色 / 半径 / 点集 / 加子 / 删子）逐步比对，
+    worker 画面与主线程参考**逐像素 0 差异**。
+- 顺带导出 `FrameManager`（帧控制器单例）：worker 里没有 rAF，宿主想按主线程节拍驱动时用
+  `FrameManager.wake()` 叫醒一次即可（引擎默认「没有脏组件/活动动画就停帧」）。
+
+### 修复（本轮连带抓出的两个"属性改了画面不动"）
+
+- **`ICECircle.setState({ radius })` 只改 state、不改绘制**：`radius` 只在构造函数里被翻译成
+  `radiusX/radiusY`，而绘制读的是后者 —— 于是 `state.radius = 40` 而画出来还是 28。
+  这个缺陷是 worker 镜像回归抓出来的（镜像按文档重建会走构造函数 → 按 40 画，两边对不上，
+  像素差 2655 个）。现在 `setState` 与构造函数同口径映射（`radius` ↔ `radiusX/radiusY/width/height`）。
+  回归：`tests/graphic/circle-radius-setstate.test.ts`。
+- **（同上一条的排查过程）** 顺带确认：`examples/worker/mirror-render.html` 已纳入示例导航页
+  （95 个示例）。
+
 ### 性能 / 兼容（Web Worker 成为一等宿主 · worker 路线阶段一）
 
 - **取根改为 `globalThis`**：浏览器 window / **Web Worker self** / Node global 同一个入口。
