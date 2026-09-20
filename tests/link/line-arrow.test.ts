@@ -18,7 +18,7 @@ jest.mock('../../src/cross-platform/root', () => {
   const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
   /**
    * 给记录器配一个"原生 Path2D 替身"：**没有原生对象的记录器按新语义不上屏**
-   *（"没有 Path2D 也要能画"那条支路 2026-09-20 随小程序支持删掉了），
+   *（"没有 Path2D 也要能画"那条支路 2026-09-20 已删，见 CHANGELOG 的破坏性小节），
    * 而本用例要观察的正是 fill / stroke 到了 ctx 没有。
    */
   /** 记录器会把每条命令转发给它，所以方法要齐（与 `global.Path2D` 的桩同口径） */

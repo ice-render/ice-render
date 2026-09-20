@@ -175,7 +175,7 @@ describe('dispatchEvent：W3C 返回值与时间戳', () => {
     expect(stamp).toBeGreaterThan(0);
     const perf: any = (globalThis as any).performance;
     // 有 performance 时：与它同一时间原点（差值远小于"epoch 量级"的 1e12）；
-    // 没有时（小程序 / 特殊运行时）退回 Date.now()，只要求是个正数
+    // 没有时（测试桩 / headless）退回 Date.now()，只要求是个正数
     const sameClockAsPerformance =
       perf && typeof perf.now === 'function' ? Math.abs(perf.now() - stamp) < 5000 : stamp > 1e12;
     expect(sameClockAsPerformance).toBe(true);

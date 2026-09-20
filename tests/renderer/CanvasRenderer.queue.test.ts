@@ -6,7 +6,7 @@
  *  - 结构未变时稳态刷新复用同一队列数组（不重新 flattenTree），降低每帧开销；
  *  - zIndex 发生变化时队列会重新排序，绘制顺序始终正确。
  *
- * 引擎目标：高性能 canvas 绘图引擎，需兼容 WEB 与各类小程序。
+ * 引擎目标：高性能 canvas 绘图引擎，需兼容现代浏览器与 Node/headless。
  */
 // node 测试环境无 window，将跨平台 root 替换为桩，避免加载 DOM/Canvas 依赖。
 jest.mock('../../src/cross-platform/root', () => {

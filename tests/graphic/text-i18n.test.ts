@@ -158,7 +158,7 @@ describe('ICEText · direction 与 start/end 对齐', () => {
 
   it('运行时不支持 direction 时跳过（不读、不写、不崩）', () => {
     const text = makeText({ text: 'שלום', wrap: false, direction: 'rtl' });
-    const ctx = makeCtx(); // 没有 direction 属性：模拟不支持该成员的小程序基础库
+    const ctx = makeCtx(); // 没有 direction 属性：模拟不支持该成员的运行时（老浏览器 / 测试桩）
     (text as any).ctx = ctx;
 
     expect(() => (text as any).applyStyleToCtx()).not.toThrow();

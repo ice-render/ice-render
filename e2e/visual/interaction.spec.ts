@@ -151,10 +151,10 @@ test('文本内联编辑：双击进入编辑、键入更新文本', async ({ pa
 /**
  * **无原生 Path2D 的运行时**（2026-09-20 起的行为）：
  * 路径对象仍然照常构建、命令流仍然记录（导出 / 断言可用），但**不再自己重放命令上屏** ——
- * "没有 Path2D 也要能画"那条支路原本是给小程序低版本用的，已随小程序支持一起删除。
+ * "没有 Path2D 也要能画"那条支路 2026-09-20 已删除（见 CHANGELOG 的破坏性小节）。
  * 这里钉住"删干净了"这件事：删掉全局 Path2D 后，组件不会抛错，画布上没有它画出来的东西。
  */
-test('无原生 Path2D：不抛错、只记命令，不再重放上屏（小程序支路已删）', async ({ page }) => {
+test('无原生 Path2D：不抛错、只记命令，不再重放上屏（重放支路已删）', async ({ page }) => {
   await page.goto('/e2e/visual/fixtures/nested-interaction.html');
   await page.waitForTimeout(400);
 

@@ -50,7 +50,7 @@ function makeCtx() {
   };
 }
 
-/** `rect` 传 null 模拟「没有 getBoundingClientRect」的运行时（小程序那类宿主）。 */
+/** `rect` 传 null 模拟「没有 getBoundingClientRect」的宿主（headless / 测试桩）。 */
 function makeCanvas(
   rect: { left: number; top: number; width: number; height: number } | null = {
     left: 0,
@@ -161,7 +161,7 @@ describe('fitCanvasToDisplaySize：不传尺寸', () => {
   });
 
   it('没有 getBoundingClientRect 时退回画布当前的逻辑尺寸', () => {
-    // 小程序那类宿主：canvas 节点只有 width/height/getContext，没有布局信息。
+    // 无布局信息的宿主（headless / 测试桩）：canvas 节点只有 width/height/getContext。
     // 此时不能让方法返回 0 或抛异常 —— 退化成「按现有尺寸重算」是安全的。
     const { el } = makeCanvas(null);
     const ice: any = new ICE().init(el, { dpr: 2 });

@@ -25,7 +25,7 @@
  * - 路径是**几何变化时才重建**（`doRender` 只在 dirty 时调用 `createPathObject()`），因此
  *   记录带来的开销只发生在路径重建时，不在每帧热路径上。
  *
- * 命令格式与 PolyfillPath2D 一致（也被 `replayPath()` 复用）：
+ * 命令格式（与外部消费者 / 导出器约定一致）：
  * `[['moveTo', x, y], ['rect', x, y, w, h], ...]`
  */
 export default class Path2DRecorder {
@@ -149,7 +149,7 @@ export default class Path2DRecorder {
   }
 
   /**
-   * 圆弧。**必须实现**：事件圆等形状用的是 `arc`，此前 PolyfillPath2D 没有它，
+   * 圆弧。**必须实现**：事件圆等形状用的是 `arc`，早先的记录器没有实现它，
    * 于是「无原生 Path2D」的运行时（headless / 测试桩）画这类形状会直接抛
    * `path.arc is not a function` —— 这正是服务端出图要修的第一件事。
    */

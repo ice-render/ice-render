@@ -159,7 +159,7 @@ abstract class ICEPath extends ICEComponent {
      * 上屏对象：`path2D` 是 `Path2DRecorder`，这里取它内部的原生 `Path2D`。
      *
      * **没有原生 Path2D 时（headless / 测试桩）只记命令、不上屏**：那条"把命令重放到 ctx"的支路
-     * 原本是给"没有 Path2D 也要能画"的小程序低版本用的，2026-09-20 随小程序支持一起删了。
+     * 2026-09-20 已删（见 CHANGELOG 的破坏性小节）—— 现在没有原生 Path2D 就不上屏。
      * 此时**绝不能把记录器对象传给 `ctx.fill/stroke`** —— 浏览器会报
      * "not a valid enum value of type CanvasFillRule" 并把整帧打断（探针实测）。
      *
