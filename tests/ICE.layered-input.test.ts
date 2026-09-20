@@ -11,7 +11,6 @@
 import ICE from '../src/ICE';
 
 class FakePath2D {
-  _isPolyfill = true;
   _commands: any[] = [];
   moveTo() {}
   lineTo() {}

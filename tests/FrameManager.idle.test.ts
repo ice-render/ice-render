@@ -6,11 +6,11 @@
  * 纯耗电。现在：每个总线的**宿主**（ICE 实例）自己回答"这一帧还需要吗"。
  */
 jest.mock('../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../src/cross-platform/PolyfillPath2D').default;
+  const Path2DRecorder = jest.requireActual('../src/cross-platform/Path2DRecorder').default;
   return {
     __esModule: true,
     default: {
-      createPath2D: () => new PolyfillPath2D(),
+      createPath2D: () => new Path2DRecorder(),
       requestFrame: jest.fn(),
     },
   };

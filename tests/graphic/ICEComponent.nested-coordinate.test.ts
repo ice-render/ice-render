@@ -12,8 +12,8 @@ import { mat2d } from 'gl-matrix';
 // 在 node 测试环境下把重型的跨平台/引擎模块替换为桩，避免加载 DOM/Canvas 依赖。
 jest.mock('../../src/ICE', () => ({ __esModule: true, default: class ICE {} }));
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 jest.mock('../../src/event/EventBus', () => ({ __esModule: true, default: class EventBus {} }));
 

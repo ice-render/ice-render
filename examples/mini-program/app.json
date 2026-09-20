@@ -1,6 +1,0 @@
-{
-  "pages": ["pages/ice-canvas/index"],
-  "window": {
-    "navigationBarTitleText": "ice-render"
-  }
-}

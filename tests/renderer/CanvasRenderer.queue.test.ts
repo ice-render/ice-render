@@ -10,8 +10,8 @@
  */
 // node 测试环境无 window，将跨平台 root 替换为桩，避免加载 DOM/Canvas 依赖。
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 
 // 部分图元（ICEPath 子类）构造时会 new Path2D()，node 环境需提供桩。

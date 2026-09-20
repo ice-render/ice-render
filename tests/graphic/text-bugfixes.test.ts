@@ -8,11 +8,11 @@
  * 4. 「自动尺寸」以**用户是否显式传了 width/height** 判断，而不是拿默认值 10 当哨兵。
  */
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
   return {
     __esModule: true,
     default: {
-      createPath2D: () => new PolyfillPath2D(),
+      createPath2D: () => new Path2DRecorder(),
       loadFont: jest.fn(() => Promise.resolve('ok')),
       document: {
         getElementById: () => null,

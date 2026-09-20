@@ -155,9 +155,22 @@ abstract class ICEPath extends ICEComponent {
       this.path2D.closePath();
     }
 
-    // 上屏对象：path2D 是 Path2DRecorder 时取它内部的原生 Path2D（无原生则取记录器自身，
-    // 走下面的 replayPath 重放命令）。路径构建与上屏解耦，导出器才能复用同一条命令流。
-    const drawPath = this.path2D.drawable || this.path2D;
+    /**
+     * 上屏对象：`path2D` 是 `Path2DRecorder`，这里取它内部的原生 `Path2D`。
+     *
+     * **没有原生 Path2D 时（headless / 测试桩）只记命令、不上屏**：那条"把命令重放到 ctx"的支路
+     * 原本是给"没有 Path2D 也要能画"的小程序低版本用的，2026-09-20 随小程序支持一起删了。
+     * 此时**绝不能把记录器对象传给 `ctx.fill/stroke`** —— 浏览器会报
+     * "not a valid enum value of type CanvasFillRule" 并把整帧打断（探针实测）。
+     *
+     * 判定方式：**结构化**（`Path2DRecorder` 恒有 `native` 字段：有原生对象时是它，没有时是 `null`），
+     * 不用 `instanceof` —— 同一页可能加载**两份引擎副本**（各示例页/多包组合时就发生过），
+     * `instanceof` 会因构造器不同源而失配，把记录器当自定义对象喂给 `ctx.fill()` 直接抛异常
+     * （2026-09-20 家族回归实测）。应用/测试直接赋给 `this.path2D` 的自定义对象（公开字段）
+     * 没有 `native` 字段 → 原样传给 ctx，行为与从前一致。
+     */
+    const pathObject: any = this.path2D;
+    const drawPath = pathObject && 'native' in pathObject ? pathObject.native : pathObject;
 
     const lineDash = this.state.lineDash;
     const hasDash = Array.isArray(lineDash) && lineDash.length > 0;
@@ -170,7 +183,7 @@ abstract class ICEPath extends ICEComponent {
 
     // 水管壁：蚂蚁线外层套一条粗实线（像水管的管壁），画在虚线之前
     const hasBorder = this.state.lineBorder && hasDash;
-    if (hasBorder && this.state.stroke) {
+    if (drawPath && hasBorder && this.state.stroke) {
       const ctx = this.ctx;
       ctx.save();
       ctx.setLineDash([]);
@@ -180,12 +193,7 @@ abstract class ICEPath extends ICEComponent {
       const borderColor =
         resolveThemeValue(this.state.lineBorderColor, this.themeOf()) || this.themeOf().semantic.chrome.lineBorder;
       ctx.strokeStyle = borderColor;
-      if (this.path2D._isPolyfill) {
-        this.replayPath();
-        ctx.stroke();
-      } else {
-        ctx.stroke(drawPath);
-      }
+      ctx.stroke(drawPath);
       ctx.restore();
     }
 
@@ -201,17 +209,8 @@ abstract class ICEPath extends ICEComponent {
       }
     }
 
-    if (this.path2D._isPolyfill) {
-      // 无全局 Path2D 的运行时（小程序低版本/Node）：把记录的命令重放到 ctx 当前路径
-      this.replayPath();
-      if (this.state.fill) {
-        this.ctx.fill();
-      }
-      if (this.state.stroke) {
-        this.ctx.stroke();
-      }
-    } else {
-      // 原生 Path2D：直接 fill/stroke 整个路径对象
+    // 原生 Path2D：直接 fill/stroke 整个路径对象
+    if (drawPath) {
       if (this.state.fill) {
         this.ctx.fill(drawPath);
       }
@@ -249,23 +248,9 @@ abstract class ICEPath extends ICEComponent {
   }
 
   /**
-   * 把 polyfill 记录的命令重放到 ctx 当前路径（beginPath + 命令序列 + closePath）。
-   */
-  private replayPath(): void {
-    const ctx = this.ctx;
-    ctx.beginPath();
-    const commands = this.path2D._commands;
-    for (let i = 0; i < commands.length; i++) {
-      const cmd = commands[i];
-      ctx[cmd[0]](...cmd.slice(1));
-    }
-    // 不再补一次 closePath()：闭合命令已经按它**当时的位置**记在命令流里了
-    // （路径可能由多段子路径组成，补在末尾会把最后一段也闭合，与画布不一致）。
-  }
-
-  /**
    * @method createPathObject
-   * 创建路径对象（原生 Path2D 或 PolyfillPath2D），子类需要提供具体实现，此方法仅创建对象实例，不会立即绘制到画布上，绘制过程由 Renderer 进行调度。
+   * 创建路径对象（`root.createPath2D()`：原生 `Path2D` 的命令记录包装），子类需要提供具体实现；
+   * 此方法仅创建对象实例，不会立即绘制到画布上，绘制过程由 Renderer 进行调度。
    * @see https://developer.mozilla.org/en-US/docs/Web/API/Path2D/Path2D
    */
   protected abstract createPathObject(): any;

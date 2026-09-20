@@ -1,13 +1,13 @@
 # 10 · Worker / OffscreenCanvas 渲染（设计文档，Web-only）
 
 > 状态：**设计 + 最小可行性原型**。本轮不把引擎正式移植到 worker；本文给出边界、依赖清单、
-> 架构分层与验证结论，供后续立项。引擎核心渲染逻辑仍以主线程为目标，不破坏小程序多运行时约束。
+> 架构分层与验证结论，供后续立项。引擎核心渲染逻辑仍以主线程为目标；小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
 
 ## 1. 目标与边界
 
 - **目标**：把「CanvasRenderer + 图元 doRender + 真实光栅化」搬到 Web Worker（`OffscreenCanvas`），
   释放主线程帧预算，让交互（命中检测、DOM 事件、面板）与渲染并行。
-- **边界（明确不做）**：不做小程序 worker 移植（见 §6）；不在 worker 内做文本 IME/字体/图片解码；
+- **边界（明确不做）**：不在 worker 内做文本 IME/字体/图片解码；
   不迁移完整组件树双端同步（v0 原型直接 worker 内建静态场景）。
 
 ## 2. 现引擎中依赖 DOM/主线程的 API 清单（worker 化需要桥接或禁用）
@@ -17,7 +17,7 @@
 | `root.requestFrame` | `FrameManager` | worker 无 rAF → 主线程 rAF 转发节拍 / `setInterval` 驱动 |
 | 文本量测 DOM `<div>` | `ICEText.measureText` | 主线程预量宽高后下发；worker 内 `OffscreenCanvasRenderingContext2D.measureText`（需字形就绪） |
 | 图片 `new Image()` | `ImageCache` | 主线程 decode → `createImageBitmap` → 传输位图 |
-| 字体 `FontFace / wx.loadFont` | `root.loadFont` | 主线程加载完成后下发（worker 内字体不可信） |
+| 字体 `FontFace` | `root.loadFont` | 主线程加载完成后下发（worker 内字体不可信） |
 | 内联编辑 HTML `<input>`（IME） | `ICEText` | 编辑态仍在主线程完成 |
 | 命中/坐标换算用 `getBoundingClientRect` | `DOMEventDispatcher` | 命中在主线程算（保持命中检测铁律） |
 | `global`/`window` 探测 | `cross-platform/root.ts` | worker 启动时显式注入 `globalThis.global = self`（UMD 兼容） |
@@ -56,12 +56,13 @@ worker  → 主线程: { type:'bitmap', bitmap, stats:{renderMs} } | { type:'sta
 - 渲染路径直接复用 M1 的 `doRenderFull/doRenderDirtyRect` 分派（渲染器已可插拔），
   将来把 `dirtyIds/快照` 经消息通道传给 worker，worker 内同样受益于脏矩形局部重绘。
 
-## 6. 小程序不适用原因与开关策略
+## 6. 开关策略（web-only）
 
-- 小程序 Canvas 2D 不在 Worker 运行；`wx.createOffscreenCanvas` 能力与线程模型与 Web 不同，
-  worker 化收益不成立且破坏跨端一致。→ **web-only**：`root.workerSupported` 探测 +
-  `ICE.init(..., { renderInWorker?: boolean })`（默认关）。探测项：`OffscreenCanvas`、
-  `Worker`、`ImageBitmapRenderingContext`。
+- 目标运行时是"现代浏览器 + Node/headless"，worker 化天然是 **web-only**：探测 `OffscreenCanvas`、
+  `Worker`、`ImageBitmapRenderingContext` 三者齐备才启用；`root.workerSupported` +
+  `ICE.init(..., { renderInWorker?: boolean })`（默认关）。
+- **2026-09-20 更新**：小程序已不再支持，本节原先那条"小程序线程模型不同 → 收益不成立"的
+  排除理由随之消失（见 `08-compatibility.md` 的「已移除的能力」）。
 
 ## 7. 最小可行性原型（本轮交付）
 
@@ -81,4 +82,4 @@ worker  → 主线程: { type:'bitmap', bitmap, stats:{renderMs} } | { type:'sta
 ## 8. 验收指标与不做清单（M2 范围）
 
 - 指标：worker 内单帧渲染 p50（static/anim 对照主线程同场景数值）、帧位图传输可用、`__workerBenchResult` 可达。
-- 不做：树/事件双端同步、文本/图片/字体/控制面板在 worker 内、小程序正式移植。
+- 不做：树/事件双端同步、文本/图片/字体/控制面板在 worker 内。

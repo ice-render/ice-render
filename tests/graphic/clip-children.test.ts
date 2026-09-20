@@ -16,7 +16,6 @@ import ICERect from '../../src/graphic/shape/ICERect';
 import { hitTestComponents } from '../../src/util/data-util';
 
 class FakePath2D {
-  _isPolyfill = true;
   _commands: any[] = [];
   _closed = false;
   rect(...a: any[]) {

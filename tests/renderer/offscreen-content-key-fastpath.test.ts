@@ -45,7 +45,6 @@ function makeHarness() {
     measureText: (t: string) => ({ width: t.length * 10 }),
   };
   root.createPath2D = () => ({
-    _isPolyfill: true,
     _commands: [],
     closePath() {},
     moveTo() {},

@@ -199,7 +199,7 @@ class ICEText extends ICEComponent {
 
   /**
    * 编辑态叠加的 HTML input（用于支持中文 IME 输入）。浏览器环境下存在；
-   * 无 document 的运行时（Node/小程序）为 null，降级为 canvas keydown 输入。
+   * 无 document 的运行时（Node / headless）为 null，降级为 canvas keydown 输入。
    */
   private __editInput: any = null;
 
@@ -241,7 +241,7 @@ class ICEText extends ICEComponent {
   private __mountEditInput(): void {
     const doc = this.root && this.root.document;
     if (!doc || !doc.body) {
-      return; // 无 document（Node/小程序），降级 canvas keydown
+      return; // 无 document（Node / headless），降级 canvas keydown
     }
     const box = this.getMinBoundingBox(true);
     const canvasRect = this.ice && this.ice.canvasEl ? this.ice.canvasEl.getBoundingClientRect() : { left: 0, top: 0 };
@@ -722,7 +722,7 @@ class ICEText extends ICEComponent {
   /**
    * 在编辑态下渲染光标（垂直竖线）。
    *
-   * 无 DOM 的运行时（小程序 / Node）没有浏览器 caret 可用，这里自己算位置，三条规则：
+   * 无 DOM 的运行时（Node / headless）没有浏览器 caret 可用，这里自己算位置，三条规则：
    * - **多行**：`caretIndex` 先按 `\n` 折成「第几行 + 行内偏移」，光标画在对应行（旧实现把整段前缀
    *   都量在一个位置上，多行文本里光标会跑到第一行）；
    * - **方向**：RTL 行的阅读起点在右，光标 x 要从右边缘往左量（`rightEdge - measure(前缀)`）；
@@ -920,7 +920,7 @@ class ICEText extends ICEComponent {
   private __applyLetterSpacingToCtx(): void {
     const ctx: any = this.ctx;
     if (!ctx || !('letterSpacing' in ctx)) {
-      return; // 运行时没有 letterSpacing（部分小程序基础库 / 测试桩）：不影响其它口径
+      return; // 运行时没有 letterSpacing（测试桩 / 老浏览器）：不影响其它口径
     }
     ctx.letterSpacing = resolveLetterSpacingCss(this.state.style.letterSpacing, this.__fontSizePx());
   }
@@ -1055,12 +1055,12 @@ class ICEText extends ICEComponent {
     this.state.textHeight = s.textHeight;
   }
 
-  /** DOM 降级测量：line-height 归一为 1，减少 leading 干扰（旧环境/小程序）。 */
+  /** DOM 降级测量：line-height 归一为 1，减少 leading 干扰（旧浏览器 / headless）。 */
   private __measureByDOM() {
     let div;
     try {
-      // 无 DOM 的运行时（小程序 / Node / headless）：这里没有可用的降级量测。
-      // 直接按当前 state 尺寸兜底，别靠抛异常走到 catch —— 那会在小程序控制台刷一堆错误日志。
+      // 无 DOM 的运行时（Node / headless）：这里没有可用的降级量测。
+      // 直接按当前 state 尺寸兜底，别靠抛异常走到 catch —— 那会在控制台刷一堆错误日志。
       const doc: any = this.root && this.root.document;
       if (!doc || typeof doc.getElementById !== 'function') {
         return { width: this.state.width, height: this.state.height };
@@ -1300,8 +1300,8 @@ class ICEText extends ICEComponent {
    * `direction: 'auto'` 需要按文本解析成具体的 ltr/rtl —— canvas 只认 `ltr | rtl | inherit`，
    * 所以这里在通用 style 应用之后覆盖一次（`style.direction` 的原始值 `'auto'` 不会被 canvas 采纳）。
    *
-   * 特性检测用 `'direction' in ctx`（不读值）：**不支持 `direction` 的运行时**（部分小程序基础库、
-   * 极简测试桩）就跳过，退化为默认 LTR —— 这也是小程序「Canvas 2D 子集」回归能通过的原因。
+   * 特性检测用 `'direction' in ctx`（不读值）：**不支持 `direction` 的运行时**（老浏览器、
+   * 极简测试桩）就跳过，退化为默认 LTR —— 这也是"不能依赖 `direction`"这条兼容纪律的来源。
    */
   protected applyStyleToCtx(): void {
     super.applyStyleToCtx();

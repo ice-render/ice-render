@@ -14,8 +14,8 @@ import TransformControlPanel from '../../src/control-panel/transform-controls/Tr
 import LineControlPanel from '../../src/control-panel/link-controls/LineControlPanel';
 
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D(), requestFrame: () => 0 } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder(), requestFrame: () => 0 } };
 });
 global.Path2D = class {
   rect() {}

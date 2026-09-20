@@ -8,11 +8,11 @@
  * 词条本身归应用层 —— 这里只测「字体之外」的排版行为，不涉及任何文案表。
  */
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
   return {
     __esModule: true,
     default: {
-      createPath2D: () => new PolyfillPath2D(),
+      createPath2D: () => new Path2DRecorder(),
       document: {
         getElementById: () => null,
         createElement: () => ({

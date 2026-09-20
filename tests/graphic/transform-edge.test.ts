@@ -8,8 +8,8 @@
  */
 jest.mock('../../src/ICE', () => ({ __esModule: true, default: class ICE {} }));
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 jest.mock('../../src/event/EventBus', () => ({ __esModule: true, default: class EventBus {} }));
 

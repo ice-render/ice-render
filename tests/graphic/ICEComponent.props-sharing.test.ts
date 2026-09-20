@@ -9,7 +9,6 @@ import { DEFAULT_THEME } from '../../src/theme/ICETheme';
 import Z_INDEX_AUTO from '../../src/consts/Z_INDEX_AUTO';
 
 class FakePath2D {
-  _isPolyfill = true;
   _commands: any[] = [];
   moveTo(...a: any[]) {
     this._commands.push(['moveTo', ...a]);

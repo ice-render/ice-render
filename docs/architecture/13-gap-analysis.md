@@ -148,7 +148,7 @@
 **已修复（2026-09-10）**：改为 `div.textContent = text` + `white-space: pre` 承担换行，`innerHTML` 不再被写入；并加了回归用例锁死（断言 `textContent` 被设置、`innerHTML` 未被触碰）。
 **仍缺**：非 DOM 运行时的量测仍是「先停在默认 10×10、首帧渲染后由 `calcComponentParams` 重算」——可用但首帧前尺寸不准（自定义字体加载完成后可调 `ice.remeasureTexts()` 或 `ICEText.remeasureText()` 让已挂载文本重新量测）。
 
-另：`ICEText.ts:379-428` 在无 `document` 的运行时（Node / 小程序）无法量测，退化到默认 `10×10`（除非调用方显式传 width/height）。
+另：`ICEText.ts:379-428` 在无 `document` 的运行时（Node / headless）无法量测，退化到默认 `10×10`（除非调用方显式传 width/height）。
 
 > **状态（2026-09-13）**：自动尺寸的判定改为「调用方是否**显式**给尺寸」（构造参数与 `setState` 都算显式），默认值 `10` 不再兼任哨兵——显式写 `width: 10` 的文本框不再被悄悄放大。无 DOM 运行时的量测退化行为本身未变。
 
@@ -482,7 +482,7 @@
 | 2026-09-10 | P2 布局：增删自动重排、排布前测量、新容器继承布局 | ✅ 已完成 |
 | 2026-09-11 | P2 布局剩余：dirty 拆成 dirty/paramsDirty 以省掉后代重量测 | ✅ 已完成（实测移动整组：params 10→0、calcDots 6→0；附带修掉 compose 累积平移 dots 的漂移） |
 | 2026-09-10 | P2 主题实例级隔离（多画布/多品牌互不污染，含 preset 与 motion token） | ✅ 已完成 |
-| 2026-09-11 | §6 阻塞点：无 rAF 运行时（Node / headless / 小程序低版本）启动即抛错 | ✅ 已修（`root.requestFrame` 加定时器兜底；另一阻塞点「文本量测依赖 DOM」此前已由 canvas 优先量测解决） |
+| 2026-09-11 | §6 阻塞点：无 rAF 运行时（Node / headless）启动即抛错 | ✅ 已修（`root.requestFrame` 加定时器兜底；另一阻塞点「文本量测依赖 DOM」此前已由 canvas 优先量测解决） |
 | — | §7-2 的**空间索引**（四叉树 / R-tree） | ❌ **未做**（只做了「视口裁剪 + 命中检测 O(1) 包围盒预筛」，见 P0-3 行。全屏内的大规模场景命中仍是 O(n)；索引收益要到「上万节点且大部分在屏内」才显著） |
 | 2026-09-12 | P1-3 导出与互操作 · **SVG 导出**（`ice.toSvg` / `exportSvg`，与画布同一套绘制命令流）+ **路径命令流底座**（`src/graphic/path`，为 SVG / 服务端出图打底） | ✅ 已完成（1.4.2；补丁：`closePath` 按位置进命令流、连线标签进导出、实心端点箭头导出为填充路径） |
 | 2026-09-12 | P1-3 导出与互操作 · **无头实例 `ICE.headless()`**（Node / 服务端建树出图，不依赖 DOM 与 rAF；导出前刷新派生几何）+ `examples/node/export.mjs` | ✅ 已完成（1.4.4） |

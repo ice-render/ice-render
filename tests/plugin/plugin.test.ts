@@ -8,11 +8,11 @@
  * - 交互层：match 命中则 addTool、失配则 removeTool；工具实例跨选中复用；exclusive 向上报告
  */
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
   return {
     __esModule: true,
     default: {
-      createPath2D: () => new PolyfillPath2D(),
+      createPath2D: () => new Path2DRecorder(),
       createOffscreenCanvas: (w: number, h: number) => ({
         canvas: { width: w, height: h },
         ctx: {

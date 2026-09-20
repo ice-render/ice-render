@@ -116,7 +116,7 @@ const LEAKY_CTX_PROPS: Array<[string, any]> = [
   // 文本/图形的其它 ctx 状态：`style` 是**透传**到 ctx 的（`__applyStyleProp` 末行 `ctx[prop] = value`），
   // 只要用户写了一个我们没列入本表的键，它就会漏给同一帧后面绘制的组件 —— 破坏「组件渲染自包含」，
   // 也就是脏矩形局部重绘 / 离屏缓存的像素契约。这里把标准状态补齐（不支持该属性的运行时上，
-  // 赋值无害；读取一律走本表，不去 `ctx[prop]` 取值，避免触碰小程序 Canvas 2D 子集之外的成员）。
+  // 赋值无害；读取一律走本表，不去 `ctx[prop]` 取值，避免触碰运行时不支持的成员）。
   ['direction', 'inherit'],
   ['letterSpacing', '0px'],
   ['wordSpacing', '0px'],
@@ -1127,7 +1127,7 @@ abstract class ICEComponent extends ICEEventTarget {
       const c = Array.isArray(desc.center) ? desc.center : [w / 2, h / 2];
       grad = ctx.createConicGradient(Number(desc.startAngle) || 0, c[0], c[1]);
     } else if (type === 'conic') {
-      // 运行时没有 createConicGradient（旧 Safari / 部分小程序）→ 退回中间色纯色
+      // 运行时没有 createConicGradient（旧 Safari）→ 退回中间色纯色
       return null;
     } else if (typeof ctx.createLinearGradient === 'function') {
       const from = Array.isArray(desc.from) ? desc.from : [0, 0];

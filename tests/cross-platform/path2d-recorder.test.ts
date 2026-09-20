@@ -1,17 +1,17 @@
 /**
  * `Path2DRecorder`：路径对象的唯一入口 —— 命令流 + 原生转发。
  *
- * 背景：原生 `Path2D` 是不透明的，画得出来但拿不到几何描述。而 SVG/服务端出图、
- * 「无原生 Path2D 时重放命令到 ctx」、以及「直接断言形状生成了哪些命令」都需要它。
+ * 背景：原生 `Path2D` 是不透明的，画得出来但拿不到几何描述。而 SVG / 服务端出图、
+ * 以及「直接断言形状生成了哪些命令」都需要它 —— 所以路径对象一律走记录器。
  *
  * 本文件钉死三件事：
  * 1. 有原生 Path2D 时：命令既进命令流、也转发给原生对象（渲染路径与旧版一致）；
- * 2. 没有原生 Path2D 时：`_isPolyfill` 为真、`drawable` 是记录器自身（ICEPath 走重放）；
- * 3. `arc` 必须被记录 —— PolyfillPath2D 时代缺这个方法，「无原生 Path2D」的运行时
- *    （Node / 小程序低版本）画事件圆这类形状会直接抛 `path.arc is not a function`。
+ * 2. 没有原生 Path2D 时（headless / 测试桩）：只记命令，**不再自己重放命令上屏**
+ *    （"没有 Path2D 也要能画"那条支路 2026-09-20 随小程序支持一起删了）；
+ * 3. `arc` 必须被记录 —— 它曾经缺过，导致事件圆这类形状在无原生 Path2D 的运行时直接抛
+ *    `path.arc is not a function`。
  */
 import Path2DRecorder from '../../src/cross-platform/Path2DRecorder';
-import PolyfillPath2D from '../../src/cross-platform/PolyfillPath2D';
 
 /** 记录调用序列的原生 Path2D 替身 */
 class FakeNativePath2D {
@@ -55,8 +55,7 @@ describe('Path2DRecorder', () => {
     path.rect(0, 0, 10, 10);
     path.closePath();
 
-    expect(path._isPolyfill).toBe(false);
-    expect(path.drawable).toBe(native);
+    expect(path.native).toBe(native);
     expect(path._commands).toEqual([
       ['moveTo', 1, 2],
       ['lineTo', 3, 4],
@@ -84,16 +83,15 @@ describe('Path2DRecorder', () => {
     expect(path._commands.filter((c) => c[0] === 'closePath')).toHaveLength(2);
   });
 
-  it('没有原生 Path2D：退化为纯记录器，drawable 是自身（ICEPath 据此重放命令）', () => {
+  it('没有原生 Path2D：退化为纯记录器（命令流可用，但引擎不负责重放上屏）', () => {
     const path = new Path2DRecorder();
     path.moveTo(5, 6);
 
-    expect(path._isPolyfill).toBe(true);
-    expect(path.drawable).toBe(path);
+    expect(path.native).toBeNull();
     expect(path._commands).toEqual([['moveTo', 5, 6]]);
   });
 
-  it('arc 被记录（此前 PolyfillPath2D 缺这个方法，无原生 Path2D 的运行时直接抛错）', () => {
+  it('arc 既被记录、也转发给原生对象', () => {
     const native = new FakeNativePath2D();
     const path = new Path2DRecorder(native);
 
@@ -103,42 +101,24 @@ describe('Path2DRecorder', () => {
     expect(native.calls[0][0]).toBe('arc');
   });
 
-  it('PolyfillPath2D 同样支持 arc（两个实现不漂移）', () => {
-    const polyfill = new PolyfillPath2D();
-    expect(typeof (polyfill as any).arc).toBe('function');
-    (polyfill as any).arc(1, 2, 3, 0, Math.PI, true);
-    expect(polyfill._commands).toEqual([['arc', 1, 2, 3, 0, Math.PI, true]]);
-  });
-
-  it('记录的命令能被重放到任意 ctx（服务端 / 小程序出图路径）', () => {
+  it('命令流是自洽的、可被外部消费（服务端出图 / 形状断言）', () => {
     const path = new Path2DRecorder();
     path.moveTo(0, 0);
     path.lineTo(10, 0);
     path.arc(10, 10, 5, 0, Math.PI);
     path.closePath();
 
-    const ctx: any = {
-      calls: [] as any[],
-      beginPath() {
-        this.calls.push(['beginPath']);
-      },
-      closePath() {
-        this.calls.push(['closePath']);
-      },
-    };
-    path._commands.forEach((cmd) => {
-      ctx[cmd[0]] = function (...args: any[]) {
-        this.calls.push([cmd[0], ...args]);
+    // 外部消费者：自己把命令流重放到任意 ctx（引擎不再内建这条路径）
+    const ctx: any = { calls: [] as any[] };
+    ['moveTo', 'lineTo', 'arc', 'closePath'].forEach((name) => {
+      ctx[name] = function (...args: any[]) {
+        this.calls.push([name, ...args]);
       };
     });
-    const commands = path._commands;
-    ctx.beginPath();
-    for (let i = 0; i < commands.length; i++) {
-      const cmd = commands[i];
+    for (const cmd of path._commands) {
       ctx[cmd[0]](...cmd.slice(1));
     }
 
-    // 闭合命令已在流里（不再于末尾补一次），重放路径与 ICEPath.replayPath() 一致
-    expect(ctx.calls.map((c) => c[0])).toEqual(['beginPath', 'moveTo', 'lineTo', 'arc', 'closePath']);
+    expect(ctx.calls.map((c) => c[0])).toEqual(['moveTo', 'lineTo', 'arc', 'closePath']);
   });
 });

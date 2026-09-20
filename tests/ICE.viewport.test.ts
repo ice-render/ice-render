@@ -8,7 +8,6 @@ import ICE from '../src/ICE';
 import ICERect from '../src/graphic/shape/ICERect';
 
 class FakePath2D {
-  _isPolyfill = true;
   _commands: any[] = [];
   moveTo(...a: any[]) {
     this._commands.push(['moveTo', ...a]);
