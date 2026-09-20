@@ -993,6 +993,49 @@ class ICEText extends ICEComponent {
     }
     // 字间距先进 ctx：下面每一行的 measureText 都要含它（与换行 / 渲染 / 导出同一口径）
     this.__applyLetterSpacingToCtx();
+    /**
+     * 量测期间把 ctx 归到**基准态**：单位变换 + `alphabetic` 基线。
+     *
+     * 为什么必须归零（2026-09-20 定位到的一个真实缺陷）：canvas 的 `actualBoundingBoxAscent/Descent`
+     * 是**相对当前 `textBaseline`** 报告的，不是相对 alphabetic。真机实测（Chromium，`bold 18px Arial`
+     * 量 `rotated`）：
+     *
+     * | textBaseline | ascent | descent |
+     * |---|---|---|
+     * | `alphabetic` | 12.8848 | 0.2109 |
+     * | `bottom`（引擎默认） | 16.9160 | **-3.8203** |
+     * | `top` | -1.0840 | 14.1797 |
+     *
+     * 下面的算法按「上基线之上 = ascent、之下 = descent」把字形墨迹拼成盒高，遇到负的 descent
+     * 会被 `Math.max(0, …)` 丢掉 → 盒高按 `16.916` 算（正确值是 `12.885 + 0.211 = 13.096`），
+     * 而且**量到哪一条基线取决于量测发生在哪一帧、在哪个通道**（主画布 / 缓存位图 ctx）：
+     * 同一个组件在缓存通道里被重新量一次，世界坐标里的高度就变了 —— 症状是「缩放视图下，
+     * 开缓存与关缓存的渲染不一致」，根因却是文本度量被渲染状态污染。
+     *
+     * 变换同理：Chrome 在旋转 CTM 下会把墨迹盒按设备空间算回来（descent 变负）。虽然实测
+     * `alphabetic` 时旋转不影响结果，但「量测结果必须与在哪个通道量无关」这条不变量值得写死。
+     *
+     * 量测完**原样还原**：调用方可能正处在渲染中途，`applyActiveTransform()` 还指着这条 CTM。
+     */
+    const measureCtx: any = this.ctx;
+    const prevBaseline = measureCtx.textBaseline;
+    const prevTransform = typeof measureCtx.getTransform === 'function' ? measureCtx.getTransform() : null;
+    measureCtx.textBaseline = 'alphabetic';
+    if (typeof measureCtx.setTransform === 'function') {
+      measureCtx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    try {
+      return this.__measureLinesByCanvas();
+    } finally {
+      measureCtx.textBaseline = prevBaseline;
+      if (prevTransform && typeof measureCtx.setTransform === 'function') {
+        measureCtx.setTransform(prevTransform);
+      }
+    }
+  }
+
+  /** `__measureByCanvas` 的纯量测部分（ctx 已被归到基准态）。 */
+  private __measureLinesByCanvas(): { textWidth: number; textHeight: number } | null {
     const lines: string[] = this.state.lines || String(this.state.text ?? '').split('\n');
     let textWidth = 0;
     let maxAscent = 0;

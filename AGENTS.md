@@ -251,6 +251,19 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   光标 / 编辑按 **grapheme** 移动，`renderCaret()` 对多行、RTL、`textAlign: start/end` 都要正确。
   回归用例见 `tests/graphic/text-bugfixes.test.ts`、`e2e/visual/offscreen-cache-fidelity.spec.ts`。
 
+- **文本度量必须在「基准态」量（2026-09-20 定位，一次真实事故）**：`ICEText.__measureByCanvas()`
+  量字形墨迹时，**必须先把 ctx 归到「单位变换 + `textBaseline: 'alphabetic'`」**，量完原样还原。
+  原因：canvas 的 `actualBoundingBoxAscent/Descent` 是**相对当前 `textBaseline`** 报告的，真机实测
+  （Chromium，`bold 18px Arial` 量 `rotated`）：`alphabetic` → 12.885/0.211；`bottom`（引擎默认）
+  → 16.916/**-3.820**；`top` → -1.084/14.180。引擎按「上=ascent、下=descent」拼盒高，负 descent 被
+  `Math.max(0, …)` 丢掉 → 盒高按 16.916 算（正确 13.096）。**危险之处在于"量到哪条基线"取决于量测
+  发生在哪一帧、在哪个通道**：离屏缓存会把组件重新量一遍（此时 ctx 已是「缓存位图 ctx + 该组件的
+  CTM + 已应用的 style」），于是**同一个组件的世界几何随缓存开关而变** —— 症状表现为「缩放视图下
+  开缓存与关缓存的渲染对不上（最大预乘差 132/255）」，根因却是度量被渲染状态污染。
+  纪律：**任何"用 ctx 量出来的几何"都不得受当前渲染状态影响**；量测前后要还原（调用方可能正处在
+  渲染中途，`applyActiveTransform()` 还指着那条 CTM）。回归：`tests/graphic/text-measure.test.ts`
+  的「量测期间把 ctx 归到 alphabetic 基线」、`e2e/visual/offscreen-cache-fidelity.spec.ts`。
+
 - **文本排版属性铁律（2026-09-13 确立，B 组）**：① `lineHeight` / `letterSpacing` / `textDecoration` 是
   **正式排版属性**，解析规则只能有一处（`src/graphic/text/text-style.ts`）——量测、换行、渲染、SVG 导出
   四处必须同口径，任何一处各自 `parseFloat` 都会漂移（`letterSpacing` 只透传给 ctx 的旧行为就是
