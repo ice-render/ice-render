@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+  <meta charset="utf-8" />
+  <title>roundRect：原生 vs arcTo 展开（必须逐像素一致）</title>
+  <body style="font: 13px/1.6 sans-serif; padding: 12px; background: #fff">
+    <p>
+      两个画布跑**同一份确定性圆角矩形场景**。<code>canvas-native</code> 用平台的
+      <code>Path2D.roundRect</code>（2021 进入规范）；<code>canvas-fallback</code> 在创建引擎**之前**
+      把 <code>Path2D.prototype.roundRect</code> 删掉，逼 <code>Path2DRecorder</code>
+      走 <code>moveTo/lineTo/arcTo</code> 展开。<strong>两者必须逐像素一致</strong> ——
+      不一致就是「老运行时上圆角画歪 / 少画一层圆角」。
+    </p>
+    <canvas id="canvas-native" width="760" height="420" style="border: 1px solid #ccc"></canvas>
+    <canvas id="canvas-fallback" width="760" height="420" style="border: 1px solid #ccc"></canvas>
+  </body>
+  <script src="../../../dist/index.umd.js"></script>
+  <script type="text/javascript">
+    (function () {
+      /**
+       * 自定义形状：用规范里的 `roundRect` 直接写命令流（四角不同半径 / 负宽），
+       * 这条路径引擎内置的 ICERect 覆盖不到（它只收标量半径）。
+       */
+      class CornerShape extends ICE.ICEPath {
+        constructor(props) {
+          super(props);
+          this.__params = props.params;
+          this.__recorder = props.recorder;
+        }
+        createPathObject() {
+          // 走引擎自己的路径工厂（`ice.root.createPath2D`）—— 拿到的是 Path2DRecorder，
+          // 与内置形状同一条通道，才不会把"自定义形状"测成另一套东西
+          this.path2D = this.__recorder();
+          const p = this.__params;
+          this.path2D.roundRect(p[0], p[1], p[2], p[3], p[4]);
+          this.path2D.closePath();
+          return this.path2D;
+        }
+      }
+
+      /** 同一份确定性场景：标量半径 / 超限半径 / 四角不同 / 负宽 / 直角 / 描边。 */
+      function buildScene(ice) {
+        const cells = [
+          { left: 20, top: 20, width: 240, height: 110, radius: 12 },
+          { left: 300, top: 20, width: 240, height: 110, radius: 55 }, // 超限：要等比缩成胶囊形
+          { left: 580, top: 20, width: 160, height: 110, radius: 0 }, // 直角
+          { left: 20, top: 160, width: 240, height: 110, radius: 30, strokeOnly: true },
+        ];
+        cells.forEach((c, i) => {
+          ice.addChild(
+            new ICE.ICERect({
+              left: c.left,
+              top: c.top,
+              width: c.width,
+              height: c.height,
+              radius: c.radius,
+              fill: !c.strokeOnly,
+              stroke: true,
+              style: {
+                fillStyle: ['#2563eb', '#16a34a', '#f59e0b', '#ffffff'][i],
+                strokeStyle: '#0f172a',
+                lineWidth: 3,
+              },
+            })
+          );
+        });
+
+        // 四角不同半径 + 负宽（镜像），都靠自定义形状直接写 roundRect
+        const extras = [
+          [[300, 160, 240, 110, [8, 24, 40, 56]], '#7c3aed'],
+          [[700, 300, -120, -90, [10, 20, 30, 40]], '#0ea5e9'], // 负宽高：往左上画
+        ];
+        extras.forEach(([params, color]) => {
+          ice.addChild(
+            new CornerShape({
+              left: 0,
+              top: 0,
+              width: 10,
+              height: 10,
+              params,
+              recorder: () => ice.root.createPath2D(),
+              fill: true,
+              stroke: true,
+              style: { fillStyle: color, strokeStyle: '#0f172a', lineWidth: 2 },
+            })
+          );
+        });
+      }
+
+      const nativeIce = new ICE.ICE().init('canvas-native');
+      buildScene(nativeIce);
+      // 记录"构造这一刻原生到底有没有 roundRect"—— 事后原型已被删掉，实时读会误判
+      const nativeCapability = typeof nativeIce.childNodes[0].path2D.native.roundRect === 'function';
+
+      // 关键一步：创建引擎**之前**抹掉原生实现（记录器在构造时判定一次并缓存）。
+      // 抹的是 Path2D.prototype，而不是引擎 —— 引擎的 ICERect 照旧调 roundRect()，
+      // 由记录器决定「原样转发」还是「展开成 arcTo」。
+      //
+      // 之后**不还原**：`__stats()` 要能证明"回退画布的那条分支真的没有原生实现"，
+      // 还原了就成了自证。页面后续所有绘制都在这条分支上，正是我们要测的形态。
+      delete Path2D.prototype.roundRect;
+      const fallbackIce = new ICE.ICE().init('canvas-fallback');
+      buildScene(fallbackIce);
+      const fallbackCapability = typeof fallbackIce.childNodes[0].path2D.native.roundRect === 'function';
+
+      /** 画布里有多少非透明像素（防空转护栏：两个画布都空白时"一致"没有意义）。 */
+      function ink(canvas) {
+        const d = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        let n = 0;
+        for (let i = 3; i < d.length; i += 4) {
+          if (d[i] > 0) n++;
+        }
+        return n;
+      }
+
+      window.__stats = function () {
+        const collect = (ice) =>
+          ice.childNodes.map((c) => (c.path2D && c.path2D._commands ? c.path2D._commands.map((x) => x[0]).join('+') : ''));
+        return {
+          nativeInk: ink(document.querySelector('#canvas-native')),
+          fallbackInk: ink(document.querySelector('#canvas-fallback')),
+          nativeCommands: collect(nativeIce),
+          fallbackCommands: collect(fallbackIce),
+          nativeHasRoundRect: nativeCapability,
+          fallbackHasRoundRect: fallbackCapability,
+        };
+      };
+
+      /** 逐像素比对两个画布。 */
+      window.__compare = function () {
+        const a = document.querySelector('#canvas-native');
+        const b = document.querySelector('#canvas-fallback');
+        const da = a.getContext('2d').getImageData(0, 0, a.width, a.height).data;
+        const db = b.getContext('2d').getImageData(0, 0, b.width, b.height).data;
+        let diff = 0;
+        let maxDelta = 0;
+        for (let i = 0; i < da.length; i += 4) {
+          let delta = 0;
+          for (let k = 0; k < 4; k++) {
+            delta = Math.max(delta, Math.abs(da[i + k] - db[i + k]));
+          }
+          if (delta > 0) {
+            diff++;
+            maxDelta = Math.max(maxDelta, delta);
+          }
+        }
+        return { diff, maxDelta, total: da.length / 4, ratio: diff / (da.length / 4) };
+      };
+    })();
+  </script>
+</html>

@@ -25,6 +25,7 @@ import ICEEventTarget from '../event/ICEEventTarget';
 import GeoUtil from '../geometry/GeoUtil';
 import ICEBoundingBox from '../geometry/ICEBoundingBox';
 import ICE from '../ICE';
+import { notifyStateChange } from '../worker/mirror-hooks';
 import {
   STYLE_PRESETS,
   BOOTSTRAP_BASELINE,
@@ -1848,7 +1849,36 @@ abstract class ICEComponent extends ICEEventTarget {
     if (this.ice) {
       this.ice.dirty = true;
     }
+    /**
+     * 镜像钩子（worker 渲染用）：没装 `MirrorBridge` 时这里只有一次属性读 + 判空。
+     *
+     * 挂在 `setState` 上而不是包一层：动画写值通道走的也是 `setState`（`AnimationManager`），
+     * 包裹式采集会漏掉动画 —— 而那恰恰是"worker 镜像跟着动"的主路径。
+     */
+    notifyStateChange(this, newState);
     this.__afterStateMerge(sizeChanged);
+  }
+
+  /**
+   * **补丁入口**：改属性（属性面板 / 拖动 / 批量改样式）的统一落点，默认就是 `setState`。
+   *
+   * 为什么要有这一层：`setState` 只改数据，**派生结果**（按 state 重建的内部部件、跟着动的连线、
+   * 规范化后的样式）需要应用层额外做一遍。派生逻辑没有统一入口时，只有"交互路径"会做、
+   * "程序化改属性"不会做 —— 真实事故：IED 的属性面板移动节点走 `setState({left,top})`，
+   * 连接线收不到 `AFTER_MOVE`，节点走了连线留在原地（改位置请用引擎的 `setPosition()`）。
+   *
+   * 覆盖约定：
+   * - 子类覆盖它来做应用层派生（重建内部部件、重算连线、把老属性规范化到新位置）；
+   * - 覆盖里只管**应用层**的事，引擎自己的状态语义仍由 `setState` 负责（别绕过它）；
+   * - 位置 / 尺寸这类"有跟随者"的改动走引擎已有的公开入口（`setPosition()` 会派发
+   *   `BEFORE_MOVE`/`AFTER_MOVE` 并递归通知后代）。
+   *
+   * 镜像渲染（worker 用）就靠这个入口**重放**主线程的补丁：worker 收到的只是状态补丁，
+   * 若用裸 `setState` 落下去，应用层的派生结果在镜像里就停在旧值（症状：worker 里连线不跟手、
+   * 派生部件几何过期）。见 `src/worker/MirrorTarget.ts`。
+   */
+  public applyPatch(patch: Record<string, any> = {}): void {
+    this.setState(patch);
   }
 
   /**

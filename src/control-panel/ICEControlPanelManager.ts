@@ -10,6 +10,7 @@ import ICE from '../ICE';
 import { token } from '../theme/ICETheme';
 import LineControlPanel from './link-controls/LineControlPanel';
 import TransformControlPanel from './transform-controls/TransformControlPanel';
+import { notifyToolTarget } from '../worker/mirror-hooks';
 
 /**
  * 控制面板的可配置项（宿主通过 `ICE.init(ctx, { controlPanel })` 传入）。
@@ -102,8 +103,7 @@ class ICEControlPanelManager {
     // `target` 可能为空：点在空白处、或宿主环境里没有 DOM 事件目标（合成的事件对象
     // 就没有 `target`）。浏览器下 `evt.target` 恰好是 canvas 元素，所以这个空值一直没暴露。
     if (!component || !component.ice || !component.state.interactive) {
-      this.lineControlPanel.disable();
-      this.transformControlPanel.disable();
+      this.applySelection(null);
       return;
     }
 
@@ -116,8 +116,7 @@ class ICEControlPanelManager {
     //   （ice-entity-designer 的 8 个域包就是这个症状，2026-09-13 修）。
     const panelEnabled = component.isLine ? component.state.linkEditable !== false : !!component.state.transformable;
     if (!panelEnabled) {
-      this.lineControlPanel.disable();
-      this.transformControlPanel.disable();
+      this.applySelection(null);
       return;
     }
 
@@ -130,11 +129,38 @@ class ICEControlPanelManager {
 
     // 统一选中入口：写 selectionList 并同步插件工具；返回「排他」插件工具是否命中
     const exclusiveMatched = this.ice.setSelection([component]);
+    this.applySelection(component, exclusiveMatched);
+  }
+
+  /**
+   * 按「选中了谁」显示对应的控制面板（**幂等**，可以反复调用）。
+   *
+   * 抽成公开入口的原因：控制面板不是插件注册的，是这里**直接**挂上去的
+   * —— 于是"在别处选中一个组件"（例如 worker 镜像里按主线程推来的 id 选中）就没法复用这套判定。
+   * 现在 `mouseDownHandler` 与镜像同步都走这一条：
+   *
+   * - `exclusiveMatched` = 排他插件工具命中时由插件接管，屏蔽内置面板；
+   * - 线条型看 `linkEditable`、其余看 `transformable`（门控语义见 `mouseDownHandler` 的长注释）。
+   *
+   * @param component 目标组件（null/不合法 → 隐藏全部面板）
+   * @param exclusiveMatched 插件是否已排他接管（不传则按 `selectionList` 判定失败来隐藏）
+   */
+  public applySelection(component: any, exclusiveMatched: boolean = false): void {
     this.lineControlPanel.disable();
     this.transformControlPanel.disable();
 
     // 排他插件工具命中：由插件接管该组件的交互，屏蔽内置变换/连线面板
     if (exclusiveMatched) {
+      notifyToolTarget(this.ice, null); // 面板没显示（插件接管）→ 镜像也要跟着隐藏
+      return;
+    }
+    if (!component || !component.state) {
+      notifyToolTarget(this.ice, null);
+      return;
+    }
+    const panelEnabled = component.isLine ? component.state.linkEditable !== false : !!component.state.transformable;
+    if (!panelEnabled) {
+      notifyToolTarget(this.ice, null);
       return;
     }
 
@@ -146,6 +172,14 @@ class ICEControlPanelManager {
       this.transformControlPanel.targetComponent = component;
       this.transformControlPanel.enable();
     }
+    /**
+     * 镜像钩子：把「**面板现在显示给谁**」推给 worker。
+     *
+     * 镜像的为什么是它、而不是 `selectionList`：点空白处时引擎只**隐藏面板**、并不清空选中
+     * （选中列表是应用自己管的状态）—— 镜像如果只跟选中列表走，就会出现"主线程手柄没了、
+     * worker 画面里还挂着"，正是那种最容易被忽略的半个状态。
+     */
+    notifyToolTarget(this.ice, component);
   }
 }
 

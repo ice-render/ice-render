@@ -10,6 +10,82 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 > 「小程序形状运行时」夹具（`tests/mini-program/` 已删）。可以假定 `Path2D` / DOM / PointerEvent 可用；
 > 但 **Node/headless 仍须能跑**（SVG 导出走 `Path2DRecorder` 的命令流、无 rAF 时定时器兜底、
 > `ICE.init(ctx)` 入口）—— 这是两条互不冲突的要求，别把"去小程序"顺手做成"去 headless"。
+> **2026-09-20 补**：**Web Worker 也是一等宿主** —— `cross-platform/root.ts` 一律取 `globalThis`
+> （window / self / global 同一个入口），`createOffscreenCanvas` 在没有 DOM 时走 `OffscreenCanvas`。
+> 别再把取根写回 `window → global` 双探测：worker 里两者都不存在，引擎会取到空对象、连 `Path2D` 都看不见
+> （症状是「帧照传、耗时正常、画面全空」）。回归 `e2e/visual/worker-perf.spec.ts`。
+
+**现代 Canvas 能力铁律（2026-09-20 确立）**：规范里较新的成员可以**优先用**，但每一条都必须
+①**带兜底**（headless 的 canvas 实现与浏览器跟进节奏不一）、②**有真机像素回归**、③**在
+`docs/architecture/08-compatibility.md` 的账目表里有位置**。已采用：`Path2D.roundRect`（圆角矩形，
+无原生时展开成等价 `arcTo`）、`ctx.filter`（写在 `style.filter`，画布可用、SVG 导出留白）、
+`createConicGradient`、`ctx.letterSpacing` 一族。**两条硬约束**：命令流新增命令必须同步
+`SvgExporter.commandsToPathData()`（否则静默画错，且对读 `_commands` 的第三方是破坏性变更）；
+**滤镜的长度参数是设备像素、不随视图缩放**（`stroke`/`shadowBlur` 相反），凡按它扩边
+（位图 / 脏矩形）都要除以渲染视口缩放，否则缩略视图下切掉滤镜尾巴。
+
+**Worker 镜像协议铁律（2026-09-20 确立，阶段二第一块）**：主线程持有组件树与状态（唯一真相，
+命中检测也在主线程），worker 只有一棵**镜像树**且只负责渲染。改这块时守四条：
+① **状态推过去、不回传** —— worker 回给主线程的只有像素与统计，永远不要让它回传组件状态
+（一旦双向就有冲突解决，v1 的简单性立刻没了）；
+② **消息发出前必须过 `sanitizeTransferable()`** —— 函数 / DOM 节点 / `CanvasGradient` 这类值
+结构化克隆带不走，`postMessage` 会抛 `DataCloneError` 让**整帧消息发不出去**（症状是"画面卡住不动"，
+不是报错闪退）。过不去的值就地丢弃 + 记路径（`bridge.dropped`），别静默也别炸；
+③ **采集点只有四处**（`ICEComponent.setState`、`ICE.addChild/removeChild`、`ICEGroup.addChild/removeChild`），
+统一走 `src/worker/mirror-hooks.ts`；**别用包裹 `setState` 的方式采集** —— 动画写值通道走的也是
+`setState`，包裹会漏掉动画，而那正是"镜像跟着动"的主路径；
+④ **v1 的边界写进协议头注释**：状态增量、结构全量。要加子树增量之前先想清楚"id 对不上时怎么办"
+（现在的答案是 `missing` → 主线程重发全量，限流 500ms）。回归：`tests/worker/`、
+`e2e/visual/worker-mirror.spec.ts`。
+⑤ **输入永远不跨线程**：DOM 事件、命中检测、拖拽、控制面板交互都在主线程。代价是主线程必须继续跑
+渲染管线 —— 命中检测读的是**渲染期的世界盒快照**（`CanvasRenderer.getWorldBox` → `__snap`），
+不跑管线就"从未渲染过的组件命中不到"。但主线程不必产出像素：`ICE.setPaintTarget(几何通道)`
+把落墨换成"吞掉绘制调用、只留 `measureText`/`create*Gradient`"的桩（参考 `MirrorHost` 的
+`createGeometryOnlyContext`），并关掉主线程的离屏位图缓存。
+⑥ **工具层不镜像状态、不镜像结构**，只镜像**「面板显示给谁」**：控制面板/手柄由
+`ICEControlPanelManager` 按目标自己造、两边 id 不同，主线程手柄的 `setState({display:false})`
+发过去就是一堆未知 id（`missing` 风暴）。统一走 `ICEControlPanelManager.applySelection()` ——
+顺带覆盖"点空白处只隐藏面板、不清空选中列表"这条语义（镜像选中列表会留下半个状态）。
+⑦ **"现状"要在 `prime()` 里对齐**：桥只采得到建立**之后**的变更，而宿主往往是应用跑了一阵才接上
+worker 的 —— 视口/选择要一起发过去，否则新镜像从默认视口出发（画面跳一下、之后一直错着）。
+⑧ **几何通道必须覆盖引擎用到的每个 ctx 成员**（含 `fillText`/`strokeText`）：漏一个，
+真实应用第一次画到那里就抛（2026-09-20 被 IED 流程图抓到）。守卫：`tests/worker/mirror-host.test.ts`
+扫源码把"新用了一个 ctx 成员却没登记"钉红。
+⑨ **`MirrorHost` 的 2d 合成前要复位画布状态**（`setTransform(单位)` + alpha/composite）：
+主画布上下文里留着上一个组件的 CTM，直接 `drawImage` 会把整张位图贴歪 —— 实测切回主线程后
+画面被缩放 1.6 倍；用隐藏画布取像素的比对**看不到**这个问题（那张画布上下文是干净的）。
+⑩ **任何 `setState` 覆盖要么调 `super.setState`、要么自己调 `notifyStateChange`**：
+`ICEGroup.setState` 是完全覆盖，漏了它所有容器型组件（流程图节点这类）的状态都进不了镜像
+（不报错、只是画面不动）。守卫：`tests/worker/mirror-hooks-guard.test.ts`。
+⑪ **只镜像"文档里的组件"**：判据用 `isMirroredComponent()`（与 Serializer/Deserializer 同源）。
+复合组件的派生子件不进文档 → worker 侧没有对应 id → 对它们的写入**不发、只计数**
+（`bridge.skippedDerived`）；发过去只会换来 `missing` → 全量重同步（实测每改一次节点重发 473KB）。
+同理，**派生子树里的结构变更**（容器重建自己）不触发全量重同步；真实子节点
+（`getSerializableChildren()` 声明的）增删照旧走全量 —— 所以 `ICEGroup.removeChild` 的钩子
+**必须在摘除子节点之前**（摘除后再判定就分不出"真子节点被删"和"内部重建"了）。
+⑫ **补丁必须在 worker 侧按应用层入口重放**（`MirrorTarget` → `component.applyPatch()`，基类默认
+= `setState`）：派生逻辑跟着代码走，不跟着数据走。裸 `setState` 会让应用层派生（重建内部部件 /
+连线重路由 / 规范化样式）只发生在主线程 —— 真实症状是 worker 里连线不跟手、标题还是旧的。
+⑬ **帧节拍必须有背压**：`MirrorHost` 至多一帧在途（"还想画"只记标记，帧回来立刻补一帧）。
+不设上限时 `frame` 消息会越排越多（实测 30 帧基准积压 200+ 条），镜像滞后无上界、期间画的都是过时状态。
+宿主判断"静止态"用 `MirrorHost.renderedSeq` / `MirrorBridge.lastFrameSeq` 这组水印（`frame` 带
+`seq`、worker 原样回传），**不要**用"又收到一张位图"。
+⑭ **位置 / 尺寸这类"有跟随者"的改动必须走公开入口**（`setPosition()` 会派发 `BEFORE_MOVE`/
+`AFTER_MOVE` 并递归通知后代；尺寸改动要派发 `AFTER_RESIZE`）：只写 `setState({left,top})` 时
+连线 / 对齐辅助 / 控制面板**不会跟上**，而鼠标拖拽走的是 `setPosition` —— 于是"拖拽时对、
+程序化改属性时错"这种分叉只在面板 / 脚本路径上暴露（2026-09-20 被 worker 镜像实验抓到）。
+引擎侧契约写在 `ICEComponent.applyPatch()` 的注释里。
+⑮ **镜像必须"起不来就回退"，且回退后画面照常可用**：三道闸 + 一个固定动作 ——
+① 启动前探测（`detectMirrorSupport`，能力统一问 `root`：`Worker` / `OffscreenCanvas` +
+   `transferToImageBitmap` / `ImageBitmap`；`bitmaprenderer` 只降级合成路径，不算致命）；
+② 启动期兜底（`new Worker()` 必须包 try/catch —— CSP `worker-src` / `file://` 会同步抛；
+   `ready` 握手 + 超时；`ready.caps` 与协议版本校验）；
+③ 运行期看门狗（背压下"有帧在途却超时无位图" = worker 已死）。
+失败一律走 `__fallback`：`stop()` 还原落墨通道与缓存开关 → **立刻主线程重绘一帧** → 上报
+`onFallback` + `MIRROR_FALLBACK` 事件。**回退后"什么都不做"是不允许的**：症状会是"不崩、
+但画面冻在最后一帧"。守卫：`tests/worker/mirror-host.test.ts` + `e2e/visual/worker-fallback.spec.ts`。
+⚠️ 在 `MirrorHost` 里加计时器（握手/看门狗）时记得在 `stop()` 里清掉，否则宿主进程退不出去。
+真实验证数据见 `docs/architecture/10-worker-offscreen.md` §7.0。
 
 ## 引擎架构铁律（改动前必读）
 
@@ -238,6 +314,19 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   光标 / 编辑按 **grapheme** 移动，`renderCaret()` 对多行、RTL、`textAlign: start/end` 都要正确。
   回归用例见 `tests/graphic/text-bugfixes.test.ts`、`e2e/visual/offscreen-cache-fidelity.spec.ts`。
 
+- **文本度量必须在「基准态」量（2026-09-20 定位，一次真实事故）**：`ICEText.__measureByCanvas()`
+  量字形墨迹时，**必须先把 ctx 归到「单位变换 + `textBaseline: 'alphabetic'`」**，量完原样还原。
+  原因：canvas 的 `actualBoundingBoxAscent/Descent` 是**相对当前 `textBaseline`** 报告的，真机实测
+  （Chromium，`bold 18px Arial` 量 `rotated`）：`alphabetic` → 12.885/0.211；`bottom`（引擎默认）
+  → 16.916/**-3.820**；`top` → -1.084/14.180。引擎按「上=ascent、下=descent」拼盒高，负 descent 被
+  `Math.max(0, …)` 丢掉 → 盒高按 16.916 算（正确 13.096）。**危险之处在于"量到哪条基线"取决于量测
+  发生在哪一帧、在哪个通道**：离屏缓存会把组件重新量一遍（此时 ctx 已是「缓存位图 ctx + 该组件的
+  CTM + 已应用的 style」），于是**同一个组件的世界几何随缓存开关而变** —— 症状表现为「缩放视图下
+  开缓存与关缓存的渲染对不上（最大预乘差 132/255）」，根因却是度量被渲染状态污染。
+  纪律：**任何"用 ctx 量出来的几何"都不得受当前渲染状态影响**；量测前后要还原（调用方可能正处在
+  渲染中途，`applyActiveTransform()` 还指着那条 CTM）。回归：`tests/graphic/text-measure.test.ts`
+  的「量测期间把 ctx 归到 alphabetic 基线」、`e2e/visual/offscreen-cache-fidelity.spec.ts`。
+
 - **文本排版属性铁律（2026-09-13 确立，B 组）**：① `lineHeight` / `letterSpacing` / `textDecoration` 是
   **正式排版属性**，解析规则只能有一处（`src/graphic/text/text-style.ts`）——量测、换行、渲染、SVG 导出
   四处必须同口径，任何一处各自 `parseFloat` 都会漂移（`letterSpacing` 只透传给 ctx 的旧行为就是
@@ -442,6 +531,24 @@ web-components 的 e2e 静默复用了 smart-water 的服务目录，9 个用例
 
 - 一条命令跑完全部门禁：**`npm run verify`**（lint → types:check → build → jest → bench 2000 → pkg:check）；
   需要浏览器回归时用 `npm run verify:full`（再追加 Playwright 全量、bench:anim / bench:layers / bench:micro）。
+- **下游回归分层跑**（2026-09-20 确立，脚本 `scripts/family-regression.cjs`）：
+  家族现在有 11 个应用成员，一轮"全家族单测 + e2e"约 8 分钟 —— 每次都全量是浪费，
+  但**绝不能静默少测**，所以分层判定写死在脚本里、每次打印"为什么这么跑"：
+
+  | 命令 | 跑什么 | 用在哪 |
+  |---|---|---|
+  | `npm run regression:unit` | 全家族单测（每成员 `npm test`，没有测试的退到 `types:check`/`build`） | 改文档/测试，或要一层快速信号 |
+  | `npm run regression:affected` | `verify:full` + 全家族单测 + **受影响成员**的 e2e | **日常默认** |
+  | `npm run regression:family` | `verify:full` + 全家族单测 + **全部**成员 e2e | 发版前 / 大改核心 |
+
+  "受影响"= 改动路径 + 应用引用面：只改 `src/worker/**` → 谁真接线了镜像（代码里出现
+  `MirrorHost` 等）谁跑 e2e；改了 `src/` 下**其它**任何东西 → **全家族**跑 e2e（共用行为，
+  引用面判断会漏，宁可多跑）；只改文档/测试/基准 → 不跑任何应用 e2e。
+  另外**不依赖引擎的成员**（如 `ice-agent-console`）在 `affected` 层只跑单测 —— 它的 e2e
+  观察不到引擎改动。成员是**自动发现**的（兄弟目录、目录名 `ice-*`、有 package.json；
+  文档站 `ice-render-doc` 排除），新加应用不用改脚本。
+  先看它打算跑什么：`node scripts/family-regression.cjs --dry-run`；指定基线
+  `--since=<ref>`（默认 `origin/dev`）、只跑指定成员 `--only=a,b`、引擎已跑过 `--skip-engine`。
 - **性能门禁（2026-09-14 补）**：`bench/render.cjs` 与 `bench/micro` 以前只打印数字、靠人眼看，
   现在都能判定 —— `npm run bench <N> -- --check`（基线 `bench/baselines/render.json`）、
   `npm run bench:micro -- --check`（基线 `bench/micro/baseline.json`），实测超基线 2.0× / 2.5× 即非 0 退出。

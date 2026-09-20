@@ -1,7 +1,23 @@
 # 10 · Worker / OffscreenCanvas 渲染（设计文档，Web-only）
 
-> 状态：**设计 + 最小可行性原型**。本轮不把引擎正式移植到 worker；本文给出边界、依赖清单、
-> 架构分层与验证结论，供后续立项。引擎核心渲染逻辑仍以主线程为目标；小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
+> 状态：**设计 + 最小可行性原型 + 阶段一（worker 一等宿主）+ 阶段二第一块（状态/命令协议）
+> + 第二块（输入留在主线程 + 工具层镜像）已落地**（均 2026-09-20）。
+>
+> - **阶段一** = 引擎作为库能在 worker 里**零注入**跑起来（取根 `globalThis` + `createOffscreenCanvas`
+>   的 `OffscreenCanvas` 分支）。回归 `e2e/visual/worker-perf.spec.ts`。
+> - **阶段二第一块** = 跨线程**状态/命令协议**：主线程持有组件树与状态（唯一真相），worker 持有一棵
+>   **镜像树**并渲染，画面用 `transferToImageBitmap` 回传。协议与实现见
+>   `src/worker/mirror-protocol.ts` / `MirrorBridge` / `MirrorTarget`，参考宿主见
+>   `examples/worker/mirror-render.html` + `mirror-worker.js`，回归 `e2e/visual/worker-mirror.spec.ts`
+>   （状态增量 / 结构重同步之后，worker 画面与主线程参考**逐像素 0 差异**）。
+>   **v1 边界**：状态走增量补丁，**结构变更走全量重同步**。
+> - **阶段二第二块** = 让真实应用能接上：**输入永远在主线程**（DOM 事件、命中检测、拖拽都不跨线程），
+>   主线程改走"几何通道"（跑渲染管线但不产出像素）以维持命中检测依赖的世界盒；
+>   工具层按**选择**镜像 —— worker 用**自己的**控制面板画手柄。参考宿主 `MirrorHost`，
+>   回归 `e2e/visual/worker-mirror.spec.ts` 的交互用例（点选 / 拖拽 / 空点隐藏手柄，逐像素 0 差异）。
+> - **仍未做**：结构增量协议（增删子树的 op）、输入转发、字体/图片下发（worker 内文本的 `lang`/字形
+>   口径与主线程可能分叉）。引擎的**默认**渲染仍是主线程；worker 渲染要宿主显式接线。
+> 小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
 
 ## 1. 目标与边界
 
@@ -20,7 +36,9 @@
 | 字体 `FontFace` | `root.loadFont` | 主线程加载完成后下发（worker 内字体不可信） |
 | 内联编辑 HTML `<input>`（IME） | `ICEText` | 编辑态仍在主线程完成 |
 | 命中/坐标换算用 `getBoundingClientRect` | `DOMEventDispatcher` | 命中在主线程算（保持命中检测铁律） |
-| `global`/`window` 探测 | `cross-platform/root.ts` | worker 启动时显式注入 `globalThis.global = self`（UMD 兼容） |
+| `global`/`window` 探测 | `cross-platform/root.ts` | ✅ **已解决（阶段一）**：取根改为 `globalThis` —— 浏览器 window / worker self / Node global 同一个入口，宿主不再需要伪造全局 |
+| 离屏 canvas | `root.createOffscreenCanvas` | ✅ **已解决（阶段一）**：有 document 时用 `<canvas>`（保住 `lang`/`dir` 的字形口径），没有则用 `new OffscreenCanvas(w,h)`（worker 分支） |
+| 文本字形语言（`lang`/`dir`） | 主画布元素属性 | ⚠️ worker 里拿不到主画布的 `lang` → CJK 字形可能与主线程分叉；v0 结论是文本口径留在主线程（见 §1 边界） |
 
 ## 3. 架构分层
 
@@ -35,6 +53,43 @@
   主线程 ImageBitmapRenderingContext 展示
 ```
 
+### 3.1 输入留在主线程（阶段二第二块）
+
+**没有任何"输入消息"** —— 这是设计而不是省事：DOM 事件、命中检测、拖拽、控制面板的交互本来就
+只在主线程发生，跨线程转发一份坐标只会引入两套换算。真正的坑在别处：
+
+1. **命中检测读的是渲染期的世界盒快照**（`CanvasRenderer.getWorldBox()` → `__snap`，渲染时写入）。
+   所以主线程**必须继续跑渲染管线**，否则"从未渲染过的组件命中不到"。
+2. 但主线程**不该再产出像素**（那正是要交给 worker 的部分）。做法是把落墨换成一个"几何通道"
+   上下文：吞掉一切绘制调用，只把 `measureText` 与 `create*Gradient` 委派给真实上下文
+   （文本盒高与渐变对象都是引擎要读回来的东西）。引擎侧入口是 `ICE.setPaintTarget(ctx)`，
+   参考实现是 `MirrorHost` 里的 `createGeometryOnlyContext()`。
+3. 主线程同时**关掉离屏位图缓存**（`cache.isCachable = () => false`）：不产出像素时，位图缓存
+   只是白烧 CPU。
+4. **工具层不进序列化，也不作为 ops 镜像**。控制面板 / 手柄由 `ICEControlPanelManager` 按目标
+   自己造（`toolNodes` 明确不序列化），两边实例与 id 都不同 —— 把主线程手柄的
+   `setState({display:false})` 当 ops 发过去，worker 里没有这些 id，只会换来一串 `missing`
+   与重同步风暴。所以镜像的是**「面板显示给谁」**：`ICEControlPanelManager.applySelection()`
+   把目标推给 worker，worker 用它**自己的**面板画出同一套手柄（含 `transformable` / `linkEditable`
+   的门控，判定复用同一条路径，不另写一套）。
+   注意"点空白处"的语义：引擎只**隐藏面板**、不清空 `selectionList`，所以镜像的必须是面板状态，
+   而不是选中列表 —— 否则会出现"主线程手柄没了、worker 画面里还挂着"。
+5. **镜像只寻址"文档里的组件"**（`isMirroredComponent`，与 Serializer / Deserializer 同源判定）。
+   复合组件的派生子件（按 state 重建的底 / 标题 / 角标）不进文档，主线程对它们的写入在 worker 侧
+   没有对应 id：发过去只会换来 `missing` → 全量重同步（实测每改一次节点就重发 473KB）。
+   这类写入**不镜像、只计数**（`MirrorBridge.skippedDerived`）；镜像里那份派生件靠**重放容器的
+   `applyPatch`** 重建（见下一条）。同理，落在派生子树里的**结构变更**（容器重建自己）也不触发
+   全量重同步 —— 而真实子节点（`getSerializableChildren()` 声明的那些）增删照旧走全量。
+6. **补丁按应用层入口重放**：worker 收到 `ops` 后走 `component.applyPatch()`（引擎基类默认 =
+   `setState`，应用层可以覆盖它做派生：重建内部部件、重算连线、把老属性规范化到新位置），
+   而不是裸 `setState`。这样"派生逻辑跟着代码走，不跟着数据走"——两边跑同一份代码，
+   不需要把派生结果跨线程搬运。
+7. **帧节拍必须有背压**：worker 一帧要几毫秒，主线程按 rAF / 交互节奏每毫秒都能发一帧 ——
+   不设上限的话 `frame` 消息会越排越多（实测 30 帧基准积压 200+ 条），镜像滞后无上界、
+   期间画的还是过时状态。做法是**至多一帧在途**："还想画"只记一个标记，等位图回来立刻补一帧
+   （补的是最新状态）。宿主判断"静止态"用 `MirrorHost.renderedSeq` 与
+   `MirrorBridge.lastFrameSeq` 这组水印，而不是"又收到一张位图"（位图是背压的，会落后）。
+
 ## 4. 双 buffer 方案对比
 
 | 方案 | 说明 | 结论 |
@@ -44,10 +99,25 @@
 
 消息协议（draft）：
 ```
-主线程 → worker: { type:'scene', json } | { type:'delta', ids:[...], snapshotVersion }
-                | { type:'frame', t:DOMHighResTimeStamp }
-worker  → 主线程: { type:'bitmap', bitmap, stats:{renderMs} } | { type:'stats', ... }
+主线程 → worker: { t:'scene', v, seq, doc, dropped? }      // 全量（首次 / 结构变更后）
+                | { t:'ops',   v, seq, ops:[['state', id, patch]] }   // 状态增量
+                | { t:'frame', v, time }                    // 节拍（用主线程的时间戳）
+                | { t:'resize', v, width, height }
+worker  → 主线程: { t:'ready',   v, caps }
+                | { t:'rendered', v, seq, stats }           // 位图走 transfer（宿主自己收）
+                | { t:'missing', v, seq, ids }              // 镜像缺组件 → 主线程重发全量
+                | { t:'error',   v, message, code? }
 ```
+
+（上面是 v1 的**最终形态**，已实现；`v` 是协议版本，不匹配时接收方明确拒绝，不猜老格式。）
+
+**三条实现纪律**（改这块之前先读，`mirror-protocol.ts` 头注释里有完整理由）：
+1. 状态是**推**过去的，worker 从不回传组件状态 —— 没有双向冲突要解决；
+2. 消息发出前一律过 `sanitizeTransferable()`：结构化克隆带不走的值（函数 / DOM 节点 /
+   `CanvasGradient`）**就地丢弃并把路径记进 `dropped`**，否则 `postMessage` 抛 `DataCloneError`
+   会让整帧消息发不出去（症状是"画面卡住不动"）；
+3. 采集中在引擎内部四处（`setState` / `addChild` / `removeChild`，`ICE` 与 `ICEGroup` 各一份），
+   没装桥时只有一次属性读 —— 见 `src/worker/mirror-hooks.ts`。
 
 ## 5. 一致性要点
 
@@ -56,18 +126,114 @@ worker  → 主线程: { type:'bitmap', bitmap, stats:{renderMs} } | { type:'sta
 - 渲染路径直接复用 M1 的 `doRenderFull/doRenderDirtyRect` 分派（渲染器已可插拔），
   将来把 `dirtyIds/快照` 经消息通道传给 worker，worker 内同样受益于脏矩形局部重绘。
 
+**实测结论（2026-09-20，`e2e/visual/worker-mirror.spec.ts`）**：v1 把动画的**计算结果**（绝对状态值）
+推给 worker，worker 不做补间 —— 因此"双时钟漂移"这一条在 v1 上**根本不成立**（没有插值就没有时钟）。
+六步（位移/换色、半径、点集、加子节点、删子节点）逐步比对，worker 画面与主线程参考
+**逐像素 0 差异**（alpha 与 RGB 都严格相等）。真正需要单一时钟的是**将来**把补间也搬进 worker 的那版。
+
+交互同样实测过（同文件第二个用例，参考宿主 `examples/worker/mirror-render.html`）：
+可见画布**刻意偏离页面左上角**（100px/40px）——点选、拖拽、空点隐藏手柄全部按可见画布的矩形换算，
+主线程选中与拖拽位移精确（+60/+40），worker 画面里的手柄随之出现/移动/消失，
+每一步与参考渲染**逐像素 0 差异**。
+
 ## 6. 开关策略（web-only）
 
-- 目标运行时是"现代浏览器 + Node/headless"，worker 化天然是 **web-only**：探测 `OffscreenCanvas`、
-  `Worker`、`ImageBitmapRenderingContext` 三者齐备才启用；`root.workerSupported` +
-  `ICE.init(..., { renderInWorker?: boolean })`（默认关）。
+worker 化天然是 **web-only**，所以"起不来怎么办"必须是机制的一部分、而不是交给应用去猜。
+引擎**不做全局开关**（`ICE.init(..., { renderInWorker })` 那种"引擎自己切渲染后端"仍是未来设计）：
+镜像由宿主显式接线（`MirrorHost`），因此保护也做在宿主这一层，分三道闸：
+
+**① 启动前探测**（`detectMirrorSupport()` / `MirrorHost.detect({ canvas })`，能力来自 `root`）：
+
+| 必要条件 | 缺失时的后果 | 判定 |
+|---|---|---|
+| `Worker` | 根本没有线程可开 | `root.workerSupported` |
+| `OffscreenCanvas` + `transferToImageBitmap` | worker 里没有落墨目标（Safari 16.4 之前只有部分实现） | `root.offscreenCanvasSupported` |
+| `ImageBitmap` | 位图跨不回来 | `root.imageBitmapSupported` |
+| `bitmaprenderer`（**非致命**） | 退化成 2d `drawImage` 合成，多一次拷贝 | 探测可见画布 |
+
+探测不过就**根本不接管落墨通道** —— 画面与"从没接过 worker"逐像素一致，功能一项不少。
+
+**② 启动期兜底**（都在 `MirrorHost.start()` 里，失败即回退）：
+
+- `new Worker()` 包 try/catch：CSP 的 `worker-src`、`file://`、企业策略/隐私模式会**同步抛**，
+  以前那会从 `start()` 冒出去、整页崩；
+- **`ready` 握手 + 超时**（默认 4000ms）：worker 脚本 404 / 语法错 / 在 `importScripts` 或模块顶层就抛
+  （真实例子：顶层 `new OffscreenCanvas()`）都不一定触发 `onerror`，但"等不到 ready"是确定可观测的；
+- **`ready.caps` 校验**：worker 自报 `offscreen: false` 或协议版本不一致 → 回退并说明原因。
+
+**③ 运行期看门狗**：背压保证"最多一帧在途"，所以"**有帧在途却超过 `staleTimeout`（默认 4000ms）
+没有位图回来**"是干净的死亡判据（worker 卡长任务 / 画布分配失败 / 被宿主策略掐掉都覆盖）。
+`onerror` 同样走回退。
+
+**回退动作是固定的三步**（`MirrorHost.__fallback`）：`stop()` 原样还原落墨通道与缓存开关 →
+**立刻用主线程重绘一帧** → 上报 `onFallback({ reason, message, support })` + 一条 `MIRROR_FALLBACK`
+错误事件。也就是说：**任何一步失败，宿主拿到的都是一块正常、可交互、能继续画的画布**，
+而不是"冻在某一帧上、还不报错"。
+
+回归：`tests/worker/mirror-host.test.ts`（探测/构造/握手/caps/版本/运行期/看门狗/`fallback: 'off'`）
++ `e2e/visual/worker-fallback.spec.ts`（真实浏览器里把 worker 指到一个不存在的脚本、以及
+`?backend=main`，断言"回退了 + 画面还在 + 改状态画面跟着变"）。应用侧的接法见
+`ice-entity-designer` 的 `e2e/worker-mirror.spec.ts`。
+
 - **2026-09-20 更新**：小程序已不再支持，本节原先那条"小程序线程模型不同 → 收益不成立"的
   排除理由随之消失（见 `08-compatibility.md` 的「已移除的能力」）。
 
 ## 7. 最小可行性原型（本轮交付）
 
+### 7.0 真实应用验证：ice-entity-designer 的流程图（2026-09-20）
+
+把镜像接上 IED 的流程图（**200 节点 / 799 组件 / 画布 900×620**，含节点标题与连线标签）实测：
+
+| 指标 | 主线程渲染 | worker 镜像 | 结论 |
+|---|---|---|---|
+| 缩放平移每帧主线程 p50 | 1.90 ms | **1.20 ms** | **省 37%**（缓存整批失效、全部图元重画的最重负载） |
+| 拖动单节点每帧 p50 | 3.20 ms | 2.80 ms | 省 12%（引擎的静态层 / 组件位图缓存已经把这类负载吸收了） |
+| worker 内渲染 p50 | —— | 3.8 ms | 在主线程之外，不占帧预算 |
+| 端到端延迟（改状态 → 位图回来） | —— | **7.0 ms** | 约一帧量级，这是镜像方案的真实代价 |
+| 静止态几何对账 | —— | **399/399 逐项相等** | 每个节点的世界盒 + 连线两端点 |
+| 静止态像素（worker vs 文档重建 / vs 主线程源树） | —— | **0 差异 / 558000 像素 0 差异** | 含节点标题与连线标签（文字栅格化） |
+| 全量场景体积 | —— | 473 KB | 只在结构变更时发；状态走增量补丁 |
+
+规模趋势（`?nodes=40/120/250/400`）：主线程每帧 0.50/1.20/2.30/4.50 ms → 0.30/0.80/1.50/3.00 ms，
+**省 31%~46%**。
+
+**结论**：镜像能让"大范围重绘"类负载轻 30%~40%，代价约一帧延迟；
+**是否需要它取决于场景里有没有大范围重绘**（缩放/平移、换主题、批量改样式），而不是"图元多不多"。
+
+**保真边界 = 序列化格式的保真边界 + 「派生逻辑跟着代码走」**。复合组件的派生子件（IED 的节点
+形状 / 标题 / BPMN 角标 / 连线标签）按设计**不写进文档**，worker 侧由构造函数重建，id 与主线程
+不同 —— 所以对它们的**状态写入不镜像**（发过去只会换来 `missing` → 全量重同步，实测每改一次
+节点就重发 473KB）。它们靠另一条路保持一致：**镜像侧按应用层入口重放补丁**
+（`MirrorTarget.applyOps` → `component.applyPatch()`），派生逻辑两边跑的是同一份代码。
+于是静止态**几何逐项相等、像素逐像素为 0**（上表）。
+
+这条边界剩下的含义（不是缺陷，是设计）：**只改派生部件、容器状态没动**的写法不在文档模型内 ——
+这种写入不会进镜像（`MirrorBridge.skippedDerived` 计数上报），连 `serialize → load` 往返也留不住它。
+
+**这次验证顺手修掉的缺陷**（每个都配了守卫/回归，细节见 CHANGELOG）：
+① 几何通道漏登记 `fillText`/`strokeText` → 真实文字一画就抛；
+② `ICEGroup.setState` 是完全覆盖、不经过镜像钩子 → **容器型组件（FlowNode）的状态全进不了镜像**；
+③ 协议没有视口消息、且新起的镜像不对齐"当前视口/选择"；
+④ `MirrorHost` 的 2d 合成没复位主画布上下文（残留 CTM 让位图整体错位）。
+⑤ 应用层位置/尺寸补丁直接写 `setState`，不走引擎的 `setPosition()` → **程序化移动节点时连线不跟随**
+   （镜像侧反而因为重建而"对"，两边几何分叉）；
+⑥ 镜像侧只落 `setState`，不重放应用层的 `applyPatch` → 派生部件（标题 / 形状 / 连线走线）停在旧值；
+⑦ **帧节拍没有背压**：主线程每步都发 `frame`，worker 一帧要几毫秒 → 实测 30 帧的基准能积压两百多条
+   `frame` 消息（`renderedSeq=45` vs `lastFrameSeq=240`），镜像要好几秒才追上，期间画的每帧都是过时状态。
+   修法：**至多一帧在途**（`MirrorHost`），并把 `frame` 的 `seq` 作为"这张位图是哪一帧"的水印
+   （`MirrorHost.renderedSeq` / `MirrorBridge.lastFrameSeq`）—— 静止态验收、截图、像素比对都要等它追平。
+
+复现：`ice-entity-designer` 的 `npm run build && npx playwright test e2e/worker-mirror.spec.ts`，
+页面 `examples/worker-mirror.html?nodes=200`；完整报告见该仓 `docs/worker-mirror-rendering.md`。
+
+**阶段二第一块之后，参考宿主升级为"真协议"版**（`examples/worker/mirror-render.html` +
+`mirror-worker.js`）：主线程建树 → `MirrorBridge` 发 `scene`/`ops`/`frame` → worker 内
+`MirrorTarget` 落成镜像树 → `OffscreenCanvas` 渲染 → `transferToImageBitmap` 回传 →
+主线程用 `ImageBitmapRenderingContext` 展示（`#view`），同时把同一张位图画进 2d 画布（`#probe`）
+供逐像素验收；`#ref` 是主线程用同一棵树直绘的参考。下面这段是**更早的**单场景性能原型，保留备查。
+
 - `examples/performance/worker-main.html` + `worker-min.js`：
-  - worker 内 `importScripts` UMD dist（先注入 `globalThis.window/global`），在 `OffscreenCanvas`
+  - worker 内 `importScripts` UMD dist（**零注入**，阶段一之后不再需要伪造全局），在 `OffscreenCanvas`
     2D ctx 上驱动同一套 ICE 确定性场景，测量 worker 内 static/anim 单帧 p50（含真实光栅化），
     末帧 `transferToImageBitmap` 上传主线程 `ImageBitmapRenderingContext` 展示。
   - 结果写入 `window.__workerBenchResult`，可被 Playwright 采集。

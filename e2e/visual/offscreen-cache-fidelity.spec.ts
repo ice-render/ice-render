@@ -13,6 +13,12 @@
  *   4. 子类在 `super.doRender()` 之后用 `applyTransformToCtx(null, true)` 复原变换 ——
  *      在离屏通道里会按主画布视口重算，把位图原点的平移丢掉（连线箭头/标签整块消失）。
  *
+ * 2026-09-20 又抓到一个**不在缓存里**的坑：`ICEText` 量字形墨迹时用的是当时的 ctx，而 canvas 的
+ * `actualBoundingBox*` 是**相对当前 `textBaseline`** 报告的 —— `bottom`（引擎默认）下 descent 变成
+ * 负数、被引擎的 `Math.max(0, …)` 丢掉，盒高多出约 3.8px。离屏缓存通道会把组件重新量一遍，于是
+ * **同一个组件的世界几何随「开/关缓存」而变**（症状就是这条用例变红：缩放视图下最大预乘差 132/255）。
+ * 修法是量测期间把 ctx 归到「单位变换 + `alphabetic`」。详见 CHANGELOG 与 AGENTS 的文本度量铁律。
+ *
  * ## 验收口径
  * - **alpha 必须逐位相同**：覆盖率只要错位（缩放取整 / 位图原点丢失 / 亚像素位移）alpha 立刻会变。
  * - **RGB 允许 ≤2/255 的取整差**：位图是 8bit 预乘存储，深色字形压在不透明浅色底上会多经历一次
@@ -68,7 +74,7 @@ async function runSteps(page: any, url: string, strict: boolean) {
   await page.waitForTimeout(800);
 
   const stats: any = await page.evaluate(() => (window as any).__cacheStats());
-  const STEPS = 12;
+  const STEPS = 14;
   for (let i = 0; i < STEPS; i++) {
     const ok = await page.evaluate((s: number) => (window as any).__step(s), i);
     expect(ok, `step ${i} 应当存在`).toBe(true);

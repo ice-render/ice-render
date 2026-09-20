@@ -7,6 +7,268 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+## [4.0.0] - 2026-09-20
+
+> ⚠️ **破坏性：路径命令流新增 `roundRect`**（读 `component.path2D._commands` 自行重放/翻译的第三方代码
+> 要认识这个新命令；引擎自带的 SVG 导出器已支持）。其余都是新增能力与修复，数据格式与渲染结果的
+> 其它部分不变。
+>
+> 本版主线是 **worker 镜像渲染**（阶段一"worker 一等宿主" → 阶段二"跨线程协议 / 输入留主线程 /
+> 工具层镜像" → 真实应用验证 → 派生更新可镜像 + 帧节拍背压 → 兼容保护），配一条
+> **下游回归分层**工具（`npm run regression:affected`）。
+
+### 开发工具（下游回归分层：`npm run regression:affected`）
+
+家族现在有 11 个应用成员，一轮"全家族单测 + e2e"约 8 分钟 —— 改一行文档也全量跑是纯浪费。
+新增 `scripts/family-regression.cjs`（`npm run regression:unit` / `:affected` / `:family`），
+把下游回归分成三层，但**绝不静默少测**：判定规则写死在脚本里，且每次都打印"为什么这么跑"。
+
+- **`unit`**：全家族单测（每成员 `npm test`；没有测试用例的成员退到 `npm run types:check` → `build`，
+  这正是 `ice-entity-designer-react-demo` 这类"跟版"成员的验证方式）。
+- **`affected`（默认）**：引擎 `verify:full` + 全家族单测 + **受影响成员**的 e2e。
+- **`full`**：引擎 `verify:full` + 全家族单测 + **全部**成员 e2e（发版前）。
+
+"受影响"由**改动路径 + 应用引用面**判定：只改 `src/worker/**` → 谁真的接线了镜像
+（代码里出现 `MirrorHost` / `MirrorBridge` / `MirrorTarget` / `detectMirrorSupport` …）谁跑 e2e；
+改了 `src/` 下**其它**任何东西（图形 / 渲染器 / 事件 / 序列化 / ICE / `cross-platform/root`…）→
+**全家族**跑 e2e（共用行为，"引用面"判断会漏，宁可多跑）；只改文档/测试/基准 → 不跑应用 e2e。
+另外，**不依赖引擎的成员**（如 `ice-agent-console`）在 `affected` 层只跑单测 —— 它的 e2e 观察不到
+引擎改动。成员是自动发现的（兄弟目录、目录名 `ice-*`、有 `package.json`；文档站 `ice-render-doc` 排除），
+新加应用不用改脚本；依赖链接照旧"临时指向工作区引擎、跑完还原"。
+
+实测：`--tier=unit` 三个成员 10.1s；`--tier=affected --only=ice-entity-designer,ice-agent-console`
+32.6s（IED 跑 e2e，agent-console 只跑单测）；同规模的全量 `--tier=full` 约 8 分钟。
+支持 `--dry-run`（先看计划）、`--since=<ref>`（默认 `origin/dev`）、`--only=`、`--skip-engine`。
+
+### 新功能（Worker 镜像 · 2026-09-20 兼容保护：起不来就回退，回退后照常可用）
+
+镜像一直是"宿主显式接线"，于是"某些浏览器/宿主不支持"以前只能靠应用自己判断：不支持时
+**不会崩，但会静默冻屏**（几何通道挂着、worker 没有位图回来，画面停在最后一帧）。
+这一版把这件事收进机制里，分三道闸 + 一个固定回退动作：
+
+- **启动前探测**：`detectMirrorSupport()`（引擎导出）与 `MirrorHost.detect({ canvas })`。
+  判定三条必要条件 —— `Worker`、`OffscreenCanvas` + `transferToImageBitmap`、`ImageBitmap`
+  （能力统一问 `root`：新增 `root.workerSupported` / `root.offscreenCanvasSupported` /
+  `root.imageBitmapSupported`，宿主不再自己去 `typeof window.Worker`）。`bitmaprenderer` 只影响
+  合成路径（退回 2d `drawImage`），**不算必要条件**。探测不过时 `start()` **根本不接管落墨通道**。
+- **启动期兜底**：`new Worker()` 包 try/catch（CSP 的 `worker-src`、`file://`、企业策略/隐私模式
+  会**同步抛**，以前那会从 `start()` 冒出去）；新增 `ready` 握手 + 超时（默认 4000ms）——
+  worker 脚本 404 / 语法错 / 模块顶层就抛（真实例子：顶层 `new OffscreenCanvas()`）**不一定**触发
+  `onerror`，但"等不到 ready"确定可观测；并校验 `ready.caps`（worker 自报没有 OffscreenCanvas）
+  与协议版本。
+- **运行期看门狗**：背压保证"最多一帧在途"，所以"**有帧在途却超过 `staleTimeout`（默认 4000ms）
+  没有位图回来**"= worker 已死（卡长任务 / 画布分配失败 / 被宿主策略掐掉），自动回退。
+- **固定回退动作**（`MirrorHost.__fallback`）：`stop()` 原样还原落墨通道与位图缓存开关 →
+  **立刻用主线程重绘一帧** → 上报 `onFallback({ reason, message, support })` + 一条 `MIRROR_FALLBACK`
+  错误事件（只接 `onEvent` 的宿主也不会漏）。`fallback: 'off'` 可关掉自动回退（只上报）。
+- 参考宿主升级：`examples/worker/mirror-render.html` 增加 `?backend=main`（强制主线程）与
+  `?worker=<url>`（换成坏脚本）两个开关，并新增 `e2e/visual/worker-fallback.spec.ts`：
+  真实浏览器里把 worker 指到不存在的脚本 → 断言"回退了 + 画面仍有墨迹 + 改状态画面跟着变"。
+
+回归：`tests/worker/mirror-host.test.ts` 新增 8 条（探测 / 不接管 / 构造抛错 / 握手超时 / caps 与
+版本不一致 / 运行期报错 / 看门狗 / `fallback: 'off'`）；引擎 `verify:full`；
+`ice-entity-designer` 侧加了集成级回退用例（页面必须把模式切回主线程）。
+
+### 新功能（Worker 镜像 · 2026-09-20 收口：派生更新可镜像 + 帧节拍背压）
+
+接着上面的真实应用验证，把"镜像里最后那点分叉"和"交互下的滞后"一起收掉。三处改动分别对应一个
+真实缺陷，判据都是**真实应用上的实测数字**（IED 流程图，200 节点 / 799 组件）：
+
+- **派生更新可镜像（应用层补丁入口）**。新增公开入口 `ICEComponent.applyPatch(patch)`（默认就是
+  `setState`，应用层可覆盖它做派生：重建内部部件 / 重算连线 / 规范化老属性），`MirrorTarget`
+  应用 `ops` 时**走这个入口**而不是裸 `setState`。理由：复合组件的派生子件（IED 的节点形状 /
+  标题 / 连线标签）不进文档，worker 侧那一份由构造函数重建 —— 只有重放应用层补丁，派生逻辑才会
+  在两边都跑一遍（同一份代码）。实测：改名 / 改类型 / 改位置的几何与像素都逐项一致。
+- **派生部件不寻址、也不触发重同步**。新增 `isMirroredComponent()`（与 `Serializer` /
+  `Deserializer` 同源判定），桥不再把"镜像里根本没有的组件"的补丁发出去 —— 发过去只会换来
+  `missing` → 全量重同步（实测每改一次节点重发 **473KB**，而且顺手清掉同批已排队的补丁）。
+  这类写入按 `MirrorBridge.skippedDerived` 计数上报（**不是**静默丢弃）。同理，落在派生子树里的
+  **结构变更**（容器重建自己）不再触发全量；真实子节点（`getSerializableChildren()` 声明的）
+  增删照旧走全量 —— 为此 `ICEGroup.removeChild` 的镜像钩子**必须发生在摘除之前**（摘除后再问
+  "它是不是真实子节点"就分辨不出来了，真子节点的删除会被误判成内部重建）。
+- **帧节拍背压 + 帧号水印**。worker 一帧要几毫秒，主线程按 rAF / 交互节奏每毫秒都能发一帧：
+  没有背压时 `frame` 消息越排越多，实测一个 30 帧的基准跑完，worker 侧积压 200+ 条
+  （`renderedSeq=45` vs `lastFrameSeq=240`）—— 镜像要好几秒才追上，期间画出来的每一帧都是**过时**状态，
+  静止态对账还会把它误读成"状态分叉"。现在 `MirrorHost` **至多一帧在途**（"还想画"只记一个标记，
+  帧回来立刻补一帧、补的是最新状态）；`frame` 消息带上 `seq`（worker 原样回传），宿主用
+  `MirrorHost.renderedSeq` / `MirrorBridge.lastFrameSeq` 这组水印判断"这张位图是哪一帧"。
+  `frame` 少了 `seq` 会被 `isMirrorCommand` 明确拒绝（协议尚未发布，故仍是 v1）。
+
+**实测（收紧后的 e2e 断言）**：静止态几何对账 **399/399 逐项相等**（原先 396/399），
+worker 位图 vs 主线程源树直绘 **558000 像素 0 差异**（原先约 9%）；改名 / 改类型 / 改位置三步走完
+**没有发生任何全量重同步**（场景数 1 → 1）；缩放平移每帧主线程 1.90ms → 1.20ms（省 37%），
+拖动单节点 3.20ms → 2.80ms（省 12%），端到端 7.0ms。
+
+### 修复（位置 / 尺寸补丁要让"跟随者"跟上）
+
+- **程序化移动节点时连线不跟随**。引擎只在 `setPosition()` 里派发 `BEFORE_MOVE` /
+  `AFTER_MOVE`，而应用层（IED 的属性面板 / 脚本路径）直接写 `setState({left,top})` ——
+  鼠标拖拽走的是 `moveGlobalPosition()` → `setPosition()`，所以这个分叉只在程序化改位置时
+  表现出来（真实症状：面板改坐标，节点走了、连线留在原地）。引擎侧的契约在
+  `ICEComponent.applyPatch` 的注释里写明：**位置 / 尺寸这类"有跟随者"的改动走公开入口**。
+  引擎本身无行为变更（没有改 `setState` 的语义），应用侧的修法见 IED 的 CHANGELOG。
+
+### 真实应用验证（ice-entity-designer 流程图 · 2026-09-20）
+
+把 worker 镜像接上 IED 的流程图（200 节点 / 799 组件）实测，顺手挖出并修掉四个"只有真跑起来
+才会暴露"的缺陷 —— 每一个都有守卫或回归：
+
+- **几何通道漏了文本绘制成员**：`createGeometryOnlyContext()` 没登记 `fillText` / `strokeText`，
+  真实图元一画到文字就抛 `this.ctx.fillText is not a function`（基准场景没有文字，所以一直没暴露）。
+  修法：补齐成员，并加一条**源码扫描守卫**（引擎新用一个 `ctx.xxx()` 而桩里没登记就变红）。
+- **容器型组件的状态完全进不了镜像**：`ICEGroup.setState` 是**完全覆盖**（语义不同：要把整棵子树标脏），
+  不经过 `ICEComponent.setState` 里的镜像钩子 —— IED 的 `FlowNode extends ICEGroup`，于是拖节点、
+  改标题在镜像里全都不动（不报错、只是画面不动）。修法：`ICEGroup.setState` 自己补一次钩子，
+  并加守卫测试（每个 `setState` 覆盖要么调 `super.setState`，要么自己 `notifyStateChange`）。
+- **协议缺视口消息**：编辑器里缩放/平移是最常见的重型操作，不镜像视口两边看的就不是同一片区域。
+  新增 `{ t:'viewport', scale, tx, ty }`；同时给 `MirrorBridge.prime()`——**宿主后接上来时**要把
+  "当前视口/当前选择"一起发过去，否则新起的镜像从默认视口出发（接上 worker 的瞬间画面会跳一下）。
+- **2d 合成没复位画布状态**：`MirrorHost` 用 `drawImage` 贴位图时，主画布的 2d 上下文里可能还留着
+  上一个组件的 CTM —— 整张位图被带着变换贴上去，症状是"切回主线程渲染后画面整体缩放了 1.6 倍"
+  （用隐藏画布取像素的比对看不出来，那张画布的上下文是干净的）。修法：合成前
+  `save + setTransform(单位) + 复位 alpha/composite + clearRect + drawImage + restore`。
+
+**实测数字**（`ice-entity-designer/e2e/worker-mirror.spec.ts`，200 节点 / 799 组件 / 900×620）：
+缩放平移每帧主线程 **1.90ms → 1.20ms（省 37%）**；拖动单节点 2.60ms → 2.50ms（省 4%，
+引擎自己的静态层/组件位图缓存已经把这类负载吸收了）；worker 内渲染 2.8ms（不占帧预算）；
+端到端延迟 **4.7ms**（约一帧）；初始态 worker 渲染与主线程直绘**逐像素 0 差异**（含文字/连线标签）。
+
+**保真边界（重要）**：**镜像的保真边界 = 序列化格式的保真边界**。复合组件的派生子件
+（IED 的节点图标 / 连线标签）不进文档，worker 侧重建后 id 与主线程不同，应用层对它们的位置更新
+镜像不过去 —— 几何逐项一致（396/399），只有这些子件的视觉细节有差异（像素差约 9%）。
+彻底消掉它需要"让派生子件进文档"或"镜像按结构路径寻址"——**上一条已经用第三条路收掉了**
+（重放应用层补丁 + 派生件不寻址），这里的数字因此只作"当时的历史记录"。
+
+### 新功能（Worker 镜像 · 阶段二第二块：输入留在主线程 + 工具层镜像）
+
+让真实应用能接上：主线程持有状态、处理输入；worker 渲染。**没有任何"输入消息"** ——
+DOM 事件、命中检测、拖拽、控制面板交互本来就只在主线程发生，跨线程转发只会引入两套坐标换算。
+
+- **`MirrorHost`（主线程宿主）**：把「可见画布（显示 + 输入矩形）/ 主线程几何通道 / worker 渲染」
+  接起来，含 rAF 节拍、`resize` 同步、`stop()` 还原、`onBitmap` / `onStats` 钩子。
+- **几何通道**：`ICE.setPaintTarget(ctx)` + `MirrorHost` 里的 `createGeometryOnlyContext()`。
+  命中检测读的是**渲染期的世界盒快照**（`CanvasRenderer.getWorldBox()`），所以主线程必须继续跑渲染
+  管线；但不必产出像素 —— 落墨换成一个吞掉绘制调用、只把 `measureText` / `create*Gradient`
+  委派给真实上下文的桩，主线程因此只剩几何与簿记（宿主同时关掉主线程的离屏位图缓存）。
+- **工具层按"选择"镜像**：控制面板/手柄由 `ICEControlPanelManager` 按目标自己造（`toolNodes` 不序列化），
+  两边实例与 id 都不同。所以镜像的是**「面板显示给谁」**：新增公开入口
+  `ICEControlPanelManager.applySelection(component | null)`（`mouseDownHandler` 与镜像同步共用），
+  经 `selection` 消息推给 worker，由 worker **自己的**面板画出手柄。
+  **工具层的状态与结构一律不镜像**（否则主线程手柄的 `setState` 会在 worker 里全是未知 id，
+  换来一串 `missing` 与重同步风暴）。
+- **节拍**：`frame` 消息仍然由主线程 rAF 驱动；worker 侧 `FrameManager.wake()` 只在有活时跑。
+- 参考宿主 `examples/worker/mirror-render.html`（可见画布刻意偏离页面左上角，专门压坐标换算）
+  + 回归 `e2e/visual/worker-mirror.spec.ts` 第二个用例：点选 / 拖拽（+60/+40）/ 空点隐藏手柄，
+  每一步与主线程参考渲染**逐像素 0 差异**，手柄确实出现在 worker 画面里。
+
+### 新功能（Worker 镜像渲染 · 阶段二第一块：跨线程状态/命令协议）
+
+- **`MirrorBridge`（主线程）+ `MirrorTarget`（worker）+ 协议 v1**，公开导出。
+  主线程持有组件树与状态（唯一真相，命中检测也在主线程），worker 持有一棵**镜像树**只负责渲染，
+  画面经 `transferToImageBitmap` 回传。
+  - 消息：`scene`（全量文档）/ `ops`（`['state', id, patch]` 增量）/ `frame`（节拍）/ `resize`；
+    回传 `ready` / `rendered`（含 `renderMs`、组件数、已应用 op 数）/ `missing` / `error`。
+  - **v1 边界**：状态走增量补丁，**结构变更走全量重同步**（增删子节点低频，不值得先上子树增量协议）。
+  - **不可克隆值的处理**：消息发出前过 `sanitizeTransferable()`，函数 / DOM 节点 / `CanvasGradient`
+    这类结构化克隆带不走的值**就地丢弃并记录路径**（`bridge.dropped`），否则 `postMessage` 抛
+    `DataCloneError` 会让整帧消息发不出去（症状是"画面卡住不动"）。
+  - 采集中在引擎内部四处（`setState` / `addChild` / `removeChild`，`ICE` 与 `ICEGroup` 各一份），
+    没装桥时只有一次属性读（`src/worker/mirror-hooks.ts`）。
+  - 参考宿主：`examples/worker/mirror-render.html` + `mirror-worker.js`；回归
+    `e2e/visual/worker-mirror.spec.ts` —— 六步（位移/换色 / 半径 / 点集 / 加子 / 删子）逐步比对，
+    worker 画面与主线程参考**逐像素 0 差异**。
+- 顺带导出 `FrameManager`（帧控制器单例）：worker 里没有 rAF，宿主想按主线程节拍驱动时用
+  `FrameManager.wake()` 叫醒一次即可（引擎默认「没有脏组件/活动动画就停帧」）。
+
+### 修复（本轮连带抓出的两个"属性改了画面不动"）
+
+- **`ICECircle.setState({ radius })` 只改 state、不改绘制**：`radius` 只在构造函数里被翻译成
+  `radiusX/radiusY`，而绘制读的是后者 —— 于是 `state.radius = 40` 而画出来还是 28。
+  这个缺陷是 worker 镜像回归抓出来的（镜像按文档重建会走构造函数 → 按 40 画，两边对不上，
+  像素差 2655 个）。现在 `setState` 与构造函数同口径映射（`radius` ↔ `radiusX/radiusY/width/height`）。
+  回归：`tests/graphic/circle-radius-setstate.test.ts`。
+- **（同上一条的排查过程）** 顺带确认：`examples/worker/mirror-render.html` 已纳入示例导航页
+  （95 个示例）。
+
+### 性能 / 兼容（Web Worker 成为一等宿主 · worker 路线阶段一）
+
+- **取根改为 `globalThis`**：浏览器 window / **Web Worker self** / Node global 同一个入口。
+  改造前是 `window → global` 双探测 —— worker 里两者都不存在，取到兜底空对象 `{}`，
+  引擎在 worker 内看不见 `Path2D` / `OffscreenCanvas` / `devicePixelRatio`，形状连一笔都画不出来
+  （当年的最小原型只能先 `self.window = self` 伪造全局再 `importScripts`）。
+- **`createOffscreenCanvas` 增加 `OffscreenCanvas` 分支**：有 DOM 时仍用
+  `document.createElement('canvas')`（要保住 `lang`/`dir` 的字形口径），没有 DOM 时用
+  `new OffscreenCanvas(w, h)` —— worker 里因此**离屏层不再静默降级**。
+- **回归**：`e2e/visual/worker-perf.spec.ts` 在真机 worker 里断言「宿主没注入 / `root` 就是 `self` /
+  形状拿得到原生 `Path2D` / 能建离屏 canvas / 画布真的落了墨」；`tests/cross-platform/root.offscreen.test.ts`
+  覆盖三条分支（document 优先 / OffscreenCanvas / 都没有则抛明确错误）。
+- **边界（仍未做）**：场景与状态跨线程同步、输入转发、字体与图片下发（worker 内文本字形语言
+  与主线程可能分叉）—— 见 `docs/architecture/10-worker-offscreen.md`。
+
+### 变更（破坏性：命令流新增 `roundRect`）
+
+圆角矩形不再由引擎手撸，而是走平台的 `Path2D.roundRect`。**路径命令流里因此多了一个命令名**
+（`['roundRect', x, y, w, h, radii]`），凡是从 `component.path2D._commands` 读命令流自行
+重放 / 翻译的第三方代码，都要认识这个新命令（引擎自带的 SVG 导出器已支持）。
+引擎内部形状、渲染结果与数据格式的其余部分不变。
+
+### 性能
+
+- **圆角矩形改用平台 `roundRect`**（2021 年进入 Canvas 2D 规范）。改造前 `ICERect` 用 4 次 `arcTo`
+  手撸（每个角一次 `sqrt/acos/tan/atan2`），现在是一次 `roundRect`：每个圆角矩形的命令流
+  **14 条 → 1 条**（1000 个图形 14000 → 1000 条），路径重建 **127.9µs → 88.0µs**（500 个形状，
+  1/3 是圆角矩形）。没有原生 `roundRect` 的运行时（老 Safari / 某些 headless 的 Path2D 实现）
+  由 `Path2DRecorder` 展开成等价的 `moveTo / lineTo / arcTo`，真机 12 组边角场景实测**逐像素 0 差异**。
+  归一化规则（1~4 个半径的补齐、负宽高按视觉角镜像、超限半径等比缩放而非各自截断）只写一份，
+  放在 `src/util/round-rect.ts`，记录器与 SVG 导出器共用 —— 两边各写一份必然漂移成
+  「画布上是圆角、导出成直角」。回归：`tests/util/round-rect.test.ts`、
+  `tests/cross-platform/path2d-recorder.test.ts`、`e2e/visual/round-rect-parity.spec.ts`。
+
+### 修复
+
+- **文本度量被渲染状态污染 → 世界几何随「开/关缓存」变化**（2026-09-20 定位，本轮）。
+
+  症状：缩放视图下「视口变化之后再改内容」时，开离屏缓存的渲染与直接落墨能差到
+  **最大预乘差 132/255**（3.0.0 的源码上更差：3781 个差异像素）。查证过程与结论：
+
+  - 先用「只把整棵树标脏、一个字节内容都不改」做触发器，把问题从「缓存重建」二分到「缓存复用」；
+  - 缓存位图账本显示所有位图都已是新视口烤的（排除了「陈旧位图」这一假设）；
+  - 抄进**最小复现**：单个 `transform: { rotate: 55 }` 的 `ICEText`，先在 scale=1 烤位图、
+    再把视口切到 0.62 → 355 像素不一致（最大 221/255）；逐步打印发现同一组件的
+    **世界包围盒在重建时变了**（高度 16.916 → 13.096）。
+  - 真因：canvas 的 `actualBoundingBoxAscent/Descent` 是**相对当前 `textBaseline`** 报告的 ——
+    `alphabetic` 下 `rotated`（18px Arial）是 12.885 / 0.211，`bottom`（引擎默认）下是
+    16.916 / **-3.820**。引擎按「上=ascent、下=descent」拼盒高，负的 descent 被 `Math.max(0, …)`
+    丢掉，于是盒高多出 3.82px；而**量到哪条基线取决于量测发生在哪一帧、在哪个通道**（主画布 /
+    缓存位图 ctx），所以同一个组件的世界高度会随缓存开关变化。旋转文本只是最容易撞上的形状。
+
+  修复：`ICEText.__measureByCanvas()` 量测期间把 ctx 归到基准态（单位变换 + `alphabetic` 基线），
+  量完原样还原。修后最小复现 **0 差异**，夹具里的病态差异从 132/255 降到 3（即文档里那条
+  8-bit 预乘取整噪声），文本盒高与本机 canvas 的真实墨迹高一致。回归：
+  `tests/graphic/text-measure.test.ts`、`e2e/visual/offscreen-cache-fidelity.spec.ts`。
+
+- **`style.filter` 漏出内容指纹**（`ObjectCache.__styleKey`）。`filter` 走的是「style 透传给 ctx」
+  这条既有通道，会被烤进离屏位图；指纹里没有它，改滤镜时会继续贴旧位图（属性改了画面不动）。
+- **`ctx.filter` 的落墨外扩量算错单位**。模糊/投影的墨迹会溢出几何盒，位图与脏矩形都要扩边，
+  但**滤镜的长度参数是设备像素、不随视图缩放**（实测 `blur(8px)` 在 `setTransform(1 / 0.62 / 0.5)`
+  下溢出恒为 18~19 设备像素，与随变换缩放的 `stroke` / `shadowBlur` 相反）。改为
+  `stylePaintPad(state, scale)` 把滤镜那部分按渲染视口缩放换算回世界坐标后，缩略视图下不再切掉尾巴
+  （改造前 scale=0.62 时 `drop-shadow` 差 118 像素、`blur(8px)` 差 76 像素，现在严格 0）。
+  同时把带滤镜的组件按「非不透明落墨」处理（边界像素半透明、墨迹溢出几何盒 → 不参与局部重绘，
+  与阴影同一档）。回归：`tests/graphic/style-filter.test.ts`、`tests/renderer/dirty-rect-util.test.ts`、
+  `e2e/visual/filter-cache-fidelity.spec.ts`。
+- **微基准 `路径重建 · 只转发不记录（对照）` 的对照组失效**：`createPathObject()` 第一句就是
+  `this.path2D = root.createPath2D()`，原先塞进去的 `ForwardOnlyPath2D` 下一行就被覆盖，
+  两个基准测的其实是同一件事（差值只是噪声）。改为换掉工厂（`global.createPath2D`）后才量得准：
+  记录的边际成本 ≈ 156ns/形状（≈11ns/命令）。
+
+### 文档
+
+- `docs/architecture/08-compatibility.md` 增补「现代 Canvas 能力：用哪些、兜底是什么」——
+  `roundRect` / `ctx.filter` / `createConicGradient` / 文本状态已采用，`OffscreenCanvas + Worker` /
+  `ImageBitmap` / `ctx.reset()` 未采用（各写了理由与后续条件），并记下两个坑：
+  滤镜长度是设备像素、新命令必须有导出映射。
+
 ## [3.0.0] - 2026-09-20
 
 > ⚠️ **破坏性：不再支持小程序**（2026-09-20，分支 `remove/mini-program-support`）。

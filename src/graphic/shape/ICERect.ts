@@ -38,17 +38,15 @@ class ICERect extends ICEPath {
     const r = Math.min(this.state.radius || 0, w / 2, h / 2);
 
     if (r > 0) {
-      // 圆角矩形：用 arcTo 手动绘制（兼容所有环境，不依赖较新的 roundRect）
-      this.path2D.moveTo(x + r, y);
-      this.path2D.lineTo(x + w - r, y);
-      this.path2D.arcTo(x + w, y, x + w, y + r, r);
-      this.path2D.lineTo(x + w, y + h - r);
-      this.path2D.arcTo(x + w, y + h, x + w - r, y + h, r);
-      this.path2D.lineTo(x + r, y + h);
-      this.path2D.arcTo(x, y + h, x, y + h - r, r);
-      this.path2D.lineTo(x, y + r);
-      this.path2D.arcTo(x, y, x + r, y, r);
-      this.path2D.closePath();
+      /**
+       * 圆角矩形走平台的 `roundRect`（2021 年进入 Canvas 2D 规范）。
+       *
+       * 改造前这里是 4 次 `arcTo` 手撸（10 条命令 + 每角一次三角函数），
+       * 注释写着「兼容所有环境，不依赖较新的 roundRect」—— 那是小程序时代的顾虑。
+       * 现在：命令流 1 条、原生调用 1 次，没有原生 `roundRect` 的运行时由
+       * `Path2DRecorder` 展开成等价的 `arcTo` 序列（逐像素一致，见 recorder 的注释）。
+       */
+      this.path2D.roundRect(x, y, w, h, r);
     } else {
       this.path2D.rect(x, y, w, h);
     }

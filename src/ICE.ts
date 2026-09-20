@@ -88,6 +88,7 @@ function tagGradient(native: any, desc: any): any {
 import { flattenAllComponents, hitTestComponents } from './util/data-util';
 import { deepMerge } from './theme/ICETheme';
 import { HIT_BOX_TOLERANCE } from './renderer/dirty-rect-util';
+import { notifyChildAdded, notifyChildRemoved, notifyViewportChange } from './worker/mirror-hooks';
 
 /**
  * @class ICE
@@ -531,6 +532,9 @@ class ICE {
 
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
+
+    // 镜像钩子：结构变更（v1 只标记"需要全量重同步"，见 src/worker/MirrorBridge.ts）
+    notifyChildAdded(this, component);
   }
 
   public addChildren(arr: Array<ICEComponent>): void {
@@ -553,6 +557,8 @@ class ICE {
     // 同上：`markDirty=false` 只是"别主动置脏"，不能把已有的待重绘清掉
     if (markDirty) this.dirty = true;
     if (this.renderer) this.renderer.markQueueDirty();
+    // 镜像钩子：必须在 destory() 之前（destory 会把 child.ice 摘掉）
+    notifyChildRemoved(this, component);
     component.destory();
   }
 
@@ -802,6 +808,28 @@ class ICE {
       return false;
     }
     return this.plugins.syncTools(this.selectionList[0] || null);
+  }
+
+  /**
+   * 换掉**落墨通道**：显示与输入都留在原画布（`canvasEl` / 输入矩形 / 命中检测全都不动），
+   * 只是把渲染管线的绘制调用发给另一个 2d 上下文。
+   *
+   * 用途是 worker 镜像渲染：命中检测读的是**渲染期快照的世界盒**（`CanvasRenderer.getWorldBox`
+   * → `__snap`），所以主线程必须继续跑渲染管线；但真正费时间的**光栅化**要交给 worker。
+   * 宿主只要传一个"吞掉绘制调用但保留 `measureText`"的上下文进来（见 `MirrorHost` 里的
+   * `createGeometryOnlyContext`），主线程就只剩几何与命中簿记 —— 不再产出像素，也不该再开
+   * 离屏位图缓存（宿主一并把 `cache.isCachable` 关掉）。
+   *
+   * ⚠️ 换了之后**本实例不再上屏**：可见画布由宿主用 worker 回传的位图来画。
+   *
+   * @param ctx 目标 2d 上下文（可以是「几何通道」桩；`measureText` 会被文本量测调用）
+   */
+  public setPaintTarget(ctx: any): this {
+    if (!ctx) {
+      return this;
+    }
+    this.ctx = ctx;
+    return this;
   }
 
   /**
@@ -1195,6 +1223,10 @@ class ICE {
     // 每帧白打掉一次队列就等于每帧丢一次静态层（实测这类调用下静态层每帧重建，反而慢 35%）。
     if (this.renderer && !unchanged) {
       this.renderer.markQueueDirty();
+    }
+    // 镜像钩子：视口必须跟着走，否则两边"看的是不同区域"（见 mirror-hooks 的说明）
+    if (!unchanged) {
+      notifyViewportChange(this, next);
     }
     this.__notifyViewportFollowers();
     return this;

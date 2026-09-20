@@ -11,6 +11,7 @@ import ICEComponent from '../ICEComponent';
 import { bumpVisibilityEpoch, rebindComponentTree } from '../../util/data-util';
 import ICERect from '../shape/ICERect';
 import type ICELayoutManager from '../../layout/ICELayoutManager';
+import { notifyChildAdded, notifyChildRemoved, notifyStateChange } from '../../worker/mirror-hooks';
 
 /**
  * @class ICEGroup 容器型组件
@@ -424,6 +425,8 @@ class ICEGroup extends ICERect {
     if (this.layoutManager && !this.__inBatch) {
       this.doLayout();
     }
+    // 镜像钩子：容器内结构变更（v1 只标记"需要全量重同步"）
+    notifyChildAdded(this, child);
   }
 
   public addChildren(arr: Array<ICEComponent>): void {
@@ -495,6 +498,16 @@ class ICEGroup extends ICERect {
 
   public removeChild(child: ICEComponent, markDirty: boolean = true) {
     if (!this.__childSet.has(child)) return;
+    /**
+     * 镜像钩子：**必须在这里**（摘除之前）。
+     *
+     * 两个约束叠在一起：① 要在 `destory()` 之前（它会把 child.ice 摘掉）；
+     * ② 要在这个孩子还在 `childNodes` / 真实子节点列表里的时候 —— 桥要判断"这次增删是不是
+     * 文档内容"（见 `isMirroredComponent`），而真实子节点的判定（`getSerializableChildren()`）
+     * 是**现算 childNodes** 的：摘除之后再问，真实子节点与派生部件长得一模一样，
+     * 于是"真子节点被删掉"会被误判成"容器内部重建"，镜像就再也不会重同步了。
+     */
+    notifyChildRemoved(this, child);
     child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE);
     const index = this.childNodes.indexOf(child);
     if (index !== -1) this.childNodes.splice(index, 1);
@@ -566,6 +579,17 @@ class ICEGroup extends ICERect {
     if (this.ice) {
       this.ice.dirty = true;
     }
+    /**
+     * 镜像钩子：**这里必须自己调一次**。
+     *
+     * `ICEGroup.setState` 是**完全覆盖**（语义不同：容器自身 state 一变，要把整棵子树的 `dirty`
+     * 都置上），因此不会经过 `ICEComponent.setState` 里那个钩子。漏了它的症状很隐蔽：
+     * **容器型组件的状态永远不同步到 worker**（2026-09-20 由 ice-entity-designer 的流程图抓出来 ——
+     * IED 的 `FlowNode extends ICEGroup`，拖节点、改标题全都不进镜像，而"没报错、画面没动"最难查）。
+     * 守卫：`tests/worker/mirror-hooks-guard.test.ts` 会扫源码，任何 `setState` 覆盖要么调 `super`、
+     * 要么自己调这个钩子。
+     */
+    notifyStateChange(this, newState);
     // 与 ICEComponent.setState 保持同一套后置处理（尺寸变化 → 请求父容器重排）
     this.__afterStateMerge(sizeChanged);
   }

@@ -2,15 +2,16 @@
  * 最小可行性原型：把 ice-render 的确定性场景渲染搬到 Web Worker + OffscreenCanvas。
  *
  * 验证点：
- *  1) 引擎 dist（UMD）在 worker 内可加载并驱动（注入 global/window 探测）。
+ *  1) 引擎 dist（UMD）在 worker 内**零注入**可加载并驱动：
+ *     原型的宿主侧注入（`self.window = self; self.global = self;`）已于 2026-09-20 删除 ——
+ *     `cross-platform/root.ts` 改为取 `globalThis`（浏览器 window / worker self / Node global 同一个入口），
+ *     worker 因此成为**一等宿主**，不再需要宿主先给引擎伪造全局。
  *  2) OffscreenCanvas 2D ctx 上走 ICE 组件树 + CanvasRenderer 真实光栅化。
  *  3) worker 内同步测 static/anim/drag 单帧 p50（含真实光栅化）。
  *  4) 通过 transferToImageBitmap 逐帧把画面送主线程展示。
  *
  * 明确不做：树/事件双端同步、文本/图片/字体/面板（见 docs/architecture/10-worker-offscreen.md）。
  */
-self.window = self;
-self.global = self;
 importScripts('../../dist/index.umd.js');
 
 const ICE = self.ICE;
@@ -25,6 +26,33 @@ const ctx = off.getContext('2d');
 ctx.fillStyle = '';
 ctx.strokeStyle = '';
 ctx.lineWidth = 1;
+
+/**
+ * 引擎自证「我就是跑在 worker 里的」这几项，随结果一起回传主线程（供 e2e 断言）。
+ *
+ * 为什么值得单独上报：这四项只要有一项是假的，「worker 能跑」就可能是宿主补丁撑出来的假象 ——
+ * 改造前正是靠 `self.window = self` 伪造全局；现在若 `root` 又退回双探测，`flat[0].root` 会是
+ * 那个兜底空对象 `{}`，`path2D.native` 直接变 null（形状连一笔都画不出来），这里立刻能看见。
+ */
+const probe = (() => {
+  const componentRoot = (function () {
+    // 组件构造时会把**模块级 root** 记在自己身上（ICEComponent 的 `this.root = root`）
+    const probeShape = new ICE.ICERect({ width: 4, height: 4 });
+    return probeShape.root;
+  })();
+  let offscreenOk = false;
+  try {
+    const small = componentRoot.createOffscreenCanvas(8, 8);
+    offscreenOk = !!(small && small.ctx && typeof small.canvas.getContext === 'function');
+  } catch (e) {
+    offscreenOk = false;
+  }
+  return {
+    hostInjectedGlobals: typeof self.window !== 'undefined' || typeof self.global !== 'undefined',
+    engineRootIsSelf: componentRoot === self,
+    offscreenCanvasInWorker: offscreenOk,
+  };
+})();
 
 // ---- 组装 harness（不调用 ICE.init，避免 FrameManager/rAF/DOM，仿 bench/render.cjs）----
 const ice = new ICE.ICE();
@@ -104,6 +132,22 @@ function markAllDirty() {
   for (let i = 0; i < flat.length; i++) flat[i].dirty = true;
 }
 
+/**
+ * 抽查 worker 画布上**真的落了墨**。
+ *
+ * 这不是"性能指标"，是一条防空转护栏：如果引擎在 worker 里取不到原生 `Path2D`
+ * （`root` 又退回双探测的假象），`ICEPath.doRender` 会安静地跳过 fill/stroke ——
+ * 帧照样 post、位图照样传、耗时数字照样好看，只有画面是空的。
+ */
+function sampleInk() {
+  const d = ctx.getImageData(0, 0, W, H).data;
+  let ink = 0;
+  for (let i = 3; i < d.length; i += 4 * 4) {
+    if (d[i] > 8) ink++;
+  }
+  return ink;
+}
+
 // drag 目标：深嵌套矩形叶子
 const dragTarget =
   flat.find((c) => c.constructor && c.constructor.name === 'ICERect' && c.parentNode && c.parentNode.childNodes) ||
@@ -144,18 +188,35 @@ const dragMs = measure('drag');
 
 // 持续动画并逐帧上传位图（展示 live 传输）
 let liveFrames = 0;
+let sampledInk = 0;
 const liveTarget = 24;
 function liveFrame() {
   markAllDirty();
   ice.dirty = true;
   renderer.frameEvtHandler();
+  // 抽样必须在 transfer 之前：transferToImageBitmap() 会把画布内容交出去并清空它，
+  // 传完之后再读 getImageData 只会读到一片透明黑（第一次就踩了这个坑）。
+  if (liveFrames === 0) {
+    sampledInk = sampleInk();
+  }
   const bitmap = off.transferToImageBitmap();
   self.postMessage({ type: 'bitmap', bitmap }, [bitmap]);
   liveFrames++;
   if (liveFrames >= liveTarget) {
     self.postMessage({
       type: 'result',
-      stats: { n: flat.length, staticP50Ms: staticMs.p50, animP50Ms: animMs.p50, dragP50Ms: dragMs.p50, liveFrames },
+      stats: {
+        n: flat.length,
+        staticP50Ms: staticMs.p50,
+        animP50Ms: animMs.p50,
+        dragP50Ms: dragMs.p50,
+        liveFrames,
+        ...probe,
+        // 形状的路径对象里有没有**原生 Path2D**：没有的话引擎根本不上屏（只有命令流）
+        nativePath2D: !!(flat[0] && flat[0].path2D && flat[0].path2D.native),
+        // 每 4 个像素抽一个数 alpha：只要 > 0 就说明画布上真有内容
+        sampledInk,
+      },
     });
     return;
   }
