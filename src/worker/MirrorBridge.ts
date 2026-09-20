@@ -6,6 +6,7 @@
  *
  */
 import { merge } from '../util/lang';
+import { isMirroredComponent } from './mirror-hooks';
 import {
   MIRROR_PROTOCOL_VERSION,
   MirrorCommand,
@@ -56,8 +57,25 @@ export default class MirrorBridge {
   public readonly version = MIRROR_PROTOCOL_VERSION;
   /** 累计发出的消息数（含 scene / ops / frame / resize） */
   public sent = 0;
+  /**
+   * 最后一条发出的 `frame` 的 `seq`。
+   *
+   * 宿主验收/截图时用它对齐"静止态"：worker 在 `rendered` 里回传它画的是哪一帧
+   *（见 `mirror-protocol.ts` 的 `frame`）。位图是**背压**的 —— worker 一帧要几毫秒，而主线程
+   * 每帧都发，"收到一张新位图"不等于"这张位图已经是当前状态"（真实踩坑：静止态几何对账里
+   * 读出"镜像落后一帧"，差点被当成状态分叉）。
+   */
+  public lastFrameSeq = 0;
   /** 累计被丢弃的不可克隆值（路径） */
   public dropped: string[] = [];
+  /**
+   * 累计**没有镜像过去**的写入条数：主线程给"派生部件"（不进序列化文档的内部子件）写的状态。
+   *
+   * 不是错误、也不该静默：它说明这条写入**只存在于主线程**（镜像里那个部件是容器按 state
+   * 重建出来的另一份）。容器自己的补丁会把它一起重算（`applyPatch` 重放，见 MirrorTarget），
+   * 但宿主应当有办法看到这个数 —— 例如排查"应用只改派生部件、容器状态没动"这种越界写法。
+   */
+  public skippedDerived = 0;
 
   private send_: MirrorSend | null = null;
   private onEvent_: ((evt: MirrorEvent) => void) | null = null;
@@ -181,6 +199,17 @@ export default class MirrorBridge {
       this.markSceneNeeded();
       return;
     }
+    /**
+     * 派生部件（容器内部按 state 重建、不进文档的子件）在镜像里**没有对应节点**。
+     *
+     * 发过去只会换来 `missing` → 全量重同步（每批补丁一次），而全量重建也**不会**把它改对
+     * （它的状态本来就不在文档里）。真正把镜像改对的是**容器自己那条补丁**：镜像侧重放容器的
+     * `applyPatch` 时会重算派生部件。所以这里只计数、不产生 op。
+     */
+    if (!isMirroredComponent(component)) {
+      this.skippedDerived++;
+      return;
+    }
     const clean = sanitizeTransferable(patch, this.dropped, `state[${id}]`);
     if (!clean || !Object.keys(clean).length) return;
     const existing = this.opIndex.get(id);
@@ -202,6 +231,15 @@ export default class MirrorBridge {
   public recordStructureChange(kind: 'add' | 'remove', _parent: any, _child: any): void {
     // 工具层的结构变更（面板挂上/摘下、手柄按需创建）同样不镜像，理由见 recordStateChange
     if (this.__isToolNode(_parent) || this.__isToolNode(_child)) return;
+    /**
+     * 派生子树内部的结构变更同样不镜像。
+     *
+     * 为什么：复合组件**重建自己**（`__buildShape()` 这类）在主线程上就是一次
+     * "移除旧部件 + 挂上新部件"，若按 v1 的"结构变更 → 全量重同步"处理，应用每改一次类型 /
+     * 配色就要重发整份文档；而 worker 侧本来就会在重放该组件的补丁时重建自己那份部件。
+     * 判据与状态补丁一致：**变更的父子至少有一端是派生部件** → 文档里看不到这次变更。
+     */
+    if (!isMirroredComponent(_parent) || !isMirroredComponent(_child)) return;
     if (this.resyncOnStructureChange) {
       this.markSceneNeeded();
     } else {
@@ -325,7 +363,14 @@ export default class MirrorBridge {
   public frame(time: number, full = false): number {
     let messages = this.flush();
     if (!this.send_) return messages;
-    const msg: MirrorCommand = { t: 'frame', v: MIRROR_PROTOCOL_VERSION, time, ...(full ? { full: true } : {}) };
+    const msg: MirrorCommand = {
+      t: 'frame',
+      v: MIRROR_PROTOCOL_VERSION,
+      seq: ++this.seq,
+      time,
+      ...(full ? { full: true } : {}),
+    };
+    this.lastFrameSeq = msg.seq;
     this.send_(msg);
     this.sent++;
     messages++;

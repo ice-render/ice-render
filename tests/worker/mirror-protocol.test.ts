@@ -76,8 +76,8 @@ describe('sanitizeTransferable', () => {
 
 describe('消息校验', () => {
   it('版本不匹配一律拒绝（不去猜老格式）', () => {
-    expect(isMirrorCommand({ t: 'frame', v: MIRROR_PROTOCOL_VERSION, time: 1 })).toBe(true);
-    expect(isMirrorCommand({ t: 'frame', v: 0, time: 1 })).toBe(false);
+    expect(isMirrorCommand({ t: 'frame', v: MIRROR_PROTOCOL_VERSION, seq: 1, time: 1 })).toBe(true);
+    expect(isMirrorCommand({ t: 'frame', v: 0, seq: 1, time: 1 })).toBe(false);
     expect(isMirrorEvent({ t: 'ready', v: MIRROR_PROTOCOL_VERSION, caps: {} })).toBe(true);
     expect(isMirrorEvent({ t: 'ready', v: 999, caps: {} })).toBe(false);
   });
@@ -90,6 +90,9 @@ describe('消息校验', () => {
     expect(isMirrorCommand({ t: 'resize', v: 1, width: 10, height: 20 })).toBe(true);
     expect(isMirrorCommand({ t: 'resize', v: 1, width: 10 })).toBe(false);
     expect(isMirrorCommand({ t: 'nope', v: 1 })).toBe(false);
+    // frame 必须带 seq：宿主靠它对齐"手上这张位图是哪一帧"（少了它就只能靠猜）
+    expect(isMirrorCommand({ t: 'frame', v: 1, time: 1 })).toBe(false);
+    expect(isMirrorCommand({ t: 'frame', v: 1, seq: 1, time: 1 })).toBe(true);
   });
 
   it('op 形状：只有 state 补丁；id 必须是非空字符串、补丁必须是对象', () => {

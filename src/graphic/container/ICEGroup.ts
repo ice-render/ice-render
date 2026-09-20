@@ -498,6 +498,16 @@ class ICEGroup extends ICERect {
 
   public removeChild(child: ICEComponent, markDirty: boolean = true) {
     if (!this.__childSet.has(child)) return;
+    /**
+     * 镜像钩子：**必须在这里**（摘除之前）。
+     *
+     * 两个约束叠在一起：① 要在 `destory()` 之前（它会把 child.ice 摘掉）；
+     * ② 要在这个孩子还在 `childNodes` / 真实子节点列表里的时候 —— 桥要判断"这次增删是不是
+     * 文档内容"（见 `isMirroredComponent`），而真实子节点的判定（`getSerializableChildren()`）
+     * 是**现算 childNodes** 的：摘除之后再问，真实子节点与派生部件长得一模一样，
+     * 于是"真子节点被删掉"会被误判成"容器内部重建"，镜像就再也不会重同步了。
+     */
+    notifyChildRemoved(this, child);
     child.trigger(ICE_EVENT_NAME_CONSTS.BEFORE_REMOVE);
     const index = this.childNodes.indexOf(child);
     if (index !== -1) this.childNodes.splice(index, 1);
@@ -512,8 +522,6 @@ class ICEGroup extends ICERect {
       if (markDirty) this.ice.dirty = true;
       if (this.ice.renderer) this.ice.renderer.markQueueDirty();
     }
-    // 镜像钩子：必须在 destory() 之前（destory 会把 child.ice 摘掉）
-    notifyChildRemoved(this, child);
     child.destory();
     // 删除后同样需要重排，否则会留下空位
     if (this.layoutManager && !this.__inBatch) {

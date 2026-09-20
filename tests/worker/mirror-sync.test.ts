@@ -37,7 +37,60 @@ import Serializer from '../../src/persistence/Serializer';
 import Deserializer from '../../src/persistence/Deserializer';
 import MirrorBridge from '../../src/worker/MirrorBridge';
 import MirrorTarget from '../../src/worker/MirrorTarget';
-import { notifyToolTarget } from '../../src/worker/mirror-hooks';
+import { notifyToolTarget, isMirroredComponent } from '../../src/worker/mirror-hooks';
+
+/**
+ * 复合组件：内部子件（这里用矩形代指"底 / 标题 / 角标"）按 state 派生，**不进文档**
+ * —— 与 IED 的 `FlowNode` 同类（真实应用里正是它暴露了下面两条语义）。
+ */
+class DerivedCard extends ICEGroup {
+  /** 稳定的类型标识（下游打包会 mangle 类名，注册表按它还原组件） */
+  public static readonly typeId = 'test:DerivedCard';
+
+  public deco: any = null;
+  /** 应用层补丁入口被调用的记录（断言"镜像侧重放走的是这个入口"） */
+  public appliedPatches: any[] = [];
+
+  constructor(props: any = {}) {
+    super({ left: 0, top: 0, width: 100, height: 40, ...props });
+    this.deco = new ICERect({ left: 0, top: 0, width: 100, height: 40 });
+    this.addChild(this.deco);
+  }
+
+  public hasDerivedChildren(): boolean {
+    return true;
+  }
+
+  /** 应用层派生入口：改 state 之外还要重算派生部件（IED 的 16 个组件都是这个形态） */
+  public applyPatch(patch: Record<string, any> = {}): void {
+    this.appliedPatches.push(patch);
+    this.setState(patch);
+  }
+}
+
+/**
+ * "既是复合组件、又是容器"：`deco` 是派生件，其它子节点是**真实子节点**（进文档）
+ * —— 与 IED 的池 / 泳道同类，序列化靠 `getSerializableChildren()` 声明。
+ */
+class CompositeContainer extends ICEGroup {
+  public static readonly typeId = 'test:CompositeContainer';
+
+  public deco: any = null;
+
+  constructor(props: any = {}) {
+    super({ left: 0, top: 0, width: 300, height: 200, ...props });
+    this.deco = new ICERect({ left: 0, top: 0, width: 300, height: 200 });
+    this.addChild(this.deco);
+  }
+
+  public hasDerivedChildren(): boolean {
+    return true;
+  }
+
+  public getSerializableChildren(): any[] {
+    return this.childNodes.filter((child: any) => child !== this.deco);
+  }
+}
 
 /** 最小可用的 ICE：与 `init()` 里那两行一致地装上序列化器（不启动任何 Manager）。 */
 function makeIce(): any {
@@ -72,6 +125,14 @@ type Harness = {
   /** 主线程一侧的文档 vs 镜像一侧的文档 */
   expectSameTree: () => void;
 };
+
+/** 两侧各注册一次夹具类型（镜像树是反序列化出来的 —— 没注册的类型会被整棵跳过）。 */
+function registerFixtures(h: Harness): void {
+  h.main.registerType(DerivedCard.typeId, DerivedCard);
+  h.main.registerType(CompositeContainer.typeId, CompositeContainer);
+  h.mirror.registerType(DerivedCard.typeId, DerivedCard);
+  h.mirror.registerType(CompositeContainer.typeId, CompositeContainer);
+}
 
 function makeHarness(): Harness {
   const main = makeIce();
@@ -217,6 +278,110 @@ describe('MirrorBridge ↔ MirrorTarget 等价性', () => {
     h.deliver();
     h.expectSameTree();
     expect(h.target.has(rect.props.id)).toBe(true);
+  });
+
+  it('派生部件不进文档 → 对它的状态写入不产生 op（否则每批补丁都换来一次 missing → 全量重同步）', () => {
+    const h = makeHarness();
+    registerFixtures(h);
+    const card = new DerivedCard();
+    h.main.addChild(card);
+    h.bridge.flush();
+    h.deliver();
+    h.expectSameTree();
+
+    // 镜像树里根本没有这个派生件（它由容器的构造函数按 state 重建）
+    expect(h.target.has(card.deco.props.id)).toBe(false);
+    expect(isMirroredComponent(card.deco)).toBe(false);
+    expect(isMirroredComponent(card)).toBe(true);
+
+    h.sent.length = 0;
+    card.deco.setState({ left: 7 });
+    h.bridge.flush();
+    // 不发 op：镜像里没有这个 id，发过去只会让 worker 回 missing（真实应用里这会变成
+    // "每改一次节点就重发整份文档"的风暴，实测 200 节点场景 473KB/次）
+    expect(h.sent).toHaveLength(0);
+    expect(h.bridge.skippedDerived).toBe(1);
+    // 但容器自己的补丁照发（派生件的重建由它带出来）
+    card.setState({ left: 11 });
+    h.bridge.flush();
+    expect(h.sent).toHaveLength(1);
+    expect(h.sent[0].t).toBe('ops');
+    expect(h.sent[0].ops).toEqual([['state', card.props.id, { left: 11 }]]);
+  });
+
+  it('派生子树内部的结构变更不触发全量重同步（容器重建自己不该重发整份文档）', () => {
+    const h = makeHarness();
+    registerFixtures(h);
+    const card = new DerivedCard();
+    h.main.addChild(card);
+    h.bridge.flush();
+    h.deliver();
+    h.sent.length = 0;
+
+    const extra = new ICERect({ left: 1, top: 1, width: 8, height: 8 });
+    card.addChild(extra);
+    h.bridge.flush();
+    expect(h.sent.map((m) => m.t)).not.toContain('scene');
+
+    card.removeChild(extra);
+    h.bridge.flush();
+    expect(h.sent.map((m) => m.t)).not.toContain('scene');
+  });
+
+  it('真实子节点的增删照旧走全量重同步（派生子件判定不能把真子节点也吞掉）', () => {
+    const h = makeHarness();
+    registerFixtures(h);
+    const pool = new CompositeContainer();
+    h.main.addChild(pool);
+    h.bridge.flush();
+    h.deliver();
+    h.expectSameTree();
+    // 派生件不进文档；真实子节点进文档
+    expect(isMirroredComponent(pool.deco)).toBe(false);
+    const lane = new ICERect({ left: 10, top: 10, width: 100, height: 40 });
+    pool.addChild(lane);
+    expect(isMirroredComponent(lane)).toBe(true);
+
+    h.sent.length = 0;
+    h.bridge.flush();
+    expect(h.sent[0].t).toBe('scene');
+    h.deliver();
+    h.expectSameTree();
+    expect(h.target.has(lane.props.id)).toBe(true);
+
+    // 删除同样必须重同步：判定发生在**摘除之前**（摘除后再问"它是不是真实子节点"就分辨不出来了）
+    pool.removeChild(lane);
+    h.bridge.flush();
+    expect(h.sent[0].t).toBe('scene');
+    h.deliver();
+    h.expectSameTree();
+    expect(h.target.has(lane.props.id)).toBe(false);
+  });
+
+  it('镜像侧用应用层自己的补丁入口重放（applyPatch 有实现走它，没有则退回 setState）', () => {
+    const h = makeHarness();
+    registerFixtures(h);
+    const card = new DerivedCard();
+    h.main.addChild(card);
+    h.bridge.flush();
+    h.deliver();
+
+    h.sent.length = 0;
+    card.setState({ left: 42 });
+    h.bridge.flush();
+    h.deliver();
+    const mirrored: any = h.target.get(card.props.id);
+    // 镜像里那个组件也必须走 applyPatch：否则应用层派生（重建内部部件 / 连线重路由 / 规范化样式）
+    // 只发生在主线程，两边画面分叉（真实症状：worker 里连线不跟手、标题还是旧的）
+    expect(mirrored.appliedPatches).toEqual([{ left: 42 }]);
+    expect(mirrored.state.left).toBe(42);
+    // 主线程自己只走了一次（镜像侧那次发生在 worker 那台 ICE 上，不影响主线程）
+    expect(card.appliedPatches).toEqual([]);
+
+    // 没有 applyPatch 的组件（老代码 / 第三方）退回 setState，语义与主线程裸 setState 一致
+    mirrored.applyPatch = undefined;
+    h.target.applyOps([['state', card.props.id, { left: 43 }]]);
+    expect(mirrored.state.left).toBe(43);
   });
 
   it('坏 op 只计数、不改镜像（协议坏数据不能悄悄改树）', () => {

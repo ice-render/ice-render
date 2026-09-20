@@ -42,6 +42,23 @@ function makeFakeWorker() {
   };
 }
 
+/**
+ * 模拟 worker 回一张位图（`rendered`）。
+ *
+ * 背压之后这是"推进一轮"的唯一方式：宿主发帧 → worker 回位图 → 才允许发下一帧。
+ */
+function arrive(worker: any, seq: number): void {
+  worker.onmessage({
+    data: {
+      t: 'rendered',
+      v: 1,
+      seq,
+      bitmap: { close: jest.fn() },
+      stats: { renderMs: 1, components: 1, frames: seq, appliedOps: 0 },
+    },
+  });
+}
+
 /** 假画布：2d 上下文记录 drawImage；另提供一个位图渲染上下文用于合成路径。 */
 function makeFakeCanvas() {
   const calls: any[] = [];
@@ -304,6 +321,8 @@ describe('MirrorHost', () => {
     ice.needsFrame = () => needs;
     const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false });
     host.start();
+    // 启动时那一帧还在路上（背压：至多一帧在途）→ 先让它回来，否则后面的节拍都会被挡住
+    arrive(worker, 1);
     worker.sent.length = 0;
 
     host.frame(1); // 空闲：应跳过
@@ -313,12 +332,43 @@ describe('MirrorHost', () => {
     host.frame(2);
     expect(worker.sent.map((m: any) => m.t)).toEqual(['frame']);
 
+    arrive(worker, 2);
     needs = false;
     worker.sent.length = 0;
     ice.addChild(new ICERect({ left: 0, top: 0, width: 5, height: 5 }));
     host.frame(3); // 有结构变更排队（scene）→ 必须发
     // prime() 在启动时还排了"当前视口"，所以这里会看到 scene → viewport → frame
     expect(worker.sent.map((m: any) => m.t)).toEqual(['scene', 'viewport', 'frame']);
+  });
+
+  it('背压：至多一帧在途 —— 上一帧没回来就不再发，队列不会随交互无限增长', () => {
+    const { canvas } = makeFakeCanvas();
+    const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
+    const worker = makeFakeWorker();
+    ice.needsFrame = () => true;
+    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false });
+    host.start();
+    arrive(worker, 1);
+    worker.sent.length = 0;
+
+    // 连续要帧：只有第一帧真的发出去，后面的只记一个"还想画"（否则 worker 那边会积压成一条长队）
+    host.frame(1);
+    host.frame(2);
+    host.frame(3);
+    host.frame(4);
+    expect(worker.sent.map((m: any) => m.t)).toEqual(['frame']);
+
+    // 这一帧回来 → 立刻补一帧（补的是"最新状态"，不是把 2/3/4 三帧照样补回来）
+    arrive(worker, 2);
+    expect(worker.sent.map((m: any) => m.t)).toEqual(['frame', 'frame']);
+
+    // 补帧也在路上时再要帧，同样只记一次
+    worker.sent.length = 0;
+    host.frame(5);
+    host.frame(6);
+    expect(worker.sent).toHaveLength(0);
+    arrive(worker, 3);
+    expect(worker.sent.map((m: any) => m.t)).toEqual(['frame']);
   });
 
   it('缺少必需参数时明确报错（不静默半残）', () => {

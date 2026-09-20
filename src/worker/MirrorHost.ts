@@ -66,8 +66,23 @@ export default class MirrorHost {
   private bitmapCtx: any = null;
   private lastStats: MirrorStats | null = null;
   private receivedFrames = 0;
+  /** 最后收到的位图对应的 `frame.seq`（worker 原样回传；见 MirrorBridge.lastFrameSeq） */
+  private lastRenderedSeq = 0;
   /** 首帧 / 重同步之后即便"没有变化"也要发一帧（见 `frame()` 的空闲门控） */
   private __paintPending = true;
+  /**
+   * **至多一帧在途**（背压）。
+   *
+   * worker 一帧要几毫秒（真实应用实测 2~3ms），而主线程按 rAF 或交互节奏每 ~1ms 就能发一帧；
+   * 不设背压时 `frame` 消息会越排越多 —— 实测一个 30 帧的基准跑完，worker 那边积压了两百多条
+   * `frame`（`renderedSeq=45` vs `lastFrameSeq=240`）：镜像要好几秒才追上，期间画出来的每一帧
+   * 都是**过时**的状态，静止态对账还会把它误读成"状态分叉"。
+   *
+   * 有了它，镜像的滞后上界是**一次往返**，而且总是拿最新状态画（这才是"镜像"该有的语义）。
+   */
+  private __frameInFlight = false;
+  /** 有帧在途时又被要求画：等这一帧回来立刻补一帧（不排队，只记一次） */
+  private __frameQueued = false;
 
   constructor(options: MirrorHostOptions) {
     if (!options || !options.canvas) {
@@ -91,6 +106,17 @@ export default class MirrorHost {
   /** 已收到的 worker 帧数（宿主做 FPS 面板用）。 */
   public get frames(): number {
     return this.receivedFrames;
+  }
+
+  /**
+   * 手上这张位图对应的 `frame.seq`。
+   *
+   * 与 `bridge.lastFrameSeq` 比较即可判断"排空"：位图是背压的（worker 一帧要几毫秒，
+   * 主线程每帧都发），"又来了一张位图"并不等于"它已经是当前状态" —— 截图 / 像素验收 /
+   * 几何对账都必须等这个水印追平。
+   */
+  public get renderedSeq(): number {
+    return this.lastRenderedSeq;
   }
 
   public get stats(): MirrorStats | null {
@@ -155,9 +181,17 @@ export default class MirrorHost {
    */
   public frame(time?: number): void {
     if (!this.running) return;
+    if (this.__frameInFlight) {
+      this.__frameQueued = true;
+      return;
+    }
     const needsPaint = typeof this.ice.needsFrame === 'function' ? this.ice.needsFrame() : true;
-    if (!this.__paintPending && !this.bridge.hasPending() && !needsPaint) return;
+    if (!this.__paintPending && !this.bridge.hasPending() && !needsPaint) {
+      this.__frameQueued = false;
+      return;
+    }
     this.__paintPending = false;
+    this.__frameInFlight = true;
     this.bridge.frame(typeof time === 'number' ? time : now());
   }
 
@@ -183,6 +217,8 @@ export default class MirrorHost {
   public stop(): void {
     if (!this.running) return;
     this.running = false;
+    this.__frameInFlight = false;
+    this.__frameQueued = false;
     if (this.rafId !== null && typeof cancelAnimationFrame === 'function') {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
@@ -212,13 +248,25 @@ export default class MirrorHost {
   private __onMessage(msg: any): void {
     if (msg && msg.bitmap) {
       this.receivedFrames++;
+      this.lastRenderedSeq = typeof msg.seq === 'number' ? msg.seq : this.lastRenderedSeq;
       this.lastStats = msg.stats || null;
+      this.__frameInFlight = false;
       if (this.options.onBitmap) {
         this.options.onBitmap(msg.bitmap, msg.stats);
       }
       this.__composite(msg.bitmap);
       if (this.options.onStats && msg.stats) {
         this.options.onStats(msg.stats);
+      }
+      /**
+       * 这一帧在路上时又被要求画 → 现在补一帧。
+       *
+       * 补帧放在**合成之后**：可见画布先拿到刚落地的这张，再让 worker 去画下一张，
+       * 这样"贴图"和"发下一帧"不会互相插队（否则画面会跳过一帧）。
+       */
+      if (this.__frameQueued) {
+        this.__frameQueued = false;
+        this.frame();
       }
       return;
     }

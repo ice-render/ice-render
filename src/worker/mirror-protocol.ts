@@ -52,8 +52,15 @@ export type MirrorCommand =
    * 镜像侧必须跟着走，否则"主线程看得见的画面"和"worker 画的"不是同一个视口。
    */
   | { t: 'viewport'; v: number; seq: number; scale: number; tx: number; ty: number }
-  /** 渲染节拍：`time` 用主线程的 `DOMHighResTimeStamp`（双时钟会漂，见 §5） */
-  | { t: 'frame'; v: number; time: number; full?: boolean }
+  /**
+   * 渲染节拍：`time` 用主线程的 `DOMHighResTimeStamp`（双时钟会漂，见 §5）。
+   *
+   * `seq` 与其它消息同源（单调递增），worker 在 `rendered` 里**原样回传**。宿主据此判断
+   * "手上这张位图是哪一帧的"：位图是**背压**的（worker 渲染要几毫秒，而主线程可以每帧都发），
+   * 在途位图可能有好几张 —— 只看"收到一张新位图"会把**上一步**的状态当成当前状态
+   * （真实踩坑：静止态几何对账里读出"镜像落后一帧"，差点被当成状态分叉）。
+   */
+  | { t: 'frame'; v: number; seq: number; time: number; full?: boolean }
   /** 画布尺寸变化（设备像素） */
   | { t: 'resize'; v: number; width: number; height: number };
 
@@ -179,7 +186,9 @@ export function isMirrorCommand(msg: any): boolean {
   if (msg.t === 'selection') return Array.isArray(msg.ids);
   if (msg.t === 'viewport')
     return typeof msg.scale === 'number' && typeof msg.tx === 'number' && typeof msg.ty === 'number';
-  if (msg.t === 'frame') return typeof msg.time === 'number';
+  // `seq` 是宿主判断"手上这张位图是哪一帧"的依据（见 MirrorHost.renderedSeq），缺了它
+  // 静止态/截图的对齐就只能靠猜 —— 所以它是必需字段，不是可选装饰。
+  if (msg.t === 'frame') return typeof msg.seq === 'number' && typeof msg.time === 'number';
   if (msg.t === 'resize') return typeof msg.width === 'number' && typeof msg.height === 'number';
   return false;
 }

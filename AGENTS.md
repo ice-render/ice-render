@@ -57,9 +57,25 @@ worker 的 —— 视口/选择要一起发过去，否则新镜像从默认视�
 ⑩ **任何 `setState` 覆盖要么调 `super.setState`、要么自己调 `notifyStateChange`**：
 `ICEGroup.setState` 是完全覆盖，漏了它所有容器型组件（流程图节点这类）的状态都进不了镜像
 （不报错、只是画面不动）。守卫：`tests/worker/mirror-hooks-guard.test.ts`。
-⑪ **保真边界 = 序列化格式的保真边界**：派生子件不进文档 → worker 重建后 id 不同 → 应用层对它们
-的更新镜像不过去（几何逐项一致，只有这些子件的视觉细节有差）。真实验证数据见
-`docs/architecture/10-worker-offscreen.md` §7.0。
+⑪ **只镜像"文档里的组件"**：判据用 `isMirroredComponent()`（与 Serializer/Deserializer 同源）。
+复合组件的派生子件不进文档 → worker 侧没有对应 id → 对它们的写入**不发、只计数**
+（`bridge.skippedDerived`）；发过去只会换来 `missing` → 全量重同步（实测每改一次节点重发 473KB）。
+同理，**派生子树里的结构变更**（容器重建自己）不触发全量重同步；真实子节点
+（`getSerializableChildren()` 声明的）增删照旧走全量 —— 所以 `ICEGroup.removeChild` 的钩子
+**必须在摘除子节点之前**（摘除后再判定就分不出"真子节点被删"和"内部重建"了）。
+⑫ **补丁必须在 worker 侧按应用层入口重放**（`MirrorTarget` → `component.applyPatch()`，基类默认
+= `setState`）：派生逻辑跟着代码走，不跟着数据走。裸 `setState` 会让应用层派生（重建内部部件 /
+连线重路由 / 规范化样式）只发生在主线程 —— 真实症状是 worker 里连线不跟手、标题还是旧的。
+⑬ **帧节拍必须有背压**：`MirrorHost` 至多一帧在途（"还想画"只记标记，帧回来立刻补一帧）。
+不设上限时 `frame` 消息会越排越多（实测 30 帧基准积压 200+ 条），镜像滞后无上界、期间画的都是过时状态。
+宿主判断"静止态"用 `MirrorHost.renderedSeq` / `MirrorBridge.lastFrameSeq` 这组水印（`frame` 带
+`seq`、worker 原样回传），**不要**用"又收到一张位图"。
+⑭ **位置 / 尺寸这类"有跟随者"的改动必须走公开入口**（`setPosition()` 会派发 `BEFORE_MOVE`/
+`AFTER_MOVE` 并递归通知后代；尺寸改动要派发 `AFTER_RESIZE`）：只写 `setState({left,top})` 时
+连线 / 对齐辅助 / 控制面板**不会跟上**，而鼠标拖拽走的是 `setPosition` —— 于是"拖拽时对、
+程序化改属性时错"这种分叉只在面板 / 脚本路径上暴露（2026-09-20 被 worker 镜像实验抓到）。
+引擎侧契约写在 `ICEComponent.applyPatch()` 的注释里。
+真实验证数据见 `docs/architecture/10-worker-offscreen.md` §7.0。
 
 ## 引擎架构铁律（改动前必读）
 

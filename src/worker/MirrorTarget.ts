@@ -120,7 +120,7 @@ export default class MirrorTarget {
         if (missing.indexOf(op[1]) === -1) missing.push(op[1]);
         continue;
       }
-      target.setState(op[2]);
+      this.__applyPatch(target, op[2]);
       applied++;
       this.appliedOps++;
       if (selectedIds.has(op[1])) {
@@ -142,6 +142,28 @@ export default class MirrorTarget {
       }
     }
     return { received, applied, missing, invalid };
+  }
+
+  /**
+   * 把一条状态补丁落到镜像里的组件上 —— **走应用层自己的补丁入口**。
+   *
+   * 为什么不能直接 `setState`：`setState` 只改数据，应用层的**派生结果**要另外做一遍 ——
+   * 按 state 重建内部部件、重算连线走线、把老属性规范化到新位置（IED 的 16 个组件都实现了
+   * `applyPatch`）。主线程是"通过应用入口改的"，镜像若只落 `setState`，同一份状态在两边会长出
+   * 不同的画面：真实症状是**拖动节点时 worker 里的连线不跟手**（主线程派发了 `AFTER_MOVE`、
+   * 镜像侧没有），以及把节点标题改了、镜像里的标题还是旧的。
+   *
+   * 两侧**同一份代码、同一个入口**，派生逻辑就不需要跨线程搬运 —— 这是"镜像保真边界 =
+   * 序列化保真边界"之外唯一还要补的一条：**派生逻辑跟着代码走，不跟着数据走**。
+   *
+   * 兜底：第三方/老组件没有 `applyPatch`（引擎基类有默认实现，等于 `setState`）时按 `setState` 落。
+   */
+  private __applyPatch(component: any, patch: any): void {
+    if (component && typeof component.applyPatch === 'function') {
+      component.applyPatch(patch);
+      return;
+    }
+    component.setState(patch);
   }
 
   /**

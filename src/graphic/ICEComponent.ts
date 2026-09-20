@@ -1860,6 +1860,28 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   /**
+   * **补丁入口**：改属性（属性面板 / 拖动 / 批量改样式）的统一落点，默认就是 `setState`。
+   *
+   * 为什么要有这一层：`setState` 只改数据，**派生结果**（按 state 重建的内部部件、跟着动的连线、
+   * 规范化后的样式）需要应用层额外做一遍。派生逻辑没有统一入口时，只有"交互路径"会做、
+   * "程序化改属性"不会做 —— 真实事故：IED 的属性面板移动节点走 `setState({left,top})`，
+   * 连接线收不到 `AFTER_MOVE`，节点走了连线留在原地（改位置请用引擎的 `setPosition()`）。
+   *
+   * 覆盖约定：
+   * - 子类覆盖它来做应用层派生（重建内部部件、重算连线、把老属性规范化到新位置）；
+   * - 覆盖里只管**应用层**的事，引擎自己的状态语义仍由 `setState` 负责（别绕过它）；
+   * - 位置 / 尺寸这类"有跟随者"的改动走引擎已有的公开入口（`setPosition()` 会派发
+   *   `BEFORE_MOVE`/`AFTER_MOVE` 并递归通知后代）。
+   *
+   * 镜像渲染（worker 用）就靠这个入口**重放**主线程的补丁：worker 收到的只是状态补丁，
+   * 若用裸 `setState` 落下去，应用层的派生结果在镜像里就停在旧值（症状：worker 里连线不跟手、
+   * 派生部件几何过期）。见 `src/worker/MirrorTarget.ts`。
+   */
+  public applyPatch(patch: Record<string, any> = {}): void {
+    this.setState(patch);
+  }
+
+  /**
    * 「动画安全键」白名单：写这些 state 键**不会改变派生参数**（尺寸 / 点集 / 文本量测），
    * 因此动画/高频写值可以跳过 `paramsDirty` —— 省一次重量测，并且保住离屏位图的纯平移复用。
    *

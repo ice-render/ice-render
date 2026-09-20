@@ -76,6 +76,46 @@ export function notifyViewportChange(ice: any, viewport: any): void {
 }
 
 /**
+ * 这个组件**在镜像树里能被寻址吗**（= 它在序列化文档里吗）？
+ *
+ * 为什么要有这条判定：镜像树的形状**就是序列化文档的形状**（`MirrorTarget.applyScene` 走的是
+ * 引擎自己的反序列化器）。而复合组件的**派生部件**（`hasDerivedChildren()` 为真时按 state 重建的
+ * 底 / 标题 / 角标，见 `ICEComponent.hasDerivedChildren`）**不进文档** —— 主线程给它们写的状态
+ * 补丁带着一个 worker 侧根本不存在的 id 发过去，worker 只能回 `missing`，于是每一批补丁都变成
+ * 一次**全量重同步**（真实应用实测：200 节点 / 473KB 的场景，每改一次节点就把整份文档重发一遍，
+ * 还会顺手清掉同批已排队的补丁）。这类写入正确的处理是**不镜像**：派生部件由容器按 state 重建，
+ * 镜像侧会在重放容器的补丁时自己重算（见 `MirrorTarget.applyOps`）。
+ *
+ * 判定与 `Serializer` / `Deserializer` 同源，逐层向上：
+ * - 祖先声明了 `hasDerivedChildren()`：
+ *   - 它没声明 `getSerializableChildren()` → 这个孩子是派生部件；
+ *   - 它声明了（"既是复合组件、又是容器"，如 IED 的节点 / 池）→ 孩子在**真实子节点**里就继续
+ *     往上查，不在就是派生部件；
+ * - 一路查到根都没有派生祖先 → 它自己就是文档内容。
+ *
+ * 与 `ICEVisioLink` 里那条类似的向上遍历**不是一回事**：那条更严（派生容器的所有后代都不算障碍），
+ * 这里只问"它自己在不在文档里"，因为镜像要的正是文档。
+ */
+export function isMirroredComponent(component: any): boolean {
+  if (!component) {
+    return false;
+  }
+  let child: any = component;
+  let parent: any = component.parentNode;
+  while (parent) {
+    if (typeof parent.hasDerivedChildren === 'function' && parent.hasDerivedChildren()) {
+      const real = typeof parent.getSerializableChildren === 'function' ? parent.getSerializableChildren() : null;
+      if (!Array.isArray(real) || real.indexOf(child) === -1) {
+        return false;
+      }
+    }
+    child = parent;
+    parent = parent.parentNode;
+  }
+  return true;
+}
+
+/**
  * 找到这次结构变更归属的桥。
  *
  * 父组件可能是 `ICE` 本身（顶层增删，`ice.ice` 不存在），也可能是组件的 `ice`；
