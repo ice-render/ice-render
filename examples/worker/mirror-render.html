@@ -85,10 +85,12 @@
          *（实测：加一个 `ICEImage` 就 `hostActive: false`）。这里用组件自带的 data URL 图标：
          * 两边同源同解码器，像素应当逐点一致。
          */
-        // 注意尺寸：**按原图 1:1 绘制**。缩放绘制时 Chromium 对 `Image` 与 `ImageBitmap` 的
-        // 重采样不同（实测 185×182 → 72×72：770 像素、最大 93/255；半尺寸 411 像素、最大 10），
-        // 1:1 才逐点一致 —— 这条边界写在 docs/architecture/10-worker-offscreen.md 的图片一行里。
-        const icon = new ICE.ICEImage({ left: 420, top: 190, width: 185, height: 182, interactive: false });
+        /**
+         * 图片：worker 里没有 `Image` 构造器 —— 宿主不把解码好的位图下发过去，整棵镜像会退回主线程。
+         * 尺寸刻意是**缩放绘制**（原图 185×182 → 72×72）：主线程与 worker 各持一份 `createImageBitmap`
+         * 的解码结果（逐点一致），所以缩放后的重采样也完全相同 —— 这条曾经是保真边界，现在不是了。
+         */
+        const icon = new ICE.ICEImage({ left: 420, top: 230, width: 72, height: 72, interactive: false });
         target.addChild(icon);
         return { bg, group, rect, circle, icon };
       }
@@ -275,7 +277,10 @@
           const map = inst && inst.imageCache && inst.imageCache.imageCache;
           if (!map || !map.size) return false;
           for (const img of map.values()) {
-            if (!(img && img.complete && img.naturalWidth > 0)) return false;
+            // 镜像下发过来的是 ImageBitmap（没有 complete/naturalWidth，本来就是解码好的）
+            if (!img) return false;
+            if (!('complete' in img)) continue;
+            if (!(img.complete && img.naturalWidth > 0)) return false;
           }
           return true;
         };

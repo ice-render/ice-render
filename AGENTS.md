@@ -34,8 +34,9 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 ③ **采集点只有四处**（`ICEComponent.setState`、`ICE.addChild/removeChild`、`ICEGroup.addChild/removeChild`），
 统一走 `src/worker/mirror-hooks.ts`；**别用包裹 `setState` 的方式采集** —— 动画写值通道走的也是
 `setState`，包裹会漏掉动画，而那正是"镜像跟着动"的主路径；
-④ **增量 op 的三种形态与"id 对不上"的答案**：`['state',id,patch]` / `['add',parentId,子树文档]` /
-`['remove',id]`；id 对不上 → `missing` → 主线程重发全量（限流 500ms）自愈。
+④ **增量 op 的四种形态与"id 对不上"的答案**：`['state',id,patch]` / `['add',parentId,子树文档]` /
+`['remove',id]` / `['move',id,新父id]`（换父级 = `adoptChild`：**必须单独成一条**，只报 add 会让
+镜像里旧父那份留着 → 同一棵树两个同 id 实例）；id 对不上 → `missing` → 主线程重发全量（限流 500ms）自愈。
 ⚠️ 结构 op 与状态补丁是**同一条有序队列**：`addChild` 的镜像钩子必须排在会写 state 的那些调用
 （`__reapplyPreset` / `doLayout`）**之前**，否则同一批里会出现"未知 id 的补丁" → `missing` → 全量重同步
 （2026-09-20 实测抓到）。回归：`tests/worker/`、`e2e/visual/worker-mirror.spec.ts`。
@@ -302,6 +303,16 @@ worker 的 —— 视口/选择要一起发过去，否则新镜像从默认视�
   一次真实的 −4.4% 回归就是这么来的（在 `isCachable` 顶部无条件取了一次渲染视口）。
   修法是把只在某个分支才需要的取值**下沉进那个分支**、把能内联的紧循环计算内联。
   加东西前先问：5000 图元 × 60fps 时这段代码每秒要跑多少次？
+
+- **热路径类不加实例字段铁律（2026-09-20 一次真实回归确立）**：给**高频实例**（`ICEComponent` /
+  `ICEGroup` / 图元）加一个**实例字段**——哪怕只是个 `private __flag = false`——会改变对象形状，
+  让整条继承链上的属性访问与内联缓存退化，**退化还会落在根本读不到那个字段的方法上**。实测：
+  给 `ICEGroup` 加 `__adopting`（`adoptChild` 期间抑制 add 通知用）→ 微基准
+  `setState (容器, 递归标记整棵子树)` **121ns → 574ns（4.7×）**、`getRotateAngle` **2.45ns → 8.16ns（3.3×）**，
+  而叶子 `setState` 只有 1.03×（所以不是整机变慢、也不是那两个方法自身的逻辑）。同一状态改成
+  **模块级 `WeakSet`** 后两项都回到 121ns / 2.45ns。纪律：这类「一次调用期间的临时标记」放模块级
+  `WeakSet` / `WeakMap`（或已有的 `__childSet` 这类容器）；确实要加字段时，跑
+  `npm run bench:micro -- --check` 对照基线（它就是挡这类退化的门禁，已进 `verify:full`）。
 
 - **i18n 边界铁律（2026-09-13 确立）**：**引擎不做 i18n**（没有词条表、没有 locale 状态、不做语言切换；同页两个应用不能各用各的语言，这类全局状态一旦进内核就退不出去）。边界是：**应用层**管词条 / 复数 / 日期数字货币格式化（`Intl`/ICU），把最终字符串交给引擎；**组件库**可以有自己的内置文案但要「可配置 + 不持全局状态」；**引擎**只负责让这些字符串显示正确 —— ① 断行策略（`wordBreak: 'normal'` 拉丁词不硬拆、CJK 逐字断 + 禁则；`'break-all'` 保留旧的逐 grapheme 贪心）；② 文字方向（`ICEText.direction` + `textAlign: 'start' | 'end'`，写 `ctx.direction` 时**特性检测**、渲染完归位 `inherit`；SVG 导出口径一致）；③ 输入法（透明 `<input>` + `compositionend`）；④ **稳定错误码**（`ICE_ERROR_CODES` / `getICEErrorCode(err)`，错误常被应用直接展示，只有中文 message 会迫使应用匹配字符串）；⑤ 中立性（不规范化、不做 locale 格式化、文本逐字节往返）。完整契约与缺口清单见 `docs/architecture/17-i18n-boundary.md`，回归见 `tests/graphic/text-wrap.test.ts`、`tests/graphic/text-direction.test.ts`、`tests/graphic/text-i18n.test.ts`、`tests/util/errors.test.ts`。
 

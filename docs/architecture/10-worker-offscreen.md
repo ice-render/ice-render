@@ -17,9 +17,11 @@
 >   主线程改走"几何通道"（跑渲染管线但不产出像素）以维持命中检测依赖的世界盒；
 >   工具层按**选择**镜像 —— worker 用**自己的**控制面板画手柄。参考宿主 `MirrorHost`，
 >   回归 `e2e/visual/worker-mirror.spec.ts` 的交互用例（点选 / 拖拽 / 空点隐藏手柄，逐像素 0 差异）。
-> - **仍未做**：输入转发（DOM 事件留主线程这条不变，这里指"把原生事件也透给 worker"）、
->   把补间搬进 worker（实测收益很小：1000 个动画组件每帧只 0.19ms / 68KB）、
->   结构增量里的"换父级"（`adoptChild` 目前按"删 + 加"两条 op 走，语义正确、只多一条消息）。
+> - **仍未做**：把补间搬进 worker（实测收益很小：1000 个动画组件每帧只 0.19ms / 68KB，
+>   且会让主线程状态在动画期间陈旧 —— 命中检测/面板读旧值）。
+> - **有意不做**：**输入转发**（把原生事件也透给 worker）。输入永远留在主线程是这套架构的地基
+>   （命中检测读渲染期世界盒快照，见 §3.1），worker 侧没有任何消费方；真出现"worker 内交互元素"
+>   的需求时再单独设计，而不是先塞一条通道进来。
 >   引擎的**默认**渲染仍是主线程；worker 渲染要宿主显式接线。
 > 小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
 
@@ -44,7 +46,7 @@
 | 离屏 canvas | `root.createOffscreenCanvas` | ✅ **已解决（阶段一）**：有 document 时用 `<canvas>`（保住 `lang`/`dir` 的字形口径），没有则用 `new OffscreenCanvas(w,h)`（worker 分支） |
 | 文本字形语言（`lang`/`dir`） | 主画布元素属性 | ✅ **已解决（协议下发）**：宿主把主画布的 `lang`/`dir` 随 `text` 消息推给 worker，`MirrorTarget.applyText()` 落到 worker 的 `ctx` 与 `root.textLanguage` —— 后者让**组件缓存 / 静态层的每一张离屏画布**也继承同一口径（少了它，缓存里的汉字字形会与主画布分叉） |
 | 字体 | `ICE.loadFont()`（`FontFace` + `document.fonts`） | ✅ **已下发**：宿主在主线程把字体字节取好（`MirrorHost` 的 `fonts` 选项），`fonts` 消息推给 worker，worker 用自己的 `FontFace` + `self.fonts` 注册；运行时不支持时如实报 `fontErrors`、不抛 |
-| 图片 | `ImageCache` 的 `Image` + `onload` | ✅ **已下发**：worker 里没有 `Image` 构造器（带图片的树以前会整棵退回主线程 —— 实测加一个 `ICEImage` 就 `hostActive: false`）。现在主线程渲染发现用图 → 宿主 `fetch` + `createImageBitmap` 解码 → `images` 消息（位图走 transfer 零拷贝）→ worker 直接用；同一 URL 只解码一次，未到达时返回"未加载"**不抛**。⚠️ **边界：缩放绘制**时 Chromium 对 `Image` 与 `ImageBitmap` 的重采样不同（实测原图 185×182：1:1 绘制**逐点一致**、缩到 72×72 差 770 像素/最大 93、缩一半差 411 像素/最大 10）——要严格逐像素一致就**按原图尺寸绘制** |
+| 图片 | `ImageCache` 的 `Image` + `onload` | ✅ **已下发**：worker 里没有 `Image` 构造器（带图片的树以前会整棵退回主线程 —— 实测加一个 `ICEImage` 就 `hostActive: false`）。链路：主线程渲染发现用图 → 宿主 `fetch` + `createImageBitmap` **解码两份**（一份注册给本页所有 ICE、一份随 transfer 给 worker）→ worker 直接用；同一 URL 只处理一次，未到达时返回"未加载"**不抛**。⚠️ 曾经的边界（缩放绘制时 `Image` 与 `ImageBitmap` 重采样不同）**已消除**：两边画的都是解码好的位图（两次 `createImageBitmap` 实测逐点一致），且位图在路上时主线程**不先退回 `Image`**（避免到达那一帧像素跳变）
 
 ## 3. 架构分层
 
@@ -90,7 +92,8 @@
    `setState`，应用层可以覆盖它做派生：重建内部部件、重算连线、把老属性规范化到新位置），
    而不是裸 `setState`。这样"派生逻辑跟着代码走，不跟着数据走"——两边跑同一份代码，
    不需要把派生结果跨线程搬运。
-7. **结构变更也走增量**（协议 v2）：`add` / `remove` 各一条 op —— `add` 带一棵**子树文档**
+7. **结构变更也走增量**（协议 v2）：`add` / `remove` / `move` 各一条 op（`move` = 换父级，`adoptChild`
+   的镜像语义：不销毁组件、坐标不换算；只报 `add` 的话镜像里旧父那份还在 —— 同一棵树两个同 id 实例） —— `add` 带一棵**子树文档**
    （`Serializer.encodeSubtree()` 的产物，与整份文档同一条编码路径），`remove` 只带 id；
    worker 侧用 `Deserializer.decodeInto()` 挂上去、并维护 id 索引（`appliedAdds/appliedRemoves`）。
    实测（IED 200 节点 / 800+ 组件）"新建一个节点"：**1037 B、0 次全量重同步、worker 那一帧 6.3ms**，

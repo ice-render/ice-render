@@ -9,6 +9,7 @@ import root from '../cross-platform/root';
 import MirrorBridge from './MirrorBridge';
 import { MIRROR_PROTOCOL_VERSION, MirrorEvent, MirrorStats } from './mirror-protocol';
 import { MirrorSupport, detectMirrorSupport, describeMirrorSupport } from './mirror-support';
+import { dirtyImageUsers, registerImageBitmap } from './mirror-hooks';
 import type { MirrorFontSource } from './mirror-protocol';
 
 export type MirrorHostOptions = {
@@ -578,17 +579,34 @@ export default class MirrorHost {
         }
         const res = await fetch(url);
         const blob = await res.blob();
+        /**
+         * **解码两份**：一份留主线程（注册进引擎的解码结果表）、一份随 transfer 发给 worker。
+         *
+         * 为什么不共用一份：`ImageBitmap` 只能"转移"（转移后主线程那份就废了）。
+         * 而两次 `createImageBitmap(blob)` 的解码结果**逐点一致**（实测 1:1 / 半尺寸 / 缩放全 0 差异），
+         * 所以"各持一份"既能零拷贝送到 worker，又保证主线程与 worker 画的是同一份像素 ——
+         * 缩放绘制时不会再出现"Image 与 ImageBitmap 重采样不同"的差异。
+         */
         const bitmap = await createImageBitmap(blob);
+        const forWorker = await createImageBitmap(blob);
         if (!this.running) {
           // 已经停了（回退 / 宿主主动关掉）：位图没人要，直接释放
-          if (bitmap && typeof bitmap.close === 'function') {
-            bitmap.close();
+          for (const b of [bitmap, forWorker]) {
+            if (b && typeof b.close === 'function') {
+              b.close();
+            }
           }
           return;
         }
-        this.bridge.recordImages([{ key: url, bitmap }]);
+        const anyIce: any = this.ice;
+        registerImageBitmap(url, bitmap); // 主线程（本实例与同页其它 ICE）都用这份
+        dirtyImageUsers(anyIce, url);
+        anyIce.dirty = true;
+        this.bridge.recordImages([{ key: url, bitmap: forWorker }]);
         this.__paintPending = true;
       } catch (e: any) {
+        // 这条 URL 不再算"在途"：主线程可以退回常规 Image 路径（否则它会永远不显示）
+        this.bridge.markImageFailed(url);
         this.__onEvent({
           t: 'error',
           v: MIRROR_PROTOCOL_VERSION,

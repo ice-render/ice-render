@@ -51,11 +51,17 @@ export const MIRROR_ROOT_ID = '#root';
  * | 状态补丁 | `['state', 组件 id, 补丁]` | 与 `setState` 的浅合并同语义 |
  * | 加子树 | `['add', 父 id（`'#root'` = ICE 根）, 子树文档]` | 挂在父容器**末尾**（与 `addChild` 同语义），子树文档由 `Serializer.encodeSubtree()` 产出 |
  * | 删子树 | `['remove', 组件 id]` | 按 id 摘除该组件及其后代 |
+ * | 换父级 | `['move', 组件 id, 新父 id]` | 改挂到另一个容器（不销毁、坐标不换算，与 `adoptChild` 同语义） |
  *
  * 为什么 `add` 不需要 index：引擎的 `addChild()` 只有"追加"这一种语义（`this.childNodes.push`），
  * 绘制次序由 `zIndex` 决定、相等时按数组次序 —— 两边都追加，次序自然一致。
  */
-export type MirrorOp = ['state', string, any] | ['add', string, any] | ['remove', string];
+export type MirrorOp =
+  | ['state', string, any]
+  | ['add', string, any]
+  | ['remove', string]
+  /** 换父级（`adoptChild`）：`['move', 组件 id, 新父 id（'#root' = ICE 根）]`，坐标不换算（与引擎同语义） */
+  | ['move', string, string];
 
 /**
  * 一条字体下发的记录（见 `fonts` 消息）。
@@ -321,6 +327,10 @@ export function isValidOp(op: any): op is MirrorOp {
   }
   if (kind === 'remove') {
     return op.length >= 2;
+  }
+  if (kind === 'move') {
+    // 新父 id 也要是非空字符串（'#root' 表示挂回 ICE 根）
+    return typeof op[2] === 'string' && !!op[2];
   }
   return false;
 }

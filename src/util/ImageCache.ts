@@ -1,6 +1,6 @@
 import ICE from '../ICE';
 import root from '../cross-platform/root';
-import { notifyImageRequest } from '../worker/mirror-hooks';
+import { imageBitmapOf, notifyImageRequest } from '../worker/mirror-hooks';
 
 /**
  * @class ImageCache 图片缓存器
@@ -19,6 +19,19 @@ export default class ImageCache {
   }
 
   public setImage(url: string) {
+    /**
+     * **注册过的解码位图优先于缓存里的 `Image`**。
+     *
+     * 为什么放在缓存查询之前：同页可能有多个 ICE 实例（镜像宿主那台 + 参考渲染那台），
+     * 后者没有桥、会先按常规路径建一个 `Image` 并缓存住；等宿主把位图解码好注册进来时，
+     * 若不覆盖，它就会一直画 `Image` —— 而 worker 画的是位图，**缩放绘制**时两者的重采样不同
+     *（实测差 767 像素 / 最大 94）。这里让"有点图就一定用点图"，两边逐点一致。
+     */
+    const registered = imageBitmapOf(url);
+    if (registered && this.imageCache.get(url) !== registered) {
+      this.imageCache.set(url, registered);
+      this.ice.dirty = true;
+    }
     let image = this.imageCache.get(url);
     if (!image) {
       /**
@@ -26,7 +39,7 @@ export default class ImageCache {
        * `ImageBitmap` —— 直接当缓存用（它没有 `complete` / `naturalWidth`，所以走下面的短路径返回
        * "已加载"）。这一步必须排在 `root.createImage()` 之前：worker 里没有 `Image` 构造器。
        */
-      const mirrored = mirroredImageOf(this.ice, url);
+      const mirrored = imageBitmapOf(url);
       if (mirrored) {
         this.imageCache.set(url, mirrored);
         return { loaded: true, image: mirrored };
@@ -36,6 +49,18 @@ export default class ImageCache {
        * 宿主解码后下发给 worker（见 `MirrorHost`）。没有装桥时这一步是零成本。
        */
       notifyImageRequest(this.ice, url);
+      /**
+       * 镜像**已经请求过**这张图、位图还在路上：这里先不建 `Image`。
+       *
+       * 为什么：主线程先画 `Image`、等位图到了再换过去，会在换的那一帧**像素跳变**
+       *（两者在缩放绘制时重采样不同）。宁可晚一两帧出现，也不要"先 Image 后 Bitmap"的闪烁。
+       * 宿主解码失败时会把这条 URL 从"在途"里摘掉（`MirrorBridge.markImageFailed`），
+       * 下一次渲染就退回常规 `Image` 路径。
+       */
+      const bridge: any = this.ice && (this.ice as any).__mirrorBridge;
+      if (bridge && typeof bridge.isImagePending === 'function' && bridge.isImagePending(url)) {
+        return { loaded: false, image: null };
+      }
       try {
         image = root.createImage();
       } catch (e) {
@@ -75,10 +100,4 @@ export default class ImageCache {
     }
     return image.complete && image.naturalWidth > 0;
   }
-}
-
-/** 镜像下发过来的位图：挂在冰实例上的注册表（由 `MirrorTarget.applyImages` 维护）。 */
-function mirroredImageOf(ice: any, url: string): any {
-  const registry: any = ice && ice.__mirrorImages;
-  return registry && typeof registry.get === 'function' ? registry.get(url) || null : null;
 }

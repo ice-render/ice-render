@@ -96,6 +96,8 @@ export default class MirrorBridge {
   private onImageRequest_: ((url: string) => void) | null = null;
   /** 已经向宿主报过请求的 URL（同一条图只请求一次；宿主那边还有自己的"已解码"集合） */
   private requestedImages = new Set<string>();
+  /** 解码失败的 URL（这些不再算"在途"，主线程退回 Image 路径） */
+  private failedImages = new Set<string>();
   private readonly resyncOnStructureChange: boolean;
   private ops: MirrorOp[] = [];
   /** 待发的选择状态（undefined = 没有变化；空数组 = 明确"取消选择"） */
@@ -269,6 +271,23 @@ export default class MirrorBridge {
     }
   }
 
+  /**
+   * 这张图是不是"已经被镜像请求、宿主还在解码"（见 `ImageCache.setImage`）。
+   *
+   * 主线程据此**先不建 `Image`**：先 Image、后 Bitmap 会在位图到达那一帧像素跳变
+   *（缩放绘制时两者的重采样不同）。宿主解码失败时调 `markImageFailed()` 摘掉，退回常规路径。
+   */
+  public isImagePending(url: string): boolean {
+    return !!url && this.requestedImages.has(url) && !this.failedImages.has(url);
+  }
+
+  /** 宿主解码失败：这条 URL 不再算"在途"，主线程可以退回常规 `Image` 路径。 */
+  public markImageFailed(url: string): void {
+    if (url) {
+      this.failedImages.add(url);
+    }
+  }
+
   /** 排一次**图片下发**（宿主在主线程解码好的位图；位图走 transfer 列表，零拷贝）。 */
   public recordImages(images: MirrorImageSource[]): void {
     if (!Array.isArray(images) || !images.length) {
@@ -340,7 +359,7 @@ export default class MirrorBridge {
    * 宿主显式要求（`resyncOnStructureChange: true`）、父/子**拿不到可寻址的 id**、
    * 子树编码失败（`serializer.encodeSubtree()` 返回空）。
    */
-  public recordStructureChange(kind: 'add' | 'remove', _parent: any, _child: any): void {
+  public recordStructureChange(kind: 'add' | 'remove' | 'move', _parent: any, _child: any): void {
     // 工具层的结构变更（面板挂上/摘下、手柄按需创建）同样不镜像，理由见 recordStateChange
     if (this.__isToolNode(_parent) || this.__isToolNode(_child)) return;
     /**
@@ -356,7 +375,12 @@ export default class MirrorBridge {
       this.markSceneNeeded();
       return;
     }
-    const op = kind === 'add' ? this.__buildAddOp(_parent, _child) : this.__buildRemoveOp(_child);
+    const op =
+      kind === 'add'
+        ? this.__buildAddOp(_parent, _child)
+        : kind === 'move'
+          ? this.__buildMoveOp(_parent, _child)
+          : this.__buildRemoveOp(_child);
     if (!op) {
       // 无法寻址：宁可重发整份文档，也不能让镜像的结构错位
       this.markSceneNeeded();
@@ -394,6 +418,13 @@ export default class MirrorBridge {
     }
     const clean = sanitizeTransferable(nodeDoc, this.dropped, `add[${componentIdOf(child)}]`);
     return clean ? ['add', parentId, clean] : null;
+  }
+
+  /** `['move', 组件 id, 新父 id]`；父子任一拿不到可寻址 id 时返回 null（调用方退回全量） */
+  private __buildMoveOp(parent: any, child: any): MirrorOp | null {
+    const id = componentIdOf(child);
+    const parentId = parent === this.ice ? MIRROR_ROOT_ID : componentIdOf(parent);
+    return id && parentId ? ['move', id, parentId] : null;
   }
 
   /** `['remove', 组件 id]`；拿不到 id 时返回 null（调用方退回全量） */

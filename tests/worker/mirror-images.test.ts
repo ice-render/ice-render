@@ -25,6 +25,7 @@ import MirrorTarget from '../../src/worker/MirrorTarget';
 import MirrorHost from '../../src/worker/MirrorHost';
 import ImageCache from '../../src/util/ImageCache';
 import { MIRROR_PROTOCOL_VERSION } from '../../src/worker/mirror-protocol';
+import { registerImageBitmap, imageBitmapOf, clearImageBitmaps } from '../../src/worker/mirror-hooks';
 
 function makeIce(): any {
   const ice: any = new ICE();
@@ -136,6 +137,43 @@ describe('镜像图片：worker 侧落地', () => {
 });
 
 describe('镜像图片：主线程请求 → 宿主下发', () => {
+  it('主线程与 worker 用**同一份解码结果**：位图注册后两边都走它（缩放绘制也能逐点一致）', () => {
+    const ice = makeIce();
+    const bitmap: any = { width: 2, height: 2 };
+    // 两次 createImageBitmap 的解码结果逐点一致（实测 1:1 / 半尺寸 / 缩放全 0 差异），
+    // 所以"主线程留一份、worker 传一份"能给出完全相同的像素
+    registerImageBitmap('https://example.com/d.png', bitmap);
+    (root as any).createImage = () => {
+      throw new Error('不该再走 Image 构造器');
+    };
+
+    const cached: any = ice.imageCache.setImage('https://example.com/d.png');
+
+    expect(cached.loaded).toBe(true);
+    expect(cached.image).toBe(bitmap);
+    delete (root as any).createImage;
+    clearImageBitmaps();
+  });
+
+  it('镜像已请求、位图还没到时：主线程**不先退回 Image**（否则图片会在位图到达时像素跳变）', () => {
+    const ice = makeIce();
+    const bridge: any = new MirrorBridge(ice, { send: () => {} });
+    ice.__mirrorBridge = bridge;
+    let created = 0;
+    (root as any).createImage = () => {
+      created++;
+      return { complete: false, naturalWidth: 0, set src(v: string) {} };
+    };
+
+    bridge.recordImageRequest('https://example.com/pending2.png');
+    const cached: any = ice.imageCache.setImage('https://example.com/pending2.png');
+
+    expect(cached.loaded).toBe(false);
+    expect(cached.image).toBe(null);
+    expect({ created, cached }).toEqual({ created: 0, cached: { loaded: false, image: null } });
+    delete (root as any).createImage;
+  });
+
   it('渲染用到图片时把 URL 交给宿主（宿主据此解码后零拷贝下发）', () => {
     const ice = makeIce();
     const requested: string[] = [];
@@ -175,7 +213,8 @@ describe('镜像图片：主线程请求 → 宿主下发', () => {
     expect(transfers[sent.indexOf(msg)]).toEqual([bitmap]);
   });
 
-  it('宿主收到请求 → createImageBitmap 解码 → 下发；同一条 URL 只解码一次', async () => {
+  it('宿主收到请求 → 解码两份（主线程留一份、给 worker 一份）→ 下发；同一条 URL 只处理一次', async () => {
+    clearImageBitmaps();
     const ice = makeIce();
     const worker: any = {
       sent: [],
@@ -201,7 +240,7 @@ describe('镜像图片：主线程请求 → 宿主下发', () => {
     host.start();
     worker.sent.length = 0;
 
-    // 触发两次同 URL 的请求：只应解码一次
+    // 触发两次同 URL 的请求：只应处理一次（两次解码 = 主线程一份 + worker 一份）
     ice.imageCache.setImage('https://example.com/c.png');
     ice.imageCache.setImage('https://example.com/c.png');
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -218,7 +257,9 @@ describe('镜像图片：主线程请求 → 宿主下发', () => {
     });
     host.paint();
 
-    expect(decoded).toBe(1);
+    expect(decoded).toBe(2); // 主线程一份、随 transfer 发给 worker 一份（两次解码逐点一致）
+    // 主线程这边也换用解码好的位图（否则主线程画 Image、worker 画 ImageBitmap，缩放绘制会有差异）
+    expect(imageBitmapOf('https://example.com/c.png')).toBeTruthy();
     const imagesMsg = worker.sent.map((e: any) => e.msg).find((m: any) => m && m.t === 'images');
     expect(imagesMsg).toBeDefined();
     expect(imagesMsg.images[0].key).toBe('https://example.com/c.png');

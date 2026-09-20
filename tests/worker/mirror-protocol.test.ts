@@ -119,8 +119,13 @@ describe('消息校验', () => {
     // remove：只需要 id
     expect(isValidOp(['remove', 'ICE_1'])).toBe(true);
     expect(isValidOp(['remove', ''])).toBe(false);
+    // 换父级：组件 id + 新父 id（'#root' 合法）
+    expect(isValidOp(['move', 'ICE_1', 'ICE_parent'])).toBe(true);
+    expect(isValidOp(['move', 'ICE_1', MIRROR_ROOT_ID])).toBe(true);
+    expect(isValidOp(['move', 'ICE_1', ''])).toBe(false);
+    expect(isValidOp(['move', 'ICE_1'])).toBe(false);
     // 未知 op 名一律拒绝（协议坏数据不能悄悄改树）
-    expect(isValidOp(['move', 'ICE_1', 0])).toBe(false);
+    expect(isValidOp(['reparent', 'ICE_1', 0])).toBe(false);
   });
 
   it('op 形状：只有 state 补丁；id 必须是非空字符串、补丁必须是对象', () => {

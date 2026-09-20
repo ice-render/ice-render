@@ -6,7 +6,7 @@
  *
  */
 import root from '../cross-platform/root';
-import { registerMirrorImage } from './mirror-hooks';
+import { dirtyImageUsers, registerImageBitmap } from './mirror-hooks';
 import {
   MIRROR_PROTOCOL_VERSION,
   MIRROR_ROOT_ID,
@@ -61,9 +61,10 @@ export default class MirrorTarget {
   private index = new Map<string, any>();
   /** 累计应用成功的 op 条数（上报给主线程做对账） */
   public appliedOps = 0;
-  /** 累计应用的**结构增量**：加子树 / 删子树各多少条（宿主对账"结构是不是走增量"用） */
+  /** 累计应用的**结构增量**：加子树 / 删子树 / 换父级各多少条（宿主对账"结构是不是走增量"用） */
   public appliedAdds = 0;
   public appliedRemoves = 0;
+  public appliedMoves = 0;
   /** 累计应用的选择状态条数 */
   public appliedSelections = 0;
   /** 累计应用的视口变更条数 */
@@ -168,6 +169,29 @@ export default class MirrorTarget {
         applied++;
         this.appliedOps++;
         this.appliedAdds++;
+        continue;
+      }
+      /** 换父级：用引擎自己的 `adoptChild`（不销毁组件、坐标不换算 —— 与主线程同语义） */
+      if (kind === 'move') {
+        const moving = this.index.get(op[1]);
+        const targetParent = op[2] === MIRROR_ROOT_ID ? this.ice : this.index.get(op[2]);
+        if (!moving) {
+          if (missing.indexOf(op[1]) === -1) missing.push(op[1]);
+          continue;
+        }
+        if (!targetParent) {
+          if (missing.indexOf(op[2]) === -1) missing.push(op[2]);
+          continue;
+        }
+        if (typeof targetParent.adoptChild === 'function') {
+          targetParent.adoptChild(moving);
+        } else {
+          invalid++;
+          continue;
+        }
+        applied++;
+        this.appliedOps++;
+        this.appliedMoves++;
         continue;
       }
       /** 结构增量：删子树。先按 id 把整棵子树的索引清掉，再摘除（摘除会 destory，之后遍历不到）。 */
@@ -334,8 +358,8 @@ export default class MirrorTarget {
       if (!item || !item.key || !item.bitmap) {
         continue;
       }
-      registerMirrorImage(this.ice, item.key, item.bitmap);
-      this.__dirtyImageUsers(item.key);
+      registerImageBitmap(item.key, item.bitmap);
+      dirtyImageUsers(this.ice, item.key);
       this.appliedImages++;
       keys.push(item.key);
     }
@@ -343,23 +367,6 @@ export default class MirrorTarget {
       this.ice.dirty = true;
     }
     return { added: keys.length, keys };
-  }
-
-  /** 把 `state.src === key` 的组件标脏（浅扫整棵树：图片到达是低频事件，够用且不引入索引） */
-  private __dirtyImageUsers(key: string): void {
-    const walk = (nodes: any[]) => {
-      if (!nodes || !nodes.length) return;
-      for (let i = 0; i < nodes.length; i++) {
-        const node = nodes[i];
-        if (node && node.state && node.state.src === key) {
-          node.dirty = true;
-        }
-        if (node && node.childNodes && node.childNodes.length) {
-          walk(node.childNodes);
-        }
-      }
-    };
-    walk(this.ice.childNodes);
   }
 
   /**

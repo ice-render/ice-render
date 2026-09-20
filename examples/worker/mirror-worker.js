@@ -71,6 +71,7 @@ function renderAndPost(seq) {
         appliedImages: target.appliedImages,
         appliedAdds: target.appliedAdds,
         appliedRemoves: target.appliedRemoves,
+        appliedMoves: target.appliedMoves,
         appliedSelections: target.appliedSelections,
         appliedViewports: target.appliedViewports,
       },

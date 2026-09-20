@@ -273,6 +273,39 @@ describe('MirrorBridge ↔ MirrorTarget 等价性', () => {
     expect(h.target.has(circle.props.id)).toBe(false);
   });
 
+  it('换父级（adoptChild）走单条 move op：镜像里不会留下重复挂载的旧副本', () => {
+    const h = makeHarness();
+    const a = new ICEGroup({ left: 0, top: 0, width: 100, height: 100 });
+    const b = new ICEGroup({ left: 200, top: 0, width: 100, height: 100 });
+    const child = new ICERect({ left: 10, top: 10, width: 20, height: 20 });
+    h.main.addChild(a);
+    h.main.addChild(b);
+    a.addChild(child);
+    h.bridge.flush();
+    h.deliver();
+    h.expectSameTree();
+
+    h.sent.length = 0;
+    b.adoptChild(child);
+    h.bridge.flush();
+
+    // 换父级 = 一条 move op（旧父摘除 + 新父挂上）。只发 add 的话，镜像里旧父下面那份还在 →
+    // 同一棵树里出现两个同 id 实例（双重绘制，后续状态补丁只更新其中一个）。
+    expect(h.sent[0].ops.map((op: any) => op[0])).toEqual(['move']);
+    h.deliver();
+
+    h.expectSameTree();
+    const countInstances = (nodes: any[]): number => {
+      let n = 0;
+      for (const node of nodes || []) {
+        if (node.props && node.props.id === child.props.id) n++;
+        n += countInstances(node.childNodes || []);
+      }
+      return n;
+    };
+    expect(countInstances(h.mirror.childNodes)).toBe(1);
+  });
+
   it('退回全量：宿主显式要求（resyncOnStructureChange）时结构变更仍走 scene', () => {
     const main = makeIce();
     const mirror = makeIce();

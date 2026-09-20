@@ -11,7 +11,18 @@ import ICEComponent from '../ICEComponent';
 import { bumpVisibilityEpoch, rebindComponentTree } from '../../util/data-util';
 import ICERect from '../shape/ICERect';
 import type ICELayoutManager from '../../layout/ICELayoutManager';
-import { notifyChildAdded, notifyChildRemoved, notifyStateChange } from '../../worker/mirror-hooks';
+import { notifyChildAdded, notifyChildMoved, notifyChildRemoved, notifyStateChange } from '../../worker/mirror-hooks';
+
+/**
+ * 正在"搬家"的组件（`adoptChild` 期间抑制 `addChild` 的"新增"通知）。
+ *
+ * ⚠️ 刻意**不给实例加字段**：实测给 `ICEGroup` 加一个布尔实例字段会让**热路径**明显变慢 ——
+ * 微基准 `setState (容器, 递归标记整棵子树)` 121ns → 574ns（4.7×）、
+ * `getRotateAngle` 2.45ns → 8.16ns（3.3×），而这两个方法根本读不到那个字段；原因是实例多一个自有属性
+ * 会改变对象形状，连带让共享代码里的属性访问/内联缓存退化。热路径类的新状态优先放模块级
+ * WeakSet / Map（或已有的 `__childSet` 这类容器），不要顺手加实例字段。
+ */
+const adoptingChildren = new WeakSet<any>();
 
 /**
  * @class ICEGroup 容器型组件
@@ -426,7 +437,10 @@ class ICEGroup extends ICERect {
      * 未知 id 的补丁" → `missing` → 全量重同步（结构增量白做）。此时 child 已在 `childNodes` 里，
      * 派生件判定（`getSerializableChildren()`）读得到它。
      */
-    notifyChildAdded(this, child);
+    // 搬家（`adoptChild`）期间不报"新增"：那次变更本质是"搬"，由 `notifyChildMoved` 单独报一条 `move`
+    if (!adoptingChildren.has(child)) {
+      notifyChildAdded(this, child);
+    }
     // 布局接管：新加入的子组件必须立即参与重排。
     // 旧实现只在 setLayout() 时排一次，之后 addChild 不重排 → 加进去的子组件位置全错。
     // 注意：**不**给子容器继承本容器的策略（对齐 Swing 的 Container.setLayout：父布局只摆位置，
@@ -466,6 +480,7 @@ class ICEGroup extends ICERect {
     if (!child || child === this) {
       return;
     }
+    /** 换父级的"原父级"：报 `move` op 时带上（根级组件这里是 null，`#root` 由桥自己判定） */
     const oldParent: any = child.parentNode;
     if (oldParent && oldParent !== this && oldParent.childNodes) {
       const index = oldParent.childNodes.indexOf(child);
@@ -495,7 +510,19 @@ class ICEGroup extends ICERect {
         }
       }
     }
-    this.addChild(child, markDirty);
+    /**
+     * 搬家期间的"新增"通知要被抑制（`addChild` 里查 `adoptingChildren`），改由下面单独报一条 `move`。
+     * 抑制状态**走模块级 WeakSet 而不是实例字段**：实测给这个热路径类加一个布尔实例字段，
+     * 会让 `setState (容器, 递归标记整棵子树)` 121ns → 574ns、`getRotateAngle` 2.45ns → 8.16ns
+     * （两个方法都读不到那个字段，退化来自对象形状改变引发的内联缓存失效）。见文件头说明。
+     */
+    adoptingChildren.add(child);
+    try {
+      this.addChild(child, markDirty);
+    } finally {
+      adoptingChildren.delete(child);
+    }
+    notifyChildMoved(oldParent, this, child);
     // 嵌套重父级：子树整体切到本容器的实例（addChild 只直接绑 child 本身，
     // 而 AFTER_ADD 的递归同步是 once —— 对"已经挂过"的容器不会再触发）。
     if (this.ice) {
