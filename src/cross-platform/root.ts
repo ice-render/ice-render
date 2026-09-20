@@ -143,5 +143,23 @@ let root: any = null;
     }
     throw iceError(ICE_ERROR_CODES.OFFSCREEN_CANVAS_UNSUPPORTED, '当前运行时没有可用的离屏 canvas。');
   };
+
+  /**
+   * **平台能力探测**（只读布尔量，供引擎与宿主做"能不能上 worker 镜像"的判断）。
+   *
+   * 为什么放在 `root`：所有对全局对象与平台能力的访问都收敛在这一层（见
+   * `docs/architecture/08-compatibility.md`），宿主与服务层要判断"这个运行时有没有 Worker /
+   * 离屏画布"，也应该问 `root`，而不是各自去 `typeof window.Worker` 一遍 —— 后者在
+   * worker / Node 里会取到不同的全局，正是当年 `window → global` 双探测踩过的坑。
+   *
+   * 这三个只是**必要条件**，不是充分条件：真正能不能开镜像还取决于运行时的实际行为
+   * （worker 脚本能不能加载、`transferToImageBitmap` 能不能用），所以宿主侧的
+   * `detectMirrorSupport()` 把这里当第一道闸，启动之后再靠 `ready` 握手与看门狗兜底。
+   */
+  root.workerSupported = typeof root.Worker === 'function';
+  root.offscreenCanvasSupported =
+    typeof root.OffscreenCanvas === 'function' &&
+    typeof root.OffscreenCanvas.prototype.transferToImageBitmap === 'function';
+  root.imageBitmapSupported = typeof root.createImageBitmap === 'function' || typeof root.ImageBitmap === 'function';
 })();
 export default root;

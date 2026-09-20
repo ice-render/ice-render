@@ -75,6 +75,16 @@ worker 的 —— 视口/选择要一起发过去，否则新镜像从默认视�
 连线 / 对齐辅助 / 控制面板**不会跟上**，而鼠标拖拽走的是 `setPosition` —— 于是"拖拽时对、
 程序化改属性时错"这种分叉只在面板 / 脚本路径上暴露（2026-09-20 被 worker 镜像实验抓到）。
 引擎侧契约写在 `ICEComponent.applyPatch()` 的注释里。
+⑮ **镜像必须"起不来就回退"，且回退后画面照常可用**：三道闸 + 一个固定动作 ——
+① 启动前探测（`detectMirrorSupport`，能力统一问 `root`：`Worker` / `OffscreenCanvas` +
+   `transferToImageBitmap` / `ImageBitmap`；`bitmaprenderer` 只降级合成路径，不算致命）；
+② 启动期兜底（`new Worker()` 必须包 try/catch —— CSP `worker-src` / `file://` 会同步抛；
+   `ready` 握手 + 超时；`ready.caps` 与协议版本校验）；
+③ 运行期看门狗（背压下"有帧在途却超时无位图" = worker 已死）。
+失败一律走 `__fallback`：`stop()` 还原落墨通道与缓存开关 → **立刻主线程重绘一帧** → 上报
+`onFallback` + `MIRROR_FALLBACK` 事件。**回退后"什么都不做"是不允许的**：症状会是"不崩、
+但画面冻在最后一帧"。守卫：`tests/worker/mirror-host.test.ts` + `e2e/visual/worker-fallback.spec.ts`。
+⚠️ 在 `MirrorHost` 里加计时器（握手/看门狗）时记得在 `stop()` 里清掉，否则宿主进程退不出去。
 真实验证数据见 `docs/architecture/10-worker-offscreen.md` §7.0。
 
 ## 引擎架构铁律（改动前必读）

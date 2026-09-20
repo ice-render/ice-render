@@ -107,10 +107,26 @@
       }
 
       // ---- 宿主：几何通道 + 显示 worker 位图 + 节拍 ----
+      // `?backend=main` 强制主线程渲染、`?worker=xxx.js` 换一个（可以是坏的）worker 脚本：
+      // 两条都是给"兼容回退"的 e2e 用的开关（见 e2e/visual/worker-fallback.spec.ts）
+      const params = new URLSearchParams(location.search);
+      const forceMain = params.get('backend') === 'main';
+      const workerUrl = params.get('worker') || 'mirror-worker.js';
+      const support = ICE.MirrorHost.detect({ canvas: view });
+      log.push(
+        `[兼容探测] ${support.supported ? 'ok' : '不支持'} · worker=${support.caps.worker} offscreen=${support.caps.offscreenCanvas} imageBitmap=${support.caps.imageBitmap} bitmapRenderer=${support.caps.bitmapRenderer}`
+      );
       const host = new ICE.MirrorHost({
         canvas: view,
         ice,
-        workerUrl: 'mirror-worker.js',
+        workerUrl,
+        // 起不来（探测不过 / worker 404 / 握手超时 / 半路死掉）就自动回退主线程渲染
+        fallback: 'auto',
+        onFallback: (info) => {
+          log.push(`[回退] ${info.reason} —— ${info.message}`);
+          out.textContent = log.slice(-8).join('\n');
+          window.__fallback = { reason: info.reason, message: info.message, missing: info.support.missing };
+        },
         onBitmap: (bitmap, stats) => {
           // 取像素用的旁路：drawImage 不消耗位图，之后 MirrorHost 再把它交给 bitmaprenderer
           const pctx = probe.getContext('2d');
@@ -128,10 +144,16 @@
           }
         },
       });
-      host.start();
+      if (forceMain) {
+        // 显式走主线程（用于验证"没有 worker 也一切正常"）
+        window.__fallback = { reason: 'forced', message: '?backend=main', missing: [] };
+        log.push('[回退] forced —— ?backend=main 强制主线程渲染');
+      } else {
+        host.start();
+      }
 
       // ---- 探针把手（e2e 用）----
-      window.__ready = () => host.frames > 0;
+      window.__ready = () => host.frames > 0 || !!window.__fallback;
       window.__host = host;
       window.__nodes = nodes;
       window.__selection = () => (ice.selectionList || []).map((c) => c.props.id);
@@ -166,9 +188,48 @@
             return false;
         }
         // 宿主显式要一帧：空闲门控下"没有变化"不会自动发节拍，而夹具（与真实宿主一样）
-        // 需要"这一步之后的画面"是可等待的
-        host.paint();
+        // 需要"这一步之后的画面"是可等待的。
+        // 已经回退（或强制 main）时 worker 不在画了 —— 那就**自己重绘一帧**，
+        // 这样同一套夹具在两种后端下都能用（也正是"回退后功能不缺"的验收方式）。
+        if (host.running) {
+          host.paint();
+        } else {
+          ice.dirty = true;
+          ice.renderer.frameEvtHandler();
+        }
         return true;
+      };
+
+      /** 可见画布 / 像素旁路的墨迹包围盒（回退验收用：画面必须真的有东西）。 */
+      window.__inkBox = function (which) {
+        const target = which === 'probe' ? probe : view;
+        const d = target.getContext('2d').getImageData(0, 0, W, H).data;
+        let n = 0, minX = 1e9, minY = 1e9, maxX = -1, maxY = -1;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] > 8) {
+            const x = (i / 4) % W, y = Math.floor((i / 4) / W);
+            n++;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+        return { n, box: [minX, minY, maxX, maxY] };
+      };
+      /** 画面指纹（抽样哈希）：用来断言"回退之后改状态画面真的变了"。 */
+      window.__pixelHash = function (which) {
+        const target = which === 'probe' ? probe : view;
+        const d = target.getContext('2d').getImageData(0, 0, W, H).data;
+        let h = 0;
+        for (let i = 0; i < d.length; i += 16) {
+          h = (h * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7 + d[i + 3] * 11) | 0;
+        }
+        return h;
+      };
+      /** 镜像是否真的在跑（回退之后必须为 false）。 */
+      window.__hostActive = function () {
+        return host.running && !host.fallbackReason;
       };
 
       /** 等 worker 再送一帧（最多 3s）。 */

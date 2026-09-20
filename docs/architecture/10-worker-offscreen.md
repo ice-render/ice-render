@@ -138,9 +138,43 @@ worker  → 主线程: { t:'ready',   v, caps }
 
 ## 6. 开关策略（web-only）
 
-- 目标运行时是"现代浏览器 + Node/headless"，worker 化天然是 **web-only**：探测 `OffscreenCanvas`、
-  `Worker`、`ImageBitmapRenderingContext` 三者齐备才启用；`root.workerSupported` +
-  `ICE.init(..., { renderInWorker?: boolean })`（默认关）。
+worker 化天然是 **web-only**，所以"起不来怎么办"必须是机制的一部分、而不是交给应用去猜。
+引擎**不做全局开关**（`ICE.init(..., { renderInWorker })` 那种"引擎自己切渲染后端"仍是未来设计）：
+镜像由宿主显式接线（`MirrorHost`），因此保护也做在宿主这一层，分三道闸：
+
+**① 启动前探测**（`detectMirrorSupport()` / `MirrorHost.detect({ canvas })`，能力来自 `root`）：
+
+| 必要条件 | 缺失时的后果 | 判定 |
+|---|---|---|
+| `Worker` | 根本没有线程可开 | `root.workerSupported` |
+| `OffscreenCanvas` + `transferToImageBitmap` | worker 里没有落墨目标（Safari 16.4 之前只有部分实现） | `root.offscreenCanvasSupported` |
+| `ImageBitmap` | 位图跨不回来 | `root.imageBitmapSupported` |
+| `bitmaprenderer`（**非致命**） | 退化成 2d `drawImage` 合成，多一次拷贝 | 探测可见画布 |
+
+探测不过就**根本不接管落墨通道** —— 画面与"从没接过 worker"逐像素一致，功能一项不少。
+
+**② 启动期兜底**（都在 `MirrorHost.start()` 里，失败即回退）：
+
+- `new Worker()` 包 try/catch：CSP 的 `worker-src`、`file://`、企业策略/隐私模式会**同步抛**，
+  以前那会从 `start()` 冒出去、整页崩；
+- **`ready` 握手 + 超时**（默认 4000ms）：worker 脚本 404 / 语法错 / 在 `importScripts` 或模块顶层就抛
+  （真实例子：顶层 `new OffscreenCanvas()`）都不一定触发 `onerror`，但"等不到 ready"是确定可观测的；
+- **`ready.caps` 校验**：worker 自报 `offscreen: false` 或协议版本不一致 → 回退并说明原因。
+
+**③ 运行期看门狗**：背压保证"最多一帧在途"，所以"**有帧在途却超过 `staleTimeout`（默认 4000ms）
+没有位图回来**"是干净的死亡判据（worker 卡长任务 / 画布分配失败 / 被宿主策略掐掉都覆盖）。
+`onerror` 同样走回退。
+
+**回退动作是固定的三步**（`MirrorHost.__fallback`）：`stop()` 原样还原落墨通道与缓存开关 →
+**立刻用主线程重绘一帧** → 上报 `onFallback({ reason, message, support })` + 一条 `MIRROR_FALLBACK`
+错误事件。也就是说：**任何一步失败，宿主拿到的都是一块正常、可交互、能继续画的画布**，
+而不是"冻在某一帧上、还不报错"。
+
+回归：`tests/worker/mirror-host.test.ts`（探测/构造/握手/caps/版本/运行期/看门狗/`fallback: 'off'`）
++ `e2e/visual/worker-fallback.spec.ts`（真实浏览器里把 worker 指到一个不存在的脚本、以及
+`?backend=main`，断言"回退了 + 画面还在 + 改状态画面跟着变"）。应用侧的接法见
+`ice-entity-designer` 的 `e2e/worker-mirror.spec.ts`。
+
 - **2026-09-20 更新**：小程序已不再支持，本节原先那条"小程序线程模型不同 → 收益不成立"的
   排除理由随之消失（见 `08-compatibility.md` 的「已移除的能力」）。
 

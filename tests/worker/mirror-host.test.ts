@@ -107,6 +107,8 @@ function makeIce(ctx: any): any {
     },
     // `addChild` 会通知渲染器重建队列 —— 假渲染器把这个入口补上
     markQueueDirty: () => {},
+    // 回退时要"立刻用主线程重绘一帧"（见 MirrorHost.__fallback），假渲染器补上这个入口
+    frameEvtHandler: () => {},
   };
   return { ice, cachableCalls: () => cachableCalls };
 }
@@ -191,7 +193,7 @@ describe('MirrorHost', () => {
     ice.addChild(new ICERect({ left: 1, top: 2, width: 30, height: 20 }));
     const worker = makeFakeWorker();
 
-    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false });
+    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false, staleTimeout: 0 });
     host.start();
 
     // ① 落墨换成了几何通道（不再是原来的 ctx）
@@ -227,6 +229,7 @@ describe('MirrorHost', () => {
       ice,
       workerFactory: () => worker,
       autoFrame: false,
+      staleTimeout: 0,
       onBitmap: (bitmap, stats) => seen.push([bitmap, stats.frames]),
     });
     host.start();
@@ -248,7 +251,7 @@ describe('MirrorHost', () => {
     ice.addChild(selected);
     ice.selectionList = [selected];
 
-    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false });
+    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false, staleTimeout: 0 });
     host.start();
 
     const types = worker.sent.map((m: any) => m.t);
@@ -265,7 +268,7 @@ describe('MirrorHost', () => {
     const realCtx: any = { measureText: () => ({ width: 1 }) };
     const { ice } = makeIce(realCtx);
     const worker = makeFakeWorker();
-    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false });
+    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false, staleTimeout: 0 });
     host.start();
     host.stop();
 
@@ -295,7 +298,7 @@ describe('MirrorHost', () => {
     };
     const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
     const worker = makeFakeWorker();
-    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false });
+    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false, staleTimeout: 0 });
     host.start();
 
     const bitmap: any = { close: jest.fn() };
@@ -319,7 +322,7 @@ describe('MirrorHost', () => {
     // `needsFrame()` 是引擎的空闲判定（脏组件 / 活动动画）；这里显式控制它
     let needs = false;
     ice.needsFrame = () => needs;
-    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false });
+    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false, staleTimeout: 0 });
     host.start();
     // 启动时那一帧还在路上（背压：至多一帧在途）→ 先让它回来，否则后面的节拍都会被挡住
     arrive(worker, 1);
@@ -346,7 +349,7 @@ describe('MirrorHost', () => {
     const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
     const worker = makeFakeWorker();
     ice.needsFrame = () => true;
-    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false });
+    const host = new MirrorHost({ canvas, ice, workerFactory: () => worker, autoFrame: false, staleTimeout: 0 });
     host.start();
     arrive(worker, 1);
     worker.sent.length = 0;
@@ -375,5 +378,273 @@ describe('MirrorHost', () => {
     expect(() => new MirrorHost({ canvas: {}, ice: null as any, workerUrl: 'x' })).toThrow(/ice/);
     expect(() => new MirrorHost({ canvas: null as any, ice: {}, workerUrl: 'x' })).toThrow(/canvas/);
     expect(() => new MirrorHost({ canvas: {}, ice: {} })).toThrow(/workerUrl/);
+  });
+});
+
+/**
+ * **兼容保护：探测 → 握手 → 看门狗 → 回退**。
+ *
+ * 这一组回答的是"某些浏览器不支持怎么办"：不支持就**根本别接**（画面与从没接过 worker 一致），
+ * 接了之后半路死掉也要**自动回退**（还原落墨通道 + 立刻重绘一帧），而不是留一块冻住的画布。
+ */
+describe('MirrorHost 兼容保护', () => {
+  const rootModule: any = require('../../src/cross-platform/root').default;
+  const { detectMirrorSupport, describeMirrorSupport } = require('../../src/worker/mirror-support');
+
+  /** 临时改平台能力（root 是模块单例，跑完必须还原） */
+  const withCaps = async (caps: any, fn: () => any) => {
+    const saved = {
+      worker: rootModule.workerSupported,
+      offscreen: rootModule.offscreenCanvasSupported,
+      imageBitmap: rootModule.imageBitmapSupported,
+    };
+    if (caps.worker !== undefined) rootModule.workerSupported = caps.worker;
+    if (caps.offscreen !== undefined) rootModule.offscreenCanvasSupported = caps.offscreen;
+    if (caps.imageBitmap !== undefined) rootModule.imageBitmapSupported = caps.imageBitmap;
+    try {
+      return await fn();
+    } finally {
+      rootModule.workerSupported = saved.worker;
+      rootModule.offscreenCanvasSupported = saved.offscreen;
+      rootModule.imageBitmapSupported = saved.imageBitmap;
+    }
+  };
+
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /** 收到消息不发、也不回应 ready 的"哑巴 worker"（模拟脚本 404 / CSP 挡住 / 握手前就卡住） */
+  function makeSilentWorker() {
+    return { postMessage: jest.fn(), terminate: jest.fn(), onmessage: null as any, onerror: null as any };
+  }
+
+  it('探测：三项必要条件任一缺失就算不支持，并给出人能读的原因', async () => {
+    await withCaps({ worker: true, offscreen: true, imageBitmap: true }, () => {
+      const { canvas } = makeFakeCanvas();
+      const support = detectMirrorSupport({ canvas });
+      expect(support.supported).toBe(true);
+      expect(support.missing).toEqual([]);
+      expect(support.caps.worker).toBe(true);
+      expect(support.caps.bitmapRenderer).toBe(true);
+      expect(describeMirrorSupport(support)).toContain('支持');
+    });
+
+    await withCaps({ worker: false, offscreen: true, imageBitmap: true }, () => {
+      const support = detectMirrorSupport({});
+      expect(support.supported).toBe(false);
+      expect(support.missing).toEqual(['worker']);
+      expect(describeMirrorSupport(support)).toContain('Worker');
+    });
+
+    await withCaps({ worker: true, offscreen: false, imageBitmap: true }, () => {
+      const support = detectMirrorSupport({});
+      expect(support.missing).toEqual(['offscreenCanvas']);
+      expect(describeMirrorSupport(support)).toContain('OffscreenCanvas');
+    });
+  });
+
+  it('不支持时**根本不接管**落墨通道（宿主什么都不用做，主线程渲染照旧）', async () => {
+    await withCaps({ worker: false }, async () => {
+      const { canvas } = makeFakeCanvas();
+      const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
+      const originalCtx = ice.ctx;
+      const fallbacks: any[] = [];
+      const worker = makeSilentWorker();
+      const host = new MirrorHost({
+        canvas,
+        ice,
+        workerFactory: () => worker,
+        autoFrame: false,
+        skipSupportCheck: false, // 显式打开探测（默认给 workerFactory 时会跳过）
+        onFallback: (info) => fallbacks.push(info),
+      });
+      host.start();
+
+      expect(host.fallbackReason).toContain('unsupported:');
+      expect(host.fallbackReason).toContain('worker');
+      // 关键：ctx 没被换成几何通道、缓存开关没被改、worker 也没被创建
+      expect(ice.ctx).toBe(originalCtx);
+      expect(ice.renderer.cache.isCachable()).toBe(true);
+      expect(worker.postMessage).not.toHaveBeenCalled();
+      expect(fallbacks).toHaveLength(1);
+      expect(fallbacks[0].support.missing).toContain('worker');
+      expect(host.support && host.support.supported).toBe(false);
+    });
+  });
+
+  it('new Worker 抛错（CSP worker-src / file:// / 宿主策略）→ 回退并还原', () => {
+    const { canvas } = makeFakeCanvas();
+    const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
+    const originalCtx = ice.ctx;
+    const repaint = jest.spyOn(ice.renderer, 'frameEvtHandler');
+    const fallbacks: any[] = [];
+    const savedWorker = (global as any).Worker;
+    (global as any).Worker = class {
+      constructor() {
+        throw new Error('Refused to create a worker: CSP');
+      }
+    };
+    try {
+      const host = new MirrorHost({
+        canvas,
+        ice,
+        workerUrl: 'mirror-worker.js',
+        skipSupportCheck: true,
+        readyTimeout: 0,
+        onFallback: (info) => fallbacks.push(info),
+      });
+      host.start();
+
+      expect(host.fallbackReason).toBe('worker-ctor');
+      expect(fallbacks[0].message).toContain('CSP');
+      // 回退必须"还原 + 立刻重绘一帧"，否则画布上留的是空白/上一张位图
+      expect(ice.ctx).toBe(originalCtx);
+      expect(ice.renderer.cache.isCachable()).toBe(true);
+      expect(repaint).toHaveBeenCalled();
+    } finally {
+      (global as any).Worker = savedWorker;
+    }
+  });
+
+  it('握手超时（脚本 404 / 卡在 importScripts）→ 回退并还原', async () => {
+    const { canvas } = makeFakeCanvas();
+    const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
+    const originalCtx = ice.ctx;
+    const repaint = jest.spyOn(ice.renderer, 'frameEvtHandler');
+    const fallbacks: any[] = [];
+    const worker = makeSilentWorker();
+    const host = new MirrorHost({
+      canvas,
+      ice,
+      workerFactory: () => worker,
+      autoFrame: false,
+      readyTimeout: 20,
+      staleTimeout: 0,
+      onFallback: (info) => fallbacks.push(info),
+    });
+    host.start();
+    expect(host.ready).toBe(false);
+    await wait(40);
+
+    expect(host.fallbackReason).toBe('ready-timeout');
+    expect(ice.ctx).toBe(originalCtx);
+    expect(repaint).toHaveBeenCalled();
+    expect(worker.terminate).toHaveBeenCalled();
+    expect(fallbacks).toHaveLength(1);
+  });
+
+  it('worker 自报没有 OffscreenCanvas / 协议版本不一致 → 回退（并说清是哪一条）', () => {
+    const run = (readyMsg: any) => {
+      const { canvas } = makeFakeCanvas();
+      const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
+      const worker = makeSilentWorker();
+      const fallbacks: any[] = [];
+      const host = new MirrorHost({
+        canvas,
+        ice,
+        workerFactory: () => worker,
+        autoFrame: false,
+        staleTimeout: 0,
+        onFallback: (info) => fallbacks.push(info),
+      });
+      host.start();
+      worker.onmessage({ data: readyMsg });
+      return { host, fallbacks };
+    };
+
+    const noOffscreen = run({
+      t: 'ready',
+      v: 1,
+      caps: { offscreen: false, path2d: true, pointerEvents: true },
+    });
+    expect(noOffscreen.host.fallbackReason).toBe('ready-caps');
+    expect(noOffscreen.fallbacks[0].message).toContain('OffscreenCanvas');
+
+    const badVersion = run({
+      t: 'ready',
+      v: 999,
+      caps: { offscreen: true, path2d: true, pointerEvents: true },
+    });
+    expect(badVersion.host.fallbackReason).toBe('protocol-mismatch');
+  });
+
+  it('worker 运行期报错 → 回退并还原（不留一块冻住的画面）', () => {
+    const { canvas } = makeFakeCanvas();
+    const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
+    const originalCtx = ice.ctx;
+    const repaint = jest.spyOn(ice.renderer, 'frameEvtHandler');
+    const worker = makeSilentWorker();
+    const fallbacks: any[] = [];
+    const host = new MirrorHost({
+      canvas,
+      ice,
+      workerFactory: () => worker,
+      autoFrame: false,
+      readyTimeout: 0,
+      staleTimeout: 0,
+      onFallback: (info) => fallbacks.push(info),
+    });
+    host.start();
+    worker.onerror({ message: 'boom' });
+
+    expect(host.fallbackReason).toBe('worker-error');
+    expect(ice.ctx).toBe(originalCtx);
+    expect(ice.renderer.cache.isCachable()).toBe(true);
+    expect(repaint).toHaveBeenCalled();
+    expect(worker.terminate).toHaveBeenCalled();
+  });
+
+  it('看门狗：有帧在途却迟迟不回 → 判定 worker 已死并回退', async () => {
+    const { canvas } = makeFakeCanvas();
+    const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
+    ice.needsFrame = () => true; // 强制"有活要画"，否则空闲门控会把帧挡住
+    const worker = makeSilentWorker();
+    const fallbacks: any[] = [];
+    const host = new MirrorHost({
+      canvas,
+      ice,
+      workerFactory: () => worker,
+      autoFrame: false,
+      readyTimeout: 0,
+      staleTimeout: 40,
+      onFallback: (info) => fallbacks.push(info),
+    });
+    host.start();
+    expect(worker.postMessage).toHaveBeenCalled(); // 首帧确实发出去了（在途）
+    await wait(300);
+
+    expect(host.fallbackReason).toBe('no-frame');
+    expect(fallbacks[0].message).toContain('没有回帧');
+  });
+
+  it('fallback: "off" 时只上报、不接管（留给"我自己处理失败"的宿主）', () => {
+    const { canvas } = makeFakeCanvas();
+    const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
+    const savedWorker = (global as any).Worker;
+    (global as any).Worker = class {
+      constructor() {
+        throw new Error('nope');
+      }
+    };
+    const fallbacks: any[] = [];
+    try {
+      const host = new MirrorHost({
+        canvas,
+        ice,
+        workerUrl: 'x.js',
+        skipSupportCheck: true,
+        readyTimeout: 0,
+        staleTimeout: 0,
+        fallback: 'off',
+        onFallback: (info) => fallbacks.push(info),
+      });
+      host.start();
+      expect(fallbacks).toHaveLength(1);
+      expect(host.fallbackReason).toBe('worker-ctor');
+      // 没有自动回退：宿主自己决定什么时候 stop()
+      expect(host.running).toBe(true);
+      host.stop();
+    } finally {
+      (global as any).Worker = savedWorker;
+    }
   });
 });

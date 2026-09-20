@@ -7,6 +7,7 @@
  */
 import MirrorBridge from './MirrorBridge';
 import { MIRROR_PROTOCOL_VERSION, MirrorEvent, MirrorStats } from './mirror-protocol';
+import { MirrorSupport, detectMirrorSupport, describeMirrorSupport } from './mirror-support';
 
 export type MirrorHostOptions = {
   /** 可见画布：既显示 worker 回传的位图，也是**输入矩形**的来源（DOM 事件按它换算坐标） */
@@ -25,6 +26,47 @@ export type MirrorHostOptions = {
   onStats?: (stats: MirrorStats) => void;
   /** 错误/协议事件回调 */
   onEvent?: (evt: MirrorEvent) => void;
+  /**
+   * 起不来时**自动回退主线程渲染**（默认 `'auto'`）：不支持的浏览器/宿主、worker 构造失败、
+   * `ready` 握手超时、worker 报错、看图门狗判定 worker 已死 —— 一律把落墨通道原样还原、
+   * 立刻用主线程重绘一帧，然后回调 `onFallback(reason)`（同时也会发一条 `onEvent`）。
+   *
+   * 关掉它（`'off'`）语义变成"失败就静默不动"——只留给"我自己处理失败"的宿主。
+   */
+  fallback?: 'auto' | 'off';
+  /** 回退回调：**必须**被宿主接住（日志/上报/切 UI），否则用户只看到"画面不动了"。 */
+  onFallback?: (info: MirrorFallbackInfo) => void;
+  /**
+   * 等 worker `ready` 握手的超时（ms，默认 4000）。0 = 不握手。
+   *
+   * ⚠️ 给了 `workerFactory`（自己造传输层）时默认 0：探测与握手都属于"按 URL 拉起的真实 worker"，
+   * 自定义传输由调用方自己保证（要保护就显式传一个毫秒数）。
+   */
+  readyTimeout?: number;
+  /**
+   * 看图门狗：有帧在途却超过这个时间没有位图回来 → 判定 worker 已死（默认 4000ms，0 = 关）。
+   *
+   * 为什么需要：worker 里画布分配失败 / 卡在长任务 / 被宿主策略掐掉时**不一定**触发 `onerror`，
+   * 表现为"画面冻住、也不报错"——最坏的失败形态。有它就能自动回退。
+   */
+  staleTimeout?: number;
+  /**
+   * 跳过启动前的能力探测（默认：给 `workerUrl` 时探测，给 `workerFactory` 时跳过）。
+   *
+   * 跳过只影响"启动前那一闸"；`ready` 握手与看门狗照旧工作（除非显式传 0/关掉）。
+   */
+  skipSupportCheck?: boolean;
+};
+
+/** 回退信息（`onFallback` 的参数，也是排查"为什么没上 worker"的唯一入口）。 */
+export type MirrorFallbackInfo = {
+  /** 机器可判的原因码：`unsupported:worker` / `worker-ctor` / `ready-timeout` / `ready-caps` /
+   *  `protocol-mismatch` / `worker-error` / `no-frame` */
+  reason: string;
+  /** 人能读的一句话（可直接进日志/上报） */
+  message: string;
+  /** 探测结果（capability 清单 + 协议版本） */
+  support: MirrorSupport;
 };
 
 /**
@@ -51,6 +93,24 @@ export type MirrorHostOptions = {
  *    "命中检测铁律不变"的落地方式（也意味着不存在坐标换算的双份实现）。
  */
 export default class MirrorHost {
+  /**
+   * 启动前探测：这台运行时能不能上镜像渲染（不构造 worker、不碰 ICE）。
+   *
+   * 宿主可以先问一句再决定要不要把 `MirrorHost` 接上去：
+   *
+   * ```ts
+   * const support = ICE.MirrorHost.detect({ canvas });
+   * if (support.supported) { host = new ICE.MirrorHost({...}); host.start(); }
+   * // 不支持就走主线程渲染（功能不缺，只是没有额外帧预算的收益）
+   * ```
+   *
+   * `start()` 内部会再探一次（除非 `skipSupportCheck`）—— 这里只是把同一件事提前暴露给宿主，
+   * 让"要不要显示 worker 开关"这类 UI 决策有依据。
+   */
+  public static detect(options: { canvas?: any } = {}): MirrorSupport {
+    return detectMirrorSupport(options);
+  }
+
   public readonly ice: any;
   public readonly canvas: any;
   public bridge: MirrorBridge;
@@ -83,6 +143,19 @@ export default class MirrorHost {
   private __frameInFlight = false;
   /** 有帧在途时又被要求画：等这一帧回来立刻补一帧（不排队，只记一次） */
   private __frameQueued = false;
+  /** 启动前的能力探测结果（`MirrorHost.detect()` 的产物，回退上报里会带上它） */
+  private __support: MirrorSupport | null = null;
+  /** worker 是否已经 `ready`（握手过）；`readyTimeout > 0` 时才会等 */
+  private __ready = false;
+  private readyTimer: any = null;
+  private watchdogTimer: any = null;
+  /** 最后一条 frame 发出的时刻（看图门狗用：帧在途却迟迟不回来 = worker 死了） */
+  private __lastFrameSentAt = 0;
+  /** 已经回退过（回退只做一次，避免重复还原/重复上报） */
+  private __fellBack = false;
+  private __fallbackReason = '';
+  /** worker 自报的能力（`ready` 的 `caps`） */
+  private __caps: { offscreen: boolean; path2d: boolean; pointerEvents: boolean } | null = null;
 
   constructor(options: MirrorHostOptions) {
     if (!options || !options.canvas) {
@@ -123,9 +196,47 @@ export default class MirrorHost {
     return this.lastStats;
   }
 
-  /** 启动：接管落墨通道、拉起 worker、开始按 rAF 驱动节拍。 */
+  /** 启动前探测到的能力（没启动过则为 null）。 */
+  public get support(): MirrorSupport | null {
+    return this.__support;
+  }
+
+  /** worker 握手过 `ready` 了吗。 */
+  public get ready(): boolean {
+    return this.__ready;
+  }
+
+  /** 已经回退到主线程渲染的原因码；空字符串 = 没回退。 */
+  public get fallbackReason(): string {
+    return this.__fallbackReason;
+  }
+
+  /** worker 自报的能力（`ready` 消息里的 `caps`；没握手则为 null）。 */
+  public get caps(): { offscreen: boolean; path2d: boolean; pointerEvents: boolean } | null {
+    return this.__caps;
+  }
+
+  /**
+   * **启动**：探测能力 → 接管落墨通道 → 拉起 worker → 等 `ready` → 按 rAF 驱动节拍。
+   *
+   * 全程按"起不来就退回主线程渲染"设计（`options.fallback: 'auto'`，默认）：
+   * 探测不过 / `new Worker` 抛错 / 握手超时 / worker 报错 / 看门狗判定已死 —— 任一发生都会
+   * **把落墨通道与缓存开关原样还原、立刻重绘一帧**，然后回调 `onFallback`。
+   * 也就是说：不支持 worker 的浏览器上，画面与"从没接过 worker"完全一致，功能一项不少。
+   */
   public start(): this {
     if (this.running) return this;
+    this.__support = detectMirrorSupport({ canvas: this.canvas });
+    const skipCheck =
+      this.options.skipSupportCheck !== undefined ? this.options.skipSupportCheck : !!this.options.workerFactory;
+    if (!skipCheck && !this.__support.supported) {
+      // 探测不过：**先别接管落墨通道**（接管了再还回去，等于白闪一下）
+      this.__fallback(
+        `unsupported:${this.__support.missing.join('+')}`,
+        `当前运行时${describeMirrorSupport(this.__support)}`
+      );
+      return this;
+    }
     this.running = true;
 
     // 1) 主线程改走"几何通道"：跑管线、算世界盒，但不产出像素
@@ -141,19 +252,30 @@ export default class MirrorHost {
     // 2) 可见画布只负责贴位图（优先位图渲染上下文，退回 2d）
     this.bitmapCtx = (typeof this.canvas.getContext === 'function' && this.canvas.getContext('bitmaprenderer')) || null;
 
-    // 3) 拉起 worker
-    this.worker = this.options.workerFactory ? this.options.workerFactory() : new Worker(this.options.workerUrl);
+    /**
+     * 3) 拉起 worker。
+     *
+     * `new Worker()` **必须**包 try/catch：CSP 的 `worker-src` 策略、`file://` 打开、
+     * 企业策略/隐私模式都会让构造函数直接抛 —— 那是"同步异常从 start() 冒出去"，
+     * 宿主不接就整页崩，而不是"没上成 worker"。
+     */
+    try {
+      this.worker = this.options.workerFactory ? this.options.workerFactory() : new Worker(this.options.workerUrl);
+    } catch (e: any) {
+      this.__fallback('worker-ctor', `worker 创建失败（CSP/宿主策略？）：${(e && e.message) || e}`);
+      return this;
+    }
     this.worker.onmessage = (evt: any) => this.__onMessage(evt && evt.data);
     this.worker.onerror = (e: any) => {
-      this.__onEvent({
-        t: 'error',
-        v: MIRROR_PROTOCOL_VERSION,
-        message: (e && e.message) || 'worker 运行错误',
-        code: 'MIRROR_WORKER_ERROR',
-      });
+      const message = (e && e.message) || 'worker 运行错误';
+      this.__onEvent({ t: 'error', v: MIRROR_PROTOCOL_VERSION, message, code: 'MIRROR_WORKER_ERROR' });
+      // worker 挂了（脚本加载失败 / 运行期抛错）：自动退回主线程，别留一块冻住的画面
+      this.__fallback('worker-error', message);
     };
 
     // 4) 尺寸 + 首帧
+    this.__armHandshake();
+    this.__armWatchdog();
     this.bridge.resize(this.canvas.width || this.ice.canvasWidth, this.canvas.height || this.ice.canvasHeight);
     // `prime()` 而不是 `markSceneNeeded()`：宿主可能是应用跑了一阵之后才接上来的，
     // 视口/选择要一起对齐（否则新镜像从默认视口出发，两边看的是不同区域）
@@ -192,6 +314,8 @@ export default class MirrorHost {
     }
     this.__paintPending = false;
     this.__frameInFlight = true;
+    // 看图门狗的起算点：这一帧发出去了，多久算"没回来"（见 __armWatchdog）
+    this.__lastFrameSentAt = now();
     this.bridge.frame(typeof time === 'number' ? time : now());
   }
 
@@ -219,6 +343,10 @@ export default class MirrorHost {
     this.running = false;
     this.__frameInFlight = false;
     this.__frameQueued = false;
+    this.__lastFrameSentAt = 0;
+    this.__ready = false;
+    this.__caps = null;
+    this.__clearTimers();
     if (this.rafId !== null && typeof cancelAnimationFrame === 'function') {
       cancelAnimationFrame(this.rafId);
       this.rafId = null;
@@ -239,6 +367,103 @@ export default class MirrorHost {
     this.bridge.detach();
   }
 
+  /**
+   * **回退到主线程渲染**（起不来 / 半路死了）。
+   *
+   * 这是这个类的"兜底承诺"：无论哪一步失败，宿主都能拿到一块**正常、可交互、能继续画**的画布，
+   * 而不是"冻在任何一帧上、还不报错"。三件事按顺序做：
+   * 1. `stop()` —— 还原落墨通道与位图缓存开关，终止 worker，卸下桥（引擎回到零成本）；
+   * 2. **立刻用主线程重绘一帧**：不然画布上留的还是最后那张 worker 位图（或空白）；
+   * 3. 上报：`onFallback({reason, message, support})` + 一条 `onEvent` 的 `MIRROR_FALLBACK` 错误事件
+   *    （只接 `onEvent` 的宿主也不会漏掉这件事）。
+   *
+   * `fallback: 'off'` 时只上报、不接管 —— 留给"我自己处理失败"的宿主（它会看到同样的 reason）。
+   */
+  private __fallback(reason: string, message: string): void {
+    if (this.__fellBack && this.__fallbackReason === reason) {
+      return;
+    }
+    this.__fellBack = true;
+    this.__fallbackReason = reason;
+    const support = this.__support || detectMirrorSupport({ canvas: this.canvas });
+    const wasRunning = this.running;
+    if (this.options.fallback !== 'off') {
+      this.stop();
+      if (wasRunning) {
+        // 主线程接管：把最后一批状态画出来（`stop()` 已经还原了落ctx与缓存开关）
+        this.ice.dirty = true;
+        const renderer = this.ice.renderer;
+        if (renderer && typeof renderer.frameEvtHandler === 'function') {
+          renderer.frameEvtHandler();
+        }
+      }
+    }
+    const info: MirrorFallbackInfo = { reason, message, support };
+    if (this.options.onFallback) {
+      this.options.onFallback(info);
+    }
+    this.__onEvent({
+      t: 'error',
+      v: MIRROR_PROTOCOL_VERSION,
+      message: `已回退主线程渲染（${reason}）：${message}`,
+      code: 'MIRROR_FALLBACK',
+    });
+  }
+
+  /**
+   * 握手：等 worker 的 `ready`。
+   *
+   * 为什么必须等：`workerUrl` 只是一条路径 —— 脚本可能 404、可能语法错、可能被 CSP 挡、可能在
+   * `importScripts` 时就抛（真实例子：worker 在模块顶层 `new OffscreenCanvas()`，不支持时就抛）。
+   * 这些**都不一定**触发 `onerror`，但"等不到 ready"是确定可观测的。
+   */
+  private __armHandshake(): void {
+    const timeout =
+      this.options.readyTimeout !== undefined ? this.options.readyTimeout : this.options.workerFactory ? 0 : 4000;
+    if (!timeout) {
+      return;
+    }
+    this.readyTimer = setTimeout(() => {
+      this.readyTimer = null;
+      if (!this.__ready) {
+        this.__fallback('ready-timeout', `worker 在 ${timeout}ms 内没有回应 ready`);
+      }
+    }, timeout);
+  }
+
+  /**
+   * 看图门狗：**有帧在途**却超过 `staleTimeout` 没有位图回来 → 判定 worker 已死。
+   *
+   * 为什么盯着"有帧在途"这一个条件：空闲门控下"没有帧"是正常现象（场景静止就不发帧），
+   * 而背压保证"最多一帧在途" —— 所以"在途 + 超时无回应"是干净的死亡判据。
+   */
+  private __armWatchdog(): void {
+    const stale = this.options.staleTimeout !== undefined ? this.options.staleTimeout : 4000;
+    if (!stale || typeof setInterval !== 'function') {
+      return;
+    }
+    const period = Math.max(200, Math.min(1000, Math.floor(stale / 2)));
+    this.watchdogTimer = setInterval(() => {
+      if (!this.running || !this.__frameInFlight || !this.__lastFrameSentAt) {
+        return;
+      }
+      if (now() - this.__lastFrameSentAt > stale) {
+        this.__fallback('no-frame', `worker 超过 ${stale}ms 没有回帧（可能已卡死）`);
+      }
+    }, period);
+  }
+
+  private __clearTimers(): void {
+    if (this.readyTimer !== null) {
+      clearTimeout(this.readyTimer);
+      this.readyTimer = null;
+    }
+    if (this.watchdogTimer !== null) {
+      clearInterval(this.watchdogTimer);
+      this.watchdogTimer = null;
+    }
+  }
+
   private __post(msg: any): void {
     if (this.worker && typeof this.worker.postMessage === 'function') {
       this.worker.postMessage(msg);
@@ -246,6 +471,32 @@ export default class MirrorHost {
   }
 
   private __onMessage(msg: any): void {
+    /**
+     * 握手：worker 自报"起来了 + 我有什么能力"。
+     *
+     * 两处校验都放在这里（而不是只转给 `onEvent`）：
+     * - **协议版本**不一致 → 不能继续（字段语义可能已经变了），回退并如实说明；
+     * - **worker 侧没有 OffscreenCanvas**（`caps.offscreen === false`）→ 它画不出东西，
+     *   现在回退比"等一帧黑色位图"体面得多。
+     */
+    if (msg && msg.t === 'ready') {
+      if (this.readyTimer !== null) {
+        clearTimeout(this.readyTimer);
+        this.readyTimer = null;
+      }
+      if (msg.v !== MIRROR_PROTOCOL_VERSION) {
+        this.__fallback('protocol-mismatch', `worker 协议版本 ${msg.v} 与宿主 ${MIRROR_PROTOCOL_VERSION} 不一致`);
+        return;
+      }
+      this.__caps = msg.caps || null;
+      if (this.__caps && this.__caps.offscreen === false) {
+        this.__fallback('ready-caps', 'worker 内没有 OffscreenCanvas');
+        return;
+      }
+      this.__ready = true;
+      this.bridge.handleEvent(msg);
+      return;
+    }
     if (msg && msg.bitmap) {
       this.receivedFrames++;
       this.lastRenderedSeq = typeof msg.seq === 'number' ? msg.seq : this.lastRenderedSeq;

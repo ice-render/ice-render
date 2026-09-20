@@ -215,7 +215,9 @@ export type { MirrorBridgeOptions, MirrorSend } from './worker/MirrorBridge';
 export { default as MirrorTarget } from './worker/MirrorTarget';
 export type { ApplyOpsResult, ApplySceneResult } from './worker/MirrorTarget';
 export { default as MirrorHost, createGeometryOnlyContext } from './worker/MirrorHost';
-export type { MirrorHostOptions } from './worker/MirrorHost';
+export type { MirrorHostOptions, MirrorFallbackInfo } from './worker/MirrorHost';
+export { detectMirrorSupport, describeMirrorSupport } from './worker/mirror-support';
+export type { MirrorSupport, MirrorCapability } from './worker/mirror-support';
 export {
   MIRROR_PROTOCOL_VERSION,
   isMirrorCommand,

@@ -7,6 +7,35 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 新功能（Worker 镜像 · 2026-09-20 兼容保护：起不来就回退，回退后照常可用）
+
+镜像一直是"宿主显式接线"，于是"某些浏览器/宿主不支持"以前只能靠应用自己判断：不支持时
+**不会崩，但会静默冻屏**（几何通道挂着、worker 没有位图回来，画面停在最后一帧）。
+这一版把这件事收进机制里，分三道闸 + 一个固定回退动作：
+
+- **启动前探测**：`detectMirrorSupport()`（引擎导出）与 `MirrorHost.detect({ canvas })`。
+  判定三条必要条件 —— `Worker`、`OffscreenCanvas` + `transferToImageBitmap`、`ImageBitmap`
+  （能力统一问 `root`：新增 `root.workerSupported` / `root.offscreenCanvasSupported` /
+  `root.imageBitmapSupported`，宿主不再自己去 `typeof window.Worker`）。`bitmaprenderer` 只影响
+  合成路径（退回 2d `drawImage`），**不算必要条件**。探测不过时 `start()` **根本不接管落墨通道**。
+- **启动期兜底**：`new Worker()` 包 try/catch（CSP 的 `worker-src`、`file://`、企业策略/隐私模式
+  会**同步抛**，以前那会从 `start()` 冒出去）；新增 `ready` 握手 + 超时（默认 4000ms）——
+  worker 脚本 404 / 语法错 / 模块顶层就抛（真实例子：顶层 `new OffscreenCanvas()`）**不一定**触发
+  `onerror`，但"等不到 ready"确定可观测；并校验 `ready.caps`（worker 自报没有 OffscreenCanvas）
+  与协议版本。
+- **运行期看门狗**：背压保证"最多一帧在途"，所以"**有帧在途却超过 `staleTimeout`（默认 4000ms）
+  没有位图回来**"= worker 已死（卡长任务 / 画布分配失败 / 被宿主策略掐掉），自动回退。
+- **固定回退动作**（`MirrorHost.__fallback`）：`stop()` 原样还原落墨通道与位图缓存开关 →
+  **立刻用主线程重绘一帧** → 上报 `onFallback({ reason, message, support })` + 一条 `MIRROR_FALLBACK`
+  错误事件（只接 `onEvent` 的宿主也不会漏）。`fallback: 'off'` 可关掉自动回退（只上报）。
+- 参考宿主升级：`examples/worker/mirror-render.html` 增加 `?backend=main`（强制主线程）与
+  `?worker=<url>`（换成坏脚本）两个开关，并新增 `e2e/visual/worker-fallback.spec.ts`：
+  真实浏览器里把 worker 指到不存在的脚本 → 断言"回退了 + 画面仍有墨迹 + 改状态画面跟着变"。
+
+回归：`tests/worker/mirror-host.test.ts` 新增 8 条（探测 / 不接管 / 构造抛错 / 握手超时 / caps 与
+版本不一致 / 运行期报错 / 看门狗 / `fallback: 'off'`）；引擎 `verify:full`；
+`ice-entity-designer` 侧加了集成级回退用例（页面必须把模式切回主线程）。
+
 ### 新功能（Worker 镜像 · 2026-09-20 收口：派生更新可镜像 + 帧节拍背压）
 
 接着上面的真实应用验证，把"镜像里最后那点分叉"和"交互下的滞后"一起收掉。三处改动分别对应一个
