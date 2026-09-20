@@ -11,13 +11,22 @@
  *
  * 另有 `export` 组：把 N 个形状导出成 SVG 字符串的耗时（导出是一次性操作，不进渲染循环）。
  *
- * 实测（Apple M4 / node 25.2.1，2026-09-12）：
- *  - 重建 2000 个形状：记录器 556µs vs 只转发 550µs —— **记录开销在噪声内**（≈3ns/形状）；
- *    原因很直接：记录只发生在路径重建时（几何变化才触发），热路径（每帧重绘）不重建路径。
- *  - 命令流内存（--expose-gc 另测）：约 **100 字节/命令**（命令是 [op, ...args] 小数组），
- *    圆角矩形 8 条命令 ≈ 0.8KB/图元；1 万个圆角矩形 ≈ 8MB。十万级场景若内存吃紧，
- *    下一步是把命令流压成「opcode + Float64Array 平铺」的紧凑表示（读侧 API 不变）。
+ * 实测（Apple M4 / node 25.2.1，2026-09-20）：
+ *  - 重建 500 / 2000 个形状：记录器 **90µs / 373µs**，只转发 **15µs / 61µs**
+ *    —— 记录的边际成本 ≈ **156ns/形状**（≈11ns/命令）。它只发生在**路径重建**时
+ *    （几何变化才触发），稳态重绘不重建路径，因此不进每帧预算。
+ *  - 圆角矩形改用平台 `roundRect` 后，同一组形状（1/3 是圆角矩形）的重建从
+ *    **127.9µs → 88.0µs**（n=500，与 `bench/micro/baseline.json` 的 3.0.0 基线同机对照）。
+ *  - 命令流规模：圆角矩形从「4 次 arcTo 展开」的 **14 条命令**降到 `roundRect` 的 **1 条**
+ *    （2026-09-20 起走平台 `roundRect`，见 `src/util/round-rect.ts`）。1000 个圆角矩形：
+ *    14000 条 → 1000 条。命令是 `[op, ...args]` 小数组，按 ≈100 字节/命令估，
+ *    这一步省掉的是**每图元约 1.3KB** —— 流程图这类"满地圆角卡片"的场景最吃这个。
+ *    十万级场景若内存仍吃紧，下一步是把命令流压成「opcode + Float64Array 平铺」（读侧 API 不变）。
  *  - 导出：500 个形状 2.9ms、2000 个 12.8ms（一次性，与渲染帧预算无关）。
+ *
+ * ⚠️ 「只转发不记录」的对照组必须换掉 **工厂**（`global.createPath2D`），不能只塞一个
+ * `shape.path2D`：`createPathObject()` 第一句就是 `this.path2D = root.createPath2D()`，
+ * 塞进去的对象下一行就被覆盖 —— 那样两个基准测的是同一件事，差值只是噪声（2026-09-20 修）。
  */
 import { bench, do_not_optimize } from 'mitata';
 import { ICERect, ICECircle, ICEStar, exportSvg, walk, buildTree } from './_fixture.mjs';
@@ -31,6 +40,7 @@ class ForwardOnlyPath2D {
   quadraticCurveTo() {}
   arcTo() {}
   rect() {}
+  roundRect() {}
   arc() {}
   ellipse() {}
   closePath() {}
@@ -66,14 +76,19 @@ bench('路径重建 · 记录器（含命令流）', function* (state) {
 bench('路径重建 · 只转发不记录（对照）', function* (state) {
   const n = state.get('n');
   const shapes = makeShapes(n);
+  // 对照组必须换掉**工厂**，不能只塞一个 `shape.path2D`：
+  // 每个 `createPathObject()` 第一句就是 `this.path2D = root.createPath2D()`，
+  // 塞进去的对象在下一行就被覆盖了 —— 那样两个基准测的是同一件事（这正是此前的问题）。
+  // Node 里引擎的 `root` 就是 `global`，所以直接换 global.createPath2D 即可生效。
+  const realCreatePath2D = global.createPath2D;
   yield () => {
-    for (let i = 0; i < shapes.length; i++) {
-      const shape = shapes[i];
-      const original = shape.path2D;
-      // 换成 forward-only 实现跑一遍同样的命令序列
-      shape.path2D = new ForwardOnlyPath2D();
-      shape.createPathObject();
-      shape.path2D = original;
+    global.createPath2D = () => new ForwardOnlyPath2D();
+    try {
+      for (let i = 0; i < shapes.length; i++) {
+        shapes[i].createPathObject();
+      }
+    } finally {
+      global.createPath2D = realCreatePath2D;
     }
     do_not_optimize(shapes[0]);
   };
