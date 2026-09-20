@@ -7,6 +7,21 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 性能 / 兼容（Web Worker 成为一等宿主 · worker 路线阶段一）
+
+- **取根改为 `globalThis`**：浏览器 window / **Web Worker self** / Node global 同一个入口。
+  改造前是 `window → global` 双探测 —— worker 里两者都不存在，取到兜底空对象 `{}`，
+  引擎在 worker 内看不见 `Path2D` / `OffscreenCanvas` / `devicePixelRatio`，形状连一笔都画不出来
+  （当年的最小原型只能先 `self.window = self` 伪造全局再 `importScripts`）。
+- **`createOffscreenCanvas` 增加 `OffscreenCanvas` 分支**：有 DOM 时仍用
+  `document.createElement('canvas')`（要保住 `lang`/`dir` 的字形口径），没有 DOM 时用
+  `new OffscreenCanvas(w, h)` —— worker 里因此**离屏层不再静默降级**。
+- **回归**：`e2e/visual/worker-perf.spec.ts` 在真机 worker 里断言「宿主没注入 / `root` 就是 `self` /
+  形状拿得到原生 `Path2D` / 能建离屏 canvas / 画布真的落了墨」；`tests/cross-platform/root.offscreen.test.ts`
+  覆盖三条分支（document 优先 / OffscreenCanvas / 都没有则抛明确错误）。
+- **边界（仍未做）**：场景与状态跨线程同步、输入转发、字体与图片下发（worker 内文本字形语言
+  与主线程可能分叉）—— 见 `docs/architecture/10-worker-offscreen.md`。
+
 ### 变更（破坏性：命令流新增 `roundRect`）
 
 圆角矩形不再由引擎手撸，而是走平台的 `Path2D.roundRect`。**路径命令流里因此多了一个命令名**

@@ -20,10 +20,14 @@
 | `createPath2D()` | `Path2DRecorder` 包装原生 `new Path2D()` | 没有原生 Path2D → 只记命令（见下） |
 | `loadFont()` | `FontFace` + `document.fonts` | 兜底 `Promise.resolve()` |
 | `createImage()` | `new Image()` | 由宿主提供 `Image`，否则抛明确错误 |
-| `createOffscreenCanvas()` | `document.createElement('canvas')` | 没有离屏 canvas → 抛明确错误（缓存自动降级为直接落墨） |
+| `createOffscreenCanvas()` | `document.createElement('canvas')`（保住 `lang`/`dir` 的字形口径） | 有 `OffscreenCanvas` 就用它（Web Worker 走这条）；都没有 → 抛明确错误（缓存自动降级为直接落墨） |
 | `devicePixelRatio` | `window.devicePixelRatio` | 兜底 `1` |
 
 - 引擎内部统一用 `root` 访问全局与上述能力，**不直接写 `window`**。
+- **取根用 `globalThis`**（2026-09-20）：浏览器 / Web Worker / Node 三种宿主的 `globalThis` 分别是
+  `window` / `self` / `global`，一个入口全覆盖。改造前是 `window → global` 双探测，**worker 里两者都不存在**
+  → 取到兜底空对象 `{}`，引擎在 worker 内连 `Path2D` / `OffscreenCanvas` 都看不见（当年的原型只能
+  先 `self.window = self` 伪造全局）。现在 worker 是**一等宿主**，宿主不再给引擎打补丁。
 - **`requestFrame` 的定时器兜底很关键**：Node / headless（无 rAF）此前会在 `FrameManager.start()`
   处直接抛错、连启动都做不到；现在这类环境也能跑。
 
@@ -50,7 +54,7 @@
 | `ctx.filter`（写在 `style.filter`） | **画布可用；SVG 未支持** | `style` 一律透传给 ctx，所以 `style.filter = 'blur(8px)'` 本来就生效；配套的三条机制缺一不可：`LEAKY_CTX_PROPS` 的 `['filter','none']`（画完复位，不漏给同帧后面的组件）、`ObjectCache.__styleKey()` 带上 `st.filter`（改了滤镜必须重建位图）、`stylePaintPad()` 的 `filterDevicePad()`（模糊/投影的墨迹会溢出几何盒，位图与脏矩形都要扩边）。导出侧的留白见下。 |
 | `createConicGradient` | **已采用** | `ice.createConicGradient()`；运行时没有它则退回中间色纯色（`ICEComponent` 的渐变分支）。 |
 | `ctx.letterSpacing` / `wordSpacing` 等文本状态 | **已采用** | 进 `LEAKY_CTX_PROPS`；量测**之前**写进 ctx（`measureText` 会把字间距算进宽度）。 |
-| `OffscreenCanvas` + Worker | **未采用** | 独立工程，见 `10-worker-offscreen.md`（小程序解绑后路线已开放）。 |
+| `OffscreenCanvas` + Worker | **部分采用（阶段一）** | 引擎现在**能作为库直接跑在 worker 里**（取根 `globalThis` + `createOffscreenCanvas` 的 `OffscreenCanvas` 分支），原型不再需要宿主伪造全局，回归 `e2e/visual/worker-perf.spec.ts`。**仍未做**：场景/状态跨线程同步、输入转发、字体图片下发（即"把引擎正式移植进 worker"本身），见 `10-worker-offscreen.md`。 |
 | `ImageBitmap` / `createImageBitmap` | **未采用** | 引擎的图片链路是 `ImageCache`（`Image` + `onload`）。换成 ImageBitmap 的收益是「预解码 + 可 transfer 进 worker」；在单线程渲染路径上它只是同一份位图换个壳，等 worker 路线落地时再一起评估。 |
 | `ctx.reset()`（2023） | **未采用** | 它会连带重置变换与裁剪，而引擎逐组件 `save/restore` 状态、每帧自持变换；现有 `__resetLeakyCtxState()` 按**位掩码只复位写过的那几项**，比整体 reset 更省。换过去等于重做状态模型，收益不明。 |
 

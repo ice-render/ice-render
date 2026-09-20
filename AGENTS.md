@@ -10,6 +10,10 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 > 「小程序形状运行时」夹具（`tests/mini-program/` 已删）。可以假定 `Path2D` / DOM / PointerEvent 可用；
 > 但 **Node/headless 仍须能跑**（SVG 导出走 `Path2DRecorder` 的命令流、无 rAF 时定时器兜底、
 > `ICE.init(ctx)` 入口）—— 这是两条互不冲突的要求，别把"去小程序"顺手做成"去 headless"。
+> **2026-09-20 补**：**Web Worker 也是一等宿主** —— `cross-platform/root.ts` 一律取 `globalThis`
+> （window / self / global 同一个入口），`createOffscreenCanvas` 在没有 DOM 时走 `OffscreenCanvas`。
+> 别再把取根写回 `window → global` 双探测：worker 里两者都不存在，引擎会取到空对象、连 `Path2D` 都看不见
+> （症状是「帧照传、耗时正常、画面全空」）。回归 `e2e/visual/worker-perf.spec.ts`。
 
 **现代 Canvas 能力铁律（2026-09-20 确立）**：规范里较新的成员可以**优先用**，但每一条都必须
 ①**带兜底**（headless 的 canvas 实现与浏览器跟进节奏不一）、②**有真机像素回归**、③**在

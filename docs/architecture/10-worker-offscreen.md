@@ -1,7 +1,11 @@
 # 10 · Worker / OffscreenCanvas 渲染（设计文档，Web-only）
 
-> 状态：**设计 + 最小可行性原型**。本轮不把引擎正式移植到 worker；本文给出边界、依赖清单、
-> 架构分层与验证结论，供后续立项。引擎核心渲染逻辑仍以主线程为目标；小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
+> 状态：**设计 + 最小可行性原型 + 阶段一已落地（2026-09-20）**。
+> 阶段一 = 「引擎作为库能在 worker 里零注入跑起来」（取根 `globalThis` + `createOffscreenCanvas` 的
+> `OffscreenCanvas` 分支），原型里的 `self.window = self` 伪造已删除，e2e 会在真机 worker 里断言
+> 「没注入 / root 就是 self / 拿得到原生 Path2D / 能建离屏 canvas / 画布真有墨迹」。
+> **仍未做**：场景与状态的跨线程同步、输入转发、字体/图片下发 —— 即"把引擎正式移植到 worker"这件事本身；
+> 引擎核心渲染逻辑仍以主线程为目标。小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
 
 ## 1. 目标与边界
 
@@ -20,7 +24,9 @@
 | 字体 `FontFace` | `root.loadFont` | 主线程加载完成后下发（worker 内字体不可信） |
 | 内联编辑 HTML `<input>`（IME） | `ICEText` | 编辑态仍在主线程完成 |
 | 命中/坐标换算用 `getBoundingClientRect` | `DOMEventDispatcher` | 命中在主线程算（保持命中检测铁律） |
-| `global`/`window` 探测 | `cross-platform/root.ts` | worker 启动时显式注入 `globalThis.global = self`（UMD 兼容） |
+| `global`/`window` 探测 | `cross-platform/root.ts` | ✅ **已解决（阶段一）**：取根改为 `globalThis` —— 浏览器 window / worker self / Node global 同一个入口，宿主不再需要伪造全局 |
+| 离屏 canvas | `root.createOffscreenCanvas` | ✅ **已解决（阶段一）**：有 document 时用 `<canvas>`（保住 `lang`/`dir` 的字形口径），没有则用 `new OffscreenCanvas(w,h)`（worker 分支） |
+| 文本字形语言（`lang`/`dir`） | 主画布元素属性 | ⚠️ worker 里拿不到主画布的 `lang` → CJK 字形可能与主线程分叉；v0 结论是文本口径留在主线程（见 §1 边界） |
 
 ## 3. 架构分层
 
@@ -67,7 +73,7 @@ worker  → 主线程: { type:'bitmap', bitmap, stats:{renderMs} } | { type:'sta
 ## 7. 最小可行性原型（本轮交付）
 
 - `examples/performance/worker-main.html` + `worker-min.js`：
-  - worker 内 `importScripts` UMD dist（先注入 `globalThis.window/global`），在 `OffscreenCanvas`
+  - worker 内 `importScripts` UMD dist（**零注入**，阶段一之后不再需要伪造全局），在 `OffscreenCanvas`
     2D ctx 上驱动同一套 ICE 确定性场景，测量 worker 内 static/anim 单帧 p50（含真实光栅化），
     末帧 `transferToImageBitmap` 上传主线程 `ImageBitmapRenderingContext` 展示。
   - 结果写入 `window.__workerBenchResult`，可被 Playwright 采集。

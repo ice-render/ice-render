@@ -15,8 +15,21 @@ import { ICE_ERROR_CODES, iceError } from '../util/errors';
  */
 let root: any = null;
 (() => {
-  // 浏览器用 window，Node 用 global，兜底空对象（typeof 守卫避免 Node 下 window 未定义报错）
-  const g: any = typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : {};
+  /**
+   * 取全局对象：**一律用 `globalThis`**。
+   *
+   * 三种宿主的 `globalThis` 分别是 window（浏览器）/ self（Web Worker）/ global（Node），
+   * 而 `globalThis` 是 ES2020 的标准入口，三边都在。
+   *
+   * 改造前是 `typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : {}`
+   * —— 这个双探测里没有 **Web Worker** 的位置：worker 里既没有 `window` 也没有 `global`，
+   * 于是取到的是那个兜底空对象 `{}`，引擎在里面连 `Path2D` / `OffscreenCanvas` / `devicePixelRatio`
+   * 都看不见（`examples/performance/worker-min.js` 当年就是靠 `self.window = self` 先伪造全局才跑通的）。
+   * 用 `globalThis` 之后，worker 作为**一等宿主**进来了，宿主不再需要给引擎打补丁。
+   *
+   * ⚠️ 空对象兜底仍然保留：极简测试桩可能把 `globalThis` 也摘掉，那时至少别在导入期就抛。
+   */
+  const g: any = typeof globalThis !== 'undefined' ? globalThis : {};
   root = g || {};
   root.requestFrame =
     root.requestAnimationFrame ||
@@ -69,8 +82,7 @@ let root: any = null;
   if (typeof root.devicePixelRatio !== 'number' || !(root.devicePixelRatio > 0)) {
     root.devicePixelRatio = 1;
   }
-  // 创建离屏 canvas（对象缓存用，与 Worker/OffscreenCanvas 无关，仍运行在当前线程）。
-  // 浏览器用 document.createElement('canvas')；没有 DOM 的宿主（headless）建不出来，直接抛明确错误。
+  // 创建离屏 canvas（对象缓存 / 静态层用，在当前线程内使用，不涉及跨线程）。
   /**
    * 把主画布的**文本绘制语言**镜像到离屏画布上。
    *
@@ -103,6 +115,26 @@ let root: any = null;
       canvas.height = height;
       // 元素默认继承 document 的语言；这里显式跟随**主画布**，宿主在 canvas 上写 lang 时才有意义
       mirrorTextLanguage(canvas, sourceEl);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw iceError(ICE_ERROR_CODES.OFFSCREEN_CONTEXT_UNSUPPORTED, '当前运行时无法创建 2d 离屏上下文。');
+      }
+      return { canvas, ctx };
+    }
+    /**
+     * 没有 DOM 但**有 `OffscreenCanvas`** 的宿主：Web Worker（以及将来的纯离屏宿主）。
+     *
+     * 顺序刻意是「document 优先」：浏览器主线程上，`<canvas>` 元素能带上 `lang` / `dir`
+     * （见 `mirrorTextLanguage` —— 汉字的简/繁/日字形选择靠它，静态层与组件缓存对它的依赖
+     * 写在那段注释里），而 `OffscreenCanvas` 没有这两个属性，换过去等于把字形口径弄丢。
+     * worker 里则相反：没有 DOM 可选，`OffscreenCanvas` 是唯一出路。
+     *
+     * ⚠️ 已知边界（见 docs/architecture/10-worker-offscreen.md §2）：worker 里拿不到
+     * 主画布的 `lang`，CJK 字形可能与主线程分叉；v0 的结论是"文本量测/字形口径留在主线程，
+     * worker 只跑几何"。这里不阻止它，只是不假装等价。
+     */
+    if (typeof root.OffscreenCanvas === 'function') {
+      const canvas = new root.OffscreenCanvas(width, height);
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         throw iceError(ICE_ERROR_CODES.OFFSCREEN_CONTEXT_UNSUPPORTED, '当前运行时无法创建 2d 离屏上下文。');
