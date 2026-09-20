@@ -11,8 +11,12 @@
 // - 总线上的抬起事件仍然只触发一次（应用层不会收到两个 mouseup）。
 import EventBus from '../../src/event/EventBus';
 import DOMEventDispatcher from '../../src/event/DOMEventDispatcher';
+import { markEventNameListened } from '../../src/event/listened-event-names';
 
 const RECT = { left: 0, top: 0 };
+
+// 夹具是"假组件 + trigger mock"（不走 __register）：显式登记本文件断言的名字。
+['mousedown', 'mousemove', 'mouseup', 'pointerdown', 'pointermove', 'pointerup'].forEach(markEventNameListened);
 
 function makeIce() {
   const evtBus = new EventBus();

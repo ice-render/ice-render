@@ -7,6 +7,27 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 性能
+
+- **按需派发：没人听的事件名整段早退**（2026-09-20，分支 `perf/dispatch-and-bench`）。
+
+  一次原生指针输入会被派发两个名字（原生名 `pointermove` + 兼容名 `mousemove`），而通常只有一个
+  有人听 —— 引擎自己的默认处理器挂在鼠标名上，应用要么用鼠标名（老代码）要么用指针名（新代码）。
+  没人听的那一次以前要白跑「祖先链数组 + 每层 `trigger` + 总线触发」。
+
+  实测（`bench/micro/event-dispatch.bench.mjs`，Apple M 系 / node 25）：
+  一次完整派发 **9.75 µs**（约 5.9 KB 分配），早退 **3.3 ns**；
+  典型 `ICE_POINTERMOVE` 全链路 **12.0 µs**（改造前还要多一次 9.75 µs 的完整派发）。
+  指针移动是每帧级高频，拖动/悬停因此省掉一半派发与相应 GC 压力。
+
+  实现：`src/event/listened-event-names.ts` 的单向登记表（`ICEEventTarget.__register` 写入）+
+  `DOMEventDispatcher.__dispatch` 入口判定。**只增不减是刻意的**：摘除路径有 `off` /
+  `purgeEvents` / `once` 自摘 / `signal.abort` 四条，漏一条就会"有人听却不派发"；
+  而多一次空派发只是幂等白跑。
+
+  回归：`tests/event/dispatch-on-demand.test.ts`（5 条）+ 三条新基准（已入 baseline）。
+  对使用者**不可观测**（没人听的名字本来就没有接收方），所以没有破坏性口径。
+
 ## [2.20.0] - 2026-09-19
 
 > ⚠️ **行为变化（本仓约定：不用 `!` 标记，写在下面这一小节）**：`evt.target` 不再可能是 DOM 元素

@@ -19,6 +19,7 @@ import './render.bench.mjs';
 import './hit-test.bench.mjs';
 import './util.bench.mjs';
 import './path-recorder.bench.mjs';
+import './event-dispatch.bench.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';

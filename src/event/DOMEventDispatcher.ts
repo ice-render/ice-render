@@ -11,6 +11,7 @@ import ICE from '../ICE';
 import { hitTestComponents } from '../util/data-util';
 import ICEEvent from './ICEEvent';
 import { normalizeInput, applyNormalizedInput, toLegacyMouseName, NormalizedInput } from './input-normalize';
+import { isEventNameListened } from './listened-event-names';
 import { HIT_BOX_TOLERANCE } from '../renderer/dirty-rect-util';
 
 /**
@@ -220,6 +221,19 @@ class DOMEventDispatcher {
    *   `stopPropagation()` 把它整条掐掉，会变成"看着只是阻止冒泡，实际引擎失灵"。
    */
   private __dispatch(evtName: string, evt: any, target: any): void {
+    /**
+     * **按需派发**（2026-09-20）：这个名字没人听 → 整段早退。
+     *
+     * 一次原生指针输入会被派发**两个名字**（原生名 `pointermove` + 兼容名 `mousemove`），
+     * 而引擎自己的默认处理器挂在鼠标名上、应用通常只用其中一套 —— 没人听的那一次
+     * 白走一条"祖先链数组 + 每层 trigger"（`trigger` 因无监听者会早退，但遍历与分配已经付了）。
+     * 指针移动是每帧级高频，这里省的是热路径上的一半。
+     *
+     * 判定依据是 `listened-event-names.ts` 的单向登记表（只增不减，理由见那里的说明）。
+     */
+    if (!isEventNameListened(evtName)) {
+      return;
+    }
     if (target) {
       this.__dispatchThroughTree(evtName, evt, target);
     }

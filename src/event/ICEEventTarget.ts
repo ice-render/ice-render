@@ -9,6 +9,7 @@ import { isEmpty } from '../util/lang';
 import root from '../cross-platform/root';
 import ICEEvent from './ICEEvent';
 import type { ICEEventListenerOptions, ICEEventName, ICEEventOf } from './event-types';
+import { markEventNameListened } from './listened-event-names';
 
 /**
  * 事件时间戳用**单调时钟**（`performance.now()` 的时间原点），与 W3C 一致。
@@ -112,6 +113,10 @@ abstract class ICEEventTarget {
       passive: opts.passive === true,
       once: opts.once === true,
     });
+    // 登记"这个名字有人听"：派发器据此跳过**没人听**的那一次派发（一次原生指针输入会派发
+    // 原生名 + 兼容名两个名字，通常只有一个有人听；指针移动是每帧级高频）。
+    // 只增不减 —— 取舍见 `event/listened-event-names.ts` 的说明。
+    markEventNameListened(eventName);
     if (opts.signal && typeof opts.signal.addEventListener === 'function') {
       const onAbort = () => this.__remove(eventName, listener, targetScope, capture, false);
       opts.signal.addEventListener('abort', onAbort);

@@ -3,7 +3,8 @@
  * canvas 内坐标 + 屏幕位移，并以「原生名 + 鼠标兼容名」双通道派发。
  *
  * 锁定契约：
- * - pointer/touch 的 down/move/up 必须同时以 mousedown/mousemove/mouseup 派发（既有组件零改动）
+ * - pointer/touch 的 down/move/up **在有人听时**同时以 mousedown/mousemove/mouseup 派发
+ *   （既有组件零改动；"没人听的名字不派发"见 `dispatch-on-demand.test.ts`）
  * - offsetX/offsetY 一律是 canvas 内坐标（修掉全局监听下相对子元素、滚动后 rect 过期的问题）
  * - 触摸没有原生 movement 时，用「与上一次坐标的差」补算，触摸拖拽因此可用
  * - wheel 只发总线、不派发给上次选中的组件
@@ -12,8 +13,27 @@
  */
 import EventBus from '../../src/event/EventBus';
 import DOMEventDispatcher from '../../src/event/DOMEventDispatcher';
+import { markEventNameListened } from '../../src/event/listened-event-names';
 
 const RECT = { left: 100, top: 50 };
+
+/**
+ * 本文件用「假组件 + `trigger` mock」做夹具（只为观察派发器给了什么名字 / 什么坐标），
+ * 不走 `ICEEventTarget.__register` —— 而那套注册才是「按需派发」的判据。
+ * 这里显式登记本文件断言的名字：用例测的是**映射与归一化**，不是按需派发本身。
+ */
+[
+  'pointerdown',
+  'pointermove',
+  'pointerup',
+  'mousedown',
+  'mousemove',
+  'mouseup',
+  'touchstart',
+  'touchmove',
+  'touchend',
+  'click',
+].forEach(markEventNameListened);
 
 function makeIce() {
   const evtBus = new EventBus();
