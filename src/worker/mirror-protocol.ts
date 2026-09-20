@@ -6,7 +6,7 @@
  *
  */
 /**
- * 「主线程持有状态、worker 持有镜像」的跨线程协议（v1）。
+ * 「主线程持有状态、worker 持有镜像」的跨线程协议（v2）。
  *
  * 分工（见 docs/architecture/10-worker-offscreen.md §3）：
  * - **主线程**：DOM 事件、命中检测（铁律不变）、组件树与状态（唯一真相）、图片/字体/文本量测；
@@ -16,10 +16,13 @@
  *
  * 1. **状态是推过去的，不是拉回来的**。worker 从不回传组件状态 —— 它只回像素（ImageBitmap）与
  *    统计。这样"谁是真相"永远没有歧义，也不需要双向冲突解决。
- * 2. **增量只走 `state` 补丁，结构变更走全量重同步**。v1 的 op 只有 `['state', id, patch]`；
- *    增删子节点/换父容器这类**结构**变化会让镜像失效（id 树对不上），此时桥直接重发 `scene`
- *    （全量文档）—— 结构变更在真实场景里是低频操作，不值得为它先引入一套子树增量协议。
- *    这就是 v1 的诚实边界：**状态是增量的，结构是全量的**。
+ * 2. **状态与结构都走增量**（v2 起）。op 有三种：`['state', id, patch]`、
+ *    `['add', parentId, 子树文档]`、`['remove', id]` —— "加/删一个图元"只发一条几 KB 的 op，
+ *    不再重发整份文档（实测 IED 200 节点场景：**1037 B vs 485 924 B ≈ 470×**，且省掉 worker 侧
+ *    一次 `clearAll()` + 整树重建 + 冷启动全量重绘，那一帧实测 130~161ms）。
+ *    **全量 `scene` 退化为兜底与自愈**：拿不到可寻址的 id、子树编码失败、worker 报 `missing`
+ *    （结构真的错位了）、或宿主显式要求（`resyncOnStructureChange: true`）时才发。
+ *    v1 的边界因此作废 —— 那时的 op 只有状态补丁，结构一变只能整份重发。
  * 3. **能过的值必须能过，过不去的要报出来**。`postMessage` 遇到函数/DOM 节点/CanvasGradient
  *    这类值会抛 `DataCloneError`（整帧消息发不出去，症状是"画面卡住不动、控制台一条红"）。
  *    所以消息发出前一律过 `sanitizeTransferable()`：能结构化克隆的照发，克隆不了的值**就地丢弃
@@ -27,11 +30,60 @@
  *    的基础类型（数组/普通对象/数字/字符串/布尔/null/Date/RegExp/TypedArray/Map/Set）。
  */
 
-/** 协议版本。不匹配时接收方**明确拒绝**（而不是按老规矩猜），避免"字段语义悄悄变了"的静默错位。 */
-export const MIRROR_PROTOCOL_VERSION = 1;
+/**
+ * 协议版本。不匹配时接收方**明确拒绝**（而不是按老规矩猜），避免"字段语义悄悄变了"的静默错位。
+ *
+ * - v1（2026-09-20，ice-render 4.0.0）：只有状态补丁，**结构变更 = 重发整份文档**。
+ * - v2（2026-09-20）：新增结构增量 op（`add` / `remove`）—— "加/删一个节点"不再重发整份文档。
+ *   第三方自写的 v1 worker 遇到 v2 宿主会被版本校验拒绝，而宿主会**自动回退主线程渲染**
+ *   （见 `MirrorHost` 的兼容保护），不会静默画错。
+ */
+export const MIRROR_PROTOCOL_VERSION = 2;
 
-/** 状态补丁：`['state', 组件 id, 要合并进 state 的补丁]`（与 `setState` 的浅合并同语义）。 */
-export type MirrorOp = ['state', string, any];
+/** 根容器的地址：op 里的 `parentId` 用它表示"挂在 ICE 根下"。 */
+export const MIRROR_ROOT_ID = '#root';
+
+/**
+ * 一条增量 op，按序应用。三种：
+ *
+ * | op | 形状 | 语义 |
+ * |---|---|---|
+ * | 状态补丁 | `['state', 组件 id, 补丁]` | 与 `setState` 的浅合并同语义 |
+ * | 加子树 | `['add', 父 id（`'#root'` = ICE 根）, 子树文档]` | 挂在父容器**末尾**（与 `addChild` 同语义），子树文档由 `Serializer.encodeSubtree()` 产出 |
+ * | 删子树 | `['remove', 组件 id]` | 按 id 摘除该组件及其后代 |
+ * | 换父级 | `['move', 组件 id, 新父 id]` | 改挂到另一个容器（不销毁、坐标不换算，与 `adoptChild` 同语义） |
+ *
+ * 为什么 `add` 不需要 index：引擎的 `addChild()` 只有"追加"这一种语义（`this.childNodes.push`），
+ * 绘制次序由 `zIndex` 决定、相等时按数组次序 —— 两边都追加，次序自然一致。
+ */
+export type MirrorOp =
+  | ['state', string, any]
+  | ['add', string, any]
+  | ['remove', string]
+  /** 换父级（`adoptChild`）：`['move', 组件 id, 新父 id（'#root' = ICE 根）]`，坐标不换算（与引擎同语义） */
+  | ['move', string, string];
+
+/**
+ * 一条字体下发的记录（见 `fonts` 消息）。
+ *
+ * `source` 用**字节**而不是 URL：worker 里没有主线程的 `document.fonts` 与同源策略上下文，
+ * 让宿主在主线程把字体取好、把字节推过来，worker 只负责注册 —— 与"图片/字体解码留在宿主侧"的
+ * 分工一致（见 `docs/architecture/10-worker-offscreen.md` §2 的边界表）。
+ */
+/** 一条图片下发的记录（见 `images` 消息）：`key` 是图源 URL（`state.src`），`bitmap` 是解码好的位图。 */
+export type MirrorImageSource = {
+  key: string;
+  bitmap: any;
+};
+
+export type MirrorFontSource = {
+  family: string;
+  /** 字体字节（`FontFace` 的 source 参数支持 ArrayBuffer） */
+  source: ArrayBuffer | ArrayBufferView;
+  style?: string;
+  weight?: string;
+  unicodeRange?: string;
+};
 
 /** 主线程 → worker。 */
 export type MirrorCommand =
@@ -52,6 +104,36 @@ export type MirrorCommand =
    * 镜像侧必须跟着走，否则"主线程看得见的画面"和"worker 画的"不是同一个视口。
    */
   | { t: 'viewport'; v: number; seq: number; scale: number; tx: number; ty: number }
+  /**
+   * **文本绘制语言**（`lang` / `dir`）：worker 里没有主画布元素可继承，
+   * 不推过去的话同一个汉字会按运行时默认语言选字形，与主线程分叉（简/繁/日/韩）。
+   */
+  | { t: 'text'; v: number; seq: number; lang: string; dir: string }
+  /**
+   * **字体下发**：主线程把用到的字体**字节**推给 worker，worker 用自己的
+   * `FontFace` + `self.fonts` 注册 —— 字体族一致，字形栅格化才谈得上与主线程一致。
+   *
+   * `source` 是 `ArrayBuffer`（宿主在主线程取好字节；URL/Blob 由宿主解析，避免 worker 侧
+   * 再走一遍网络与 CORS）。结构化克隆会复制字节，发完之后宿主那边的 buffer 仍然可用。
+   */
+  | { t: 'fonts'; v: number; seq: number; fonts: MirrorFontSource[] }
+  /**
+   * **直绘模式**：主线程把可见画布整块 `transferControlToOffscreen()` 交给 worker，
+   * worker 直接往它上面画 —— 省掉每帧"位图回传 + 主线程合成"这一跳（端到端少一次往返）。
+   *
+   * 代价（宿主必须知道）：这块画布主线程**再也拿不到**（读像素 / 截图要用页面级截图），
+   * 且只在这条消息里传一次（`transfer` 列表），后续 `resize` 改的是 worker 侧它的尺寸。
+   */
+  | { t: 'attach-canvas'; v: number; seq: number; canvas: any }
+  /**
+   * **图片下发**：worker 里没有 `Image` 构造器（图片链路是 `ImageCache` 的 `Image` + `onload`），
+   * 带图片的树在镜像里会直接抛错 → 兼容层把整个镜像退回主线程。
+   *
+   * 所以宿主在主线程把图解码成 `ImageBitmap`（`fetch` + `createImageBitmap`，与主线程同源同解码器），
+   * 用 `key = state.src` 随这条消息推过去（位图走 transfer 列表，零拷贝）。
+   * worker 侧 `ImageCache` 命中就直接画、命中不到就"未加载"（等下发），**不抛**。
+   */
+  | { t: 'images'; v: number; seq: number; images: MirrorImageSource[] }
   /**
    * 渲染节拍：`time` 用主线程的 `DOMHighResTimeStamp`（双时钟会漂，见 §5）。
    *
@@ -186,6 +268,32 @@ export function isMirrorCommand(msg: any): boolean {
   if (msg.t === 'selection') return Array.isArray(msg.ids);
   if (msg.t === 'viewport')
     return typeof msg.scale === 'number' && typeof msg.tx === 'number' && typeof msg.ty === 'number';
+  // 文本语言：lang / dir 都是字符串（空串合法 —— 宿主没写就发空串，worker 侧不动默认值）
+  if (msg.t === 'text') return typeof msg.lang === 'string' && typeof msg.dir === 'string';
+  // 直绘：只需要一个"像画布"的对象（worker 侧会 getContext('2d') 校验）
+  if (msg.t === 'attach-canvas') return !!msg.canvas && typeof msg.canvas.getContext === 'function';
+  // 图片下发：数组 + 每条都要有非空 key 与位图对象
+  if (msg.t === 'images') {
+    if (!Array.isArray(msg.images)) return false;
+    for (const image of msg.images) {
+      if (!image || typeof image.key !== 'string' || !image.key) return false;
+      if (!image.bitmap || typeof image.bitmap !== 'object') return false;
+    }
+    return true;
+  }
+  // 字体下发：数组 + 每条都要有 family 与字节 source
+  if (msg.t === 'fonts') {
+    if (!Array.isArray(msg.fonts)) return false;
+    for (const font of msg.fonts) {
+      if (!font || typeof font.family !== 'string' || !font.family) return false;
+      const source = font.source;
+      const isBuffer =
+        (typeof ArrayBuffer === 'function' && source instanceof ArrayBuffer) ||
+        (typeof ArrayBuffer === 'function' && ArrayBuffer.isView && ArrayBuffer.isView(source));
+      if (!isBuffer) return false;
+    }
+    return true;
+  }
   // `seq` 是宿主判断"手上这张位图是哪一帧"的依据（见 MirrorHost.renderedSeq），缺了它
   // 静止态/截图的对齐就只能靠猜 —— 所以它是必需字段，不是可选装饰。
   if (msg.t === 'frame') return typeof msg.seq === 'number' && typeof msg.time === 'number';
@@ -207,7 +315,22 @@ export function isMirrorEvent(msg: any): boolean {
 /** op 的形状校验（worker 侧应用前过一遍，坏数据要报错而不是把镜像改坏）。 */
 export function isValidOp(op: any): op is MirrorOp {
   if (!Array.isArray(op)) return false;
-  if (op[0] !== 'state') return false;
+  const kind = op[0];
+  // id / parentId 一律要求**非空字符串**（`'#root'` 也是非空字符串，天然通过）
   if (typeof op[1] !== 'string' || !op[1]) return false;
-  return !!op[2] && typeof op[2] === 'object' && !Array.isArray(op[2]);
+  if (kind === 'state') {
+    return !!op[2] && typeof op[2] === 'object' && !Array.isArray(op[2]);
+  }
+  if (kind === 'add') {
+    // 子树文档必须是对象（`{ type, state, childNodes }`）；类型字段缺失由 worker 侧跳过并上报
+    return !!op[2] && typeof op[2] === 'object' && !Array.isArray(op[2]);
+  }
+  if (kind === 'remove') {
+    return op.length >= 2;
+  }
+  if (kind === 'move') {
+    // 新父 id 也要是非空字符串（'#root' 表示挂回 ICE 根）
+    return typeof op[2] === 'string' && !!op[2];
+  }
+  return false;
 }

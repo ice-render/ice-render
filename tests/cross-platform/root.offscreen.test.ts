@@ -67,3 +67,42 @@ describe('root 离屏 canvas 平台抽象', () => {
     expect(root.devicePixelRatio).toBe(1);
   });
 });
+
+/**
+ * **文本绘制语言**（`lang` / `dir`）的平台口径。
+ *
+ * worker 里没有主画布元素可以继承语言，字形（简/繁/日汉字）会与主线程分叉 —— 而引擎对
+ * 组件缓存 / 静态层承诺"与主画布逐像素一致"。所以镜像宿主把语言**下发**到 worker，
+ * 由 `root.textLanguage` 统一作用于此后创建的每一张离屏画布（缓存 / 静态层都在内）。
+ */
+describe('root.textLanguage：离屏画布的文本绘制语言', () => {
+  afterEach(() => {
+    delete (global as any).document;
+    delete (global as any).OffscreenCanvas;
+    delete (root as any).textLanguage;
+  });
+
+  it('设了 textLanguage 后，新建的 OffscreenCanvas ctx 自动带上 lang/dir（worker 侧的缓存 / 静态层）', () => {
+    const getContext = jest.fn().mockReturnValue({ offscreen: true, lang: '', dir: '' });
+    (global as any).OffscreenCanvas = jest
+      .fn()
+      .mockImplementation((w: number, h: number) => ({ width: w, height: h, getContext }));
+    (root as any).textLanguage = { lang: 'zh-Hant', dir: 'rtl' };
+
+    const { ctx } = root.createOffscreenCanvas(320, 240);
+
+    expect(ctx.lang).toBe('zh-Hant');
+    expect(ctx.dir).toBe('rtl');
+  });
+
+  it('没设 textLanguage 时不动 ctx（保持运行时默认）', () => {
+    const getContext = jest.fn().mockReturnValue({ offscreen: true, lang: 'runtime-default' });
+    (global as any).OffscreenCanvas = jest
+      .fn()
+      .mockImplementation((w: number, h: number) => ({ width: w, height: h, getContext }));
+
+    const { ctx } = root.createOffscreenCanvas(320, 240);
+
+    expect(ctx.lang).toBe('runtime-default');
+  });
+});

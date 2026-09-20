@@ -29,6 +29,7 @@ import ICERect from '../../src/graphic/shape/ICERect';
 import Serializer from '../../src/persistence/Serializer';
 import Deserializer from '../../src/persistence/Deserializer';
 import MirrorHost, { createGeometryOnlyContext } from '../../src/worker/MirrorHost';
+import { MIRROR_PROTOCOL_VERSION } from '../../src/worker/mirror-protocol';
 
 /** 假 worker：把发出去的消息收进数组，方便断言协议。 */
 function makeFakeWorker() {
@@ -51,7 +52,7 @@ function arrive(worker: any, seq: number): void {
   worker.onmessage({
     data: {
       t: 'rendered',
-      v: 1,
+      v: MIRROR_PROTOCOL_VERSION,
       seq,
       bitmap: { close: jest.fn() },
       stats: { renderMs: 1, components: 1, frames: seq, appliedOps: 0 },
@@ -211,7 +212,13 @@ describe('MirrorHost', () => {
     // ④ worker 位图 → 合成到可见画布（优先位图渲染上下文）
     const bitmap: any = { close: jest.fn() };
     worker.onmessage({
-      data: { t: 'rendered', v: 1, seq: 1, bitmap, stats: { renderMs: 1, components: 2, frames: 1, appliedOps: 0 } },
+      data: {
+        t: 'rendered',
+        v: MIRROR_PROTOCOL_VERSION,
+        seq: 1,
+        bitmap,
+        stats: { renderMs: 1, components: 2, frames: 1, appliedOps: 0 },
+      },
     });
     expect(calls.some((c) => c[0] === 'transferFromImageBitmap' && c[1] === bitmap)).toBe(true);
     expect(host.frames).toBe(1);
@@ -236,7 +243,13 @@ describe('MirrorHost', () => {
 
     const bitmap: any = { close: jest.fn() };
     worker.onmessage({
-      data: { t: 'rendered', v: 1, seq: 1, bitmap, stats: { renderMs: 1, components: 1, frames: 7, appliedOps: 0 } },
+      data: {
+        t: 'rendered',
+        v: MIRROR_PROTOCOL_VERSION,
+        seq: 1,
+        bitmap,
+        stats: { renderMs: 1, components: 1, frames: 7, appliedOps: 0 },
+      },
     });
     expect(seen).toEqual([[bitmap, 7]]);
   });
@@ -303,7 +316,13 @@ describe('MirrorHost', () => {
 
     const bitmap: any = { close: jest.fn() };
     worker.onmessage({
-      data: { t: 'rendered', v: 1, seq: 1, bitmap, stats: { renderMs: 1, components: 1, frames: 1, appliedOps: 0 } },
+      data: {
+        t: 'rendered',
+        v: MIRROR_PROTOCOL_VERSION,
+        seq: 1,
+        bitmap,
+        stats: { renderMs: 1, components: 1, frames: 1, appliedOps: 0 },
+      },
     });
 
     const order = calls.map((c) => c[0]).filter((n) => n !== 'save' && n !== 'restore');
@@ -339,9 +358,41 @@ describe('MirrorHost', () => {
     needs = false;
     worker.sent.length = 0;
     ice.addChild(new ICERect({ left: 0, top: 0, width: 5, height: 5 }));
-    host.frame(3); // 有结构变更排队（scene）→ 必须发
-    // prime() 在启动时还排了"当前视口"，所以这里会看到 scene → viewport → frame
-    expect(worker.sent.map((m: any) => m.t)).toEqual(['scene', 'viewport', 'frame']);
+    host.frame(3); // 有结构变更排队（v2 起是 add op）→ 必须发
+    // 结构增量不需要重建镜像树，所以视口不用补发（补发只发生在真的发了 scene 之后）
+    expect(worker.sent.map((m: any) => m.t)).toEqual(['ops', 'frame']);
+  });
+
+  it('启动时把文本语言与字体推给 worker（worker 里没有主画布可继承、也没有主线程的字体）', () => {
+    const { canvas } = makeFakeCanvas();
+    // 主画布上写了语言：汉字字形（简/繁/日）靠它选，worker 侧必须拿到同一口径
+    canvas.lang = 'zh-Hant';
+    canvas.dir = 'rtl';
+    const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
+    const worker = makeFakeWorker();
+    const host = new MirrorHost({
+      canvas,
+      ice,
+      workerFactory: () => worker,
+      autoFrame: false,
+      staleTimeout: 0,
+      fonts: [{ family: 'DemoFont', source: new ArrayBuffer(8), weight: '700' }],
+    });
+    host.start();
+
+    const types = worker.sent.map((m: any) => m.t);
+    const text = worker.sent.find((m: any) => m.t === 'text');
+    const fonts = worker.sent.find((m: any) => m.t === 'fonts');
+    // jest 的 expect 只接受一个参数（带说明的那种是 Playwright 的）—— 消息里带上实际序列便于排查
+    expect({ text, types }).toEqual(expect.objectContaining({ text: expect.any(Object) }));
+    expect(text.lang).toBe('zh-Hant');
+    expect(text.dir).toBe('rtl');
+    expect(fonts).toBeDefined();
+    expect(fonts.fonts[0].family).toBe('DemoFont');
+    // 必须在首帧之前：worker 是先收 scene 才 boot 的，语言/字体要落在第一张画之前
+    expect(types.indexOf('scene')).toBeLessThan(types.indexOf('text'));
+    expect(types.indexOf('text')).toBeLessThan(types.indexOf('fonts'));
+    expect(types.indexOf('fonts')).toBeLessThan(types.indexOf('frame'));
   });
 
   it('背压：至多一帧在途 —— 上一帧没回来就不再发，队列不会随交互无限增长', () => {
@@ -424,7 +475,9 @@ describe('MirrorHost 兼容保护', () => {
       expect(support.supported).toBe(true);
       expect(support.missing).toEqual([]);
       expect(support.caps.worker).toBe(true);
-      expect(support.caps.bitmapRenderer).toBe(true);
+      // bitmapRenderer 是"运行时能力"（在一块临时画布上问的）：jest 里没有 DOM / OffscreenCanvas，
+      // 保守为 false —— 它只影响合成路径（退 2d drawImage），不在 missing 里、不致命
+      expect(support.caps.bitmapRenderer).toBe(false);
       expect(describeMirrorSupport(support)).toContain('支持');
     });
 
@@ -440,6 +493,16 @@ describe('MirrorHost 兼容保护', () => {
       expect(support.missing).toEqual(['offscreenCanvas']);
       expect(describeMirrorSupport(support)).toContain('OffscreenCanvas');
     });
+  });
+
+  it('能力探测不得在**被测画布**上创建上下文（那会让 transferControlToOffscreen 永久失败）', () => {
+    const getContext = jest.fn(() => ({}));
+    const canvas: any = { width: 10, height: 10, getContext };
+    const support = detectMirrorSupport({ canvas });
+    // 探测走一块临时画布；调用方那块必须一个字节都没被碰过
+    expect(getContext).not.toHaveBeenCalled();
+    // 拿不到临时画布时保守为 false（bitmapRenderer 只是合成路径，缺了不致命）
+    expect(support.caps.bitmapRenderer).toBe(false);
   });
 
   it('不支持时**根本不接管**落墨通道（宿主什么都不用做，主线程渲染照旧）', async () => {
@@ -553,7 +616,7 @@ describe('MirrorHost 兼容保护', () => {
 
     const noOffscreen = run({
       t: 'ready',
-      v: 1,
+      v: MIRROR_PROTOCOL_VERSION,
       caps: { offscreen: false, path2d: true, pointerEvents: true },
     });
     expect(noOffscreen.host.fallbackReason).toBe('ready-caps');

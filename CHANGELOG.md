@@ -7,6 +7,124 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+## [4.1.0] - 2026-09-20
+
+> Worker 镜像（阶段二）收口：结构增量与协议 v2、文本口径下发与直绘模式、图片下发与解码口径对齐、
+> 换父级单条 `move` op。全部是**增量能力**，没有破坏性变更（镜像协议版本仍是 v2，
+> 4.0.0 就在同一套宿主接口上，`MirrorHost` / `MirrorBridge` / `MirrorTarget` 的用法未变）。
+
+### 修复 / 新功能（Worker 镜像 · 换父级单条 op + 图片口径对齐）
+
+- **换父级（`adoptChild`）走单条 `move` op**。它此前只触发"新增"钩子：镜像里旧父那份不会被摘掉，
+  同一棵树因此出现**两个同 id 实例**（双重绘制，后续状态补丁只更新其中一个）。现在协议多一种
+  `['move', id, 新父 id]`：主线程在 `ICEGroup.adoptChild` 里单独通知（并抑制 `addChild` 的 add 通知），
+  worker 侧用引擎自己的 `adoptChild` 落地（不销毁、坐标不换算，与主线程同语义）。
+- **图片：主线程与 worker 画同一份解码结果**。此前 worker 画 `ImageBitmap`、主线程画 `Image`，
+  **缩放绘制**时两者重采样不同（实测原图 185×182 缩到 72×72：770 像素、最大 93/255）。
+  现在宿主解码**两份**（实测两次 `createImageBitmap` 逐点一致）：一份注册进"解码结果表"给本页所有
+  ICE 实例用，一份随 transfer 给 worker；并且**位图在路上时主线程不先退回 `Image`**
+  （否则位图到达那一帧会像素跳变）；解码失败会摘掉"在途"标记、退回常规路径。
+  引擎 e2e 的图标因此改回**缩放绘制**仍断言逐像素 0 差异。
+
+### 新功能（Worker 镜像 · 图片下发 + "落墨占比"基准护栏）
+
+- **图片下发**（`images` 消息）：worker 里没有 `Image` 构造器 —— 在此之前**带图片的树会让整个镜像退回
+  主线程**（实测：往镜像树里加一个 `ICEImage`，`hostActive` 立刻变 false，错误是
+  "当前运行时没有可用的 Image 构造器"）。现在：主线程渲染发现用图 → 宿主在主线程
+  `fetch` + `createImageBitmap` 解码 → `images` 消息下发（位图走 **transfer** 零拷贝）→ worker 的
+  `ImageCache` 命中就直接画；同一条 URL 只解码一次；**图还没到时返回"未加载"、不抛**（下发到达时
+  `MirrorTarget.applyImages()` 会把用到它的组件标脏，下一帧补上）。运行时不支持
+  `createImageBitmap` / 解码失败时如实上报 `MIRROR_IMAGE_FAILED`。
+- **两条实测踩到的坑**（都由测试/探针逮住）：
+  ① `ImageCache.loaded()` 用 `Image` 的 `complete` / `naturalWidth` 判定 —— `ImageBitmap` 没有这两个
+     属性，于是"第一次取用能画、**缓存命中之后永远画不出来**"（`loaded` 变成 `undefined`）。
+     现在没 `complete` 的一律视为已解码。
+  ② 图片是**异步**到达的：初版 e2e 里"参考侧有图、镜像还没有"差出一整块图标（5061 像素），
+     现在夹具与用例都等两侧解码完成再比。
+- **"落墨占比"基准护栏**（`ice-entity-designer` 的 `headroom()` + 对应 e2e）：把
+  **主线程直绘 / 几何通道（删掉落墨、不启 worker）/ worker 镜像**三档放在同一条曲线上量，
+  并钉住区间 —— 镜像是把"落墨"那一档搬走了，所以它的收益**上界**就是落墨占比。
+  实测（IED 200 节点 / 缩放的视口负载）：主线程 1.90ms → 几何通道 1.20ms → 镜像 1.20ms，
+  **落墨占比 37%**、镜像省 37%（区间断言：占比 ∈ (0.1, 0.75) 且镜像 ≤ 几何通道 × 1.25）。
+- **图片路径的保真边界**（写进架构文档）：**缩放绘制**时 Chromium 对 `Image` 与 `ImageBitmap`
+  的重采样不同 —— 实测原图 185×182：**1:1 逐点一致**、缩到 72×72 差 770 像素/最大 93、
+  缩一半差 411 像素/最大 10。要严格逐像素一致就按原图尺寸绘制（e2e 的夹具就是 1:1 的）。
+
+回归：`tests/worker/mirror-images.test.ts`（新增 7 条：worker 直接可用 / 缓存命中仍算已加载 /
+真的画出来 / 未下发不抛 / 主线程请求转宿主 / 桥的 transfer 列表 / 宿主解码去重）；
+引擎 e2e 的场景里加了一张 `ICEImage` 并断言**逐像素 0 差异**；IED 新增"落墨占比三档"用例。
+
+### 新功能（Worker 镜像 · 文本口径下发 + 直绘模式）
+
+worker 与主线程在"文本"和"传输"这两处一直有条边界，这一版都收掉：
+
+- **文本绘制语言（`lang` / `dir`）下发**（`text` 消息）：worker 里没有主画布元素可继承语言，
+  不推过去的话同一个汉字会按运行时默认语言选字形（简/繁/日/韩），与主线程分叉。宿主从可见画布读
+  语言（或 `textLanguage` 选项显式给），`MirrorTarget.applyText()` 落到 worker 的 `ctx` 与
+  `root.textLanguage` —— 后者让**组件缓存 / 静态层的每一张离屏画布**也继承同一口径
+  （`root.createOffscreenCanvas` 统一应用，少了它缓存里的字形会与主画布分叉）。
+- **字体下发**（`fonts` 消息）：宿主在主线程把字体字节取好（`MirrorHost` 的 `fonts` 选项，
+  `await (await fetch(url)).arrayBuffer()`），worker 用自己的 `FontFace` + `self.fonts` 注册；
+  运行时不支持时如实报 `fontErrors`、**不抛**（字形分叉可解释，页面不能崩）。
+  **图片仍未下发**：图片链路是 `ImageCache` 的 `Image` + `onload`，worker 里要用 `createImageBitmap`
+  另开一条解码路径，属于独立一块（已记进架构文档的边界表）。
+- **直绘模式**（`MirrorHost({ transferCanvas: true })`，opt-in）：把显示画布
+  `transferControlToOffscreen()` 交给 worker 直接画，省掉每帧"位图回传 + 主线程合成"。
+  两条前置写进了文档：显示画布**必须还没有 2d 上下文**（`getContext` 调过一次就转移不出去 →
+  引擎 init 在叠放的"输入/量测层"上，参考宿主 `?direct=1` 的双画布布局）；开启后主线程读不到像素。
+  运行时不支持 / 转移失败时退回位图模式并如实上报（`MIRROR_CANVAS_TRANSFER_UNSUPPORTED` /
+  `..._FAILED`）。直绘模式下 worker 不回传位图，但 `rendered` 水印与统计照旧推进（背压与
+  静止态对账都靠它）。
+
+**顺手修掉的两个"探测/初始化把功能废掉"的坑**（都是实测踩到才发现的）：
+① `MirrorHost` 在转移画布**之前**调了 `canvas.getContext('bitmaprenderer')` 探测合成路径 →
+   画布被标记成"已有上下文"，转移必然失败；现在直绘路径完全不碰那块画布。
+② `detectMirrorSupport()` 用**调用方那块画布**探测 `bitmaprenderer` → 同样把画布污染掉；
+   现在改在**临时画布**上问运行时能力（拿不到就保守为 false —— 它只影响合成路径，非致命）。
+
+实测（引擎参考宿主）：直绘模式与位图模式**画面逐字节一致**（页面级 PNG 比对，4498B 相同），
+帧节拍 / 水印照旧推进；当前运行时的文本语言由 worker 侧 `ctx.lang` 回报（`textLang`），e2e 断言它
+等于主画布语言。
+
+回归：`tests/worker` 新增 `mirror-text`（语言落 ctx + 离屏画布继承、字体注册 / 不支持时的报错）、
+`mirror-canvas`（直绘接管、宿主先切量测层再转移、无位图帧的水印推进、不支持时退回）
+与探测守卫（不得在被测画布上建上下文）；引擎 e2e 新增直绘模式用例；IED 的镜像 e2e 增断言
+"worker 侧文本语言 == 主画布 lang"。
+
+### 新功能（Worker 镜像 · 协议 v2：结构变更也走增量）
+
+拓扑编辑里最高频的两件事是"加图元"和"删图元"，而它们在 v1 里是**最贵**的：结构一变就重发整份文档
+（IED 200 节点场景 **474KB**）+ worker 侧 `clearAll()` + 整树反序列化 + 冷启动全量重绘。
+v2 把结构也变成增量：
+
+- **协议**：`MirrorOp` 从 `['state', id, patch]` 扩成三种 —— `['state', id, patch]`、
+  `['add', parentId | '#root', 子树文档]`、`['remove', id]`；`MIRROR_PROTOCOL_VERSION` 升到 **2**
+  （第三方自写的 v1 worker 会被版本校验拒绝，宿主自动回退主线程渲染，不会静默画错）。
+- **编码 / 还原走既有入口**：新增 `Serializer.encodeSubtree(component)` 与
+  `Deserializer.decodeInto(parent, nodeData)` —— 与整份文档**同一条路径**（typeId 注册表、
+  派生件跳过、zIndex 口径、布局还原），只是不带文档外壳。
+- **worker 侧**：`MirrorTarget` 按 op 类型分派，`add` 用 `decodeInto()` 挂上并**重索引子树**、
+  `remove` 先收集子树 id 再摘除；新增计数 `appliedAdds` / `appliedRemoves`（宿主对账用）。
+  父容器找不到照旧进 `missing` → 触发既有的"限流重发全量"自愈。
+- **全量 `scene` 退化为兜底**：拿不到可寻址的 id、父容器不可寻址、子树编码失败、worker 报 `missing`、
+  或宿主显式要求（`resyncOnStructureChange: true`，默认已翻成 `false`）时才发。
+- **队列顺序是正确性的一部分**（实测抓到的真 bug）：`addChild` 的镜像钩子原先排在
+  `__reapplyPreset()`（会顺手写 `style`）之后，于是同一批里"未知 id 的状态补丁"排在了 `add` 前面
+  → worker 报 `missing` → 每次新建节点都触发一次全量重同步，结构增量白做。
+  现在 `ICE.addChild` / `ICEGroup.addChild` 都在**写状态的调用之前**通知钩子（`doLayout()` 同理）。
+
+**实测**（IED 200 节点 / 800+ 组件，"新建一个节点"）：
+
+- 发出去的字节：**485 924 B（474KB）→ 1 037 B**（≈470 倍）；
+- 全量重同步：**1 次 → 0 次**；
+- worker 那一帧 `renderMs`：**125.3 ms → 3.9 ms**；
+- 端到端（改完 → 位图回来）：**165.5 ms → 9.7 ms**（中位数；首次含冷启动 59ms）。
+
+回归：`tests/worker/`（新增 add/remove 增量、复合容器真子节点、队列顺序、回退守门等 6 条）、
+`e2e/visual/worker-mirror.spec.ts`（断言 5 步里 `appliedScenes` 恒为 1、`appliedAdds/Removes > 0`，
+像素仍 0 差异）、IED 的 `e2e/worker-mirror.spec.ts`（新增结构通路场景：加 2 删 2 条 op、0 次重同步、
+几何 0 不一致）。
+
 ## [4.0.0] - 2026-09-20
 
 > ⚠️ **破坏性：路径命令流新增 `roundRect`**（读 `component.path2D._commands` 自行重放/翻译的第三方代码

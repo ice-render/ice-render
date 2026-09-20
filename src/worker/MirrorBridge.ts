@@ -9,27 +9,41 @@ import { merge } from '../util/lang';
 import { isMirroredComponent } from './mirror-hooks';
 import {
   MIRROR_PROTOCOL_VERSION,
+  MIRROR_ROOT_ID,
   MirrorCommand,
   MirrorEvent,
+  MirrorFontSource,
+  MirrorImageSource,
   MirrorOp,
   isValidOp,
   sanitizeTransferable,
 } from './mirror-protocol';
 
-/** 消息出口：宿主接到 `worker.postMessage` 上（也方便测试直接收数组）。 */
-export type MirrorSend = (msg: MirrorCommand) => void;
+/** 消息出口：宿主接到 `worker.postMessage` 上（也方便测试直接收数组）。第二个参数是 transfer 列表。 */
+export type MirrorSend = (msg: MirrorCommand, transfer?: any[]) => void;
 
 export type MirrorBridgeOptions = {
   /** 消息出口。也可以之后用 `setSend()` 再装（例如先拿 `worker` 再建桥） */
   send?: MirrorSend;
   /**
-   * 结构变更（增删子节点）时是否自动排一次全量重同步，默认 true。
+   * 结构变更（增删子节点）时**强制**走"重发整份文档"，默认 `false`。
    *
-   * 关掉它请自己想清楚：v1 的 op 只有状态补丁，**结构对不上时镜像会画错东西**（不是不画）。
+   * 默认行为是**结构增量**：`add` / `remove` 各一条 op（见 `recordStructureChange`）。
+   * 传 `true` 就退回老口径（v1 时代只有状态补丁，结构一变重发全量）—— 留给"结构变更极频繁、
+   * 增量 op 反而更碎"或"我在排查结构错位"的宿主。
+   *
+   * 注意：**拿不到可寻址信息时（无 id / 编码失败）无论如何都会退回全量**，这个开关关不掉。
    */
   resyncOnStructureChange?: boolean;
   /** worker 回传的事件（ready / rendered / missing / error）——宿主做统计或重试策略用。 */
   onEvent?: (evt: MirrorEvent) => void;
+  /**
+   * 主线程渲染用到了一张图片（`ImageCache` 命中不到缓存时触发）。
+   *
+   * 宿主在这里把图**解码成 ImageBitmap** 再 `recordImages()` 下发 —— worker 里没有 `Image` 构造器，
+   * 不给它解码好的位图，带图片的树就会在 worker 侧抛错、把整个镜像逼回主线程。
+   */
+  onImageRequest?: (url: string) => void;
 };
 
 /**
@@ -79,6 +93,11 @@ export default class MirrorBridge {
 
   private send_: MirrorSend | null = null;
   private onEvent_: ((evt: MirrorEvent) => void) | null = null;
+  private onImageRequest_: ((url: string) => void) | null = null;
+  /** 已经向宿主报过请求的 URL（同一条图只请求一次；宿主那边还有自己的"已解码"集合） */
+  private requestedImages = new Set<string>();
+  /** 解码失败的 URL（这些不再算"在途"，主线程退回 Image 路径） */
+  private failedImages = new Set<string>();
   private readonly resyncOnStructureChange: boolean;
   private ops: MirrorOp[] = [];
   /** 待发的选择状态（undefined = 没有变化；空数组 = 明确"取消选择"） */
@@ -94,6 +113,22 @@ export default class MirrorBridge {
   private viewport: { scale: number; tx: number; ty: number } | null = null;
   /** 最近一次已知视口（"现状"，scene 重建后补发用） */
   private lastViewport: { scale: number; tx: number; ty: number } | null = null;
+  /**
+   * 待发的**文本语言**与**字体**（一次性的初始化消息，见 `MirrorOp` 上方协议表）。
+   *
+   * 只发一次、不做"现状/补发"：它们落在 worker 那台 ICE 的 `ctx` 与 `fonts` 上，
+   * 而 `applyScene`（clearAll + 反序列化）**不会**换掉 ctx、也不会清掉已注册的字体 ——
+   * 只有 worker 被重建（宿主重新 `start()`）时才需要再发一次，而那正是 `prime()` 的场景。
+   */
+  private textLanguage: { lang: string; dir: string } | null = null;
+  private fonts: MirrorFontSource[] | null = null;
+  /**
+   * 待**转移**给 worker 的可见画布（直绘模式）。与 text/fonts 一样排进 `flush()` 的固定顺序，
+   * 且必须在 `scene` 之后 —— worker 是先收到 scene 才 boot 出 ICE 的，早到的画布没有接收者。
+   */
+  private canvasToAttach: any = null;
+  /** 待下发的图片（解码好的位图，随 transfer 列表发出） */
+  private images: MirrorImageSource[] | null = null;
   /** 组件 id → 在 `ops` 里的下标（补丁合并用） */
   private opIndex = new Map<string, number>();
   private seq = 0;
@@ -107,9 +142,10 @@ export default class MirrorBridge {
       throw new Error('[ice-render] MirrorBridge: 需要一个 ICE 实例。');
     }
     this.ice = ice;
-    this.resyncOnStructureChange = options.resyncOnStructureChange !== false;
+    this.resyncOnStructureChange = options.resyncOnStructureChange === true;
     if (options.send) this.send_ = options.send;
     if (options.onEvent) this.onEvent_ = options.onEvent;
+    if (options.onImageRequest) this.onImageRequest_ = options.onImageRequest;
     // 装到实例上：引擎的四处钩子按 `ice.__mirrorBridge` 找桥（见 mirror-hooks.ts）
     ice.__mirrorBridge = this;
   }
@@ -174,7 +210,98 @@ export default class MirrorBridge {
    * postMessage，也让 worker 白白渲染同一帧（真实场景里"用户没操作"占了绝大多数时间）。
    */
   public hasPending(): boolean {
-    return this.pendingScene || this.selectionIds !== null || this.viewport !== null || this.ops.length > 0;
+    return (
+      this.pendingScene ||
+      this.selectionIds !== null ||
+      this.viewport !== null ||
+      this.textLanguage !== null ||
+      this.fonts !== null ||
+      this.canvasToAttach !== null ||
+      this.images !== null ||
+      this.ops.length > 0
+    );
+  }
+
+  /**
+   * 排一次**文本语言**下发（`lang` / `dir`）。
+   *
+   * 宿主 `MirrorHost.start()` 会从主画布元素读一次（或由 `textLanguage` 选项显式指定）。
+   * 拼进 `flush()` 的固定顺序里：**scene → text → fonts → selection → viewport → ops → frame** ——
+   * worker 是先收到 `scene` 才 boot 出 ICE 的，语言必须落在它画第一笔之前。
+   */
+  public recordTextLanguage(text: { lang?: string; dir?: string }): void {
+    const lang = typeof text.lang === 'string' ? text.lang : '';
+    const dir = typeof text.dir === 'string' ? text.dir : '';
+    if (!lang && !dir) {
+      return;
+    }
+    this.textLanguage = { lang, dir };
+  }
+
+  /**
+   * 取下一个消息序号。
+   *
+   * 宿主自己发一次性消息时（例如直绘模式的 `attach-canvas` 要带 transfer 列表，走不了桥的
+   * `send_`）用它，保证整条通道的序号连续 —— 排查时序问题时不用区分"这条是谁发的"。
+   */
+  public nextSeq(): number {
+    return ++this.seq;
+  }
+
+  /**
+   * 排一次**画布转移**（直绘模式）。
+   *
+   * 画布走 transfer 列表（零拷贝；转移后主线程再也拿不到它）—— 所以这条消息只能由桥发，
+   * 宿主把"什么时候"交给桥的固定顺序决定（scene → canvas → text → fonts → ops → frame）。
+   */
+  public recordCanvasAttachment(canvas: any): void {
+    if (canvas) {
+      this.canvasToAttach = canvas;
+    }
+  }
+
+  /** 主线程用到了一张图：转给宿主（宿主解码后 `recordImages()` 下发）。同一条 URL 只报一次。 */
+  public recordImageRequest(url: string): void {
+    if (!url || this.requestedImages.has(url)) {
+      return;
+    }
+    this.requestedImages.add(url);
+    if (this.onImageRequest_) {
+      this.onImageRequest_(url);
+    }
+  }
+
+  /**
+   * 这张图是不是"已经被镜像请求、宿主还在解码"（见 `ImageCache.setImage`）。
+   *
+   * 主线程据此**先不建 `Image`**：先 Image、后 Bitmap 会在位图到达那一帧像素跳变
+   *（缩放绘制时两者的重采样不同）。宿主解码失败时调 `markImageFailed()` 摘掉，退回常规路径。
+   */
+  public isImagePending(url: string): boolean {
+    return !!url && this.requestedImages.has(url) && !this.failedImages.has(url);
+  }
+
+  /** 宿主解码失败：这条 URL 不再算"在途"，主线程可以退回常规 `Image` 路径。 */
+  public markImageFailed(url: string): void {
+    if (url) {
+      this.failedImages.add(url);
+    }
+  }
+
+  /** 排一次**图片下发**（宿主在主线程解码好的位图；位图走 transfer 列表，零拷贝）。 */
+  public recordImages(images: MirrorImageSource[]): void {
+    if (!Array.isArray(images) || !images.length) {
+      return;
+    }
+    this.images = (this.images || []).concat(images);
+  }
+
+  /** 排一次**字体**下发（字节由宿主在主线程取好，见 `MirrorFontSource`）。 */
+  public recordFonts(fonts: MirrorFontSource[]): void {
+    if (!Array.isArray(fonts) || !fonts.length) {
+      return;
+    }
+    this.fonts = fonts.slice();
   }
 
   /**
@@ -226,9 +353,13 @@ export default class MirrorBridge {
   /**
    * 采集一次结构变更（增删子节点）。
    *
-   * v1 不产生子树增量，直接标全量 —— 见类注释第 1 条。`kind` 目前只为可读性留着（日志/断言）。
+   * v2 起走**结构增量**：`add` / `remove` 各一条 op（见 `MirrorOp`），不再重发整份文档 ——
+   * 实测（IED 200 节点 / 799 组件）"加一个节点"从 473KB 文档 + worker 一次冷启动全量重绘
+   * 降到一条几 KB 的 op。三种情况下仍退回全量（`markSceneNeeded()`）：
+   * 宿主显式要求（`resyncOnStructureChange: true`）、父/子**拿不到可寻址的 id**、
+   * 子树编码失败（`serializer.encodeSubtree()` 返回空）。
    */
-  public recordStructureChange(kind: 'add' | 'remove', _parent: any, _child: any): void {
+  public recordStructureChange(kind: 'add' | 'remove' | 'move', _parent: any, _child: any): void {
     // 工具层的结构变更（面板挂上/摘下、手柄按需创建）同样不镜像，理由见 recordStateChange
     if (this.__isToolNode(_parent) || this.__isToolNode(_child)) return;
     /**
@@ -242,10 +373,64 @@ export default class MirrorBridge {
     if (!isMirroredComponent(_parent) || !isMirroredComponent(_child)) return;
     if (this.resyncOnStructureChange) {
       this.markSceneNeeded();
-    } else {
-      // 明确的"我知道自己在做什么"：宿主自己保证镜像结构不变（例如只镜像一棵静态子树）
-      void kind;
+      return;
     }
+    const op =
+      kind === 'add'
+        ? this.__buildAddOp(_parent, _child)
+        : kind === 'move'
+          ? this.__buildMoveOp(_parent, _child)
+          : this.__buildRemoveOp(_child);
+    if (!op) {
+      // 无法寻址：宁可重发整份文档，也不能让镜像的结构错位
+      this.markSceneNeeded();
+      return;
+    }
+    /**
+     * 直接进队列，**不走 `opIndex` 合并**：那个表是"同一个组件的连续状态补丁就地合并"用的，
+     * 结构 op 与状态补丁的顺序必须逐条保留（先 add 再给它写 state，或先写 state 再 remove，
+     * worker 侧的结果都与主线程的事件顺序一致）。
+     */
+    this.ops.push(op);
+  }
+
+  /** `['add', 父 id, 子树文档]`；拿不到父 id / 编码不出子树时返回 null（调用方退回全量） */
+  private __buildAddOp(parent: any, child: any): MirrorOp | null {
+    /**
+     * **子组件自己也必须有 id**：镜像树是按 id 寻址的（后续状态补丁、删除、选中都靠它），
+     * 挂一个没有 id 的组件上去，之后谁也找不到它 —— 那属于"结构已经错位"，
+     * 必须当场退回全量重同步，而不是发一条注定对不上的 op。（单测抓到的：只查父 id 不够。）
+     */
+    if (!componentIdOf(child)) {
+      return null;
+    }
+    const parentId = parent === this.ice ? MIRROR_ROOT_ID : componentIdOf(parent);
+    if (!parentId) {
+      return null;
+    }
+    const serializer: any = this.ice && this.ice.serializer;
+    if (!serializer || typeof serializer.encodeSubtree !== 'function') {
+      return null;
+    }
+    const nodeDoc = serializer.encodeSubtree(child);
+    if (!nodeDoc) {
+      return null;
+    }
+    const clean = sanitizeTransferable(nodeDoc, this.dropped, `add[${componentIdOf(child)}]`);
+    return clean ? ['add', parentId, clean] : null;
+  }
+
+  /** `['move', 组件 id, 新父 id]`；父子任一拿不到可寻址 id 时返回 null（调用方退回全量） */
+  private __buildMoveOp(parent: any, child: any): MirrorOp | null {
+    const id = componentIdOf(child);
+    const parentId = parent === this.ice ? MIRROR_ROOT_ID : componentIdOf(parent);
+    return id && parentId ? ['move', id, parentId] : null;
+  }
+
+  /** `['remove', 组件 id]`；拿不到 id 时返回 null（调用方退回全量） */
+  private __buildRemoveOp(child: any): MirrorOp | null {
+    const id = componentIdOf(child);
+    return id ? ['remove', id] : null;
   }
 
   /**
@@ -318,6 +503,51 @@ export default class MirrorBridge {
       if (this.lastViewport) {
         this.viewport = { ...this.lastViewport };
       }
+    }
+    /**
+     * **文本语言 → 字体**：必须排在 `scene` 之后（worker 收到 scene 才 boot 出 ICE，
+     * 早发的消息在 worker 侧没有接收者）、`ops` 之前（第一笔绘制就要用对字形）。
+     */
+    if (this.canvasToAttach) {
+      const canvas = this.canvasToAttach;
+      this.canvasToAttach = null;
+      this.send_({ t: 'attach-canvas', v: MIRROR_PROTOCOL_VERSION, seq: ++this.seq, canvas }, [canvas]);
+      this.sent++;
+      sent++;
+    }
+    if (this.textLanguage) {
+      const msg: MirrorCommand = {
+        t: 'text',
+        v: MIRROR_PROTOCOL_VERSION,
+        seq: ++this.seq,
+        ...this.textLanguage,
+      };
+      this.textLanguage = null;
+      this.send_(msg);
+      this.sent++;
+      sent++;
+    }
+    if (this.fonts) {
+      const msg: MirrorCommand = {
+        t: 'fonts',
+        v: MIRROR_PROTOCOL_VERSION,
+        seq: ++this.seq,
+        fonts: this.fonts,
+      };
+      this.fonts = null;
+      this.send_(msg);
+      this.sent++;
+      sent++;
+    }
+    if (this.images) {
+      const images = this.images;
+      this.images = null;
+      this.send_(
+        { t: 'images', v: MIRROR_PROTOCOL_VERSION, seq: ++this.seq, images },
+        images.map((i) => i.bitmap)
+      );
+      this.sent++;
+      sent++;
     }
     if (this.selectionIds) {
       const msg: MirrorCommand = {

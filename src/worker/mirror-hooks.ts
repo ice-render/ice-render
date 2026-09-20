@@ -19,7 +19,8 @@
  * 2. `ICE.addChild()` / `ICE.removeChild()` —— 顶层结构
  * 3. `ICEGroup.addChild()` / `ICEGroup.removeChild()` —— 容器内结构
  *
- * v1 里**结构变更不产生增量 op**，只把桥标成"需要全量重同步"（见 `MirrorBridge.recordStructureChange`）。
+ * v2 里结构变更也走**增量 op**（`add` / `remove`）；只有"拿不到可寻址信息"这类情况才退回
+ * 全量重同步（见 `MirrorBridge.recordStructureChange`）。
  */
 export function notifyStateChange(component: any, patch: any): void {
   const ice = component && component.ice;
@@ -33,6 +34,18 @@ export function notifyChildAdded(parent: any, child: any): void {
   const bridge = findBridge(parent, child);
   if (bridge) {
     bridge.recordStructureChange('add', parent, child);
+  }
+}
+
+/**
+ * 换父级（`adoptChild`）：它是一个**结构变更**，但既不是"新增"也不是"删除" ——
+ * 只报 add 的话镜像里旧父那份还在（同一棵树两个同 id 实例、双重绘制），
+ * 只报 remove 的话组件会凭空消失。所以单独一路。
+ */
+export function notifyChildMoved(previousParent: any, parent: any, child: any): void {
+  const bridge = findBridge(parent, child) || findBridge(previousParent, child);
+  if (bridge) {
+    bridge.recordStructureChange('move', parent, child);
   }
 }
 
@@ -113,6 +126,80 @@ export function isMirroredComponent(component: any): boolean {
     parent = parent.parentNode;
   }
   return true;
+}
+
+/**
+ * **解码好的图片位图**注册表（模块级：同一页里的多个 ICE 实例共用一份）。
+ *
+ * 为什么是模块级：镜像宿主在主线程解码一次，**主线程自己的渲染与 worker 都要用同一份解码结果** ——
+ * 两边各解码一次（`Image` vs `ImageBitmap`）在**缩放绘制**时会因重采样不同而差出几十/255
+ * （实测 185×182 缩到 72×72：770 像素、最大 93）。注册表让"主线程那份"与"发给 worker 那份"
+ * 是同一张图的两次 `createImageBitmap` 产物（实测逐点一致），于是缩放绘制也能逐点对齐。
+ *
+ * 有上限（`MAX_IMAGE_BITMAPS`）：这是缓存，不是无限账本；超了按最早入表的淘汰。
+ */
+const imageBitmaps = new Map<string, any>();
+const MAX_IMAGE_BITMAPS = 100;
+
+export function registerImageBitmap(url: string, bitmap: any): void {
+  if (!url || !bitmap) {
+    return;
+  }
+  if (imageBitmaps.has(url)) {
+    imageBitmaps.delete(url);
+  }
+  imageBitmaps.set(url, bitmap);
+  while (imageBitmaps.size > MAX_IMAGE_BITMAPS) {
+    const oldest = imageBitmaps.keys().next().value;
+    imageBitmaps.delete(oldest);
+  }
+}
+
+/** 取已解码的图片位图（`ImageCache.setImage()` 会先查它）。 */
+export function imageBitmapOf(url: string): any {
+  return url ? imageBitmaps.get(url) || null : null;
+}
+
+/** 清空注册表（测试用；生产里由上限淘汰）。 */
+export function clearImageBitmaps(): void {
+  imageBitmaps.clear();
+}
+
+/**
+ * 把**用到这张图的组件**标脏：它们在"图还没到"的那几帧里画的是空，必须重画一遍。
+ * 光置 `ice.dirty` 不够（组件自己不脏的话，脏矩形那条路不会重画它）。
+ */
+export function dirtyImageUsers(ice: any, key: string): void {
+  if (!ice || !key) {
+    return;
+  }
+  const walk = (nodes: any[]) => {
+    if (!nodes || !nodes.length) return;
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      if (node && node.state && node.state.src === key) {
+        node.dirty = true;
+      }
+      if (node && node.childNodes && node.childNodes.length) {
+        walk(node.childNodes);
+      }
+    }
+  };
+  walk(ice.childNodes);
+}
+
+/**
+ * 渲染用到了一张图片。
+ *
+ * 主线程：桥把 URL 交给宿主 → 宿主解码成 `ImageBitmap` → `images` 消息下发（见 `MirrorHost`）。
+ * worker：没有桥，什么都不做 —— worker 侧的 `ImageCache` 会先看"下发过没有"，没下发就返回未加载
+ *（等下一次下发后重画），不再抛 "没有 Image 构造器"。
+ */
+export function notifyImageRequest(ice: any, url: string): void {
+  const bridge = ice && ice.__mirrorBridge;
+  if (bridge && url) {
+    bridge.recordImageRequest(url);
+  }
 }
 
 /**

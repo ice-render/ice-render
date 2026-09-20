@@ -525,6 +525,17 @@ class ICE {
     if (markDirty) this.dirty = true;
     if (this.renderer) this.renderer.markQueueDirty();
 
+    /**
+     * 镜像钩子：结构变更（`['add', parentId, 子树文档]`，见 src/worker/MirrorBridge.ts）。
+     *
+     * ⚠️ **必须排在下面那句 `__reapplyPreset()` 之前**（2026-09-20 实测抓到）：
+     * 预设重写会顺手 `setState({style})`，而状态补丁与结构 op 是同一条**有序**队列 ——
+     * 顺序反了就是"worker 收到一个未知 id 的补丁" → `missing` → 全量重同步
+     *（症状：新建一个节点就重发整份文档，结构增量白做）。组件此刻已经进了 `childNodes`，
+     * 后面那些写状态的调用自然排在 add 之后，两者语义一致。
+     */
+    notifyChildAdded(this, component);
+
     // 实例级主题：同步一次 preset（见 addTool 中的说明）
     if (component && typeof component.__reapplyPreset === 'function') {
       component.__reapplyPreset(this.theme);
@@ -532,9 +543,6 @@ class ICE {
 
     this.evtBus.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD, null, { component: component });
     component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_ADD);
-
-    // 镜像钩子：结构变更（v1 只标记"需要全量重同步"，见 src/worker/MirrorBridge.ts）
-    notifyChildAdded(this, component);
   }
 
   public addChildren(arr: Array<ICEComponent>): void {

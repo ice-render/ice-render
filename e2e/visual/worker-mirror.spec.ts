@@ -5,7 +5,7 @@
  * 这条比"画面动起来了"强得多 —— 它同时钉住了：
  * ① 全量场景（`scene`）能把树完整搬过去（类型注册、派生参数、主题都在内）；
  * ② 状态增量（`ops`）与原树逐点等价（含点集这类派生参数、嵌套 `style` 深合并）；
- * ③ 结构变更走全量重同步之后，镜像依旧与原树一致。
+ * ③ 结构变更（加/删子节点）走**结构增量 op** 之后，镜像依旧与原树一致 —— 且**不重发整份文档**。
  *
  * 判据二：**交互仍然全部发生在主线程**，且镜像里能看到同样的反馈：
  *  - 命中检测按**可见画布**的矩形换算（夹具把画布刻意偏离页面左上角，坐标错了就点不中）；
@@ -17,6 +17,27 @@
  */
 import { test, expect } from '@playwright/test';
 
+/**
+ * 等"图片已经下发到 worker 并画进这一帧"。
+ *
+ * 图片是**异步**来的（主线程渲染发现用图 → 宿主 fetch + createImageBitmap → 消息 → worker 重画），
+ * 不等它就会出现"参考里有图、镜像里还没有"的假差异（实测 72×72 的图标 = 5061 个像素差）。
+ */
+async function waitForImages(page: any): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const s = (window as any).__stats();
+      // ① worker 收到下发的图；② 两边的 Image / ImageBitmap 都已解码（参考侧重建后也要等它）
+      return !!(s && s.last && s.last.appliedImages > 0) && (window as any).__imagesReady();
+    },
+    undefined,
+    { timeout: 20_000 }
+  );
+  const since: any = await page.evaluate(() => (window as any).__stats().frames);
+  await page.evaluate(() => (window as any).__host.paint());
+  await page.evaluate((f: number) => (window as any).__waitFrame(f), since);
+}
+
 interface MirrorCmp {
   diff: number;
   alphaDiff: number;
@@ -26,7 +47,7 @@ interface MirrorCmp {
   total: number;
 }
 
-test('worker 镜像：状态增量与结构重同步之后，画面与主线程参考逐像素一致', async ({ page }) => {
+test('worker 镜像：状态与结构增量之后，画面与主线程参考逐像素一致', async ({ page }) => {
   test.setTimeout(90_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 200)));
@@ -59,6 +80,17 @@ test('worker 镜像：状态增量与结构重同步之后，画面与主线程�
 
   const stats: any = await page.evaluate(() => (window as any).__stats());
   expect(stats.last.appliedOps, '镜像应当真的应用过状态补丁').toBeGreaterThan(0);
+  // 文本绘制语言：主画布写了 lang，worker 必须拿到同一口径（否则简/繁/日汉字字形会分叉）
+  expect(stats.last.textLang, `worker 侧文本语言应当与主画布一致：${JSON.stringify(stats.last)}`).toBe('zh-CN');
+  /**
+   * 五步里第 3 步"加子节点"、第 4 步"删子节点"走的是**结构增量 op**（v2 起）——
+   * 整轮只应当在启动时有过 1 次全量场景。这条是护栏：结构增量一退化回"重发整份文档"，
+   * 这里立刻红（此前每加/删一个节点都要重发整份文档 + worker 冷启动全量重绘）。
+   */
+  expect(stats.last.appliedScenes, `结构变更不应触发全量重同步：${JSON.stringify(stats.last)}`).toBe(1);
+  expect(stats.last.appliedAdds, '加子节点应当走 add op').toBeGreaterThan(0);
+  expect(stats.last.appliedImages, '场景里的图片应当被下发到 worker').toBeGreaterThan(0);
+  expect(stats.last.appliedRemoves, '删子节点应当走 remove op').toBeGreaterThan(0);
   expect(errors, '不应有页面/console 错误').toEqual([]);
 
   const line =
@@ -80,6 +112,7 @@ test('worker 镜像：输入留在主线程 —— 命中/选择/拖拽在镜像
   await page.goto('/examples/worker/mirror-render.html', { waitUntil: 'load' });
   await page.waitForFunction(() => (window as any).__ready(), undefined, { timeout: 20_000 });
 
+  await waitForImages(page);
   const frames = () => page.evaluate(() => (window as any).__stats().frames);
   const waitFrame = async (before: number) => {
     await page.evaluate((since: number) => (window as any).__waitFrame(since), before);
@@ -102,6 +135,7 @@ test('worker 镜像：输入留在主线程 —— 命中/选择/拖拽在镜像
   // ② worker 侧用**自己的**控制面板画出了手柄
   const panelPixels = await page.evaluate(() => (window as any).__panelPixels());
   expect(panelPixels, 'worker 画面里应当出现选择手柄').toBeGreaterThan(0);
+  await waitForImages(page); // 选中会重建参考树：它的图片要重新解码完再比
   const afterSelect: MirrorCmp = await page.evaluate(() => (window as any).__compare());
   expect(afterSelect.diff, `选中态逐像素一致：${JSON.stringify(afterSelect)}`).toBe(0);
 
@@ -145,4 +179,48 @@ test('worker 镜像：输入留在主线程 —— 命中/选择/拖拽在镜像
   const line = `mirror 交互：手柄像素=${panelPixels} 拖拽后差异=${afterDragCmp.diff} 已应用选择=${stats.last.appliedSelections}`;
   console.log(`[worker-mirror] ${line}`);
   test.info().annotations.push({ type: 'worker-mirror', description: line });
+});
+
+/**
+ * **直绘模式**（`?direct=1`，`transferControlToOffscreen`）：把可见画布整块交给 worker，
+ * 省掉每帧"位图回传 + 主线程合成"这一跳。
+ *
+ * 判据刻意落在**像素**上：两种传输路径必须画出一模一样的东西。直绘模式下主线程读不到那块画布
+ * （这正是它的代价），所以用页面级截图比对 —— PNG 编码对相同像素是确定的，逐字节相等即可证明。
+ */
+test('直绘模式：与位图模式画面逐字节一致，帧节拍照旧推进', async ({ browser }) => {
+  test.setTimeout(90_000);
+  const shot = async (query: string) => {
+    const page = await browser.newPage();
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 200)));
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.goto(`/examples/worker/mirror-render.html${query}`, { waitUntil: 'load' });
+    await page.waitForFunction(() => (window as any).__ready(), undefined, { timeout: 20_000 });
+    await page.waitForTimeout(400); // 静止下来，两边取的是同一张画面
+    await waitForImages(page); // 图也是异步到的：不等它，两条路径可能一个有一张没有
+    const info: any = await page.evaluate(() => ({
+      direct: (window as any).__directCanvas(),
+      frames: (window as any).__stats().frames,
+      hostActive: (window as any).__hostActive(),
+      renderedSeq: (window as any).__host.renderedSeq,
+    }));
+    const png = await page.locator('#view').screenshot();
+    await page.close();
+    return { info, png, errors };
+  };
+
+  const bitmap = await shot('');
+  const direct = await shot('?direct=1');
+
+  console.log(
+    `[worker-direct] 位图模式：frames=${bitmap.info.frames} seq=${bitmap.info.renderedSeq} png=${bitmap.png.length}B · ` +
+      `直绘模式：direct=${direct.info.direct} frames=${direct.info.frames} seq=${direct.info.renderedSeq} png=${direct.png.length}B`
+  );
+  expect(bitmap.info.direct, '位图模式不应当处于直绘').toBe(false);
+  expect(direct.info.direct, '?direct=1 应当真的把画布交给了 worker').toBe(true);
+  expect(direct.info.hostActive).toBe(true);
+  expect(direct.info.frames, '直绘模式下 worker 仍要按节拍出帧（水印照旧推进）').toBeGreaterThan(0);
+  expect(direct.errors, '直绘模式不应产生未捕获异常').toEqual([]);
+  expect(direct.png.equals(bitmap.png), '直绘与位图两条路径必须画出同一张画面').toBe(true);
 });

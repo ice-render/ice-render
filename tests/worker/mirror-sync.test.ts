@@ -38,6 +38,7 @@ import Deserializer from '../../src/persistence/Deserializer';
 import MirrorBridge from '../../src/worker/MirrorBridge';
 import MirrorTarget from '../../src/worker/MirrorTarget';
 import { notifyToolTarget, isMirroredComponent } from '../../src/worker/mirror-hooks';
+import { MIRROR_PROTOCOL_VERSION } from '../../src/worker/mirror-protocol';
 
 /**
  * 复合组件：内部子件（这里用矩形代指"底 / 标题 / 角标"）按 state 派生，**不进文档**
@@ -147,7 +148,7 @@ function makeHarness(): Harness {
       if (msg.t === 'scene' || msg.t === 'ops') applied++;
       // 注意 `[]` 是 truthy：必须判长度，否则空 missing 会被当成"缺组件"，触发一次白重发
       if (result && result.missing && result.missing.length) {
-        bridge.handleEvent({ t: 'missing', v: 1, seq: msg.seq, ids: result.missing });
+        bridge.handleEvent({ t: 'missing', v: MIRROR_PROTOCOL_VERSION, seq: msg.seq, ids: result.missing });
       }
     }
     return { applied };
@@ -232,32 +233,112 @@ describe('MirrorBridge ↔ MirrorTarget 等价性', () => {
     expect(h.target.get(rect.props.id).state.top).toBe(2);
   });
 
-  it('结构变更走全量重同步（v1 边界）：增删子节点之后发的是 scene，不是 ops', () => {
+  it('结构增量：加子节点发 add op（不再重发整份文档），应用后两侧一致', () => {
     const h = makeHarness();
     const { group } = buildTree(h.main);
     h.bridge.flush();
     h.deliver();
+    h.sent.length = 0;
 
     const extra = new ICERect({ left: 90, top: 5, width: 20, height: 20 });
     group.addChild(extra);
-    // 结构变更之后再叠一次状态变更：两者要在同一批里被 scene 覆盖
-    extra.setState({ left: 95 });
+    h.bridge.flush();
+
+    // 结构增量：一条 add op 就够（老行为是整份 scene：200 节点场景 473KB + worker 冷启动全量重绘）
+    expect(h.sent).toHaveLength(1);
+    expect(h.sent[0].t).toBe('ops');
+    expect(h.sent[0].ops[0][0]).toBe('add');
+    h.deliver();
+
+    h.expectSameTree();
+    expect(h.target.has(extra.props.id)).toBe(true);
+  });
+
+  it('结构增量：删子节点发 remove op（不再重发整份文档），应用后两侧一致', () => {
+    const h = makeHarness();
+    const { group, circle } = buildTree(h.main);
+    h.bridge.flush();
+    h.deliver();
+    h.sent.length = 0;
+
+    group.removeChild(circle);
+    h.bridge.flush();
+
+    expect(h.sent).toHaveLength(1);
+    expect(h.sent[0].t).toBe('ops');
+    expect(h.sent[0].ops[0][0]).toBe('remove');
+    h.deliver();
+
+    h.expectSameTree();
+    expect(h.target.has(circle.props.id)).toBe(false);
+  });
+
+  it('换父级（adoptChild）走单条 move op：镜像里不会留下重复挂载的旧副本', () => {
+    const h = makeHarness();
+    const a = new ICEGroup({ left: 0, top: 0, width: 100, height: 100 });
+    const b = new ICEGroup({ left: 200, top: 0, width: 100, height: 100 });
+    const child = new ICERect({ left: 10, top: 10, width: 20, height: 20 });
+    h.main.addChild(a);
+    h.main.addChild(b);
+    a.addChild(child);
+    h.bridge.flush();
+    h.deliver();
+    h.expectSameTree();
+
+    h.sent.length = 0;
+    b.adoptChild(child);
+    h.bridge.flush();
+
+    // 换父级 = 一条 move op（旧父摘除 + 新父挂上）。只发 add 的话，镜像里旧父下面那份还在 →
+    // 同一棵树里出现两个同 id 实例（双重绘制，后续状态补丁只更新其中一个）。
+    expect(h.sent[0].ops.map((op: any) => op[0])).toEqual(['move']);
+    h.deliver();
+
+    h.expectSameTree();
+    const countInstances = (nodes: any[]): number => {
+      let n = 0;
+      for (const node of nodes || []) {
+        if (node.props && node.props.id === child.props.id) n++;
+        n += countInstances(node.childNodes || []);
+      }
+      return n;
+    };
+    expect(countInstances(h.mirror.childNodes)).toBe(1);
+  });
+
+  it('退回全量：宿主显式要求（resyncOnStructureChange）时结构变更仍走 scene', () => {
+    const main = makeIce();
+    const mirror = makeIce();
+    const sent: any[] = [];
+    const bridge = new MirrorBridge(main, { send: (msg) => sent.push(msg), resyncOnStructureChange: true });
+    const target = new MirrorTarget(mirror);
+    const group = new ICEGroup({ left: 10, top: 20, width: 200, height: 120 });
+    main.addChild(group);
+    bridge.flush();
+    for (const msg of sent.splice(0, sent.length)) target.applyCommand(msg);
+
+    const extra = new ICERect({ left: 90, top: 5, width: 20, height: 20 });
+    group.addChild(extra);
+    bridge.flush();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].t).toBe('scene');
+  });
+
+  it('退回全量：子组件拿不到可寻址的 id 时（应用自造对象）仍走 scene', () => {
+    const h = makeHarness();
+    const { group } = buildTree(h.main);
+    h.bridge.flush();
+    h.deliver();
+    h.sent.length = 0;
+
+    // 没有 props.id / state.id 的组件在镜像里无法寻址 —— 宁可重发整份文档，也不能让结构错位
+    const anonymous: any = new ICERect({ left: 90, top: 5, width: 20, height: 20 });
+    delete anonymous.props.id;
+    delete anonymous.state.id;
+    group.addChild(anonymous);
     h.bridge.flush();
     expect(h.sent).toHaveLength(1);
     expect(h.sent[0].t).toBe('scene');
-    h.deliver();
-
-    h.expectSameTree();
-    expect(h.target.size).toBe(4);
-    expect(h.target.has(extra.props.id)).toBe(true);
-
-    // 删除同理
-    group.removeChild(extra);
-    h.bridge.flush();
-    expect(h.sent[0].t).toBe('scene');
-    h.deliver();
-    h.expectSameTree();
-    expect(h.target.has(extra.props.id)).toBe(false);
   });
 
   it('自愈：镜像报 missing → 桥重排全量，下一批发 scene', () => {
@@ -271,7 +352,7 @@ describe('MirrorBridge ↔ MirrorTarget 等价性', () => {
     expect(result.missing).toEqual(['ICE_not_exist']);
     expect(result.applied).toBe(0);
 
-    h.bridge.handleEvent({ t: 'missing', v: 1, seq: 1, ids: ['ICE_not_exist'] });
+    h.bridge.handleEvent({ t: 'missing', v: MIRROR_PROTOCOL_VERSION, seq: 1, ids: ['ICE_not_exist'] });
     h.bridge.flush();
     expect(h.sent).toHaveLength(1);
     expect(h.sent[0].t).toBe('scene');
@@ -328,7 +409,7 @@ describe('MirrorBridge ↔ MirrorTarget 等价性', () => {
     expect(h.sent.map((m) => m.t)).not.toContain('scene');
   });
 
-  it('真实子节点的增删照旧走全量重同步（派生子件判定不能把真子节点也吞掉）', () => {
+  it('复合容器的真实子节点：增删走结构增量（派生子件判定不能把它误判成内部重建）', () => {
     const h = makeHarness();
     registerFixtures(h);
     const pool = new CompositeContainer();
@@ -344,18 +425,68 @@ describe('MirrorBridge ↔ MirrorTarget 等价性', () => {
 
     h.sent.length = 0;
     h.bridge.flush();
-    expect(h.sent[0].t).toBe('scene');
+    expect(h.sent[0].t).toBe('ops');
+    expect(h.sent[0].ops[0][0]).toBe('add');
     h.deliver();
     h.expectSameTree();
     expect(h.target.has(lane.props.id)).toBe(true);
 
-    // 删除同样必须重同步：判定发生在**摘除之前**（摘除后再问"它是不是真实子节点"就分辨不出来了）
+    // 删除同样走增量：判定发生在**摘除之前**（摘除后再问"它是不是真实子节点"就分辨不出来了）
+    h.sent.length = 0;
     pool.removeChild(lane);
     h.bridge.flush();
-    expect(h.sent[0].t).toBe('scene');
+    expect(h.sent[0].t).toBe('ops');
+    expect(h.sent[0].ops[0][0]).toBe('remove');
     h.deliver();
     h.expectSameTree();
     expect(h.target.has(lane.props.id)).toBe(false);
+  });
+
+  it('add 必须排在该组件自己的状态补丁之前（预设重写会顺手写 state：顺序反了就是 missing → 全量重同步）', () => {
+    // 真实来源：`ICE.addChild()` 会先 `component.__reapplyPreset(theme)`（写 style），
+    // 再通知镜像钩子 —— 于是同一批里"未知 id 的 state 补丁"排在"add"前面，
+    // worker 只能报 missing（实测：IED 新建一个节点就触发一次全量重同步）。
+    class PresetComponent extends ICERect {
+      public __reapplyPreset(): void {
+        this.setState({ style: { fillStyle: '#123456' } });
+      }
+    }
+    const h = makeHarness();
+    // 应用自定义图元要在**两侧**都注册（worker 那台 ICE 没有 Designer 帮忙注册；镜像按 typeId 反查）
+    h.main.registerType('test:PresetComponent', PresetComponent);
+    h.mirror.registerType('test:PresetComponent', PresetComponent);
+    const { group } = buildTree(h.main);
+    h.bridge.flush();
+    h.deliver();
+    h.sent.length = 0;
+
+    const extra = new PresetComponent({ left: 70, top: 4, width: 20, height: 20 });
+    h.main.addChild(extra); // 走 ICE.addChild：它会先 __reapplyPreset（写 state）再通知钩子
+    h.bridge.flush();
+
+    expect(h.sent[0].ops.map((op: any) => op[0])).toEqual(['add', 'state']);
+    h.deliver();
+    h.expectSameTree();
+    expect(h.target.get(extra.props.id).state.style.fillStyle).toBe('#123456');
+  });
+
+  it('结构增量的顺序与状态补丁一致：先 add 再写 state，worker 两边结果相同', () => {
+    const h = makeHarness();
+    const { group } = buildTree(h.main);
+    h.bridge.flush();
+    h.deliver();
+    h.sent.length = 0;
+
+    const extra = new ICERect({ left: 90, top: 5, width: 20, height: 20 });
+    group.addChild(extra);
+    extra.setState({ left: 123 });
+    h.bridge.flush();
+    expect(h.sent).toHaveLength(1);
+    // 同一条 ops 消息里：add 在前、state 在后（顺序反了就是"先写状态、再挂一个旧状态的组件"）
+    expect(h.sent[0].ops.map((op: any) => op[0])).toEqual(['add', 'state']);
+    h.deliver();
+    h.expectSameTree();
+    expect(h.target.get(extra.props.id).state.left).toBe(123);
   });
 
   it('镜像侧用应用层自己的补丁入口重放（applyPatch 有实现走它，没有则退回 setState）', () => {
@@ -513,9 +644,9 @@ describe('MirrorBridge ↔ MirrorTarget 等价性', () => {
     h.deliver();
     expect(h.mirror.viewport.scale).toBeCloseTo(0.6, 6);
 
-    // 结构变更 → 全量场景（新树视口回到默认）→ 同一条 flush 里补发视口与选择
+    // 显式要一次全量场景（新树视口回到默认）→ 同一条 flush 里补发视口与选择
     notifyToolTarget(h.main, rect);
-    group.addChild(new ICECircle({ left: 1, top: 1, radius: 5 }));
+    h.bridge.markSceneNeeded();
     h.bridge.flush();
     expect(h.sent.map((m) => m.t)).toEqual(['scene', 'selection', 'viewport']);
     h.deliver();
@@ -533,8 +664,8 @@ describe('MirrorBridge ↔ MirrorTarget 等价性', () => {
     h.deliver();
     expect(h.mirror.selectionList.map((c: any) => c.props.id)).toEqual([rect.props.id]);
 
-    // 结构变更 → pendingScene；此时选择虽然"没变"，也必须跟着重建后的树补一次
-    group.addChild(new ICECircle({ left: 1, top: 1, radius: 5 }));
+    // 全量重建 → pendingScene；此时选择虽然"没变"，也必须跟着重建后的树补一次
+    h.bridge.markSceneNeeded();
     h.bridge.flush();
     // 顺序固定：scene → selection
     expect(h.sent.map((m) => m.t)).toEqual(['scene', 'selection']);

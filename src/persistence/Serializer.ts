@@ -151,6 +151,24 @@ export default class Serializer {
     }
   }
 
+  /**
+   * 序列化**单个组件子树**（不带文档外壳：没有 `version` / `createTime` / `theme` / 根 `childNodes`）。
+   *
+   * 与整份文档走**同一条编码路径**（typeId 注册表、派生件跳过、zIndex 口径、布局策略都在内），
+   * 差别只是不带"整份文档"的元信息 —— 镜像的**结构增量 op**（`['add', parentId, nodeDoc]`）就是它。
+   *
+   * @returns 子树文档；组件为空时返回 null（调用方据此退回全量重同步）
+   */
+  public encodeSubtree(component: any): any {
+    if (!component) {
+      return null;
+    }
+    this._unregisteredTypes = [];
+    const holder: any = { childNodes: [] };
+    this.encodeRecursively(component, holder);
+    return holder.childNodes[0] || null;
+  }
+
   //递归序列化  //递归序列化
   private encodeRecursively(component, parentData) {
     // 优先用注册表反查稳定 typeId（与类名解耦，压缩改名不破坏数据）；

@@ -10,13 +10,19 @@
 >   `src/worker/mirror-protocol.ts` / `MirrorBridge` / `MirrorTarget`，参考宿主见
 >   `examples/worker/mirror-render.html` + `mirror-worker.js`，回归 `e2e/visual/worker-mirror.spec.ts`
 >   （状态增量 / 结构重同步之后，worker 画面与主线程参考**逐像素 0 差异**）。
->   **v1 边界**：状态走增量补丁，**结构变更走全量重同步**。
+>   **协议现状（v2）**：状态与结构**都走增量**（`state` / `add` / `remove`），全量 `scene` 只作兜底与自愈。
+>   v1 的"结构变更走全量重同步"已作废：实测加一个节点从 **485 924 B** 降到 **1 037 B**（≈470×），
+>   并省掉 worker 侧一次整树重建 + 冷启动全量重绘（那一帧 130~161ms）。
 > - **阶段二第二块** = 让真实应用能接上：**输入永远在主线程**（DOM 事件、命中检测、拖拽都不跨线程），
 >   主线程改走"几何通道"（跑渲染管线但不产出像素）以维持命中检测依赖的世界盒；
 >   工具层按**选择**镜像 —— worker 用**自己的**控制面板画手柄。参考宿主 `MirrorHost`，
 >   回归 `e2e/visual/worker-mirror.spec.ts` 的交互用例（点选 / 拖拽 / 空点隐藏手柄，逐像素 0 差异）。
-> - **仍未做**：结构增量协议（增删子树的 op）、输入转发、字体/图片下发（worker 内文本的 `lang`/字形
->   口径与主线程可能分叉）。引擎的**默认**渲染仍是主线程；worker 渲染要宿主显式接线。
+> - **仍未做**：把补间搬进 worker（实测收益很小：1000 个动画组件每帧只 0.19ms / 68KB，
+>   且会让主线程状态在动画期间陈旧 —— 命中检测/面板读旧值）。
+> - **有意不做**：**输入转发**（把原生事件也透给 worker）。输入永远留在主线程是这套架构的地基
+>   （命中检测读渲染期世界盒快照，见 §3.1），worker 侧没有任何消费方；真出现"worker 内交互元素"
+>   的需求时再单独设计，而不是先塞一条通道进来。
+>   引擎的**默认**渲染仍是主线程；worker 渲染要宿主显式接线。
 > 小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
 
 ## 1. 目标与边界
@@ -38,7 +44,9 @@
 | 命中/坐标换算用 `getBoundingClientRect` | `DOMEventDispatcher` | 命中在主线程算（保持命中检测铁律） |
 | `global`/`window` 探测 | `cross-platform/root.ts` | ✅ **已解决（阶段一）**：取根改为 `globalThis` —— 浏览器 window / worker self / Node global 同一个入口，宿主不再需要伪造全局 |
 | 离屏 canvas | `root.createOffscreenCanvas` | ✅ **已解决（阶段一）**：有 document 时用 `<canvas>`（保住 `lang`/`dir` 的字形口径），没有则用 `new OffscreenCanvas(w,h)`（worker 分支） |
-| 文本字形语言（`lang`/`dir`） | 主画布元素属性 | ⚠️ worker 里拿不到主画布的 `lang` → CJK 字形可能与主线程分叉；v0 结论是文本口径留在主线程（见 §1 边界） |
+| 文本字形语言（`lang`/`dir`） | 主画布元素属性 | ✅ **已解决（协议下发）**：宿主把主画布的 `lang`/`dir` 随 `text` 消息推给 worker，`MirrorTarget.applyText()` 落到 worker 的 `ctx` 与 `root.textLanguage` —— 后者让**组件缓存 / 静态层的每一张离屏画布**也继承同一口径（少了它，缓存里的汉字字形会与主画布分叉） |
+| 字体 | `ICE.loadFont()`（`FontFace` + `document.fonts`） | ✅ **已下发**：宿主在主线程把字体字节取好（`MirrorHost` 的 `fonts` 选项），`fonts` 消息推给 worker，worker 用自己的 `FontFace` + `self.fonts` 注册；运行时不支持时如实报 `fontErrors`、不抛 |
+| 图片 | `ImageCache` 的 `Image` + `onload` | ✅ **已下发**：worker 里没有 `Image` 构造器（带图片的树以前会整棵退回主线程 —— 实测加一个 `ICEImage` 就 `hostActive: false`）。链路：主线程渲染发现用图 → 宿主 `fetch` + `createImageBitmap` **解码两份**（一份注册给本页所有 ICE、一份随 transfer 给 worker）→ worker 直接用；同一 URL 只处理一次，未到达时返回"未加载"**不抛**。⚠️ 曾经的边界（缩放绘制时 `Image` 与 `ImageBitmap` 重采样不同）**已消除**：两边画的都是解码好的位图（两次 `createImageBitmap` 实测逐点一致），且位图在路上时主线程**不先退回 `Image`**（避免到达那一帧像素跳变）
 
 ## 3. 架构分层
 
@@ -78,13 +86,34 @@
    复合组件的派生子件（按 state 重建的底 / 标题 / 角标）不进文档，主线程对它们的写入在 worker 侧
    没有对应 id：发过去只会换来 `missing` → 全量重同步（实测每改一次节点就重发 473KB）。
    这类写入**不镜像、只计数**（`MirrorBridge.skippedDerived`）；镜像里那份派生件靠**重放容器的
-   `applyPatch`** 重建（见下一条）。同理，落在派生子树里的**结构变更**（容器重建自己）也不触发
-   全量重同步 —— 而真实子节点（`getSerializableChildren()` 声明的那些）增删照旧走全量。
+   `applyPatch`** 重建（见下一条）。同理，落在派生子树里的**结构变更**（容器重建自己）也不镜像 ——
+   而真实子节点（`getSerializableChildren()` 声明的那些）增删走**结构增量 op**（见下一条）。
 6. **补丁按应用层入口重放**：worker 收到 `ops` 后走 `component.applyPatch()`（引擎基类默认 =
    `setState`，应用层可以覆盖它做派生：重建内部部件、重算连线、把老属性规范化到新位置），
    而不是裸 `setState`。这样"派生逻辑跟着代码走，不跟着数据走"——两边跑同一份代码，
    不需要把派生结果跨线程搬运。
-7. **帧节拍必须有背压**：worker 一帧要几毫秒，主线程按 rAF / 交互节奏每毫秒都能发一帧 ——
+7. **结构变更也走增量**（协议 v2）：`add` / `remove` / `move` 各一条 op（`move` = 换父级，`adoptChild`
+   的镜像语义：不销毁组件、坐标不换算；只报 `add` 的话镜像里旧父那份还在 —— 同一棵树两个同 id 实例） —— `add` 带一棵**子树文档**
+   （`Serializer.encodeSubtree()` 的产物，与整份文档同一条编码路径），`remove` 只带 id；
+   worker 侧用 `Deserializer.decodeInto()` 挂上去、并维护 id 索引（`appliedAdds/appliedRemoves`）。
+   实测（IED 200 节点 / 800+ 组件）"新建一个节点"：**1037 B、0 次全量重同步、worker 那一帧 6.3ms**，
+   对比老口径的 **485 924 B（474KB）、1 次全量重同步、worker 那一帧 125ms**；端到端 166ms → 10ms。
+   全量 `scene` 退化为**兜底与自愈**：拿不到可寻址的 id / 父容器不可寻址 / 子树编码失败 /
+   worker 报 `missing` / 宿主显式要求（`resyncOnStructureChange: true`）。
+   ⚠️ 结构 op 与状态补丁是**同一条有序队列**，因此 `addChild` 的镜像钩子必须排在
+   `__reapplyPreset()`（会顺手写 `style`）与 `doLayout()`（会写 `left/top`）**之前** ——
+   顺序反了就是"worker 收到未知 id 的补丁" → `missing` → 全量重同步，结构增量白做
+   （2026-09-20 由 IED 的真实操作抓到，单测已钉住）。
+8. **文本与图片的口径都必须跟着走**：`lang`/`dir`（汉字简/繁/日字形）、**字体字节**、**图片位图**
+都随协议下发 —— 宿主从主画布读语言、把字体取成字节、把图片解码成 `ImageBitmap`，
+worker 用自己的 `ctx` / `FontFace` / 图片注册表落地。少了任何一样，"缓存 / 静态层与主画布
+逐像素一致"这条承诺都会破（图片那条以前更严重：worker 里没有 `Image` 构造器，整棵镜像会退回主线程）。
+
+**直绘模式（可选）**：`transferCanvas: true` 时宿主把显示画布 `transferControlToOffscreen()` 交给
+worker（worker 直接往它上面画、不再回传位图），代价是主线程读不到那块画布；前置是"显示画布必须
+还没有 2d 上下文"，因此引擎要 init 在叠放着的输入/量测层上（参考宿主 `?direct=1`）。
+
+**帧节拍必须有背压**：worker 一帧要几毫秒，主线程按 rAF / 交互节奏每毫秒都能发一帧 ——
    不设上限的话 `frame` 消息会越排越多（实测 30 帧基准积压 200+ 条），镜像滞后无上界、
    期间画的还是过时状态。做法是**至多一帧在途**："还想画"只记一个标记，等位图回来立刻补一帧
    （补的是最新状态）。宿主判断"静止态"用 `MirrorHost.renderedSeq` 与
@@ -94,14 +123,14 @@
 
 | 方案 | 说明 | 结论 |
 |---|---|---|
-| `transferControlToOffscreen` | 主线程把 canvas 控制权交给 worker；主线程失去 2D ctx | 影响主线程命中/测量；首版不采用 |
+| `transferControlToOffscreen`（**已落地，opt-in**） | 主线程把 canvas 控制权交给 worker；主线程失去这块画布的 2D ctx | 用 `MirrorHost({ transferCanvas: true })` 开启：省掉每帧"位图回传 + 主线程合成"。两条前置：① 那块**显示画布必须还没有 2d 上下文**（`getContext` 调过一次就转移不出去）——所以引擎要 init 在**另一块**"输入/量测层"上（参考宿主 `?direct=1` 的双画布布局）；② 开启后主线程读不到像素（截图要用页面级）。与位图模式**逐字节同画面**（e2e 用 PNG 比对） |
 | **`transferToImageBitmap` + `ImageBitmapRenderingContext`（推荐初版）** | worker 每帧 OffscreenCanvas → 位图 → 主线程 `transferFromImageBitmap` 展示 | 主线程保 ctx；位图传输开销小；实现简单 |
 
-消息协议（draft）：
+消息协议（v2；`frame` 带 `seq`，见 §5 与 `MirrorHost.renderedSeq`）：
 ```
-主线程 → worker: { t:'scene', v, seq, doc, dropped? }      // 全量（首次 / 结构变更后）
-                | { t:'ops',   v, seq, ops:[['state', id, patch]] }   // 状态增量
-                | { t:'frame', v, time }                    // 节拍（用主线程的时间戳）
+主线程 → worker: { t:'scene', v, seq, doc, dropped? }      // 全量（首次 / 兜底 / 自愈）
+                | { t:'ops',   v, seq, ops:[...] }           // 增量：['state',id,patch] | ['add',parentId,子树文档] | ['remove',id]
+                | { t:'frame', v, seq, time }                // 节拍（用主线程的时间戳）
                 | { t:'resize', v, width, height }
 worker  → 主线程: { t:'ready',   v, caps }
                 | { t:'rendered', v, seq, stats }           // 位图走 transfer（宿主自己收）
@@ -192,7 +221,9 @@ worker 化天然是 **web-only**，所以"起不来怎么办"必须是机制的�
 | 端到端延迟（改状态 → 位图回来） | —— | **7.0 ms** | 约一帧量级，这是镜像方案的真实代价 |
 | 静止态几何对账 | —— | **399/399 逐项相等** | 每个节点的世界盒 + 连线两端点 |
 | 静止态像素（worker vs 文档重建 / vs 主线程源树） | —— | **0 差异 / 558000 像素 0 差异** | 含节点标题与连线标签（文字栅格化） |
-| 全量场景体积 | —— | 473 KB | 只在结构变更时发；状态走增量补丁 |
+| 全量场景体积 | —— | 473 KB | 只在首次 / 兜底 / 自愈时发 |
+| **落墨占比**（三档护栏：主线程 / 几何通道 / 镜像） | 1.90 ms | 1.20 / **1.20 ms** | 落墨占主线程那一帧 **37%** —— 这就是镜像能省的**上界**（`e2e/worker-mirror.spec.ts` 的"落墨占比三档"用例钉住区间） |
+| 加一个节点的代价（v2 结构增量） | 485 924 B · 1 次全量重同步 · worker 那一帧 125ms | **1 037 B · 0 次重同步 · 6.3ms** | 端到端 166ms → 10ms |
 
 规模趋势（`?nodes=40/120/250/400`）：主线程每帧 0.50/1.20/2.30/4.50 ms → 0.30/0.80/1.50/3.00 ms，
 **省 31%~46%**。

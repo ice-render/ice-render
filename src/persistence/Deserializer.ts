@@ -183,6 +183,24 @@ export default class Deserializer {
   }
 
   /**
+   * 反序列化**单个子树文档**并挂到指定父节点上（容器组件，或 `ICE` 根本身）。
+   *
+   * 与整份文档走**同一套还原逻辑**（类型注册表、`getSerializableChildren()` 例外、布局还原都在内），
+   * 编码侧对应 `Serializer.encodeSubtree()`；镜像的**结构增量 op** 就靠这对入口，
+   * 不必为"加一个节点"重发整份文档（200 节点场景 473KB + worker 冷启动全量重绘）。
+   *
+   * @param parentNode 目标父组件（或 `ICE` 实例）
+   * @param nodeData   `Serializer.encodeSubtree()` 的产物（`{ type, state, childNodes, layout }`）
+   * @returns 挂上去的实例；类型未注册时返回 null（并记进 `unknownTypes`，与整份加载同一口径）
+   */
+  public decodeInto(parentNode: any, nodeData: any): any {
+    if (!parentNode || !nodeData) {
+      return null;
+    }
+    return this.decodeRecursively(parentNode, nodeData);
+  }
+
+  /**
    * 递归反序列化。
    *
    * 容错：遇到未注册的类型时**跳过该节点（含其子树）并记录**，而不是抛错终止整图加载

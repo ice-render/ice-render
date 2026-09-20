@@ -208,7 +208,8 @@ export { default as FrameManager } from './FrameManager';
  *
  * 分工：**主线程持有组件树与状态**（唯一真相，命中检测也留在主线程），worker 持有一棵**镜像树** +
  * `CanvasRenderer` + `OffscreenCanvas`，只负责把当前状态画出来、把位图传回去。
- * v1 边界：**状态走增量补丁，结构变更走全量重同步**（见 `src/worker/mirror-protocol.ts` 的头注释）。
+ * 协议 v2：**状态与结构都走增量**（`state` / `add` / `remove` 三种 op），全量 `scene` 退化为
+ * 兜底与自愈（见 `src/worker/mirror-protocol.ts` 的头注释）。
  */
 export { default as MirrorBridge } from './worker/MirrorBridge';
 export type { MirrorBridgeOptions, MirrorSend } from './worker/MirrorBridge';
