@@ -41,7 +41,8 @@
 | 命中/坐标换算用 `getBoundingClientRect` | `DOMEventDispatcher` | 命中在主线程算（保持命中检测铁律） |
 | `global`/`window` 探测 | `cross-platform/root.ts` | ✅ **已解决（阶段一）**：取根改为 `globalThis` —— 浏览器 window / worker self / Node global 同一个入口，宿主不再需要伪造全局 |
 | 离屏 canvas | `root.createOffscreenCanvas` | ✅ **已解决（阶段一）**：有 document 时用 `<canvas>`（保住 `lang`/`dir` 的字形口径），没有则用 `new OffscreenCanvas(w,h)`（worker 分支） |
-| 文本字形语言（`lang`/`dir`） | 主画布元素属性 | ⚠️ worker 里拿不到主画布的 `lang` → CJK 字形可能与主线程分叉；v0 结论是文本口径留在主线程（见 §1 边界） |
+| 文本字形语言（`lang`/`dir`） | 主画布元素属性 | ✅ **已解决（协议下发）**：宿主把主画布的 `lang`/`dir` 随 `text` 消息推给 worker，`MirrorTarget.applyText()` 落到 worker 的 `ctx` 与 `root.textLanguage` —— 后者让**组件缓存 / 静态层的每一张离屏画布**也继承同一口径（少了它，缓存里的汉字字形会与主画布分叉） |
+| 字体 | `ICE.loadFont()`（`FontFace` + `document.fonts`） | ✅ **已下发**：宿主在主线程把字体字节取好（`MirrorHost` 的 `fonts` 选项），`fonts` 消息推给 worker，worker 用自己的 `FontFace` + `self.fonts` 注册；运行时不支持时如实报 `fontErrors`、不抛。**图片仍未做**（图片链路是 `ImageCache` 的 `Image` + `onload`，worker 里要用 `createImageBitmap` 另开一条解码路径） |
 
 ## 3. 架构分层
 
@@ -91,14 +92,22 @@
    （`Serializer.encodeSubtree()` 的产物，与整份文档同一条编码路径），`remove` 只带 id；
    worker 侧用 `Deserializer.decodeInto()` 挂上去、并维护 id 索引（`appliedAdds/appliedRemoves`）。
    实测（IED 200 节点 / 800+ 组件）"新建一个节点"：**1037 B、0 次全量重同步、worker 那一帧 6.3ms**，
-   对比老口径的 **485 924 B（474KB）、1 次全量重同步、worker 那一帧 161ms**；端到端 192ms → 53ms。
+   对比老口径的 **485 924 B（474KB）、1 次全量重同步、worker 那一帧 125ms**；端到端 166ms → 10ms。
    全量 `scene` 退化为**兜底与自愈**：拿不到可寻址的 id / 父容器不可寻址 / 子树编码失败 /
    worker 报 `missing` / 宿主显式要求（`resyncOnStructureChange: true`）。
    ⚠️ 结构 op 与状态补丁是**同一条有序队列**，因此 `addChild` 的镜像钩子必须排在
    `__reapplyPreset()`（会顺手写 `style`）与 `doLayout()`（会写 `left/top`）**之前** ——
    顺序反了就是"worker 收到未知 id 的补丁" → `missing` → 全量重同步，结构增量白做
    （2026-09-20 由 IED 的真实操作抓到，单测已钉住）。
-8. **帧节拍必须有背压**：worker 一帧要几毫秒，主线程按 rAF / 交互节奏每毫秒都能发一帧 ——
+8. **文本口径必须跟着走**：`lang`/`dir`（汉字简/繁/日字形）与**字体字节**都随协议下发 ——
+宿主从主画布读语言、把字体取成字节，worker 用自己的 `ctx` 与 `FontFace` 落地。
+字符栅格化两边一致，"缓存 / 静态层与主画布逐像素一致"这条承诺才守得住。
+
+**直绘模式（可选）**：`transferCanvas: true` 时宿主把显示画布 `transferControlToOffscreen()` 交给
+worker（worker 直接往它上面画、不再回传位图），代价是主线程读不到那块画布；前置是"显示画布必须
+还没有 2d 上下文"，因此引擎要 init 在叠放着的输入/量测层上（参考宿主 `?direct=1`）。
+
+**帧节拍必须有背压**：worker 一帧要几毫秒，主线程按 rAF / 交互节奏每毫秒都能发一帧 ——
    不设上限的话 `frame` 消息会越排越多（实测 30 帧基准积压 200+ 条），镜像滞后无上界、
    期间画的还是过时状态。做法是**至多一帧在途**："还想画"只记一个标记，等位图回来立刻补一帧
    （补的是最新状态）。宿主判断"静止态"用 `MirrorHost.renderedSeq` 与
@@ -108,7 +117,7 @@
 
 | 方案 | 说明 | 结论 |
 |---|---|---|
-| `transferControlToOffscreen` | 主线程把 canvas 控制权交给 worker；主线程失去 2D ctx | 影响主线程命中/测量；首版不采用 |
+| `transferControlToOffscreen`（**已落地，opt-in**） | 主线程把 canvas 控制权交给 worker；主线程失去这块画布的 2D ctx | 用 `MirrorHost({ transferCanvas: true })` 开启：省掉每帧"位图回传 + 主线程合成"。两条前置：① 那块**显示画布必须还没有 2d 上下文**（`getContext` 调过一次就转移不出去）——所以引擎要 init 在**另一块**"输入/量测层"上（参考宿主 `?direct=1` 的双画布布局）；② 开启后主线程读不到像素（截图要用页面级）。与位图模式**逐字节同画面**（e2e 用 PNG 比对） |
 | **`transferToImageBitmap` + `ImageBitmapRenderingContext`（推荐初版）** | worker 每帧 OffscreenCanvas → 位图 → 主线程 `transferFromImageBitmap` 展示 | 主线程保 ctx；位图传输开销小；实现简单 |
 
 消息协议（v2；`frame` 带 `seq`，见 §5 与 `MirrorHost.renderedSeq`）：
@@ -207,7 +216,7 @@ worker 化天然是 **web-only**，所以"起不来怎么办"必须是机制的�
 | 静止态几何对账 | —— | **399/399 逐项相等** | 每个节点的世界盒 + 连线两端点 |
 | 静止态像素（worker vs 文档重建 / vs 主线程源树） | —— | **0 差异 / 558000 像素 0 差异** | 含节点标题与连线标签（文字栅格化） |
 | 全量场景体积 | —— | 473 KB | 只在首次 / 兜底 / 自愈时发 |
-| 加一个节点的代价（v2 结构增量） | 485 924 B · 1 次全量重同步 · worker 那一帧 161ms | **1 037 B · 0 次重同步 · 6.3ms** | 端到端 192ms → 53ms |
+| 加一个节点的代价（v2 结构增量） | 485 924 B · 1 次全量重同步 · worker 那一帧 125ms | **1 037 B · 0 次重同步 · 6.3ms** | 端到端 166ms → 10ms |
 
 规模趋势（`?nodes=40/120/250/400`）：主线程每帧 0.50/1.20/2.30/4.50 ms → 0.30/0.80/1.50/3.00 ms，
 **省 31%~46%**。

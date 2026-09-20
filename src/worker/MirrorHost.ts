@@ -5,9 +5,11 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
+import root from '../cross-platform/root';
 import MirrorBridge from './MirrorBridge';
 import { MIRROR_PROTOCOL_VERSION, MirrorEvent, MirrorStats } from './mirror-protocol';
 import { MirrorSupport, detectMirrorSupport, describeMirrorSupport } from './mirror-support';
+import type { MirrorFontSource } from './mirror-protocol';
 
 export type MirrorHostOptions = {
   /** 可见画布：既显示 worker 回传的位图，也是**输入矩形**的来源（DOM 事件按它换算坐标） */
@@ -24,6 +26,24 @@ export type MirrorHostOptions = {
   onBitmap?: (bitmap: any, stats: MirrorStats) => void;
   /** 统计回调（每帧 rendered 事件一次） */
   onStats?: (stats: MirrorStats) => void;
+  /**
+   * **文本绘制语言**（`lang` / `dir`）。不传时从可见画布元素上读（`canvas.lang` / `canvas.dir`）——
+   * 主画布上写了 `lang="ja"` 而 worker 不知道的话，同一个汉字会按运行时默认语言选字形，
+   * 与主线程逐像素一致的承诺就破了（见 `docs/architecture/10-worker-offscreen.md` §2）。
+   */
+  textLanguage?: { lang?: string; dir?: string };
+  /**
+   * **字体下发**：宿主在主线程把字体字节取好（`await (await fetch(url)).arrayBuffer()`），
+   * worker 用自己的 `FontFace` + `fonts` 注册 —— 两边字体族一致，栅格化才谈得上一致。
+   */
+  fonts?: MirrorFontSource[];
+  /**
+   * **直绘模式**：把可见画布 `transferControlToOffscreen()` 交给 worker，省掉每帧位图回传。
+   *
+   * 默认关。开启后主线程**再也读不到那块画布**（像素/截图要用页面级截图），且引擎与运行时
+   * 都必须支持：不支持时退回位图模式并上报 `MIRROR_CANVAS_TRANSFER_UNSUPPORTED`（见 `directCanvas`）。
+   */
+  transferCanvas?: boolean;
   /** 错误/协议事件回调 */
   onEvent?: (evt: MirrorEvent) => void;
   /**
@@ -156,6 +176,8 @@ export default class MirrorHost {
   private __fallbackReason = '';
   /** worker 自报的能力（`ready` 的 `caps`） */
   private __caps: { offscreen: boolean; path2d: boolean; pointerEvents: boolean } | null = null;
+  /** 直绘模式是否生效（`transferCanvas` 请求了、且运行时支持） */
+  private __directCanvas = false;
 
   constructor(options: MirrorHostOptions) {
     if (!options || !options.canvas) {
@@ -171,7 +193,7 @@ export default class MirrorHost {
     this.canvas = options.canvas;
     this.ice = options.ice;
     this.bridge = new MirrorBridge(this.ice, {
-      send: (msg) => this.__post(msg),
+      send: (msg, transfer) => this.__post(msg, transfer),
       onEvent: (evt) => this.__onEvent(evt),
     });
   }
@@ -211,6 +233,11 @@ export default class MirrorHost {
     return this.__fallbackReason;
   }
 
+  /** 直绘模式（`transferCanvas`）是否生效：画布已交给 worker，主线程读不到像素。 */
+  public get directCanvas(): boolean {
+    return this.__directCanvas;
+  }
+
   /** worker 自报的能力（`ready` 消息里的 `caps`；没握手则为 null）。 */
   public get caps(): { offscreen: boolean; path2d: boolean; pointerEvents: boolean } | null {
     return this.__caps;
@@ -241,7 +268,25 @@ export default class MirrorHost {
 
     // 1) 主线程改走"几何通道"：跑管线、算世界盒，但不产出像素
     this.originalCtx = this.ice.ctx;
-    this.geometryCtx = createGeometryOnlyContext(this.originalCtx);
+    /**
+     * 直绘模式下这块画布马上要交给 worker —— 主线程**再也拿不到它的 2d ctx**，
+     * 而几何通道的 `measureText` / 渐变必须有个真实上下文可用。所以先给自己建一块离屏画布
+     * （`root.createOffscreenCanvas` 会跟随主画布的 `lang` / `dir`，字形量测口径不变），
+     * 再把可见画布转移出去。
+     */
+    let geometrySource = this.originalCtx;
+    let offscreenForGeometry: any = null;
+    if (this.options.transferCanvas) {
+      const width = Number(this.canvas.width) || Number(this.ice.canvasWidth) || 1;
+      const height = Number(this.canvas.height) || Number(this.ice.canvasHeight) || 1;
+      try {
+        offscreenForGeometry = root.createOffscreenCanvas(width, height, this.canvas);
+        geometrySource = offscreenForGeometry.ctx;
+      } catch (e) {
+        offscreenForGeometry = null; // 拿不到离屏画布：`start()` 后面会照常上报"不支持直绘"
+      }
+    }
+    this.geometryCtx = createGeometryOnlyContext(geometrySource);
     this.ice.setPaintTarget(this.geometryCtx);
     const cache: any = this.ice.renderer && this.ice.renderer.cache;
     if (cache && typeof cache.isCachable === 'function') {
@@ -249,8 +294,17 @@ export default class MirrorHost {
       cache.isCachable = () => false;
     }
 
-    // 2) 可见画布只负责贴位图（优先位图渲染上下文，退回 2d）
-    this.bitmapCtx = (typeof this.canvas.getContext === 'function' && this.canvas.getContext('bitmaprenderer')) || null;
+    /**
+     * 2) 可见画布只负责贴位图（优先位图渲染上下文，退回 2d）。
+     *
+     * ⚠️ **直绘模式下不能碰**：`canvas.getContext()` 只要被调用过一次，这块画布就再也
+     * `transferControlToOffscreen()` 不出去（"Cannot transfer control from a canvas that has a
+     * rendering context"）。所以先判断要不要转移，要转移就跳过这一步（也没有位图要贴）。
+     */
+    const willTransfer = !!this.options.transferCanvas && typeof this.canvas.transferControlToOffscreen === 'function';
+    this.bitmapCtx = willTransfer
+      ? null
+      : (typeof this.canvas.getContext === 'function' && this.canvas.getContext('bitmaprenderer')) || null;
 
     /**
      * 3) 拉起 worker。
@@ -280,6 +334,45 @@ export default class MirrorHost {
     // `prime()` 而不是 `markSceneNeeded()`：宿主可能是应用跑了一阵之后才接上来的，
     // 视口/选择要一起对齐（否则新镜像从默认视口出发，两边看的是不同区域）
     this.bridge.prime();
+    // 文本口径：语言（没有主画布可继承）与字体（主线程加载过的，worker 里没有）
+    const explicit = this.options.textLanguage;
+    this.bridge.recordTextLanguage({
+      lang: (explicit && explicit.lang) || (this.canvas && this.canvas.lang) || '',
+      dir: (explicit && explicit.dir) || (this.canvas && this.canvas.dir) || '',
+    });
+    if (this.options.fonts && this.options.fonts.length) {
+      this.bridge.recordFonts(this.options.fonts);
+    }
+    /**
+     * 直绘模式：把可见画布整块交给 worker（只在这一处转移；之后主线程读不到它）。
+     * 不支持时退回位图模式并如实上报 —— 这是**优化**，不是功能，缺了不该阻断渲染。
+     */
+    if (this.options.transferCanvas) {
+      if (offscreenForGeometry && willTransfer) {
+        try {
+          const offscreen = this.canvas.transferControlToOffscreen();
+          // 交给桥排序（scene 之后、首帧之前）；画布随 transfer 列表零拷贝过去
+          this.bridge.recordCanvasAttachment(offscreen);
+          this.__directCanvas = true;
+        } catch (e: any) {
+          this.__directCanvas = false;
+          this.__onEvent({
+            t: 'error',
+            v: MIRROR_PROTOCOL_VERSION,
+            message: `画布转移失败，退回位图模式：${(e && e.message) || e}`,
+            code: 'MIRROR_CANVAS_TRANSFER_FAILED',
+          });
+        }
+      } else {
+        this.__directCanvas = false;
+        this.__onEvent({
+          t: 'error',
+          v: MIRROR_PROTOCOL_VERSION,
+          message: '当前运行时不支持 transferControlToOffscreen（或拿不到离屏画布），退回位图模式',
+          code: 'MIRROR_CANVAS_TRANSFER_UNSUPPORTED',
+        });
+      }
+    }
     this.__paintPending = true;
     this.frame();
 
@@ -464,9 +557,13 @@ export default class MirrorHost {
     }
   }
 
-  private __post(msg: any): void {
+  private __post(msg: any, transfer?: any[]): void {
     if (this.worker && typeof this.worker.postMessage === 'function') {
-      this.worker.postMessage(msg);
+      if (transfer && transfer.length) {
+        this.worker.postMessage(msg, transfer);
+      } else {
+        this.worker.postMessage(msg);
+      }
     }
   }
 
@@ -505,7 +602,11 @@ export default class MirrorHost {
       if (this.options.onBitmap) {
         this.options.onBitmap(msg.bitmap, msg.stats);
       }
-      this.__composite(msg.bitmap);
+      if (!this.__directCanvas) {
+        this.__composite(msg.bitmap);
+      } else if (msg.bitmap && typeof msg.bitmap.close === 'function') {
+        msg.bitmap.close(); // 直绘模式下不该有位图；收到了就关掉，避免泄漏
+      }
       if (this.options.onStats && msg.stats) {
         this.options.onStats(msg.stats);
       }
@@ -519,6 +620,25 @@ export default class MirrorHost {
         this.__frameQueued = false;
         this.frame();
       }
+      return;
+    }
+    /**
+     * 直绘模式下 worker 不回传位图，只回一条"这一帧画完了"——水印 / 帧数 / 统计照旧推进，
+     * 否则背压（至多一帧在途）与静止态对账（`renderedSeq >= lastFrameSeq`）会永久卡住。
+     */
+    if (msg && msg.t === 'rendered' && this.__directCanvas) {
+      this.receivedFrames++;
+      this.lastRenderedSeq = typeof msg.seq === 'number' ? msg.seq : this.lastRenderedSeq;
+      this.lastStats = msg.stats || null;
+      this.__frameInFlight = false;
+      if (this.options.onStats && msg.stats) {
+        this.options.onStats(msg.stats);
+      }
+      if (this.__frameQueued) {
+        this.__frameQueued = false;
+        this.frame();
+      }
+      this.bridge.handleEvent(msg);
       return;
     }
     if (msg && typeof msg.t === 'string') {

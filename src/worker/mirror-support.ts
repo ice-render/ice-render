@@ -45,14 +45,15 @@ export type MirrorSupport = {
  * - `imageBitmap`：`createImageBitmap` / `ImageBitmap` 存在。位图要跨线程 transfer、主线程要能
  *   合成它（这条在实现完整的浏览器上恒真，留着是为了把"残缺的 OffscreenCanvas 实现"筛出去）。
  *
- * @param options.canvas 可见画布（用来探测 `bitmaprenderer` 这条**非致命**能力）
+ * @param options.canvas 仅保留签名兼容：**探测不使用它**（在那块画布上 `getContext` 会让
+ *   `transferControlToOffscreen` 永久失败，见 `hasBitmapRenderer` 的说明）。
  */
 export function detectMirrorSupport(options: { canvas?: any } = {}): MirrorSupport {
   const caps = {
     worker: root.workerSupported === true,
     offscreenCanvas: root.offscreenCanvasSupported === true,
     imageBitmap: root.imageBitmapSupported === true,
-    bitmapRenderer: hasBitmapRenderer(options.canvas),
+    bitmapRenderer: hasBitmapRenderer(),
   };
   const missing: MirrorCapability[] = [];
   if (!caps.worker) {
@@ -67,17 +68,43 @@ export function detectMirrorSupport(options: { canvas?: any } = {}): MirrorSuppo
   return { supported: missing.length === 0, missing, caps, protocolVersion: MIRROR_PROTOCOL_VERSION };
 }
 
-/** 可见画布有没有 `bitmaprenderer` 上下文（零拷贝合成路径；没有则退回 2d `drawImage`）。 */
-function hasBitmapRenderer(canvas: any): boolean {
-  if (!canvas || typeof canvas.getContext !== 'function') {
+/**
+ * 运行时有没有 `bitmaprenderer` 上下文（零拷贝合成路径；没有则退回 2d `drawImage`）。
+ *
+ * ⚠️ **绝不在调用方那块画布上探测**（所以这里刻意不用 `options.canvas`）：
+ * `canvas.getContext()` 只要被调用过一次，那块画布就再也 `transferControlToOffscreen()` 不出去
+ * （"Cannot transfer control from a canvas that has a rendering context"）——
+ * 探测本身把直绘模式废掉，是 2026-09-20 实测踩到的坑。改成在一块临时画布上问"这个运行时支不支持"。
+ */
+function hasBitmapRenderer(): boolean {
+  const scratch = createScratchCanvas();
+  if (!scratch || typeof scratch.getContext !== 'function') {
     return false;
   }
   try {
-    return !!canvas.getContext('bitmaprenderer');
+    return !!scratch.getContext('bitmaprenderer');
   } catch (e) {
     // 少数宿主对未知上下文名直接抛（而不是返回 null）——探测**绝不允许**把宿主带崩
     return false;
   }
+}
+
+/** 一块**临时**画布：只用来问运行时能力，不碰调用方的任何对象。 */
+function createScratchCanvas(): any {
+  try {
+    if (root.document && typeof root.document.createElement === 'function') {
+      const canvas = root.document.createElement('canvas');
+      canvas.width = 1;
+      canvas.height = 1;
+      return canvas;
+    }
+    if (typeof root.OffscreenCanvas === 'function') {
+      return new root.OffscreenCanvas(1, 1);
+    }
+  } catch (e) {
+    /* 拿不到就拿不到：bitmapRenderer 非致命，保守为 false */
+  }
+  return null;
 }
 
 /** 把 `missing` 渲染成一句人能读的原因（日志/回退回调里用）。 */

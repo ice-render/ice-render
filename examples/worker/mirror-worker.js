@@ -45,18 +45,27 @@ function renderAndPost(seq) {
   frames++;
   renderMsTotal += renderMs;
 
-  const bitmap = off.transferToImageBitmap();
+  /**
+   * 直绘模式（宿主把可见画布 transfer 过来了）：**不能**再 `transferToImageBitmap()`
+   * —— 那会把这块画布清空。只回一条"这一帧画完了"，宿主的水印 / 背压照旧工作。
+   */
+  const direct = !!(target && target.directCanvas);
+  const bitmap = direct ? null : off.transferToImageBitmap();
   self.postMessage(
     {
       t: 'rendered',
       v: ICE.MIRROR_PROTOCOL_VERSION,
       // `frame` 消息没有 seq（它不是状态批次）：用单调帧号当序号，宿主对账更直观
       seq: typeof seq === 'number' ? seq : frames,
-      bitmap,
+      ...(bitmap ? { bitmap } : {}),
+      direct,
       stats: {
         renderMs,
         components: ice.renderer.componentQueue ? ice.renderer.componentQueue.length : 0,
         frames,
+        // worker 侧真正生效的文本绘制语言（宿主下发后设在自己的 ctx 上，e2e 用它验"字形口径一致"）
+        textLang: ice && ice.ctx ? String(ice.ctx.lang || '') : '',
+        fontErrors: target && target.fontErrors ? target.fontErrors.slice(0, 4) : [],
         appliedOps: target.appliedOps,
         appliedScenes: target.appliedScenes,
         appliedAdds: target.appliedAdds,
@@ -65,7 +74,7 @@ function renderAndPost(seq) {
         appliedViewports: target.appliedViewports,
       },
     },
-    [bitmap]
+    bitmap ? [bitmap] : []
   );
 }
 
@@ -81,8 +90,15 @@ self.onmessage = function (evt) {
     return;
   }
   if (msg.t === 'resize') {
-    off.width = Math.max(1, msg.width | 0);
-    off.height = Math.max(1, msg.height | 0);
+    const w = Math.max(1, msg.width | 0);
+    const h = Math.max(1, msg.height | 0);
+    if (target && target.directCanvas) {
+      // 直绘：改的是被接管那块画布的尺寸（引擎的画布尺寸也一起同步）
+      target.resizeDirectCanvas(w, h);
+    } else {
+      off.width = w;
+      off.height = h;
+    }
     return;
   }
   if (msg.t === 'frame') {

@@ -7,6 +7,43 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 新功能（Worker 镜像 · 文本口径下发 + 直绘模式）
+
+worker 与主线程在"文本"和"传输"这两处一直有条边界，这一版都收掉：
+
+- **文本绘制语言（`lang` / `dir`）下发**（`text` 消息）：worker 里没有主画布元素可继承语言，
+  不推过去的话同一个汉字会按运行时默认语言选字形（简/繁/日/韩），与主线程分叉。宿主从可见画布读
+  语言（或 `textLanguage` 选项显式给），`MirrorTarget.applyText()` 落到 worker 的 `ctx` 与
+  `root.textLanguage` —— 后者让**组件缓存 / 静态层的每一张离屏画布**也继承同一口径
+  （`root.createOffscreenCanvas` 统一应用，少了它缓存里的字形会与主画布分叉）。
+- **字体下发**（`fonts` 消息）：宿主在主线程把字体字节取好（`MirrorHost` 的 `fonts` 选项，
+  `await (await fetch(url)).arrayBuffer()`），worker 用自己的 `FontFace` + `self.fonts` 注册；
+  运行时不支持时如实报 `fontErrors`、**不抛**（字形分叉可解释，页面不能崩）。
+  **图片仍未下发**：图片链路是 `ImageCache` 的 `Image` + `onload`，worker 里要用 `createImageBitmap`
+  另开一条解码路径，属于独立一块（已记进架构文档的边界表）。
+- **直绘模式**（`MirrorHost({ transferCanvas: true })`，opt-in）：把显示画布
+  `transferControlToOffscreen()` 交给 worker 直接画，省掉每帧"位图回传 + 主线程合成"。
+  两条前置写进了文档：显示画布**必须还没有 2d 上下文**（`getContext` 调过一次就转移不出去 →
+  引擎 init 在叠放的"输入/量测层"上，参考宿主 `?direct=1` 的双画布布局）；开启后主线程读不到像素。
+  运行时不支持 / 转移失败时退回位图模式并如实上报（`MIRROR_CANVAS_TRANSFER_UNSUPPORTED` /
+  `..._FAILED`）。直绘模式下 worker 不回传位图，但 `rendered` 水印与统计照旧推进（背压与
+  静止态对账都靠它）。
+
+**顺手修掉的两个"探测/初始化把功能废掉"的坑**（都是实测踩到才发现的）：
+① `MirrorHost` 在转移画布**之前**调了 `canvas.getContext('bitmaprenderer')` 探测合成路径 →
+   画布被标记成"已有上下文"，转移必然失败；现在直绘路径完全不碰那块画布。
+② `detectMirrorSupport()` 用**调用方那块画布**探测 `bitmaprenderer` → 同样把画布污染掉；
+   现在改在**临时画布**上问运行时能力（拿不到就保守为 false —— 它只影响合成路径，非致命）。
+
+实测（引擎参考宿主）：直绘模式与位图模式**画面逐字节一致**（页面级 PNG 比对，4498B 相同），
+帧节拍 / 水印照旧推进；当前运行时的文本语言由 worker 侧 `ctx.lang` 回报（`textLang`），e2e 断言它
+等于主画布语言。
+
+回归：`tests/worker` 新增 `mirror-text`（语言落 ctx + 离屏画布继承、字体注册 / 不支持时的报错）、
+`mirror-canvas`（直绘接管、宿主先切量测层再转移、无位图帧的水印推进、不支持时退回）
+与探测守卫（不得在被测画布上建上下文）；引擎 e2e 新增直绘模式用例；IED 的镜像 e2e 增断言
+"worker 侧文本语言 == 主画布 lang"。
+
 ### 新功能（Worker 镜像 · 协议 v2：结构变更也走增量）
 
 拓扑编辑里最高频的两件事是"加图元"和"删图元"，而它们在 v1 里是**最贵**的：结构一变就重发整份文档
@@ -33,8 +70,8 @@ v2 把结构也变成增量：
 
 - 发出去的字节：**485 924 B（474KB）→ 1 037 B**（≈470 倍）；
 - 全量重同步：**1 次 → 0 次**；
-- worker 那一帧 `renderMs`：**161 / 131 ms → 6.3 ms**；
-- 端到端（改完 → 位图回来）：**192.5 ms → 53.5 ms**。
+- worker 那一帧 `renderMs`：**125.3 ms → 3.9 ms**；
+- 端到端（改完 → 位图回来）：**165.5 ms → 9.7 ms**（中位数；首次含冷启动 59ms）。
 
 回归：`tests/worker/`（新增 add/remove 增量、复合容器真子节点、队列顺序、回退守门等 6 条）、
 `e2e/visual/worker-mirror.spec.ts`（断言 5 步里 `appliedScenes` 恒为 1、`appliedAdds/Removes > 0`，

@@ -57,6 +57,22 @@ export const MIRROR_ROOT_ID = '#root';
  */
 export type MirrorOp = ['state', string, any] | ['add', string, any] | ['remove', string];
 
+/**
+ * 一条字体下发的记录（见 `fonts` 消息）。
+ *
+ * `source` 用**字节**而不是 URL：worker 里没有主线程的 `document.fonts` 与同源策略上下文，
+ * 让宿主在主线程把字体取好、把字节推过来，worker 只负责注册 —— 与"图片/字体解码留在宿主侧"的
+ * 分工一致（见 `docs/architecture/10-worker-offscreen.md` §2 的边界表）。
+ */
+export type MirrorFontSource = {
+  family: string;
+  /** 字体字节（`FontFace` 的 source 参数支持 ArrayBuffer） */
+  source: ArrayBuffer | ArrayBufferView;
+  style?: string;
+  weight?: string;
+  unicodeRange?: string;
+};
+
 /** 主线程 → worker。 */
 export type MirrorCommand =
   /** 全量场景：`doc` 是 `ice.toJSONObject()` 的产物（已过 sanitize） */
@@ -76,6 +92,27 @@ export type MirrorCommand =
    * 镜像侧必须跟着走，否则"主线程看得见的画面"和"worker 画的"不是同一个视口。
    */
   | { t: 'viewport'; v: number; seq: number; scale: number; tx: number; ty: number }
+  /**
+   * **文本绘制语言**（`lang` / `dir`）：worker 里没有主画布元素可继承，
+   * 不推过去的话同一个汉字会按运行时默认语言选字形，与主线程分叉（简/繁/日/韩）。
+   */
+  | { t: 'text'; v: number; seq: number; lang: string; dir: string }
+  /**
+   * **字体下发**：主线程把用到的字体**字节**推给 worker，worker 用自己的
+   * `FontFace` + `self.fonts` 注册 —— 字体族一致，字形栅格化才谈得上与主线程一致。
+   *
+   * `source` 是 `ArrayBuffer`（宿主在主线程取好字节；URL/Blob 由宿主解析，避免 worker 侧
+   * 再走一遍网络与 CORS）。结构化克隆会复制字节，发完之后宿主那边的 buffer 仍然可用。
+   */
+  | { t: 'fonts'; v: number; seq: number; fonts: MirrorFontSource[] }
+  /**
+   * **直绘模式**：主线程把可见画布整块 `transferControlToOffscreen()` 交给 worker，
+   * worker 直接往它上面画 —— 省掉每帧"位图回传 + 主线程合成"这一跳（端到端少一次往返）。
+   *
+   * 代价（宿主必须知道）：这块画布主线程**再也拿不到**（读像素 / 截图要用页面级截图），
+   * 且只在这条消息里传一次（`transfer` 列表），后续 `resize` 改的是 worker 侧它的尺寸。
+   */
+  | { t: 'attach-canvas'; v: number; seq: number; canvas: any }
   /**
    * 渲染节拍：`time` 用主线程的 `DOMHighResTimeStamp`（双时钟会漂，见 §5）。
    *
@@ -210,6 +247,23 @@ export function isMirrorCommand(msg: any): boolean {
   if (msg.t === 'selection') return Array.isArray(msg.ids);
   if (msg.t === 'viewport')
     return typeof msg.scale === 'number' && typeof msg.tx === 'number' && typeof msg.ty === 'number';
+  // 文本语言：lang / dir 都是字符串（空串合法 —— 宿主没写就发空串，worker 侧不动默认值）
+  if (msg.t === 'text') return typeof msg.lang === 'string' && typeof msg.dir === 'string';
+  // 直绘：只需要一个"像画布"的对象（worker 侧会 getContext('2d') 校验）
+  if (msg.t === 'attach-canvas') return !!msg.canvas && typeof msg.canvas.getContext === 'function';
+  // 字体下发：数组 + 每条都要有 family 与字节 source
+  if (msg.t === 'fonts') {
+    if (!Array.isArray(msg.fonts)) return false;
+    for (const font of msg.fonts) {
+      if (!font || typeof font.family !== 'string' || !font.family) return false;
+      const source = font.source;
+      const isBuffer =
+        (typeof ArrayBuffer === 'function' && source instanceof ArrayBuffer) ||
+        (typeof ArrayBuffer === 'function' && ArrayBuffer.isView && ArrayBuffer.isView(source));
+      if (!isBuffer) return false;
+    }
+    return true;
+  }
   // `seq` 是宿主判断"手上这张位图是哪一帧"的依据（见 MirrorHost.renderedSeq），缺了它
   // 静止态/截图的对齐就只能靠猜 —— 所以它是必需字段，不是可选装饰。
   if (msg.t === 'frame') return typeof msg.seq === 'number' && typeof msg.time === 'number';

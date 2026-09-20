@@ -12,13 +12,14 @@ import {
   MIRROR_ROOT_ID,
   MirrorCommand,
   MirrorEvent,
+  MirrorFontSource,
   MirrorOp,
   isValidOp,
   sanitizeTransferable,
 } from './mirror-protocol';
 
-/** 消息出口：宿主接到 `worker.postMessage` 上（也方便测试直接收数组）。 */
-export type MirrorSend = (msg: MirrorCommand) => void;
+/** 消息出口：宿主接到 `worker.postMessage` 上（也方便测试直接收数组）。第二个参数是 transfer 列表。 */
+export type MirrorSend = (msg: MirrorCommand, transfer?: any[]) => void;
 
 export type MirrorBridgeOptions = {
   /** 消息出口。也可以之后用 `setSend()` 再装（例如先拿 `worker` 再建桥） */
@@ -99,6 +100,20 @@ export default class MirrorBridge {
   private viewport: { scale: number; tx: number; ty: number } | null = null;
   /** 最近一次已知视口（"现状"，scene 重建后补发用） */
   private lastViewport: { scale: number; tx: number; ty: number } | null = null;
+  /**
+   * 待发的**文本语言**与**字体**（一次性的初始化消息，见 `MirrorOp` 上方协议表）。
+   *
+   * 只发一次、不做"现状/补发"：它们落在 worker 那台 ICE 的 `ctx` 与 `fonts` 上，
+   * 而 `applyScene`（clearAll + 反序列化）**不会**换掉 ctx、也不会清掉已注册的字体 ——
+   * 只有 worker 被重建（宿主重新 `start()`）时才需要再发一次，而那正是 `prime()` 的场景。
+   */
+  private textLanguage: { lang: string; dir: string } | null = null;
+  private fonts: MirrorFontSource[] | null = null;
+  /**
+   * 待**转移**给 worker 的可见画布（直绘模式）。与 text/fonts 一样排进 `flush()` 的固定顺序，
+   * 且必须在 `scene` 之后 —— worker 是先收到 scene 才 boot 出 ICE 的，早到的画布没有接收者。
+   */
+  private canvasToAttach: any = null;
   /** 组件 id → 在 `ops` 里的下标（补丁合并用） */
   private opIndex = new Map<string, number>();
   private seq = 0;
@@ -179,7 +194,61 @@ export default class MirrorBridge {
    * postMessage，也让 worker 白白渲染同一帧（真实场景里"用户没操作"占了绝大多数时间）。
    */
   public hasPending(): boolean {
-    return this.pendingScene || this.selectionIds !== null || this.viewport !== null || this.ops.length > 0;
+    return (
+      this.pendingScene ||
+      this.selectionIds !== null ||
+      this.viewport !== null ||
+      this.textLanguage !== null ||
+      this.fonts !== null ||
+      this.canvasToAttach !== null ||
+      this.ops.length > 0
+    );
+  }
+
+  /**
+   * 排一次**文本语言**下发（`lang` / `dir`）。
+   *
+   * 宿主 `MirrorHost.start()` 会从主画布元素读一次（或由 `textLanguage` 选项显式指定）。
+   * 拼进 `flush()` 的固定顺序里：**scene → text → fonts → selection → viewport → ops → frame** ——
+   * worker 是先收到 `scene` 才 boot 出 ICE 的，语言必须落在它画第一笔之前。
+   */
+  public recordTextLanguage(text: { lang?: string; dir?: string }): void {
+    const lang = typeof text.lang === 'string' ? text.lang : '';
+    const dir = typeof text.dir === 'string' ? text.dir : '';
+    if (!lang && !dir) {
+      return;
+    }
+    this.textLanguage = { lang, dir };
+  }
+
+  /**
+   * 取下一个消息序号。
+   *
+   * 宿主自己发一次性消息时（例如直绘模式的 `attach-canvas` 要带 transfer 列表，走不了桥的
+   * `send_`）用它，保证整条通道的序号连续 —— 排查时序问题时不用区分"这条是谁发的"。
+   */
+  public nextSeq(): number {
+    return ++this.seq;
+  }
+
+  /**
+   * 排一次**画布转移**（直绘模式）。
+   *
+   * 画布走 transfer 列表（零拷贝；转移后主线程再也拿不到它）—— 所以这条消息只能由桥发，
+   * 宿主把"什么时候"交给桥的固定顺序决定（scene → canvas → text → fonts → ops → frame）。
+   */
+  public recordCanvasAttachment(canvas: any): void {
+    if (canvas) {
+      this.canvasToAttach = canvas;
+    }
+  }
+
+  /** 排一次**字体**下发（字节由宿主在主线程取好，见 `MirrorFontSource`）。 */
+  public recordFonts(fonts: MirrorFontSource[]): void {
+    if (!Array.isArray(fonts) || !fonts.length) {
+      return;
+    }
+    this.fonts = fonts.slice();
   }
 
   /**
@@ -369,6 +438,41 @@ export default class MirrorBridge {
       if (this.lastViewport) {
         this.viewport = { ...this.lastViewport };
       }
+    }
+    /**
+     * **文本语言 → 字体**：必须排在 `scene` 之后（worker 收到 scene 才 boot 出 ICE，
+     * 早发的消息在 worker 侧没有接收者）、`ops` 之前（第一笔绘制就要用对字形）。
+     */
+    if (this.canvasToAttach) {
+      const canvas = this.canvasToAttach;
+      this.canvasToAttach = null;
+      this.send_({ t: 'attach-canvas', v: MIRROR_PROTOCOL_VERSION, seq: ++this.seq, canvas }, [canvas]);
+      this.sent++;
+      sent++;
+    }
+    if (this.textLanguage) {
+      const msg: MirrorCommand = {
+        t: 'text',
+        v: MIRROR_PROTOCOL_VERSION,
+        seq: ++this.seq,
+        ...this.textLanguage,
+      };
+      this.textLanguage = null;
+      this.send_(msg);
+      this.sent++;
+      sent++;
+    }
+    if (this.fonts) {
+      const msg: MirrorCommand = {
+        t: 'fonts',
+        v: MIRROR_PROTOCOL_VERSION,
+        seq: ++this.seq,
+        fonts: this.fonts,
+      };
+      this.fonts = null;
+      this.send_(msg);
+      this.sent++;
+      sent++;
     }
     if (this.selectionIds) {
       const msg: MirrorCommand = {

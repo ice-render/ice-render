@@ -16,12 +16,17 @@
     <div style="display: flex; gap: 12px; align-items: flex-start">
       <div style="margin-left: 100px; margin-top: 40px">
         <div style="font-weight: 700">可见画布（显示 worker 位图 · 输入来源）</div>
-        <canvas id="view" width="640" height="400" style="background: #fff; border: 1px solid #ccc"></canvas>
-        <canvas id="probe" width="640" height="400" style="display: none"></canvas>
+        <!-- 显示层 + 输入/量测叠层：直绘模式（?direct=1）下显示层没有 2d 上下文、整块交给 worker，
+             引擎的输入与文本量测落在这块透明叠层上（两块同尺寸同位置）。位图模式只用到 #view。 -->
+        <div style="position: relative; width: 640px; height: 400px">
+          <canvas id="view" lang="zh-CN" width="640" height="400" style="background: #fff; border: 1px solid #ccc; display: block"></canvas>
+          <canvas id="input" lang="zh-CN" width="640" height="400" style="position: absolute; left: 0; top: 0; border: 1px solid transparent; display: none"></canvas>
+        </div>
+        <canvas id="probe" lang="zh-CN" width="640" height="400" style="display: none"></canvas>
       </div>
       <div style="margin-top: 40px">
         <div style="font-weight: 700">参考：同一份文档的主线程直绘（仅供比对）</div>
-        <canvas id="ref" width="640" height="400" style="background: #fff; border: 1px solid #ccc"></canvas>
+        <canvas id="ref" lang="zh-CN" width="640" height="400" style="background: #fff; border: 1px solid #ccc"></canvas>
       </div>
     </div>
     <pre id="out" style="margin-top: 10px; background: #f6f8fa; padding: 8px; min-height: 80px"></pre>
@@ -33,13 +38,24 @@
       const log = [];
       const out = document.getElementById('out');
       const view = document.getElementById('view');
+      const inputLayer = document.getElementById('input');
       const probe = document.getElementById('probe');
       const W = 640;
       const H = 400;
+      /**
+       * 直绘模式（`?direct=1`）：显示层必须**还没有 2d 上下文**才能 `transferControlToOffscreen()`
+       * —— 所以引擎 init 在透明的输入/量测叠层上（输入、命中、文本量测都在它上面），
+       * 显示层整块交给 worker 直接画。位图模式一切照旧：引擎 init 在可见画布上。
+       */
+      const params = new URLSearchParams(location.search);
+      const direct = params.get('direct') === '1';
+      if (direct) {
+        inputLayer.style.display = 'block';
+      }
 
       // ---- 主线程：唯一真相（组件树 + 状态 + 事件 + 命中）----
       const ice = new ICE.ICE();
-      ice.init('view', { renderMode: 'full' });
+      ice.init(direct ? 'input' : 'view', { renderMode: 'full' });
 
       function buildScene(target) {
         const bg = new ICE.ICERect({
@@ -109,7 +125,6 @@
       // ---- 宿主：几何通道 + 显示 worker 位图 + 节拍 ----
       // `?backend=main` 强制主线程渲染、`?worker=xxx.js` 换一个（可以是坏的）worker 脚本：
       // 两条都是给"兼容回退"的 e2e 用的开关（见 e2e/visual/worker-fallback.spec.ts）
-      const params = new URLSearchParams(location.search);
       const forceMain = params.get('backend') === 'main';
       const workerUrl = params.get('worker') || 'mirror-worker.js';
       const support = ICE.MirrorHost.detect({ canvas: view });
@@ -120,6 +135,8 @@
         canvas: view,
         ice,
         workerUrl,
+        // `?direct=1`：把可见画布整块交给 worker（省掉每帧位图回传；主线程读不到像素了）
+        transferCanvas: direct,
         // 起不来（探测不过 / worker 404 / 握手超时 / 半路死掉）就自动回退主线程渲染
         fallback: 'auto',
         onFallback: (info) => {
@@ -230,6 +247,14 @@
       /** 镜像是否真的在跑（回退之后必须为 false）。 */
       window.__hostActive = function () {
         return host.running && !host.fallbackReason;
+      };
+      /** 直绘模式提示：没有位图回传，`__compare()`（比 probe 画布）在这种模式下无意义。 */
+      window.__isDirect = function () {
+        return direct;
+      };
+      /** 直绘模式是否生效（e2e 用）。 */
+      window.__directCanvas = function () {
+        return !!host.directCanvas;
       };
 
       /** 等 worker 再送一帧（最多 3s）。 */

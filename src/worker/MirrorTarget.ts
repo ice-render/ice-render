@@ -5,7 +5,15 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { MIRROR_PROTOCOL_VERSION, MIRROR_ROOT_ID, MirrorCommand, MirrorOp, isValidOp } from './mirror-protocol';
+import root from '../cross-platform/root';
+import {
+  MIRROR_PROTOCOL_VERSION,
+  MIRROR_ROOT_ID,
+  MirrorCommand,
+  MirrorFontSource,
+  MirrorOp,
+  isValidOp,
+} from './mirror-protocol';
 
 export type ApplyOpsResult = {
   /** 收到的 op 条数 */
@@ -60,6 +68,13 @@ export default class MirrorTarget {
   public appliedViewports = 0;
   /** 累计收到的全量场景数 */
   public appliedScenes = 0;
+  /** 累计应用的文本语言下发条数 */
+  public appliedText = 0;
+  /** 累计注册成功的字体数 + 累计失败（宿主据此提示"字形可能与主线程不同"） */
+  public appliedFonts = 0;
+  public fontErrors: string[] = [];
+  /** 直绘模式下被接管的画布（null = 位图模式） */
+  public directCanvas: any = null;
 
   constructor(ice: any) {
     if (!ice) {
@@ -285,7 +300,152 @@ export default class MirrorTarget {
     if (msg.t === 'viewport') {
       return this.applyViewport(msg);
     }
+    if (msg.t === 'text') {
+      return this.applyText(msg);
+    }
+    if (msg.t === 'fonts') {
+      return this.applyFonts(msg.fonts);
+    }
+    if (msg.t === 'attach-canvas') {
+      return { attached: this.attachCanvas(msg.canvas) };
+    }
     return null;
+  }
+
+  /**
+   * **接管一块画布**（直绘模式：主线程把可见画布 `transferControlToOffscreen()` 过来）。
+   *
+   * 三件事：落墨目标换成它的 2d ctx、引擎的画布尺寸跟着换、文本语言补上（这块画布是新的
+   * OffscreenCanvas，没有 `lang` 可继承 —— 不补的话汉字字形会与主线程分叉）。
+   * 拿不到 2d ctx（形状不对 / 运行时残缺）时返回 false，让宿主如实上报、退回位图模式。
+   */
+  public attachCanvas(canvas: any): boolean {
+    if (!canvas || typeof canvas.getContext !== 'function') {
+      return false;
+    }
+    const ctx: any = canvas.getContext('2d');
+    if (!ctx) {
+      return false;
+    }
+    const ice: any = this.ice;
+    if (ice && typeof ice.setPaintTarget === 'function') {
+      ice.setPaintTarget(ctx);
+    }
+    // 尺寸按**设备像素**取（这块画布就是最终上屏的那块，主线程已按 dpr 设好）
+    const width = Number(canvas.width) || 0;
+    const height = Number(canvas.height) || 0;
+    if (width > 0) {
+      ice.canvasWidth = width;
+    }
+    if (height > 0) {
+      ice.canvasHeight = height;
+    }
+    // 新画布的 ctx 补上语言口径（root.textLanguage 是宿主下发 text 时设的）
+    const lang: any = (root as any).textLanguage;
+    if (lang && ctx) {
+      if (lang.lang && !ctx.lang) {
+        ctx.lang = lang.lang;
+      }
+      if (lang.dir && !ctx.dir) {
+        ctx.dir = lang.dir;
+      }
+    }
+    this.directCanvas = canvas;
+    ice.dirty = true;
+    return true;
+  }
+
+  /**
+   * 直绘模式下改画布尺寸（宿主 `resize` 消息 → worker 侧执行）。
+   *
+   * 为什么不用 `ice.fitCanvasToDisplaySize()`：那块画布的尺寸是**设备像素**、由宿主定的，
+   * 而 `fitCanvasToDisplaySize` 算的是"CSS 尺寸 × dpr"；这里直接把设备像素写回去，
+   * 并同步引擎内部的 `canvasWidth/Height`（渲染器按它们清屏与做脏矩形预算）。
+   */
+  public resizeDirectCanvas(width: number, height: number): void {
+    const canvas: any = this.directCanvas;
+    if (!canvas) {
+      return;
+    }
+    const w = Math.max(1, Number(width) || 1);
+    const h = Math.max(1, Number(height) || 1);
+    canvas.width = w;
+    canvas.height = h;
+    const ice: any = this.ice;
+    ice.canvasWidth = w;
+    ice.canvasHeight = h;
+    ice.dirty = true;
+  }
+
+  /**
+   * 应用**文本绘制语言**（`lang` / `dir`）。
+   *
+   * 做两件事：① 写到当前 `ice.ctx`（这一帧起的绘制就按新字形选）；② 记进 `root.textLanguage`，
+   * 让**之后新建的每一张离屏画布**（组件位图缓存、静态层）也带上同一口径 —— 引擎对这两层承诺
+   * 与主画布逐像素一致，语言不跟着走的话，缓存里的汉字字形就会与主画布分叉。
+   */
+  public applyText(text: { lang?: string; dir?: string }): { lang: string; dir: string } {
+    const lang = typeof text.lang === 'string' ? text.lang : '';
+    const dir = typeof text.dir === 'string' ? text.dir : '';
+    const ctx: any = this.ice && this.ice.ctx;
+    if (ctx) {
+      if (lang) {
+        ctx.lang = lang;
+      }
+      if (dir) {
+        ctx.dir = dir;
+      }
+    }
+    // 引擎的 `root.createOffscreenCanvas` 读这个字段给新离屏 ctx 上口径（见 root.ts）
+    (root as any).textLanguage = { lang, dir };
+    this.appliedText++;
+    return { lang, dir };
+  }
+
+  /**
+   * 注册**下发过来的字体**（主线程取好的字节）。
+   *
+   * worker 侧的 `FontFace` + `self.fonts` 与主线程是同一套 Web API，注册完就能在这里栅格化出
+   * 同样的字形。运行时不支持时**如实报错、不抛**：字体缺失只会让字形分叉（可解释），
+   * 而抛异常会把整批消息连同画面一起打断。
+   */
+  public applyFonts(fonts: MirrorFontSource[]): { added: number; errors: string[] } {
+    const errors: string[] = [];
+    let added = 0;
+    const FontFaceCtor: any = (root as any).FontFace;
+    const fontSet: any = (root as any).fonts || (root as any).document?.fonts;
+    if (typeof FontFaceCtor !== 'function' || !fontSet || typeof fontSet.add !== 'function') {
+      errors.push('当前运行时没有 FontFace / fonts，字体无法下发（字形可能与主线程不同）');
+      this.fontErrors.push(errors[0]);
+      return { added: 0, errors };
+    }
+    const list = Array.isArray(fonts) ? fonts : [];
+    for (let i = 0; i < list.length; i++) {
+      const font = list[i];
+      try {
+        const descriptors: any = {};
+        if (font.style) descriptors.style = font.style;
+        if (font.weight) descriptors.weight = font.weight;
+        if (font.unicodeRange) descriptors.unicodeRange = font.unicodeRange;
+        const face = new FontFaceCtor(font.family, font.source, descriptors);
+        fontSet.add(face);
+        const loading: any = face.load ? face.load() : null;
+        if (loading && typeof loading.catch === 'function') {
+          // 加载失败（字节不是字体 / 描述符不合法）记下来给宿主看，但不打断这一批
+          loading.catch((err: any) => {
+            this.fontErrors.push(`${font.family}: ${(err && err.message) || err}`);
+          });
+        }
+        added++;
+        this.appliedFonts++;
+      } catch (err: any) {
+        errors.push(`${font && font.family}: ${(err && err.message) || err}`);
+      }
+    }
+    for (let i = 0; i < errors.length; i++) {
+      this.fontErrors.push(errors[i]);
+    }
+    return { added, errors };
   }
 
   /**

@@ -108,6 +108,31 @@ let root: any = null;
     return canvas;
   };
 
+  /**
+   * **文本绘制语言**：给"没有主画布可以继承"的宿主（worker / 离屏渲染）显式设定的字形口径。
+   *
+   * 谁设它：镜像宿主把主画布的 `lang` / `dir` 下发到 worker 后，由 `MirrorTarget.applyText()`
+   * 写在这里（见 `docs/architecture/10-worker-offscreen.md` 的协议表）。
+   *
+   * 为什么必须是**全局**而不是只设一次 `ctx.lang`：引擎的组件缓存与静态层各自创建**新的**
+   * 离屏画布（`root.createOffscreenCanvas`），它们不继承任何上下文 —— 不在这里统一带上，
+   * 缓存里的汉字字形就会退回运行时的默认语言，与主画布分叉（而引擎对这两层承诺逐像素一致）。
+   */
+  const applyTextLanguage = (ctx: any) => {
+    const lang = root.textLanguage;
+    if (!ctx || !lang) {
+      return ctx;
+    }
+    // 不支持这两个属性的运行时会忽略赋值（与 mirrorTextLanguage 同一条口径：只写，不赌）
+    if (lang.lang && !ctx.lang) {
+      ctx.lang = lang.lang;
+    }
+    if (lang.dir && !ctx.dir) {
+      ctx.dir = lang.dir;
+    }
+    return ctx;
+  };
+
   root.createOffscreenCanvas = (width: number, height: number, sourceEl?: any) => {
     if (root.document && typeof root.document.createElement === 'function') {
       const canvas = root.document.createElement('canvas');
@@ -119,6 +144,7 @@ let root: any = null;
       if (!ctx) {
         throw iceError(ICE_ERROR_CODES.OFFSCREEN_CONTEXT_UNSUPPORTED, '当前运行时无法创建 2d 离屏上下文。');
       }
+      applyTextLanguage(ctx);
       return { canvas, ctx };
     }
     /**
@@ -139,6 +165,8 @@ let root: any = null;
       if (!ctx) {
         throw iceError(ICE_ERROR_CODES.OFFSCREEN_CONTEXT_UNSUPPORTED, '当前运行时无法创建 2d 离屏上下文。');
       }
+      // worker / 纯离屏宿主：没有主画布元素可继承语言，用宿主下发的 textLanguage
+      applyTextLanguage(ctx);
       return { canvas, ctx };
     }
     throw iceError(ICE_ERROR_CODES.OFFSCREEN_CANVAS_UNSUPPORTED, '当前运行时没有可用的离屏 canvas。');

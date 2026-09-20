@@ -363,6 +363,38 @@ describe('MirrorHost', () => {
     expect(worker.sent.map((m: any) => m.t)).toEqual(['ops', 'frame']);
   });
 
+  it('启动时把文本语言与字体推给 worker（worker 里没有主画布可继承、也没有主线程的字体）', () => {
+    const { canvas } = makeFakeCanvas();
+    // 主画布上写了语言：汉字字形（简/繁/日）靠它选，worker 侧必须拿到同一口径
+    canvas.lang = 'zh-Hant';
+    canvas.dir = 'rtl';
+    const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
+    const worker = makeFakeWorker();
+    const host = new MirrorHost({
+      canvas,
+      ice,
+      workerFactory: () => worker,
+      autoFrame: false,
+      staleTimeout: 0,
+      fonts: [{ family: 'DemoFont', source: new ArrayBuffer(8), weight: '700' }],
+    });
+    host.start();
+
+    const types = worker.sent.map((m: any) => m.t);
+    const text = worker.sent.find((m: any) => m.t === 'text');
+    const fonts = worker.sent.find((m: any) => m.t === 'fonts');
+    // jest 的 expect 只接受一个参数（带说明的那种是 Playwright 的）—— 消息里带上实际序列便于排查
+    expect({ text, types }).toEqual(expect.objectContaining({ text: expect.any(Object) }));
+    expect(text.lang).toBe('zh-Hant');
+    expect(text.dir).toBe('rtl');
+    expect(fonts).toBeDefined();
+    expect(fonts.fonts[0].family).toBe('DemoFont');
+    // 必须在首帧之前：worker 是先收 scene 才 boot 的，语言/字体要落在第一张画之前
+    expect(types.indexOf('scene')).toBeLessThan(types.indexOf('text'));
+    expect(types.indexOf('text')).toBeLessThan(types.indexOf('fonts'));
+    expect(types.indexOf('fonts')).toBeLessThan(types.indexOf('frame'));
+  });
+
   it('背压：至多一帧在途 —— 上一帧没回来就不再发，队列不会随交互无限增长', () => {
     const { canvas } = makeFakeCanvas();
     const { ice } = makeIce({ measureText: () => ({ width: 1 }) });
@@ -443,7 +475,9 @@ describe('MirrorHost 兼容保护', () => {
       expect(support.supported).toBe(true);
       expect(support.missing).toEqual([]);
       expect(support.caps.worker).toBe(true);
-      expect(support.caps.bitmapRenderer).toBe(true);
+      // bitmapRenderer 是"运行时能力"（在一块临时画布上问的）：jest 里没有 DOM / OffscreenCanvas，
+      // 保守为 false —— 它只影响合成路径（退 2d drawImage），不在 missing 里、不致命
+      expect(support.caps.bitmapRenderer).toBe(false);
       expect(describeMirrorSupport(support)).toContain('支持');
     });
 
@@ -459,6 +493,16 @@ describe('MirrorHost 兼容保护', () => {
       expect(support.missing).toEqual(['offscreenCanvas']);
       expect(describeMirrorSupport(support)).toContain('OffscreenCanvas');
     });
+  });
+
+  it('能力探测不得在**被测画布**上创建上下文（那会让 transferControlToOffscreen 永久失败）', () => {
+    const getContext = jest.fn(() => ({}));
+    const canvas: any = { width: 10, height: 10, getContext };
+    const support = detectMirrorSupport({ canvas });
+    // 探测走一块临时画布；调用方那块必须一个字节都没被碰过
+    expect(getContext).not.toHaveBeenCalled();
+    // 拿不到临时画布时保守为 false（bitmapRenderer 只是合成路径，缺了不致命）
+    expect(support.caps.bitmapRenderer).toBe(false);
   });
 
   it('不支持时**根本不接管**落墨通道（宿主什么都不用做，主线程渲染照旧）', async () => {

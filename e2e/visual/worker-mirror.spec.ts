@@ -59,6 +59,8 @@ test('worker 镜像：状态与结构增量之后，画面与主线程参考逐�
 
   const stats: any = await page.evaluate(() => (window as any).__stats());
   expect(stats.last.appliedOps, '镜像应当真的应用过状态补丁').toBeGreaterThan(0);
+  // 文本绘制语言：主画布写了 lang，worker 必须拿到同一口径（否则简/繁/日汉字字形会分叉）
+  expect(stats.last.textLang, `worker 侧文本语言应当与主画布一致：${JSON.stringify(stats.last)}`).toBe('zh-CN');
   /**
    * 五步里第 3 步"加子节点"、第 4 步"删子节点"走的是**结构增量 op**（v2 起）——
    * 整轮只应当在启动时有过 1 次全量场景。这条是护栏：结构增量一退化回"重发整份文档"，
@@ -153,4 +155,47 @@ test('worker 镜像：输入留在主线程 —— 命中/选择/拖拽在镜像
   const line = `mirror 交互：手柄像素=${panelPixels} 拖拽后差异=${afterDragCmp.diff} 已应用选择=${stats.last.appliedSelections}`;
   console.log(`[worker-mirror] ${line}`);
   test.info().annotations.push({ type: 'worker-mirror', description: line });
+});
+
+/**
+ * **直绘模式**（`?direct=1`，`transferControlToOffscreen`）：把可见画布整块交给 worker，
+ * 省掉每帧"位图回传 + 主线程合成"这一跳。
+ *
+ * 判据刻意落在**像素**上：两种传输路径必须画出一模一样的东西。直绘模式下主线程读不到那块画布
+ * （这正是它的代价），所以用页面级截图比对 —— PNG 编码对相同像素是确定的，逐字节相等即可证明。
+ */
+test('直绘模式：与位图模式画面逐字节一致，帧节拍照旧推进', async ({ browser }) => {
+  test.setTimeout(90_000);
+  const shot = async (query: string) => {
+    const page = await browser.newPage();
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 200)));
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.goto(`/examples/worker/mirror-render.html${query}`, { waitUntil: 'load' });
+    await page.waitForFunction(() => (window as any).__ready(), undefined, { timeout: 20_000 });
+    await page.waitForTimeout(400); // 静止下来，两边取的是同一张画面
+    const info: any = await page.evaluate(() => ({
+      direct: (window as any).__directCanvas(),
+      frames: (window as any).__stats().frames,
+      hostActive: (window as any).__hostActive(),
+      renderedSeq: (window as any).__host.renderedSeq,
+    }));
+    const png = await page.locator('#view').screenshot();
+    await page.close();
+    return { info, png, errors };
+  };
+
+  const bitmap = await shot('');
+  const direct = await shot('?direct=1');
+
+  console.log(
+    `[worker-direct] 位图模式：frames=${bitmap.info.frames} seq=${bitmap.info.renderedSeq} png=${bitmap.png.length}B · ` +
+      `直绘模式：direct=${direct.info.direct} frames=${direct.info.frames} seq=${direct.info.renderedSeq} png=${direct.png.length}B`
+  );
+  expect(bitmap.info.direct, '位图模式不应当处于直绘').toBe(false);
+  expect(direct.info.direct, '?direct=1 应当真的把画布交给了 worker').toBe(true);
+  expect(direct.info.hostActive).toBe(true);
+  expect(direct.info.frames, '直绘模式下 worker 仍要按节拍出帧（水印照旧推进）').toBeGreaterThan(0);
+  expect(direct.errors, '直绘模式不应产生未捕获异常').toEqual([]);
+  expect(direct.png.equals(bitmap.png), '直绘与位图两条路径必须画出同一张画面').toBe(true);
 });
