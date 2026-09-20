@@ -12,7 +12,7 @@ ice-render（引擎）= 提供「原语」，不做编辑器 UX
   ├── 渲染图元、矩阵变换、坐标系
   ├── 文本（含内联编辑）
   ├── 动画
-  ├── 多运行时（WEB + 小程序）
+  ├── 多运行时（浏览器 + Node/headless）
   ├── 命中检测（精确的点-形状判定）
   ├── 序列化、连线、事件系统
   └── ...
@@ -52,7 +52,7 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | 依赖与合规 | **零运行时依赖**（gl-matrix 内联，产物无 `import`/`require`）+ `dist/THIRD-PARTY-NOTICES.txt` 保留内联依赖的版权声明 |
 | 渲染（派生参数） | `dirty` / `paramsDirty` 两级脏标记：祖先变换变化只重绘、不连带重量测后代（实测移动整组：`calcComponentParams` 10→0、`calcDots` 6→0） |
 | 文本 | 内联编辑（光标 / 退格 / 删除 / 方向键 / Home / End / Enter）；**中文 IME**（叠加透明 HTML input + `compositionend`，无 `document` 的运行时降级为 canvas keydown）；自动换行 / `maxLines` 省略号 / grapheme 分段（默认关闭）；量测改为 **canvas 优先 + DOM 降级**，`innerHTML` 注入已消除 |
-| 字体 | `root.loadFont` 平台适配（浏览器 `FontFace` / 小程序 `wx.loadFont`） |
+| 字体 | `root.loadFont`（浏览器 `FontFace`；headless 兜底空实现） |
 | 动画 | 点路径键（`'transform.rotate'`）、`delay`、取整可配（默认不取整）、**关键帧时间轴**、**弹簧类缓动**（`spring` / `springSoft` / `springSnappy`，自带过冲）、**数组字段逐元素补间**；结束判定按时间（弹簧能过冲的前提） |
 | 布局 | `addChild` / `removeChild` 立即重排、批量操作只排一次；排布前有 measure 阶段；新容器型子组件继承父层布局 |
 | 连接线 | 正交路由 `routeType: 'orthogonal'` + **避障**（把走廊里的其他图元当障碍绕开：逐个绕、绕不开时按"挡路图元的并集"再绕一轮，取穿越最少的一档；给排水工艺图实测 37 条管线 24 处穿线 → **0**）、连线标签 `label + labelStyle` 与 `style.label.offset` 偏移（2.15.0）、5 个共享插槽吸附；端点箭头默认实心（`arrowStyle: 'filled' \| 'hollow'`）、连线形态可切（`linkShape: 'visio' \| 'bezier'`，贝塞尔为插槽法线方向的三次曲线采样）；`findComponent` 递归查找（因此**连线可连嵌套子组件**） |
@@ -60,7 +60,7 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | 插件 | `ICE.use(plugin)` / `unuse(name)` 三层注册点（组件类型 / 每帧渲染 / 交互工具）+ `setup` / `teardown` 生命周期 |
 | 主题与样式 | 三层 token（base / semantic / chrome）+ 组件预设四层结构；`setTheme`（命名主题 / 深合并部分主题）与 `setChrome`（只改外壳）是**写主题的唯一入口**；样式里的 `'$token'` 引用在 **paint 时**解析（自定义组件也能随主题热切换）；子树作用域 `new ICEGroup({ theme })`；主题进快照只存**相对命名主题的最小差异**；`validateTheme()` 给结构化诊断。**主题变更通知** `ice.onThemeChange(fn)`（`evtBus` 上的 `ICE_EVENT_NAME_CONSTS.THEME_CHANGE`）让应用层能被动跟随。注册表护栏与 preset / type 对齐：内置主题名不可覆盖、重复注册抛错。详见 [21](21-theme-and-style.md) |
 | 无障碍 | `getAccessibilityTree()` 可访问节点快照 + `setFocusedComponent()` 键盘焦点回传。**引擎不自建 DOM 镜像层**（见 [14](14-accessibility.md)） |
-| 多运行时 | `root.createPath2D()`（原生 `Path2D` / `PolyfillPath2D` 降级）、离屏 canvas、图片、像素比全部有平台适配；`requestFrame` 无 rAF 时定时器兜底（Node / headless / 小程序低版本也能启动） |
+| 多运行时 | `root.createPath2D()`（原生 `Path2D` + 命令流）、离屏 canvas、图片、像素比都有适配；`requestFrame` 无 rAF 时定时器兜底（Node / headless 也能启动）。⚠️ 小程序支持已于 2026-09-20 移除 |
 | 脏矩形 | 局部重绘支持缩放/平移/`dpr>1`/多块裁剪；门控按「相交」判定；**离屏缓存与直接落墨逐像素一致**（位图栅格对齐设备像素，零重采样）；连线可缓存；脏盒合并带「划算护栏」，细长盒不会被串成整屏大盒。应用层实测：拖动实体时局部重绘 0 → 20 次、渲染 −31%/帧、局部 ≡ 全量 0 差异 |
 | 导出与无头 | **SVG 矢量导出**：`ice.toSvg()` / `exportSvg()` 与画布**共用同一套绘制命令流**，渐变、虚线、阴影、子树透明度、裁剪、连线标签、实心端点箭头都进产物（路径命令流底座见 `src/graphic/path`）；**无头实例** `ICE.headless()` 让 Node / 服务端建树出图不依赖 DOM 与 rAF（导出时先刷新派生几何）；`examples/node/export.mjs` 演示落盘 SVG、装了 `@resvg/resvg-js` 时再转 2× PNG |
 | 工程化 | **148 个单测套件 / 1215 个用例**（2026-09-19 实测，`npm test`）+ 覆盖率棘轮门槛（语句 65 / 分支 58 / 函数 72 / 行 65，只许上调）、**21 个 Playwright spec / 102 条用例**（`npm run test:visual`，含**像素一致性**与**离屏缓存保真**专项）、`publint` + `attw` 发布包门禁、lockfile 入库 + CI 用 `npm ci`、CHANGELOG |
@@ -78,7 +78,7 @@ ice-entity-designer（应用）= 用原语「拼装」编辑器 UX
 | P2 | **动画帧对「risky 图元」仍部分回退** | 纯色图元动画、以及「仅位置变化」的变脏 risky 组件已经能走局部重绘（2026-09-11 放开）；仍会回退的是「内容/几何变了」的文本与点集路径（字形墨迹可能超出几何盒，历史实测过 594px 差异），要解开需要「让脏区覆盖真实墨迹范围」的更精确估算 |
 | P3 | **渐变的更细粒度能力** | 目前支持 linear/radial/conic + `stops`；尚未支持**渐变描边的圆角/虚线交互细节**、`stops` 动画补间、以及 per-corner 渐变坐标系 |
 | P2 | **PDF 导出、SVG 导入、剪贴板 / 打印** | SVG **导出**已落地（见「已落地 · 导出与无头」）；剩下这几项需要独立的解析器 / 后端（PDF 可先走「SVG → resvg/headless Chrome」外部链路）。**诚实边界**：阴影、虚线流动、`measureText` 字形、`Path2D` 命令是 canvas 特有，导出只能近似，做不到像素级一致 |
-| P2 | **小程序真机验证** | `PolyfillPath2D`、离屏 canvas、字体加载在低版本基础库上的逐像素一致性与可用性，需微信开发者工具 / 真机确认（自动化测试覆盖不到） |
+| P2 | ~~小程序真机验证~~ | **已作废（2026-09-20：小程序支持移除）** |
 | P3 | **控制面板抽象** | 「按组件类型展现不同操作工具」需进一步抽象（`src/control-panel/ICEControlPanelManager.ts` 内有 FIXME）。插件机制的 `tools` 注册点可视为该抽象的第一层 |
 
 ### 家族品牌基线（**2026-09-14 已决策：方案① Bootstrap 5 基线**）
@@ -113,6 +113,6 @@ Bootstrap 也是这些库最常见的使用环境（宿主页面往往本身就�
 ## 验收原则
 
 - 每项落地都带回归测试：纯逻辑用 jest（`tests/`，镜像 `src/` 结构），交互行为用 Playwright 真实鼠标测试（`e2e/`），像素一致性用 golden image（`e2e/visual/`）。
-- **引擎目标是「高性能 canvas + WEB/小程序兼容」，任何改动不得破坏这两个约束。**
+- **引擎目标是「高性能 canvas + 浏览器 / Node 兼容」，任何改动不得破坏这两个约束。**
 - 以下必须同时零错误：`npm run lint`、`npm run types:check`、`npm test`、`npm run build`、`npm run pkg:check`。
 - 涉及「类的身份」的判断**不得依赖 `constructor.name`**（下游打包会 mangle 类名，判断会静默失效）——见 `AGENTS.md` 的「判类型不得依赖类名铁律」。

@@ -5,7 +5,7 @@ import root from '../cross-platform/root';
 
 export function uuid(): string {
   // 优先使用运行时原生实现。randomUUID 只在安全上下文（HTTPS / localhost）提供，
-  // jsdom、部分小程序环境只有 crypto.getRandomValues，必须继续降级，不能直接抛错。
+  // jsdom 等环境只有 crypto.getRandomValues，必须继续降级，不能直接抛错。
   if (root.crypto && typeof root.crypto.randomUUID === 'function') {
     return root.crypto.randomUUID();
   }
@@ -31,7 +31,7 @@ export function uuid(): string {
       hex.slice(10, 16).join('')
     );
   }
-  // 最后的兼容兜底：无 crypto 的旧运行时 / 小程序基础库。
+  // 最后的兼容兜底：无 crypto 的旧运行时。
   let dt = Date.now();
   const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = ((dt + Math.random() * 16) % 16) | 0;

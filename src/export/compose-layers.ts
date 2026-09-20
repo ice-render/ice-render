@@ -7,7 +7,7 @@
  * 与 `exportSvg([layers])` 的分工：SVG 走矢量（引擎重新描述命令流），本模块走**光栅**
  * （把各层 canvas 的像素 `drawImage` 叠加）—— 前者清晰可缩放，后者与屏幕所见逐像素一致。
  *
- * 跨运行时：依赖 `root.createOffscreenCanvas`（浏览器 / 小程序 / Node 由各平台的 root 提供）；
+ * 跨运行时：依赖 `root.createOffscreenCanvas`（浏览器 / Node 由 root 提供）；
  * 运行时没有离屏画布能力时抛 `ICE_UNSUPPORTED_RUNTIME`（稳定错误码，便于应用层兜底）。
  */
 import root from '../cross-platform/root';

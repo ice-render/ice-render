@@ -7,6 +7,56 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+## [3.0.0] - 2026-09-20
+
+> ⚠️ **破坏性：不再支持小程序**（2026-09-20，分支 `remove/mini-program-support`）。
+> 目标运行时收敛为**现代浏览器 + Node/headless**。小程序接入方留在 2.x（或自行维护适配层）。
+
+### 变更（破坏性：移除小程序支持）
+
+删掉的都是为"小程序形状的运行时"而存在的东西：
+
+- `cross-platform/root.ts` 的 `wx.*` 分支：`loadFont` / `createImage` / `devicePixelRatio` /
+  `createOffscreenCanvas`（浏览器与 headless 的路径不变）；
+- **无原生 `Path2D` 时的命令重放**与 `PolyfillPath2D`（连同 `ICEPath.replayPath()`）。
+  没有原生 `Path2D` 的运行时不再支持上屏；命令流本身照旧（SVG / 服务端出图、形状断言）；
+- 「小程序形状」回归夹具 `tests/mini-program/`（摘掉 `document`/`window`/`Path2D`/`rAF`/`FontFace`/
+  `OffscreenCanvas`、只留 `wx.*`，并对 Canvas 2D 成员做白名单越界检查）与宿主适配示例
+  `examples/mini-program/`；
+- README / 文档站里"小程序是一等公民"的承诺、接入指引与跨平台章节（`08-compatibility` 重写为
+  「浏览器 + Node/headless」）。
+
+**保留**（不是小程序专属，删了会伤浏览器或服务端出图）：`root` 适配层本身、
+无 rAF 的定时器兜底（Node / headless）、`Path2DRecorder` 的命令流、离屏 canvas 缺失时的缓存降级、
+`ICE.init(ctx)` 入口、指针/触摸输入归一化（老浏览器仍在用）。
+
+**顺带解绑**：`worker + OffscreenCanvas` 路线原先专门写了"小程序线程模型不同 → 不做"的排除理由，
+现在随之消失（见 `docs/architecture/10-worker-offscreen.md` §6）。
+
+回归：引擎 `verify:full` + 家族全量（chart / web-components / entity-designer / game /
+smart-water / agent-console 等）单测与 e2e。
+
+### 性能
+
+- **按需派发：没人听的事件名整段早退**（2026-09-20，分支 `perf/dispatch-and-bench`）。
+
+  一次原生指针输入会被派发两个名字（原生名 `pointermove` + 兼容名 `mousemove`），而通常只有一个
+  有人听 —— 引擎自己的默认处理器挂在鼠标名上，应用要么用鼠标名（老代码）要么用指针名（新代码）。
+  没人听的那一次以前要白跑「祖先链数组 + 每层 `trigger` + 总线触发」。
+
+  实测（`bench/micro/event-dispatch.bench.mjs`，Apple M 系 / node 25）：
+  一次完整派发 **9.75 µs**（约 5.9 KB 分配），早退 **3.3 ns**；
+  典型 `ICE_POINTERMOVE` 全链路 **12.0 µs**（改造前还要多一次 9.75 µs 的完整派发）。
+  指针移动是每帧级高频，拖动/悬停因此省掉一半派发与相应 GC 压力。
+
+  实现：`src/event/listened-event-names.ts` 的单向登记表（`ICEEventTarget.__register` 写入）+
+  `DOMEventDispatcher.__dispatch` 入口判定。**只增不减是刻意的**：摘除路径有 `off` /
+  `purgeEvents` / `once` 自摘 / `signal.abort` 四条，漏一条就会"有人听却不派发"；
+  而多一次空派发只是幂等白跑。
+
+  回归：`tests/event/dispatch-on-demand.test.ts`（5 条）+ 三条新基准（已入 baseline）。
+  对使用者**不可观测**（没人听的名字本来就没有接收方），所以没有破坏性口径。
+
 ## [2.20.0] - 2026-09-19
 
 > ⚠️ **行为变化（本仓约定：不用 `!` 标记，写在下面这一小节）**：`evt.target` 不再可能是 DOM 元素

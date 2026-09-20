@@ -9,7 +9,7 @@
 const created: any[] = [];
 
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
   const makeEl = (tag: string) => {
     const el: any = {
       tagName: String(tag).toUpperCase(),
@@ -33,7 +33,7 @@ jest.mock('../../src/cross-platform/root', () => {
   return {
     __esModule: true,
     default: {
-      createPath2D: () => new PolyfillPath2D(),
+      createPath2D: () => new Path2DRecorder(),
       loadFont: jest.fn(() => Promise.resolve('ok')),
       document: {
         getElementById: () => null,

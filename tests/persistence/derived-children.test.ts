@@ -5,8 +5,8 @@
  * 反序列化后既不会重复挂载，也不会因为子组件的自动 zIndex 变化导致两次序列化结果不同。
  */
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 global.Path2D = class {
   rect() {}

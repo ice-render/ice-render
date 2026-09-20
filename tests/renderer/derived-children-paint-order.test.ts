@@ -18,8 +18,8 @@
  *    收窄到**真实子节点** —— 派生部件不是文档内容，被重编号会把容器内容盖掉，而且重建即复位。
  */
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 
 global.Path2D = class {

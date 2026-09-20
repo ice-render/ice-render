@@ -12,9 +12,8 @@ import ICERect from '../../src/graphic/shape/ICERect';
 import ICECircle from '../../src/graphic/shape/ICECircle';
 import EventBus from '../../src/event/EventBus';
 
-// ---- node 环境桩：ICEComponent 构造需要 root.createPath2D，PolyfillPath2D 走命令记录 ----
+// ---- node 环境桩：ICEComponent 构造需要 root.createPath2D，Path2DRecorder 走命令记录 ----
 class FakePath2D {
-  _isPolyfill = true;
   _commands: any[] = [];
   _closed = false;
   moveTo(...a: any[]) {

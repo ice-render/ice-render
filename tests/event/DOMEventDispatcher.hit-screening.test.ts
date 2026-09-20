@@ -11,11 +11,18 @@
  * - DOMEventDispatcher 与 ICE.hitTest 采用同一策略
  */
 import EventBus from '../../src/event/EventBus';
+import { markEventNameListened } from '../../src/event/listened-event-names';
 import DOMEventDispatcher from '../../src/event/DOMEventDispatcher';
 import ICE from '../../src/ICE';
 import { HIT_BOX_TOLERANCE } from '../../src/renderer/dirty-rect-util';
 
 const RECT = { left: 0, top: 0 };
+
+// 夹具是"假组件 + trigger mock"（不走 __register）：显式登记本文件断言的名字，
+// 让「按需派发」不把命中预筛用例挡掉（它们测的是预筛，不是派发策略）。
+['mousedown', 'mousemove', 'mouseup', 'pointerdown', 'pointermove', 'pointerup', 'click'].forEach(
+  markEventNameListened
+);
 
 /** 造一个组件：__box 为渲染快照盒（[minX,minY,maxX,maxY]），containsPoint 可被观察。 */
 function makeComp(box: number[] | null, zIndex = 1, hit = true) {

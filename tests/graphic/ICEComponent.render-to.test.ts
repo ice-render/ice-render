@@ -7,7 +7,6 @@
 import ICERect from '../../src/graphic/shape/ICERect';
 
 class FakePath2D {
-  _isPolyfill = true;
   _commands: any[] = [];
   _closed = false;
   moveTo(...a: any[]) {

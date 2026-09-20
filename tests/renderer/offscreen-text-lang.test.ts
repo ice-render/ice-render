@@ -125,23 +125,10 @@ describe('离屏 canvas 的文本语言镜像', () => {
     expect(created[1].lang).toBeUndefined();
   });
 
-  it('宿主对象写不进去（小程序那种）→ 不抛错、不阻断渲染', () => {
-    // 模拟 wx canvas：给 lang 赋值会抛（只读宿主对象）
-    const hostile: any = {
-      getContext: () => makeFakeCanvas().getContext(),
-    };
-    Object.defineProperty(hostile, 'lang', {
-      set() {
-        throw new Error('readonly host object');
-      },
-      get() {
-        return undefined;
-      },
-    });
-    (root as any).wx = { createOffscreenCanvas: () => hostile };
+  it('没有 document 时抛明确错误（headless 没有离屏 canvas 可用）', () => {
     (root as any).document = undefined;
 
-    expect(() => root.createOffscreenCanvas(10, 10, { lang: 'zh-CN' })).not.toThrow();
+    expect(() => root.createOffscreenCanvas(10, 10, { lang: 'zh-CN' })).toThrow(/没有可用的离屏 canvas/);
   });
 });
 

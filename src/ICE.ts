@@ -242,11 +242,9 @@ class ICE {
   /**
    * 读画布矩形（border-box）。
    *
-   * **小程序 / 无 DOM 的运行时没有 `getBoundingClientRect`**：那里的 canvas 节点只有
-   * `width` / `height` / `getContext`，尺寸要自己用 `wx.createSelectorQuery()` 拿。
-   * 这种情况下退回「原点在 (0,0)、尺寸取画布自身尺寸」的矩形 —— 正好对上小程序触摸事件
-   * 的坐标语义（`touch.x/y` 就是相对画布的），输入换算与内容盒计算因此有确定输入，
-   * 宿主不需要再包一层假 DOM。
+   * **没有 `getBoundingClientRect` 的宿主**（headless / 测试桩）只给得出 canvas 节点的
+   * `width` / `height` / `getContext`。这种情况下退回「原点在 (0,0)、尺寸取画布自身尺寸」的
+   * 矩形，输入换算与内容盒计算因此仍有确定输入，宿主不需要再包一层假 DOM。
    *
    * 有原生实现的运行时（浏览器、jsdom）行为完全不变。
    */
@@ -862,13 +860,13 @@ class ICE {
   }
 
   /**
-   * 加载自定义字体（平台适配）：浏览器走 FontFace API，小程序走 wx.loadFont。
+   * 加载自定义字体（浏览器 FontFace API）。
    * 加载后，在 ICEText 的 style.fontFamily 里引用该字体名即可。
    *
    * **字体就绪后会重新量测已挂载的文本**（`remeasureTexts()`）：首帧通常还没拿到自定义字体，
    * 用回退字体量出的宽高与换行会残留 —— 这是 i18n 场景（中文字体按需加载）最容易踩的坑。
    * @param family 字体族名（如 'MyFont'）
-   * @param source 字体源（浏览器为 url/二进制，小程序为本地文件路径）
+   * @param source 字体源（url / 二进制）
    */
   public loadFont(family: string, source: string): Promise<any> {
     return Promise.resolve(root.loadFont(family, source)).then((result: any) => {
@@ -1507,7 +1505,7 @@ class ICE {
    *
    * 不传尺寸时从**内容盒**读（排除 border / padding）。直接用 `getBoundingClientRect()`
    * 的 border-box 会被边框撑大 —— 老示例页的画布带 1px 边框，就是这么偏的。
-   * 没有布局信息的运行时（小程序那类没有 `getBoundingClientRect` 的宿主）请显式传尺寸。
+   * 没有布局信息的宿主（无 `getBoundingClientRect`，如 headless / 测试桩）请显式传尺寸。
    *
    * @param cssWidth  逻辑（CSS）宽度。不给则从内容盒读，读不到再退回画布当前逻辑尺寸。
    * @param cssHeight 逻辑（CSS）高度。同上。
@@ -1587,7 +1585,7 @@ class ICE {
 
   /** 记下上次用于「位移增量」的矩形快照。
    *
-   * 不能直接复用 `canvasBoundingClientRect` 做差：某些运行时（桩 / 小程序）返回的是
+   * 不能直接复用 `canvasBoundingClientRect` 做差：某些运行时（测试桩）返回的是
    * **同一个可变对象**，此时 `rect === prev`，增量恒为 0，内容盒就再也不会跟着走。
    */
   private __rememberInputRect(rect: any): void {
@@ -1639,7 +1637,7 @@ class ICE {
 
   /**
    * 读取 canvas 内容盒：把 border-box 的 rect 补偿成「绘制区」的偏移与尺寸。
-   * 无 getComputedStyle 的运行时（如小程序）补偿为 0，退回 rect 原值。
+   * 无 getComputedStyle 的运行时（headless / 测试桩）补偿为 0，退回 rect 原值。
    */
   private __readContentBox(rect: any): any {
     const el: any = this.canvasEl;
@@ -1966,7 +1964,7 @@ class ICE {
     this.linkSlotManager.start();
     setTimeout(() => {
       // 实例可能在 300ms 内被 destroy()（eventDispatcher 置空）——定时器里再取用就是
-      // 未捕获异常，在小程序里表现为白屏。这里必须判空。
+      // 未捕获异常会直接冒到宿主（页面白屏）。这里必须判空。
       if (this.eventDispatcher) {
         this.eventDispatcher.stopped = false;
       }

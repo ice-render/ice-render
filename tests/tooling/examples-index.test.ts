@@ -1,8 +1,8 @@
 /**
  * `examples/index.html` 导航页与真实示例文件的「双向一致」门禁（纯静态检查，无副作用）。
  *
- * 为什么需要：导航页由 `examples/generate-index.cjs` 生成，而它曾经把
- * `examples/mini-program/node_modules/**` 里第三方自带的示例 html 也收进来
+ * 为什么需要：导航页由 `examples/generate-index.cjs` 生成，而它曾经把示例目录下
+ * `node_modules/**` 里第三方自带的示例 html 也收进来
  * （导航页从 88 条变成 95 条，多出 jimp / min-document / qrcode-reader 的页面）。
  * 这类问题不会让任何测试变红，只会让文档里的示例数字与页面对不上。
  *

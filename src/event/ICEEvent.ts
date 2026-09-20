@@ -223,7 +223,7 @@ class ICEEvent<TParam = any> implements Event {
       try {
         raw.preventDefault();
       } catch (e) {
-        // 某些宿主（测试桩 / 小程序）的原生对象上 preventDefault 可能不可调用：忽略，不影响引擎语义
+        // 某些宿主（测试桩 / headless）的原生对象上 preventDefault 可能不可调用：忽略，不影响引擎语义
       }
     }
   }

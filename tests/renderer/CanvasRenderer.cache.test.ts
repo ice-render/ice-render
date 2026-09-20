@@ -11,7 +11,6 @@ import ICEStar from '../../src/graphic/shape/ICEStar';
 import EventBus from '../../src/event/EventBus';
 
 class FakePath2D {
-  _isPolyfill = true;
   _commands: any[] = [];
   _closed = false;
   moveTo(...a: any[]) {

@@ -2,8 +2,8 @@ import LineControlPanel from '../../src/control-panel/link-controls/LineControlP
 import ICEPolyLine from '../../src/graphic/link/ICEPolyLine';
 
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 
 describe('LineControlPanel 端点拖拽', () => {

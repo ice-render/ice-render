@@ -15,8 +15,8 @@ function walk(dir, rel = '') {
     if (stat.isDirectory()) {
       // 跳过不该当示例收录的目录：
       // - `assets`：图片等静态资源；
-      // - `node_modules`：`examples/mini-program/node_modules/**` 里有一堆第三方自带的示例 html，
-      //   曾被误收进来（导航页从 88 条变成 95 条，多出 jimp / min-document / qrcode-reader 的页面）；
+      // - `node_modules`：示例目录里可能会带第三方依赖，它们自带的示例 html 不属于本仓示例
+      //   （2026-09-13 踩过：导航页从 88 条变成 95 条，多出 jimp / min-document / qrcode-reader 的页面）；
       // - 点开头的目录（`.git` / `.cache` 之类）同样不是示例。
       if (name === 'assets' || name === 'node_modules' || name.startsWith('.')) continue;
       walk(full, rel ? `${rel}/${name}` : name);

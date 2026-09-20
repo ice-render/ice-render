@@ -1,7 +1,7 @@
 import ImageCache from '../../src/util/ImageCache';
 
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
   class FakeImage {
     complete = false;
     naturalWidth = 0;
@@ -12,7 +12,7 @@ jest.mock('../../src/cross-platform/root', () => {
   return {
     __esModule: true,
     default: {
-      createPath2D: () => new PolyfillPath2D(),
+      createPath2D: () => new Path2DRecorder(),
       createImage: () => new FakeImage(),
     },
   };

@@ -8,8 +8,8 @@
  * 4. **网格**：`rows` 反推列数 + `gridSpan` 跨格；**箱式**：`grow` 按比例吃剩余空间。
  */
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 
 import ICEGroup from '../../src/graphic/container/ICEGroup';

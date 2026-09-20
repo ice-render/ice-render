@@ -4,7 +4,7 @@
  * 复现条件：子组件在父组件尚未计算/缓存变换矩阵之前调用 composeMatrix()，
  * 或者父组件变换矩阵是上一帧残留的脏值。
  *
- * 引擎目标：高性能 canvas 绘图引擎，需兼容 WEB 与各类小程序，
+ * 引擎目标：高性能 canvas 绘图引擎，需兼容现代浏览器与 Node/headless，
  * 因此矩阵组合逻辑必须自洽、不依赖祖先节点的缓存时机。
  */
 import { mat2d } from 'gl-matrix';
@@ -12,8 +12,8 @@ import { mat2d } from 'gl-matrix';
 // 在 node 测试环境下把重型的跨平台/引擎模块替换为桩，避免加载 DOM/Canvas 依赖。
 jest.mock('../../src/ICE', () => ({ __esModule: true, default: class ICE {} }));
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  return { __esModule: true, default: { createPath2D: () => new PolyfillPath2D() } };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  return { __esModule: true, default: { createPath2D: () => new Path2DRecorder() } };
 });
 jest.mock('../../src/event/EventBus', () => ({ __esModule: true, default: class EventBus {} }));
 

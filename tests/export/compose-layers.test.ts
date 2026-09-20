@@ -7,8 +7,8 @@
  * 调用契约：层序、尺寸取最大、背景、缺能力时的稳定错误码。
  */
 jest.mock('../../src/cross-platform/root', () => {
-  const PolyfillPath2D = jest.requireActual('../../src/cross-platform/PolyfillPath2D').default;
-  const root: any = { createPath2D: () => new PolyfillPath2D() };
+  const Path2DRecorder = jest.requireActual('../../src/cross-platform/Path2DRecorder').default;
+  const root: any = { createPath2D: () => new Path2DRecorder() };
   return { __esModule: true, default: root, __root: root };
 });
 

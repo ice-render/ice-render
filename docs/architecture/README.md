@@ -11,7 +11,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**（MIT 协议，作者
 **核心设计约束**（贯穿所有子系统的铁律）：
 
 1. **运行时依赖极简** —— 仅 `gl-matrix` 一个库，无其它依赖。
-2. **多运行时兼容** —— 同一套代码同时面向 **Web 浏览器**与**各类小程序**（WeChat/Alipay 等），因此不能依赖浏览器专有 API。
+2. **多运行时兼容** —— 同一套代码同时面向 **现代浏览器**与 **Node / headless**（服务端出图、单测），因此不能依赖浏览器专有 API。
 3. **高性能** —— 脏标记 + 脏矩形局部重绘（默认，条件回退全量重绘）的渲染模型，配合渲染队列缓存与矩阵零分配，保证数千图元的交互流畅度。
 
 ## 文档地图
@@ -25,7 +25,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**（MIT 协议，作者
 | [05 · 事件系统](05-event-system.md) | `ICEEventTarget`、`EventBus`、DOM 事件桥接 |
 | [06 · 序列化](06-serialization.md) | `Serializer`/`Deserializer`、类型映射、`registerType` |
 | [07 · 交互与动画](07-interaction-animation.md) | 控制面板、拖拽/变换、连接线、动画 |
-| [08 · 多运行时兼容](08-compatibility.md) | `cross-platform/root`、rAF 封装、Path2D 与小程序适配 |
+| [08 · 多运行时兼容](08-compatibility.md) | `cross-platform/root`、rAF 封装、Path2D 命令流与浏览器 / Node 适配 |
 | [09 · 路线图](09-roadmap.md) | 引擎原语 vs 应用层边界、原语现状（已落地 / 仍未做） |
 | [10 · Worker/OffscreenCanvas](10-worker-offscreen.md) | Web-only 的 worker 渲染设计 + 最小可行性原型 |
 | [11 · 视口缩放](11-viewport-zoom.md) | 视图缩放/平移原语：视口矩阵、渲染与命中的坐标换算 |

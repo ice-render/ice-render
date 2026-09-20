@@ -11,7 +11,6 @@
 import ICE from '../src/ICE';
 
 class FakePath2D {
-  _isPolyfill = true;
   _commands: any[] = [];
   moveTo() {}
   lineTo() {}
@@ -126,7 +125,7 @@ describe('分层原语 ②：setInputPassthrough', () => {
     expect(ice.isInputPassthrough()).toBe(false);
   });
 
-  it('无 canvasEl / 无 style 的运行时（小程序）不抛错', () => {
+  it('无 canvasEl / 无 style 的宿主（headless / 测试桩）不抛错', () => {
     const ice: any = new ICE();
     expect(() => ice.setInputPassthrough(true)).not.toThrow();
     expect(ice.isInputPassthrough()).toBe(true);

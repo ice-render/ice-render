@@ -19,7 +19,6 @@ import root from '../../src/cross-platform/root';
 import { isEffectivelyVisible } from '../../src/util/data-util';
 
 class FakePath2D {
-  _isPolyfill = true;
   _commands: any[] = [];
   moveTo(...a: any[]) {
     this._commands.push(['moveTo', ...a]);

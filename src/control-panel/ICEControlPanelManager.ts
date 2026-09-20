@@ -99,7 +99,7 @@ class ICEControlPanelManager {
   private mouseDownHandler(evt: ICEEvent) {
     const component = evt.target as any;
 
-    // `target` 可能为空：点在空白处、或宿主环境里没有 DOM 事件目标（小程序合成的事件对象
+    // `target` 可能为空：点在空白处、或宿主环境里没有 DOM 事件目标（合成的事件对象
     // 就没有 `target`）。浏览器下 `evt.target` 恰好是 canvas 元素，所以这个空值一直没暴露。
     if (!component || !component.ice || !component.state.interactive) {
       this.lineControlPanel.disable();
