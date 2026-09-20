@@ -35,6 +35,7 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
   ② **`evt.target` 要么是命中的组件、要么是 `null`，永远不是 DOM 元素**（DOM 元素在 `evt.originalEvent.target`）——以前从 DOM 事件平铺进来，应用只能靠 `instanceof` 猜；应用过滤画布外输入用 `evt.source !== 'canvas'`；
   ③ **总线那一段 `eventPhase` 恒为 `0`**（总线是传播终点）：没有命中组件的事件走不到组件链，必须在 `__dispatch` 里显式归零，否则会沿用 DOM 的 `BUBBLING_PHASE(3)`，同一个字段出现两种含义。
   回归：`tests/event/event-source.test.ts`（8 条，含"画布外输入仍会命中"这条已知行为的钉桩）。⚠️ 已知未改项：画布外输入**仍然做命中测试**（坐标按画布矩形换算，可能落到画布内并命中组件）——要改成"不做命中"需单独评估（会牵动键盘转发与 HTML 浮层）。
+- **按需派发铁律（2026-09-20 补，性能向）**：`DOMEventDispatcher.__dispatch` 在入口问一句"这个事件名有人听吗"（`src/event/listened-event-names.ts` 的**单向登记表**，由 `ICEEventTarget.__register` 写入），没人听就**整段早退**。背景：一次原生指针输入派发两个名字（原生名 `pointermove` + 兼容名 `mousemove`），而引擎默认处理器挂在鼠标名上、应用只用其中一套 —— 没人听的那一次要白跑「祖先链数组 + 每层 `trigger` + 总线触发」；实测一次完整派发 **9.75 µs / 5.9 KB 分配**，早退 **3.3 ns**，典型 `ICE_POINTERMOVE` 全链路因此从 ~22 µs 降到 ~12 µs（指针移动是每帧级高频）。⚠️ **登记表只增不减是刻意的**：摘除路径有 `off`/`purgeEvents`/`once` 自摘/`signal.abort` 四条，漏一条就是"有人听却不派发"的正确性事故，而"多一次空派发"只是幂等白跑；**别为了"精确"去补摘除逻辑**。⚠️ 用"假组件 + `trigger` mock"的夹具/测试不走 `__register`，必须显式 `markEventNameListened(name)`。基准：`bench/micro/event-dispatch.bench.mjs`；回归：`tests/event/dispatch-on-demand.test.ts`。
 - **外观入口铁律（2026-09-14 确立）**：**外观一律写进 `style`**（子元素用 `style.label` 这类嵌套，
   不要新开 `xxxStyle` 容器）；它才走"绘制那一刻解析"，才能引用主题 token、被 `props.states` 覆盖。
   **顶层 props 只放两类东西**：① 动画要写的 key（引擎按顶层 `state[key]` 写值，如 `lineDashOffset`），

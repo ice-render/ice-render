@@ -192,6 +192,32 @@ composedPath / 别名与链式 / `off(name)` 全清）。
 
 ## DOM 事件桥接
 
+### 按需派发：没人听的事件名整段早退（2026-09-20）
+
+一次原生指针输入会被派发**两个名字** —— 原生名（`pointermove`）+ 兼容名（`mousemove`）。
+而这两个名字通常只有一个有人听：**引擎自己的默认处理器挂在鼠标名上**
+（`ICEComponent` 构造期登记 `mousedown/keydown/keyup`，拖拽真正开始时才登记 `mousemove/mouseup`），
+应用要么用鼠标名（老代码）要么用指针名（新代码）。
+
+没人听的那一次，以前要白跑「祖先链数组 + 每层 `trigger` + 总线触发」：
+
+| 基准（`bench/micro/event-dispatch.bench.mjs`） | 实测（Apple M 系 / node 25） |
+|---|---|
+| 派发 · 有人听（祖先链 4 层 + 每层 trigger + 总线） | **9.75 µs**，约 **5.9 KB**/次分配 |
+| 派发 · 没人听（按需派发早退） | **3.3 ns**（只剩一次表查询） |
+| 全链路 `ICE_POINTERMOVE`（典型：pointer 名没人听） | **12.0 µs**（改造前还要多一次 9.75 µs 的完整派发） |
+
+实现：`event/listened-event-names.ts` 是一张**单向登记表**（由 `ICEEventTarget.__register` 写入），
+`DOMEventDispatcher.__dispatch` 在入口问一句"这个名字有人听吗"，没人听就整段早退。
+
+⚠️ **单向（只增不减）是刻意的**：摘除路径有 `off` / `purgeEvents` / `once` 自摘 / `signal.abort`
+四条，漏掉任何一条都会造成"有人听却不派发"的**正确性事故**；而"曾经被用过之后多一次空派发"
+只是幂等的白跑 —— 拿正确性换这点性能不划算。
+
+⚠️ **夹具/桩的影响**：用"假组件 + `trigger` mock"的用例不经 `__register`，
+需要显式 `markEventNameListened(name)`（见 `tests/event/DOMEventDispatcher.input.test.ts` 的说明）。
+回归：`tests/event/dispatch-on-demand.test.ts`（5 条）+ 基准三条。
+
 原生 DOM 事件 → 引擎内部事件的链路：
 
 ```mermaid
