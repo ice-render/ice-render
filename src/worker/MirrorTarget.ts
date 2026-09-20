@@ -6,11 +6,13 @@
  *
  */
 import root from '../cross-platform/root';
+import { registerMirrorImage } from './mirror-hooks';
 import {
   MIRROR_PROTOCOL_VERSION,
   MIRROR_ROOT_ID,
   MirrorCommand,
   MirrorFontSource,
+  MirrorImageSource,
   MirrorOp,
   isValidOp,
 } from './mirror-protocol';
@@ -75,6 +77,8 @@ export default class MirrorTarget {
   public fontErrors: string[] = [];
   /** 直绘模式下被接管的画布（null = 位图模式） */
   public directCanvas: any = null;
+  /** 累计下发并注册成功的图片数 */
+  public appliedImages = 0;
 
   constructor(ice: any) {
     if (!ice) {
@@ -309,7 +313,53 @@ export default class MirrorTarget {
     if (msg.t === 'attach-canvas') {
       return { attached: this.attachCanvas(msg.canvas) };
     }
+    if (msg.t === 'images') {
+      return this.applyImages(msg.images);
+    }
     return null;
+  }
+
+  /**
+   * 注册**下发过来的图片**（宿主在主线程解码好的 `ImageBitmap`）。
+   *
+   * 两件事：① 记进 `ice.__mirrorImages`（`ImageCache.setImage()` 会先查它，命中就直接画）；
+   * ② 把**用到这张图的组件**标脏 —— 它们在"图还没到"的那几帧里画的是空，必须重画一遍；
+   * 光置 `ice.dirty` 不够（组件自己不脏的话，脏矩形那条路不会重画它）。
+   */
+  public applyImages(images: MirrorImageSource[]): { added: number; keys: string[] } {
+    const keys: string[] = [];
+    const list = Array.isArray(images) ? images : [];
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      if (!item || !item.key || !item.bitmap) {
+        continue;
+      }
+      registerMirrorImage(this.ice, item.key, item.bitmap);
+      this.__dirtyImageUsers(item.key);
+      this.appliedImages++;
+      keys.push(item.key);
+    }
+    if (keys.length) {
+      this.ice.dirty = true;
+    }
+    return { added: keys.length, keys };
+  }
+
+  /** 把 `state.src === key` 的组件标脏（浅扫整棵树：图片到达是低频事件，够用且不引入索引） */
+  private __dirtyImageUsers(key: string): void {
+    const walk = (nodes: any[]) => {
+      if (!nodes || !nodes.length) return;
+      for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        if (node && node.state && node.state.src === key) {
+          node.dirty = true;
+        }
+        if (node && node.childNodes && node.childNodes.length) {
+          walk(node.childNodes);
+        }
+      }
+    };
+    walk(this.ice.childNodes);
   }
 
   /**

@@ -17,6 +17,27 @@
  */
 import { test, expect } from '@playwright/test';
 
+/**
+ * 等"图片已经下发到 worker 并画进这一帧"。
+ *
+ * 图片是**异步**来的（主线程渲染发现用图 → 宿主 fetch + createImageBitmap → 消息 → worker 重画），
+ * 不等它就会出现"参考里有图、镜像里还没有"的假差异（实测 72×72 的图标 = 5061 个像素差）。
+ */
+async function waitForImages(page: any): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const s = (window as any).__stats();
+      // ① worker 收到下发的图；② 两边的 Image / ImageBitmap 都已解码（参考侧重建后也要等它）
+      return !!(s && s.last && s.last.appliedImages > 0) && (window as any).__imagesReady();
+    },
+    undefined,
+    { timeout: 20_000 }
+  );
+  const since: any = await page.evaluate(() => (window as any).__stats().frames);
+  await page.evaluate(() => (window as any).__host.paint());
+  await page.evaluate((f: number) => (window as any).__waitFrame(f), since);
+}
+
 interface MirrorCmp {
   diff: number;
   alphaDiff: number;
@@ -68,6 +89,7 @@ test('worker 镜像：状态与结构增量之后，画面与主线程参考逐�
    */
   expect(stats.last.appliedScenes, `结构变更不应触发全量重同步：${JSON.stringify(stats.last)}`).toBe(1);
   expect(stats.last.appliedAdds, '加子节点应当走 add op').toBeGreaterThan(0);
+  expect(stats.last.appliedImages, '场景里的图片应当被下发到 worker').toBeGreaterThan(0);
   expect(stats.last.appliedRemoves, '删子节点应当走 remove op').toBeGreaterThan(0);
   expect(errors, '不应有页面/console 错误').toEqual([]);
 
@@ -90,6 +112,7 @@ test('worker 镜像：输入留在主线程 —— 命中/选择/拖拽在镜像
   await page.goto('/examples/worker/mirror-render.html', { waitUntil: 'load' });
   await page.waitForFunction(() => (window as any).__ready(), undefined, { timeout: 20_000 });
 
+  await waitForImages(page);
   const frames = () => page.evaluate(() => (window as any).__stats().frames);
   const waitFrame = async (before: number) => {
     await page.evaluate((since: number) => (window as any).__waitFrame(since), before);
@@ -112,6 +135,7 @@ test('worker 镜像：输入留在主线程 —— 命中/选择/拖拽在镜像
   // ② worker 侧用**自己的**控制面板画出了手柄
   const panelPixels = await page.evaluate(() => (window as any).__panelPixels());
   expect(panelPixels, 'worker 画面里应当出现选择手柄').toBeGreaterThan(0);
+  await waitForImages(page); // 选中会重建参考树：它的图片要重新解码完再比
   const afterSelect: MirrorCmp = await page.evaluate(() => (window as any).__compare());
   expect(afterSelect.diff, `选中态逐像素一致：${JSON.stringify(afterSelect)}`).toBe(0);
 
@@ -174,6 +198,7 @@ test('直绘模式：与位图模式画面逐字节一致，帧节拍照旧推�
     await page.goto(`/examples/worker/mirror-render.html${query}`, { waitUntil: 'load' });
     await page.waitForFunction(() => (window as any).__ready(), undefined, { timeout: 20_000 });
     await page.waitForTimeout(400); // 静止下来，两边取的是同一张画面
+    await waitForImages(page); // 图也是异步到的：不等它，两条路径可能一个有一张没有
     const info: any = await page.evaluate(() => ({
       direct: (window as any).__directCanvas(),
       frames: (window as any).__stats().frames,

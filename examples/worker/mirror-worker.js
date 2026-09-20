@@ -68,6 +68,7 @@ function renderAndPost(seq) {
         fontErrors: target && target.fontErrors ? target.fontErrors.slice(0, 4) : [],
         appliedOps: target.appliedOps,
         appliedScenes: target.appliedScenes,
+        appliedImages: target.appliedImages,
         appliedAdds: target.appliedAdds,
         appliedRemoves: target.appliedRemoves,
         appliedSelections: target.appliedSelections,

@@ -178,6 +178,8 @@ export default class MirrorHost {
   private __caps: { offscreen: boolean; path2d: boolean; pointerEvents: boolean } | null = null;
   /** 直绘模式是否生效（`transferCanvas` 请求了、且运行时支持） */
   private __directCanvas = false;
+  /** 已经解码过（或正在解码）的图片 URL —— 同一条图只解码一次 */
+  private __imageTasks = new Map<string, Promise<void>>();
 
   constructor(options: MirrorHostOptions) {
     if (!options || !options.canvas) {
@@ -195,6 +197,7 @@ export default class MirrorHost {
     this.bridge = new MirrorBridge(this.ice, {
       send: (msg, transfer) => this.__post(msg, transfer),
       onEvent: (evt) => this.__onEvent(evt),
+      onImageRequest: (url) => this.__resolveImage(url),
     });
   }
 
@@ -555,6 +558,46 @@ export default class MirrorHost {
       clearInterval(this.watchdogTimer);
       this.watchdogTimer = null;
     }
+  }
+
+  /**
+   * 主线程渲染用到了一张图 → 解码成 `ImageBitmap` → 零拷贝下发给 worker。
+   *
+   * 为什么在主线程解码：worker 里没有 `Image` 构造器，而"同一张图在主线程与 worker 各自解码"
+   * 还可能在跨域 / 解码器细节上分叉 —— 统一在主线程解码、把位图传过去，两边画的就是同一份像素。
+   * 失败（网络 / 解码 / 运行时不支持）时如实上报（`MIRROR_IMAGE_FAILED`），worker 侧只是少一张图，不会崩。
+   */
+  private __resolveImage(url: string): void {
+    if (!url || this.__imageTasks.has(url)) {
+      return;
+    }
+    const task = (async () => {
+      try {
+        if (typeof createImageBitmap !== 'function' || typeof fetch !== 'function') {
+          throw new Error('当前运行时缺少 fetch / createImageBitmap，无法解码图片');
+        }
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const bitmap = await createImageBitmap(blob);
+        if (!this.running) {
+          // 已经停了（回退 / 宿主主动关掉）：位图没人要，直接释放
+          if (bitmap && typeof bitmap.close === 'function') {
+            bitmap.close();
+          }
+          return;
+        }
+        this.bridge.recordImages([{ key: url, bitmap }]);
+        this.__paintPending = true;
+      } catch (e: any) {
+        this.__onEvent({
+          t: 'error',
+          v: MIRROR_PROTOCOL_VERSION,
+          message: `图片下发失败（${url}）：${(e && e.message) || e}`,
+          code: 'MIRROR_IMAGE_FAILED',
+        });
+      }
+    })();
+    this.__imageTasks.set(url, task);
   }
 
   private __post(msg: any, transfer?: any[]): void {

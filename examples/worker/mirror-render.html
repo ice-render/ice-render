@@ -80,7 +80,17 @@
           style: { fillStyle: '#16A34A' },
         });
         target.addChild(circle);
-        return { bg, group, rect, circle };
+        /**
+         * 图片：worker 里没有 `Image` 构造器 —— 宿主不把解码好的位图下发过去，整棵镜像会退回主线程
+         *（实测：加一个 `ICEImage` 就 `hostActive: false`）。这里用组件自带的 data URL 图标：
+         * 两边同源同解码器，像素应当逐点一致。
+         */
+        // 注意尺寸：**按原图 1:1 绘制**。缩放绘制时 Chromium 对 `Image` 与 `ImageBitmap` 的
+        // 重采样不同（实测 185×182 → 72×72：770 像素、最大 93/255；半尺寸 411 像素、最大 10），
+        // 1:1 才逐点一致 —— 这条边界写在 docs/architecture/10-worker-offscreen.md 的图片一行里。
+        const icon = new ICE.ICEImage({ left: 420, top: 190, width: 185, height: 182, interactive: false });
+        target.addChild(icon);
+        return { bg, group, rect, circle, icon };
       }
 
       const nodes = buildScene(ice);
@@ -251,6 +261,25 @@
       /** 直绘模式提示：没有位图回传，`__compare()`（比 probe 画布）在这种模式下无意义。 */
       window.__isDirect = function () {
         return direct;
+      };
+      /**
+       * 两边的图片都加载好了吗（e2e 用）。
+       *
+       * 图片是异步的：`probe`（worker 位图）那边要等宿主解码下发，`ref`（主线程参考）那边要等它自己的
+       * `Image` 解码完 —— 任一边没就绪，逐像素比对都会差出一整块图标（实测 72×72 = 5061 像素）。
+       */
+      window.__imagesReady = function () {
+        // 注意：**要求非空** —— 参考树是 `fromJSONObject()` 重建出来的，它还没渲染过时缓存是空的，
+        // 那时"空 = 就绪"会让断言在参考侧还没画图之前就开始比对（实测差出一整块图标）。
+        const loaded = (inst) => {
+          const map = inst && inst.imageCache && inst.imageCache.imageCache;
+          if (!map || !map.size) return false;
+          for (const img of map.values()) {
+            if (!(img && img.complete && img.naturalWidth > 0)) return false;
+          }
+          return true;
+        };
+        return loaded(ice) && loaded(reference);
       };
       /** 直绘模式是否生效（e2e 用）。 */
       window.__directCanvas = function () {

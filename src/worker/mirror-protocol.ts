@@ -64,6 +64,12 @@ export type MirrorOp = ['state', string, any] | ['add', string, any] | ['remove'
  * 让宿主在主线程把字体取好、把字节推过来，worker 只负责注册 —— 与"图片/字体解码留在宿主侧"的
  * 分工一致（见 `docs/architecture/10-worker-offscreen.md` §2 的边界表）。
  */
+/** 一条图片下发的记录（见 `images` 消息）：`key` 是图源 URL（`state.src`），`bitmap` 是解码好的位图。 */
+export type MirrorImageSource = {
+  key: string;
+  bitmap: any;
+};
+
 export type MirrorFontSource = {
   family: string;
   /** 字体字节（`FontFace` 的 source 参数支持 ArrayBuffer） */
@@ -113,6 +119,15 @@ export type MirrorCommand =
    * 且只在这条消息里传一次（`transfer` 列表），后续 `resize` 改的是 worker 侧它的尺寸。
    */
   | { t: 'attach-canvas'; v: number; seq: number; canvas: any }
+  /**
+   * **图片下发**：worker 里没有 `Image` 构造器（图片链路是 `ImageCache` 的 `Image` + `onload`），
+   * 带图片的树在镜像里会直接抛错 → 兼容层把整个镜像退回主线程。
+   *
+   * 所以宿主在主线程把图解码成 `ImageBitmap`（`fetch` + `createImageBitmap`，与主线程同源同解码器），
+   * 用 `key = state.src` 随这条消息推过去（位图走 transfer 列表，零拷贝）。
+   * worker 侧 `ImageCache` 命中就直接画、命中不到就"未加载"（等下发），**不抛**。
+   */
+  | { t: 'images'; v: number; seq: number; images: MirrorImageSource[] }
   /**
    * 渲染节拍：`time` 用主线程的 `DOMHighResTimeStamp`（双时钟会漂，见 §5）。
    *
@@ -251,6 +266,15 @@ export function isMirrorCommand(msg: any): boolean {
   if (msg.t === 'text') return typeof msg.lang === 'string' && typeof msg.dir === 'string';
   // 直绘：只需要一个"像画布"的对象（worker 侧会 getContext('2d') 校验）
   if (msg.t === 'attach-canvas') return !!msg.canvas && typeof msg.canvas.getContext === 'function';
+  // 图片下发：数组 + 每条都要有非空 key 与位图对象
+  if (msg.t === 'images') {
+    if (!Array.isArray(msg.images)) return false;
+    for (const image of msg.images) {
+      if (!image || typeof image.key !== 'string' || !image.key) return false;
+      if (!image.bitmap || typeof image.bitmap !== 'object') return false;
+    }
+    return true;
+  }
   // 字体下发：数组 + 每条都要有 family 与字节 source
   if (msg.t === 'fonts') {
     if (!Array.isArray(msg.fonts)) return false;

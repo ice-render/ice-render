@@ -18,8 +18,8 @@
 >   工具层按**选择**镜像 —— worker 用**自己的**控制面板画手柄。参考宿主 `MirrorHost`，
 >   回归 `e2e/visual/worker-mirror.spec.ts` 的交互用例（点选 / 拖拽 / 空点隐藏手柄，逐像素 0 差异）。
 > - **仍未做**：输入转发（DOM 事件留主线程这条不变，这里指"把原生事件也透给 worker"）、
->   **图片**下发（图片链路是 `ImageCache` 的 `Image` + `onload`，worker 里要用 `createImageBitmap`
->   另开一条解码路径）、把补间搬进 worker、结构增量里的"换父级"（`adoptChild` 目前按"删 + 加"两条 op 走）。
+>   把补间搬进 worker（实测收益很小：1000 个动画组件每帧只 0.19ms / 68KB）、
+>   结构增量里的"换父级"（`adoptChild` 目前按"删 + 加"两条 op 走，语义正确、只多一条消息）。
 >   引擎的**默认**渲染仍是主线程；worker 渲染要宿主显式接线。
 > 小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
 
@@ -43,7 +43,8 @@
 | `global`/`window` 探测 | `cross-platform/root.ts` | ✅ **已解决（阶段一）**：取根改为 `globalThis` —— 浏览器 window / worker self / Node global 同一个入口，宿主不再需要伪造全局 |
 | 离屏 canvas | `root.createOffscreenCanvas` | ✅ **已解决（阶段一）**：有 document 时用 `<canvas>`（保住 `lang`/`dir` 的字形口径），没有则用 `new OffscreenCanvas(w,h)`（worker 分支） |
 | 文本字形语言（`lang`/`dir`） | 主画布元素属性 | ✅ **已解决（协议下发）**：宿主把主画布的 `lang`/`dir` 随 `text` 消息推给 worker，`MirrorTarget.applyText()` 落到 worker 的 `ctx` 与 `root.textLanguage` —— 后者让**组件缓存 / 静态层的每一张离屏画布**也继承同一口径（少了它，缓存里的汉字字形会与主画布分叉） |
-| 字体 | `ICE.loadFont()`（`FontFace` + `document.fonts`） | ✅ **已下发**：宿主在主线程把字体字节取好（`MirrorHost` 的 `fonts` 选项），`fonts` 消息推给 worker，worker 用自己的 `FontFace` + `self.fonts` 注册；运行时不支持时如实报 `fontErrors`、不抛。**图片仍未做**（图片链路是 `ImageCache` 的 `Image` + `onload`，worker 里要用 `createImageBitmap` 另开一条解码路径） |
+| 字体 | `ICE.loadFont()`（`FontFace` + `document.fonts`） | ✅ **已下发**：宿主在主线程把字体字节取好（`MirrorHost` 的 `fonts` 选项），`fonts` 消息推给 worker，worker 用自己的 `FontFace` + `self.fonts` 注册；运行时不支持时如实报 `fontErrors`、不抛 |
+| 图片 | `ImageCache` 的 `Image` + `onload` | ✅ **已下发**：worker 里没有 `Image` 构造器（带图片的树以前会整棵退回主线程 —— 实测加一个 `ICEImage` 就 `hostActive: false`）。现在主线程渲染发现用图 → 宿主 `fetch` + `createImageBitmap` 解码 → `images` 消息（位图走 transfer 零拷贝）→ worker 直接用；同一 URL 只解码一次，未到达时返回"未加载"**不抛**。⚠️ **边界：缩放绘制**时 Chromium 对 `Image` 与 `ImageBitmap` 的重采样不同（实测原图 185×182：1:1 绘制**逐点一致**、缩到 72×72 差 770 像素/最大 93、缩一半差 411 像素/最大 10）——要严格逐像素一致就**按原图尺寸绘制** |
 
 ## 3. 架构分层
 
@@ -100,9 +101,10 @@
    `__reapplyPreset()`（会顺手写 `style`）与 `doLayout()`（会写 `left/top`）**之前** ——
    顺序反了就是"worker 收到未知 id 的补丁" → `missing` → 全量重同步，结构增量白做
    （2026-09-20 由 IED 的真实操作抓到，单测已钉住）。
-8. **文本口径必须跟着走**：`lang`/`dir`（汉字简/繁/日字形）与**字体字节**都随协议下发 ——
-宿主从主画布读语言、把字体取成字节，worker 用自己的 `ctx` 与 `FontFace` 落地。
-字符栅格化两边一致，"缓存 / 静态层与主画布逐像素一致"这条承诺才守得住。
+8. **文本与图片的口径都必须跟着走**：`lang`/`dir`（汉字简/繁/日字形）、**字体字节**、**图片位图**
+都随协议下发 —— 宿主从主画布读语言、把字体取成字节、把图片解码成 `ImageBitmap`，
+worker 用自己的 `ctx` / `FontFace` / 图片注册表落地。少了任何一样，"缓存 / 静态层与主画布
+逐像素一致"这条承诺都会破（图片那条以前更严重：worker 里没有 `Image` 构造器，整棵镜像会退回主线程）。
 
 **直绘模式（可选）**：`transferCanvas: true` 时宿主把显示画布 `transferControlToOffscreen()` 交给
 worker（worker 直接往它上面画、不再回传位图），代价是主线程读不到那块画布；前置是"显示画布必须
@@ -217,6 +219,7 @@ worker 化天然是 **web-only**，所以"起不来怎么办"必须是机制的�
 | 静止态几何对账 | —— | **399/399 逐项相等** | 每个节点的世界盒 + 连线两端点 |
 | 静止态像素（worker vs 文档重建 / vs 主线程源树） | —— | **0 差异 / 558000 像素 0 差异** | 含节点标题与连线标签（文字栅格化） |
 | 全量场景体积 | —— | 473 KB | 只在首次 / 兜底 / 自愈时发 |
+| **落墨占比**（三档护栏：主线程 / 几何通道 / 镜像） | 1.90 ms | 1.20 / **1.20 ms** | 落墨占主线程那一帧 **37%** —— 这就是镜像能省的**上界**（`e2e/worker-mirror.spec.ts` 的"落墨占比三档"用例钉住区间） |
 | 加一个节点的代价（v2 结构增量） | 485 924 B · 1 次全量重同步 · worker 那一帧 125ms | **1 037 B · 0 次重同步 · 6.3ms** | 端到端 166ms → 10ms |
 
 规模趋势（`?nodes=40/120/250/400`）：主线程每帧 0.50/1.20/2.30/4.50 ms → 0.30/0.80/1.50/3.00 ms，

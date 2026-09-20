@@ -116,6 +116,31 @@ export function isMirroredComponent(component: any): boolean {
   return true;
 }
 
+/** 把宿主下发的图片位图登记到实例上（`ImageCache.setImage()` 会先查它）。 */
+export function registerMirrorImage(ice: any, key: string, bitmap: any): void {
+  if (!ice || !key || !bitmap) {
+    return;
+  }
+  if (!ice.__mirrorImages) {
+    ice.__mirrorImages = new Map<string, any>();
+  }
+  ice.__mirrorImages.set(key, bitmap);
+}
+
+/**
+ * 渲染用到了一张图片。
+ *
+ * 主线程：桥把 URL 交给宿主 → 宿主解码成 `ImageBitmap` → `images` 消息下发（见 `MirrorHost`）。
+ * worker：没有桥，什么都不做 —— worker 侧的 `ImageCache` 会先看"下发过没有"，没下发就返回未加载
+ *（等下一次下发后重画），不再抛 "没有 Image 构造器"。
+ */
+export function notifyImageRequest(ice: any, url: string): void {
+  const bridge = ice && ice.__mirrorBridge;
+  if (bridge && url) {
+    bridge.recordImageRequest(url);
+  }
+}
+
 /**
  * 找到这次结构变更归属的桥。
  *

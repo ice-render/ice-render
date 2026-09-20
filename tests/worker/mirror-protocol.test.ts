@@ -96,6 +96,18 @@ describe('消息校验', () => {
     expect(isMirrorCommand({ t: 'frame', v: MIRROR_PROTOCOL_VERSION, seq: 1, time: 1 })).toBe(true);
   });
 
+  it('图片下发：images 必须是 [{key, bitmap}]（key 非空、bitmap 是对象）', () => {
+    expect(
+      isMirrorCommand({ t: 'images', v: MIRROR_PROTOCOL_VERSION, seq: 1, images: [{ key: 'k', bitmap: { width: 1 } }] })
+    ).toBe(true);
+    expect(isMirrorCommand({ t: 'images', v: MIRROR_PROTOCOL_VERSION, seq: 1, images: [] })).toBe(true);
+    expect(
+      isMirrorCommand({ t: 'images', v: MIRROR_PROTOCOL_VERSION, seq: 1, images: [{ key: '', bitmap: {} }] })
+    ).toBe(false);
+    expect(isMirrorCommand({ t: 'images', v: MIRROR_PROTOCOL_VERSION, seq: 1, images: [{ key: 'k' }] })).toBe(false);
+    expect(isMirrorCommand({ t: 'images', v: MIRROR_PROTOCOL_VERSION, seq: 1, images: 'nope' })).toBe(false);
+  });
+
   it('op 形状（v2）：state 补丁 / add 子树 / remove 三种，id 一律非空字符串', () => {
     expect(isValidOp(['state', 'ICE_1', { left: 5 }])).toBe(true);
     // add：父 id（'#root' 表示 ICE 根）+ 子树文档

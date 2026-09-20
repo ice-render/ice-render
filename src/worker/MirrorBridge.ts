@@ -13,6 +13,7 @@ import {
   MirrorCommand,
   MirrorEvent,
   MirrorFontSource,
+  MirrorImageSource,
   MirrorOp,
   isValidOp,
   sanitizeTransferable,
@@ -36,6 +37,13 @@ export type MirrorBridgeOptions = {
   resyncOnStructureChange?: boolean;
   /** worker 回传的事件（ready / rendered / missing / error）——宿主做统计或重试策略用。 */
   onEvent?: (evt: MirrorEvent) => void;
+  /**
+   * 主线程渲染用到了一张图片（`ImageCache` 命中不到缓存时触发）。
+   *
+   * 宿主在这里把图**解码成 ImageBitmap** 再 `recordImages()` 下发 —— worker 里没有 `Image` 构造器，
+   * 不给它解码好的位图，带图片的树就会在 worker 侧抛错、把整个镜像逼回主线程。
+   */
+  onImageRequest?: (url: string) => void;
 };
 
 /**
@@ -85,6 +93,9 @@ export default class MirrorBridge {
 
   private send_: MirrorSend | null = null;
   private onEvent_: ((evt: MirrorEvent) => void) | null = null;
+  private onImageRequest_: ((url: string) => void) | null = null;
+  /** 已经向宿主报过请求的 URL（同一条图只请求一次；宿主那边还有自己的"已解码"集合） */
+  private requestedImages = new Set<string>();
   private readonly resyncOnStructureChange: boolean;
   private ops: MirrorOp[] = [];
   /** 待发的选择状态（undefined = 没有变化；空数组 = 明确"取消选择"） */
@@ -114,6 +125,8 @@ export default class MirrorBridge {
    * 且必须在 `scene` 之后 —— worker 是先收到 scene 才 boot 出 ICE 的，早到的画布没有接收者。
    */
   private canvasToAttach: any = null;
+  /** 待下发的图片（解码好的位图，随 transfer 列表发出） */
+  private images: MirrorImageSource[] | null = null;
   /** 组件 id → 在 `ops` 里的下标（补丁合并用） */
   private opIndex = new Map<string, number>();
   private seq = 0;
@@ -130,6 +143,7 @@ export default class MirrorBridge {
     this.resyncOnStructureChange = options.resyncOnStructureChange === true;
     if (options.send) this.send_ = options.send;
     if (options.onEvent) this.onEvent_ = options.onEvent;
+    if (options.onImageRequest) this.onImageRequest_ = options.onImageRequest;
     // 装到实例上：引擎的四处钩子按 `ice.__mirrorBridge` 找桥（见 mirror-hooks.ts）
     ice.__mirrorBridge = this;
   }
@@ -201,6 +215,7 @@ export default class MirrorBridge {
       this.textLanguage !== null ||
       this.fonts !== null ||
       this.canvasToAttach !== null ||
+      this.images !== null ||
       this.ops.length > 0
     );
   }
@@ -241,6 +256,25 @@ export default class MirrorBridge {
     if (canvas) {
       this.canvasToAttach = canvas;
     }
+  }
+
+  /** 主线程用到了一张图：转给宿主（宿主解码后 `recordImages()` 下发）。同一条 URL 只报一次。 */
+  public recordImageRequest(url: string): void {
+    if (!url || this.requestedImages.has(url)) {
+      return;
+    }
+    this.requestedImages.add(url);
+    if (this.onImageRequest_) {
+      this.onImageRequest_(url);
+    }
+  }
+
+  /** 排一次**图片下发**（宿主在主线程解码好的位图；位图走 transfer 列表，零拷贝）。 */
+  public recordImages(images: MirrorImageSource[]): void {
+    if (!Array.isArray(images) || !images.length) {
+      return;
+    }
+    this.images = (this.images || []).concat(images);
   }
 
   /** 排一次**字体**下发（字节由宿主在主线程取好，见 `MirrorFontSource`）。 */
@@ -471,6 +505,16 @@ export default class MirrorBridge {
       };
       this.fonts = null;
       this.send_(msg);
+      this.sent++;
+      sent++;
+    }
+    if (this.images) {
+      const images = this.images;
+      this.images = null;
+      this.send_(
+        { t: 'images', v: MIRROR_PROTOCOL_VERSION, seq: ++this.seq, images },
+        images.map((i) => i.bitmap)
+      );
       this.sent++;
       sent++;
     }
