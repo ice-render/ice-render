@@ -531,6 +531,24 @@ web-components 的 e2e 静默复用了 smart-water 的服务目录，9 个用例
 
 - 一条命令跑完全部门禁：**`npm run verify`**（lint → types:check → build → jest → bench 2000 → pkg:check）；
   需要浏览器回归时用 `npm run verify:full`（再追加 Playwright 全量、bench:anim / bench:layers / bench:micro）。
+- **下游回归分层跑**（2026-09-20 确立，脚本 `scripts/family-regression.cjs`）：
+  家族现在有 11 个应用成员，一轮"全家族单测 + e2e"约 8 分钟 —— 每次都全量是浪费，
+  但**绝不能静默少测**，所以分层判定写死在脚本里、每次打印"为什么这么跑"：
+
+  | 命令 | 跑什么 | 用在哪 |
+  |---|---|---|
+  | `npm run regression:unit` | 全家族单测（每成员 `npm test`，没有测试的退到 `types:check`/`build`） | 改文档/测试，或要一层快速信号 |
+  | `npm run regression:affected` | `verify:full` + 全家族单测 + **受影响成员**的 e2e | **日常默认** |
+  | `npm run regression:family` | `verify:full` + 全家族单测 + **全部**成员 e2e | 发版前 / 大改核心 |
+
+  "受影响"= 改动路径 + 应用引用面：只改 `src/worker/**` → 谁真接线了镜像（代码里出现
+  `MirrorHost` 等）谁跑 e2e；改了 `src/` 下**其它**任何东西 → **全家族**跑 e2e（共用行为，
+  引用面判断会漏，宁可多跑）；只改文档/测试/基准 → 不跑任何应用 e2e。
+  另外**不依赖引擎的成员**（如 `ice-agent-console`）在 `affected` 层只跑单测 —— 它的 e2e
+  观察不到引擎改动。成员是**自动发现**的（兄弟目录、目录名 `ice-*`、有 package.json；
+  文档站 `ice-render-doc` 排除），新加应用不用改脚本。
+  先看它打算跑什么：`node scripts/family-regression.cjs --dry-run`；指定基线
+  `--since=<ref>`（默认 `origin/dev`）、只跑指定成员 `--only=a,b`、引擎已跑过 `--skip-engine`。
 - **性能门禁（2026-09-14 补）**：`bench/render.cjs` 与 `bench/micro` 以前只打印数字、靠人眼看，
   现在都能判定 —— `npm run bench <N> -- --check`（基线 `bench/baselines/render.json`）、
   `npm run bench:micro -- --check`（基线 `bench/micro/baseline.json`），实测超基线 2.0× / 2.5× 即非 0 退出。

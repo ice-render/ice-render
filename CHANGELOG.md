@@ -7,6 +7,29 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 开发工具（下游回归分层：`npm run regression:affected`）
+
+家族现在有 11 个应用成员，一轮"全家族单测 + e2e"约 8 分钟 —— 改一行文档也全量跑是纯浪费。
+新增 `scripts/family-regression.cjs`（`npm run regression:unit` / `:affected` / `:family`），
+把下游回归分成三层，但**绝不静默少测**：判定规则写死在脚本里，且每次都打印"为什么这么跑"。
+
+- **`unit`**：全家族单测（每成员 `npm test`；没有测试用例的成员退到 `npm run types:check` → `build`，
+  这正是 `ice-entity-designer-react-demo` 这类"跟版"成员的验证方式）。
+- **`affected`（默认）**：引擎 `verify:full` + 全家族单测 + **受影响成员**的 e2e。
+- **`full`**：引擎 `verify:full` + 全家族单测 + **全部**成员 e2e（发版前）。
+
+"受影响"由**改动路径 + 应用引用面**判定：只改 `src/worker/**` → 谁真的接线了镜像
+（代码里出现 `MirrorHost` / `MirrorBridge` / `MirrorTarget` / `detectMirrorSupport` …）谁跑 e2e；
+改了 `src/` 下**其它**任何东西（图形 / 渲染器 / 事件 / 序列化 / ICE / `cross-platform/root`…）→
+**全家族**跑 e2e（共用行为，"引用面"判断会漏，宁可多跑）；只改文档/测试/基准 → 不跑应用 e2e。
+另外，**不依赖引擎的成员**（如 `ice-agent-console`）在 `affected` 层只跑单测 —— 它的 e2e 观察不到
+引擎改动。成员是自动发现的（兄弟目录、目录名 `ice-*`、有 `package.json`；文档站 `ice-render-doc` 排除），
+新加应用不用改脚本；依赖链接照旧"临时指向工作区引擎、跑完还原"。
+
+实测：`--tier=unit` 三个成员 10.1s；`--tier=affected --only=ice-entity-designer,ice-agent-console`
+32.6s（IED 跑 e2e，agent-console 只跑单测）；同规模的全量 `--tier=full` 约 8 分钟。
+支持 `--dry-run`（先看计划）、`--since=<ref>`（默认 `origin/dev`）、`--only=`、`--skip-engine`。
+
 ### 新功能（Worker 镜像 · 2026-09-20 兼容保护：起不来就回退，回退后照常可用）
 
 镜像一直是"宿主显式接线"，于是"某些浏览器/宿主不支持"以前只能靠应用自己判断：不支持时
