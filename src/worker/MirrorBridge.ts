@@ -9,6 +9,7 @@ import { merge } from '../util/lang';
 import { isMirroredComponent } from './mirror-hooks';
 import {
   MIRROR_PROTOCOL_VERSION,
+  MIRROR_ROOT_ID,
   MirrorCommand,
   MirrorEvent,
   MirrorOp,
@@ -23,9 +24,13 @@ export type MirrorBridgeOptions = {
   /** 消息出口。也可以之后用 `setSend()` 再装（例如先拿 `worker` 再建桥） */
   send?: MirrorSend;
   /**
-   * 结构变更（增删子节点）时是否自动排一次全量重同步，默认 true。
+   * 结构变更（增删子节点）时**强制**走"重发整份文档"，默认 `false`。
    *
-   * 关掉它请自己想清楚：v1 的 op 只有状态补丁，**结构对不上时镜像会画错东西**（不是不画）。
+   * 默认行为是**结构增量**：`add` / `remove` 各一条 op（见 `recordStructureChange`）。
+   * 传 `true` 就退回老口径（v1 时代只有状态补丁，结构一变重发全量）—— 留给"结构变更极频繁、
+   * 增量 op 反而更碎"或"我在排查结构错位"的宿主。
+   *
+   * 注意：**拿不到可寻址信息时（无 id / 编码失败）无论如何都会退回全量**，这个开关关不掉。
    */
   resyncOnStructureChange?: boolean;
   /** worker 回传的事件（ready / rendered / missing / error）——宿主做统计或重试策略用。 */
@@ -107,7 +112,7 @@ export default class MirrorBridge {
       throw new Error('[ice-render] MirrorBridge: 需要一个 ICE 实例。');
     }
     this.ice = ice;
-    this.resyncOnStructureChange = options.resyncOnStructureChange !== false;
+    this.resyncOnStructureChange = options.resyncOnStructureChange === true;
     if (options.send) this.send_ = options.send;
     if (options.onEvent) this.onEvent_ = options.onEvent;
     // 装到实例上：引擎的四处钩子按 `ice.__mirrorBridge` 找桥（见 mirror-hooks.ts）
@@ -226,7 +231,11 @@ export default class MirrorBridge {
   /**
    * 采集一次结构变更（增删子节点）。
    *
-   * v1 不产生子树增量，直接标全量 —— 见类注释第 1 条。`kind` 目前只为可读性留着（日志/断言）。
+   * v2 起走**结构增量**：`add` / `remove` 各一条 op（见 `MirrorOp`），不再重发整份文档 ——
+   * 实测（IED 200 节点 / 799 组件）"加一个节点"从 473KB 文档 + worker 一次冷启动全量重绘
+   * 降到一条几 KB 的 op。三种情况下仍退回全量（`markSceneNeeded()`）：
+   * 宿主显式要求（`resyncOnStructureChange: true`）、父/子**拿不到可寻址的 id**、
+   * 子树编码失败（`serializer.encodeSubtree()` 返回空）。
    */
   public recordStructureChange(kind: 'add' | 'remove', _parent: any, _child: any): void {
     // 工具层的结构变更（面板挂上/摘下、手柄按需创建）同样不镜像，理由见 recordStateChange
@@ -242,10 +251,52 @@ export default class MirrorBridge {
     if (!isMirroredComponent(_parent) || !isMirroredComponent(_child)) return;
     if (this.resyncOnStructureChange) {
       this.markSceneNeeded();
-    } else {
-      // 明确的"我知道自己在做什么"：宿主自己保证镜像结构不变（例如只镜像一棵静态子树）
-      void kind;
+      return;
     }
+    const op = kind === 'add' ? this.__buildAddOp(_parent, _child) : this.__buildRemoveOp(_child);
+    if (!op) {
+      // 无法寻址：宁可重发整份文档，也不能让镜像的结构错位
+      this.markSceneNeeded();
+      return;
+    }
+    /**
+     * 直接进队列，**不走 `opIndex` 合并**：那个表是"同一个组件的连续状态补丁就地合并"用的，
+     * 结构 op 与状态补丁的顺序必须逐条保留（先 add 再给它写 state，或先写 state 再 remove，
+     * worker 侧的结果都与主线程的事件顺序一致）。
+     */
+    this.ops.push(op);
+  }
+
+  /** `['add', 父 id, 子树文档]`；拿不到父 id / 编码不出子树时返回 null（调用方退回全量） */
+  private __buildAddOp(parent: any, child: any): MirrorOp | null {
+    /**
+     * **子组件自己也必须有 id**：镜像树是按 id 寻址的（后续状态补丁、删除、选中都靠它），
+     * 挂一个没有 id 的组件上去，之后谁也找不到它 —— 那属于"结构已经错位"，
+     * 必须当场退回全量重同步，而不是发一条注定对不上的 op。（单测抓到的：只查父 id 不够。）
+     */
+    if (!componentIdOf(child)) {
+      return null;
+    }
+    const parentId = parent === this.ice ? MIRROR_ROOT_ID : componentIdOf(parent);
+    if (!parentId) {
+      return null;
+    }
+    const serializer: any = this.ice && this.ice.serializer;
+    if (!serializer || typeof serializer.encodeSubtree !== 'function') {
+      return null;
+    }
+    const nodeDoc = serializer.encodeSubtree(child);
+    if (!nodeDoc) {
+      return null;
+    }
+    const clean = sanitizeTransferable(nodeDoc, this.dropped, `add[${componentIdOf(child)}]`);
+    return clean ? ['add', parentId, clean] : null;
+  }
+
+  /** `['remove', 组件 id]`；拿不到 id 时返回 null（调用方退回全量） */
+  private __buildRemoveOp(child: any): MirrorOp | null {
+    const id = componentIdOf(child);
+    return id ? ['remove', id] : null;
   }
 
   /**

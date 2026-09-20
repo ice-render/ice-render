@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { MIRROR_PROTOCOL_VERSION, MirrorCommand, MirrorOp, isValidOp } from './mirror-protocol';
+import { MIRROR_PROTOCOL_VERSION, MIRROR_ROOT_ID, MirrorCommand, MirrorOp, isValidOp } from './mirror-protocol';
 
 export type ApplyOpsResult = {
   /** 收到的 op 条数 */
@@ -16,6 +16,11 @@ export type ApplyOpsResult = {
   missing: string[];
   /** 形状不合法的 op（协议/数据坏了，必须报出来，不能静默改坏镜像） */
   invalid: number;
+  /**
+   * 本批里**新**出现的未注册类型（有的话说明镜像少挂了组件，宿主应当提示）——只报增量，
+   * 避免每批补丁都把同一个类型名重复上报一次。
+   */
+  unknownTypes?: string[];
 };
 
 export type ApplySceneResult = {
@@ -46,6 +51,9 @@ export default class MirrorTarget {
   private index = new Map<string, any>();
   /** 累计应用成功的 op 条数（上报给主线程做对账） */
   public appliedOps = 0;
+  /** 累计应用的**结构增量**：加子树 / 删子树各多少条（宿主对账"结构是不是走增量"用） */
+  public appliedAdds = 0;
+  public appliedRemoves = 0;
   /** 累计应用的选择状态条数 */
   public appliedSelections = 0;
   /** 累计应用的视口变更条数 */
@@ -101,6 +109,10 @@ export default class MirrorTarget {
     const missing: string[] = [];
     let applied = 0;
     let invalid = 0;
+    const deserializer: any = this.ice.deserializer;
+    /** 本批开始时的未注册类型数：只把**新增**的那些报回去（否则每批补丁都重复上报一次） */
+    const unknownBefore =
+      deserializer && Array.isArray(deserializer.unknownTypes) ? deserializer.unknownTypes.length : 0;
     /** 本批里有没有动到"当前选中项" —— 动了就要让控制面板重新跟随（见下面的说明） */
     let touchedSelection = false;
     const selectedIds = new Set<string>();
@@ -115,6 +127,45 @@ export default class MirrorTarget {
         invalid++;
         continue;
       }
+      const kind = op[0];
+      /**
+       * 结构增量：加子树。父容器找不到 → 进 `missing`（主线程据此重发全量，结构自愈）。
+       * 子树文档的类型没注册 → `decodeInto()` 返回 null 并记进 `deserializer.unknownTypes`，
+       * 这与整份场景加载的口径一致（跳过 + 上报，不抛错打断整批）。
+       */
+      if (kind === 'add') {
+        const parent = op[1] === MIRROR_ROOT_ID ? this.ice : this.index.get(op[1]);
+        if (!parent) {
+          if (missing.indexOf(op[1]) === -1) missing.push(op[1]);
+          continue;
+        }
+        const instance =
+          deserializer && typeof deserializer.decodeInto === 'function' ? deserializer.decodeInto(parent, op[2]) : null;
+        if (!instance) {
+          invalid++;
+          continue;
+        }
+        this.__indexSubtree(instance);
+        applied++;
+        this.appliedOps++;
+        this.appliedAdds++;
+        continue;
+      }
+      /** 结构增量：删子树。先按 id 把整棵子树的索引清掉，再摘除（摘除会 destory，之后遍历不到）。 */
+      if (kind === 'remove') {
+        const doomed = this.index.get(op[1]);
+        if (!doomed) {
+          if (missing.indexOf(op[1]) === -1) missing.push(op[1]);
+          continue;
+        }
+        this.__unindexSubtree(doomed);
+        this.__detach(doomed);
+        applied++;
+        this.appliedOps++;
+        this.appliedRemoves++;
+        continue;
+      }
+      // 状态补丁
       const target = this.index.get(op[1]);
       if (!target) {
         if (missing.indexOf(op[1]) === -1) missing.push(op[1]);
@@ -141,7 +192,53 @@ export default class MirrorTarget {
         manager.applySelection((this.ice.selectionList as any[])[0] || null, false);
       }
     }
-    return { received, applied, missing, invalid };
+    const unknownTypes: string[] =
+      deserializer && Array.isArray(deserializer.unknownTypes) && deserializer.unknownTypes.length > unknownBefore
+        ? deserializer.unknownTypes.slice(unknownBefore)
+        : [];
+    return { received, applied, missing, invalid, ...(unknownTypes.length ? { unknownTypes } : {}) };
+  }
+
+  /** 把一棵新挂上的子树里的所有 id 记进索引（与 `reindex()` 同一套遍历口径）。 */
+  private __indexSubtree(node: any): void {
+    if (!node) {
+      return;
+    }
+    const id = idOf(node);
+    if (id) {
+      this.index.set(id, node);
+    }
+    const children: any[] = node.childNodes || [];
+    for (let i = 0; i < children.length; i++) {
+      this.__indexSubtree(children[i]);
+    }
+  }
+
+  /** 把一棵即将摘除的子树里的所有 id 从索引里删掉。 */
+  private __unindexSubtree(node: any): void {
+    if (!node) {
+      return;
+    }
+    const id = idOf(node);
+    if (id) {
+      this.index.delete(id);
+    }
+    const children: any[] = node.childNodes || [];
+    for (let i = 0; i < children.length; i++) {
+      this.__unindexSubtree(children[i]);
+    }
+  }
+
+  /** 从它当前的父容器上摘掉（根级组件的 `parentNode` 是 null，走 ICE 的入口）。 */
+  private __detach(component: any): void {
+    const parent = component.parentNode;
+    if (parent && typeof parent.removeChild === 'function') {
+      parent.removeChild(component);
+      return;
+    }
+    if (this.ice && typeof this.ice.removeChild === 'function') {
+      this.ice.removeChild(component);
+    }
   }
 
   /**

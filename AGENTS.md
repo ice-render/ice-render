@@ -34,9 +34,11 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 ③ **采集点只有四处**（`ICEComponent.setState`、`ICE.addChild/removeChild`、`ICEGroup.addChild/removeChild`），
 统一走 `src/worker/mirror-hooks.ts`；**别用包裹 `setState` 的方式采集** —— 动画写值通道走的也是
 `setState`，包裹会漏掉动画，而那正是"镜像跟着动"的主路径；
-④ **v1 的边界写进协议头注释**：状态增量、结构全量。要加子树增量之前先想清楚"id 对不上时怎么办"
-（现在的答案是 `missing` → 主线程重发全量，限流 500ms）。回归：`tests/worker/`、
-`e2e/visual/worker-mirror.spec.ts`。
+④ **增量 op 的三种形态与"id 对不上"的答案**：`['state',id,patch]` / `['add',parentId,子树文档]` /
+`['remove',id]`；id 对不上 → `missing` → 主线程重发全量（限流 500ms）自愈。
+⚠️ 结构 op 与状态补丁是**同一条有序队列**：`addChild` 的镜像钩子必须排在会写 state 的那些调用
+（`__reapplyPreset` / `doLayout`）**之前**，否则同一批里会出现"未知 id 的补丁" → `missing` → 全量重同步
+（2026-09-20 实测抓到）。回归：`tests/worker/`、`e2e/visual/worker-mirror.spec.ts`。
 ⑤ **输入永远不跨线程**：DOM 事件、命中检测、拖拽、控制面板交互都在主线程。代价是主线程必须继续跑
 渲染管线 —— 命中检测读的是**渲染期的世界盒快照**（`CanvasRenderer.getWorldBox` → `__snap`），
 不跑管线就"从未渲染过的组件命中不到"。但主线程不必产出像素：`ICE.setPaintTarget(几何通道)`

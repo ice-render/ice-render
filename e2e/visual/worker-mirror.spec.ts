@@ -5,7 +5,7 @@
  * 这条比"画面动起来了"强得多 —— 它同时钉住了：
  * ① 全量场景（`scene`）能把树完整搬过去（类型注册、派生参数、主题都在内）；
  * ② 状态增量（`ops`）与原树逐点等价（含点集这类派生参数、嵌套 `style` 深合并）；
- * ③ 结构变更走全量重同步之后，镜像依旧与原树一致。
+ * ③ 结构变更（加/删子节点）走**结构增量 op** 之后，镜像依旧与原树一致 —— 且**不重发整份文档**。
  *
  * 判据二：**交互仍然全部发生在主线程**，且镜像里能看到同样的反馈：
  *  - 命中检测按**可见画布**的矩形换算（夹具把画布刻意偏离页面左上角，坐标错了就点不中）；
@@ -26,7 +26,7 @@ interface MirrorCmp {
   total: number;
 }
 
-test('worker 镜像：状态增量与结构重同步之后，画面与主线程参考逐像素一致', async ({ page }) => {
+test('worker 镜像：状态与结构增量之后，画面与主线程参考逐像素一致', async ({ page }) => {
   test.setTimeout(90_000);
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(String(e.message).slice(0, 200)));
@@ -59,6 +59,14 @@ test('worker 镜像：状态增量与结构重同步之后，画面与主线程�
 
   const stats: any = await page.evaluate(() => (window as any).__stats());
   expect(stats.last.appliedOps, '镜像应当真的应用过状态补丁').toBeGreaterThan(0);
+  /**
+   * 五步里第 3 步"加子节点"、第 4 步"删子节点"走的是**结构增量 op**（v2 起）——
+   * 整轮只应当在启动时有过 1 次全量场景。这条是护栏：结构增量一退化回"重发整份文档"，
+   * 这里立刻红（此前每加/删一个节点都要重发整份文档 + worker 冷启动全量重绘）。
+   */
+  expect(stats.last.appliedScenes, `结构变更不应触发全量重同步：${JSON.stringify(stats.last)}`).toBe(1);
+  expect(stats.last.appliedAdds, '加子节点应当走 add op').toBeGreaterThan(0);
+  expect(stats.last.appliedRemoves, '删子节点应当走 remove op').toBeGreaterThan(0);
   expect(errors, '不应有页面/console 错误').toEqual([]);
 
   const line =

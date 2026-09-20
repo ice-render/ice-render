@@ -10,13 +10,16 @@
 >   `src/worker/mirror-protocol.ts` / `MirrorBridge` / `MirrorTarget`，参考宿主见
 >   `examples/worker/mirror-render.html` + `mirror-worker.js`，回归 `e2e/visual/worker-mirror.spec.ts`
 >   （状态增量 / 结构重同步之后，worker 画面与主线程参考**逐像素 0 差异**）。
->   **v1 边界**：状态走增量补丁，**结构变更走全量重同步**。
+>   **协议现状（v2）**：状态与结构**都走增量**（`state` / `add` / `remove`），全量 `scene` 只作兜底与自愈。
+>   v1 的"结构变更走全量重同步"已作废：实测加一个节点从 **485 924 B** 降到 **1 037 B**（≈470×），
+>   并省掉 worker 侧一次整树重建 + 冷启动全量重绘（那一帧 130~161ms）。
 > - **阶段二第二块** = 让真实应用能接上：**输入永远在主线程**（DOM 事件、命中检测、拖拽都不跨线程），
 >   主线程改走"几何通道"（跑渲染管线但不产出像素）以维持命中检测依赖的世界盒；
 >   工具层按**选择**镜像 —— worker 用**自己的**控制面板画手柄。参考宿主 `MirrorHost`，
 >   回归 `e2e/visual/worker-mirror.spec.ts` 的交互用例（点选 / 拖拽 / 空点隐藏手柄，逐像素 0 差异）。
-> - **仍未做**：结构增量协议（增删子树的 op）、输入转发、字体/图片下发（worker 内文本的 `lang`/字形
->   口径与主线程可能分叉）。引擎的**默认**渲染仍是主线程；worker 渲染要宿主显式接线。
+> - **仍未做**：输入转发（DOM 事件留主线程这条不变，这里指"把原生事件也透给 worker"）、
+>   字体/图片下发（worker 内文本的 `lang`/字形口径与主线程可能分叉）、`transferControlToOffscreen`、
+>   把补间搬进 worker。引擎的**默认**渲染仍是主线程；worker 渲染要宿主显式接线。
 > 小程序支持已移除（2026-09-20），worker 化不再需要为它留后门。
 
 ## 1. 目标与边界
@@ -78,13 +81,24 @@
    复合组件的派生子件（按 state 重建的底 / 标题 / 角标）不进文档，主线程对它们的写入在 worker 侧
    没有对应 id：发过去只会换来 `missing` → 全量重同步（实测每改一次节点就重发 473KB）。
    这类写入**不镜像、只计数**（`MirrorBridge.skippedDerived`）；镜像里那份派生件靠**重放容器的
-   `applyPatch`** 重建（见下一条）。同理，落在派生子树里的**结构变更**（容器重建自己）也不触发
-   全量重同步 —— 而真实子节点（`getSerializableChildren()` 声明的那些）增删照旧走全量。
+   `applyPatch`** 重建（见下一条）。同理，落在派生子树里的**结构变更**（容器重建自己）也不镜像 ——
+   而真实子节点（`getSerializableChildren()` 声明的那些）增删走**结构增量 op**（见下一条）。
 6. **补丁按应用层入口重放**：worker 收到 `ops` 后走 `component.applyPatch()`（引擎基类默认 =
    `setState`，应用层可以覆盖它做派生：重建内部部件、重算连线、把老属性规范化到新位置），
    而不是裸 `setState`。这样"派生逻辑跟着代码走，不跟着数据走"——两边跑同一份代码，
    不需要把派生结果跨线程搬运。
-7. **帧节拍必须有背压**：worker 一帧要几毫秒，主线程按 rAF / 交互节奏每毫秒都能发一帧 ——
+7. **结构变更也走增量**（协议 v2）：`add` / `remove` 各一条 op —— `add` 带一棵**子树文档**
+   （`Serializer.encodeSubtree()` 的产物，与整份文档同一条编码路径），`remove` 只带 id；
+   worker 侧用 `Deserializer.decodeInto()` 挂上去、并维护 id 索引（`appliedAdds/appliedRemoves`）。
+   实测（IED 200 节点 / 800+ 组件）"新建一个节点"：**1037 B、0 次全量重同步、worker 那一帧 6.3ms**，
+   对比老口径的 **485 924 B（474KB）、1 次全量重同步、worker 那一帧 161ms**；端到端 192ms → 53ms。
+   全量 `scene` 退化为**兜底与自愈**：拿不到可寻址的 id / 父容器不可寻址 / 子树编码失败 /
+   worker 报 `missing` / 宿主显式要求（`resyncOnStructureChange: true`）。
+   ⚠️ 结构 op 与状态补丁是**同一条有序队列**，因此 `addChild` 的镜像钩子必须排在
+   `__reapplyPreset()`（会顺手写 `style`）与 `doLayout()`（会写 `left/top`）**之前** ——
+   顺序反了就是"worker 收到未知 id 的补丁" → `missing` → 全量重同步，结构增量白做
+   （2026-09-20 由 IED 的真实操作抓到，单测已钉住）。
+8. **帧节拍必须有背压**：worker 一帧要几毫秒，主线程按 rAF / 交互节奏每毫秒都能发一帧 ——
    不设上限的话 `frame` 消息会越排越多（实测 30 帧基准积压 200+ 条），镜像滞后无上界、
    期间画的还是过时状态。做法是**至多一帧在途**："还想画"只记一个标记，等位图回来立刻补一帧
    （补的是最新状态）。宿主判断"静止态"用 `MirrorHost.renderedSeq` 与
@@ -97,11 +111,11 @@
 | `transferControlToOffscreen` | 主线程把 canvas 控制权交给 worker；主线程失去 2D ctx | 影响主线程命中/测量；首版不采用 |
 | **`transferToImageBitmap` + `ImageBitmapRenderingContext`（推荐初版）** | worker 每帧 OffscreenCanvas → 位图 → 主线程 `transferFromImageBitmap` 展示 | 主线程保 ctx；位图传输开销小；实现简单 |
 
-消息协议（draft）：
+消息协议（v2；`frame` 带 `seq`，见 §5 与 `MirrorHost.renderedSeq`）：
 ```
-主线程 → worker: { t:'scene', v, seq, doc, dropped? }      // 全量（首次 / 结构变更后）
-                | { t:'ops',   v, seq, ops:[['state', id, patch]] }   // 状态增量
-                | { t:'frame', v, time }                    // 节拍（用主线程的时间戳）
+主线程 → worker: { t:'scene', v, seq, doc, dropped? }      // 全量（首次 / 兜底 / 自愈）
+                | { t:'ops',   v, seq, ops:[...] }           // 增量：['state',id,patch] | ['add',parentId,子树文档] | ['remove',id]
+                | { t:'frame', v, seq, time }                // 节拍（用主线程的时间戳）
                 | { t:'resize', v, width, height }
 worker  → 主线程: { t:'ready',   v, caps }
                 | { t:'rendered', v, seq, stats }           // 位图走 transfer（宿主自己收）
@@ -192,7 +206,8 @@ worker 化天然是 **web-only**，所以"起不来怎么办"必须是机制的�
 | 端到端延迟（改状态 → 位图回来） | —— | **7.0 ms** | 约一帧量级，这是镜像方案的真实代价 |
 | 静止态几何对账 | —— | **399/399 逐项相等** | 每个节点的世界盒 + 连线两端点 |
 | 静止态像素（worker vs 文档重建 / vs 主线程源树） | —— | **0 差异 / 558000 像素 0 差异** | 含节点标题与连线标签（文字栅格化） |
-| 全量场景体积 | —— | 473 KB | 只在结构变更时发；状态走增量补丁 |
+| 全量场景体积 | —— | 473 KB | 只在首次 / 兜底 / 自愈时发 |
+| 加一个节点的代价（v2 结构增量） | 485 924 B · 1 次全量重同步 · worker 那一帧 161ms | **1 037 B · 0 次重同步 · 6.3ms** | 端到端 192ms → 53ms |
 
 规模趋势（`?nodes=40/120/250/400`）：主线程每帧 0.50/1.20/2.30/4.50 ms → 0.30/0.80/1.50/3.00 ms，
 **省 31%~46%**。

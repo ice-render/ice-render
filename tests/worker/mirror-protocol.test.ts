@@ -9,6 +9,7 @@
  */
 import {
   MIRROR_PROTOCOL_VERSION,
+  MIRROR_ROOT_ID,
   isMirrorCommand,
   isMirrorEvent,
   isValidOp,
@@ -83,16 +84,31 @@ describe('消息校验', () => {
   });
 
   it('形状不对的指令拒绝：scene 要带 doc、ops 要带数组、resize 要有宽高', () => {
-    expect(isMirrorCommand({ t: 'scene', v: 1, doc: { childNodes: [] } })).toBe(true);
-    expect(isMirrorCommand({ t: 'scene', v: 1 })).toBe(false);
-    expect(isMirrorCommand({ t: 'ops', v: 1, ops: [] })).toBe(true);
-    expect(isMirrorCommand({ t: 'ops', v: 1 })).toBe(false);
-    expect(isMirrorCommand({ t: 'resize', v: 1, width: 10, height: 20 })).toBe(true);
-    expect(isMirrorCommand({ t: 'resize', v: 1, width: 10 })).toBe(false);
-    expect(isMirrorCommand({ t: 'nope', v: 1 })).toBe(false);
+    expect(isMirrorCommand({ t: 'scene', v: MIRROR_PROTOCOL_VERSION, doc: { childNodes: [] } })).toBe(true);
+    expect(isMirrorCommand({ t: 'scene', v: MIRROR_PROTOCOL_VERSION })).toBe(false);
+    expect(isMirrorCommand({ t: 'ops', v: MIRROR_PROTOCOL_VERSION, ops: [] })).toBe(true);
+    expect(isMirrorCommand({ t: 'ops', v: MIRROR_PROTOCOL_VERSION })).toBe(false);
+    expect(isMirrorCommand({ t: 'resize', v: MIRROR_PROTOCOL_VERSION, width: 10, height: 20 })).toBe(true);
+    expect(isMirrorCommand({ t: 'resize', v: MIRROR_PROTOCOL_VERSION, width: 10 })).toBe(false);
+    expect(isMirrorCommand({ t: 'nope', v: MIRROR_PROTOCOL_VERSION })).toBe(false);
     // frame 必须带 seq：宿主靠它对齐"手上这张位图是哪一帧"（少了它就只能靠猜）
-    expect(isMirrorCommand({ t: 'frame', v: 1, time: 1 })).toBe(false);
-    expect(isMirrorCommand({ t: 'frame', v: 1, seq: 1, time: 1 })).toBe(true);
+    expect(isMirrorCommand({ t: 'frame', v: MIRROR_PROTOCOL_VERSION, time: 1 })).toBe(false);
+    expect(isMirrorCommand({ t: 'frame', v: MIRROR_PROTOCOL_VERSION, seq: 1, time: 1 })).toBe(true);
+  });
+
+  it('op 形状（v2）：state 补丁 / add 子树 / remove 三种，id 一律非空字符串', () => {
+    expect(isValidOp(['state', 'ICE_1', { left: 5 }])).toBe(true);
+    // add：父 id（'#root' 表示 ICE 根）+ 子树文档
+    expect(isValidOp(['add', MIRROR_ROOT_ID, { type: 'ice-render:ICERect', state: {} }])).toBe(true);
+    expect(isValidOp(['add', 'ICE_parent', { type: 'x', state: {} }])).toBe(true);
+    expect(isValidOp(['add', '', { type: 'x', state: {} }])).toBe(false);
+    expect(isValidOp(['add', 'ICE_parent', null])).toBe(false);
+    expect(isValidOp(['add', 'ICE_parent', [1, 2]])).toBe(false);
+    // remove：只需要 id
+    expect(isValidOp(['remove', 'ICE_1'])).toBe(true);
+    expect(isValidOp(['remove', ''])).toBe(false);
+    // 未知 op 名一律拒绝（协议坏数据不能悄悄改树）
+    expect(isValidOp(['move', 'ICE_1', 0])).toBe(false);
   });
 
   it('op 形状：只有 state 补丁；id 必须是非空字符串、补丁必须是对象', () => {

@@ -7,6 +7,40 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 新功能（Worker 镜像 · 协议 v2：结构变更也走增量）
+
+拓扑编辑里最高频的两件事是"加图元"和"删图元"，而它们在 v1 里是**最贵**的：结构一变就重发整份文档
+（IED 200 节点场景 **474KB**）+ worker 侧 `clearAll()` + 整树反序列化 + 冷启动全量重绘。
+v2 把结构也变成增量：
+
+- **协议**：`MirrorOp` 从 `['state', id, patch]` 扩成三种 —— `['state', id, patch]`、
+  `['add', parentId | '#root', 子树文档]`、`['remove', id]`；`MIRROR_PROTOCOL_VERSION` 升到 **2**
+  （第三方自写的 v1 worker 会被版本校验拒绝，宿主自动回退主线程渲染，不会静默画错）。
+- **编码 / 还原走既有入口**：新增 `Serializer.encodeSubtree(component)` 与
+  `Deserializer.decodeInto(parent, nodeData)` —— 与整份文档**同一条路径**（typeId 注册表、
+  派生件跳过、zIndex 口径、布局还原），只是不带文档外壳。
+- **worker 侧**：`MirrorTarget` 按 op 类型分派，`add` 用 `decodeInto()` 挂上并**重索引子树**、
+  `remove` 先收集子树 id 再摘除；新增计数 `appliedAdds` / `appliedRemoves`（宿主对账用）。
+  父容器找不到照旧进 `missing` → 触发既有的"限流重发全量"自愈。
+- **全量 `scene` 退化为兜底**：拿不到可寻址的 id、父容器不可寻址、子树编码失败、worker 报 `missing`、
+  或宿主显式要求（`resyncOnStructureChange: true`，默认已翻成 `false`）时才发。
+- **队列顺序是正确性的一部分**（实测抓到的真 bug）：`addChild` 的镜像钩子原先排在
+  `__reapplyPreset()`（会顺手写 `style`）之后，于是同一批里"未知 id 的状态补丁"排在了 `add` 前面
+  → worker 报 `missing` → 每次新建节点都触发一次全量重同步，结构增量白做。
+  现在 `ICE.addChild` / `ICEGroup.addChild` 都在**写状态的调用之前**通知钩子（`doLayout()` 同理）。
+
+**实测**（IED 200 节点 / 800+ 组件，"新建一个节点"）：
+
+- 发出去的字节：**485 924 B（474KB）→ 1 037 B**（≈470 倍）；
+- 全量重同步：**1 次 → 0 次**；
+- worker 那一帧 `renderMs`：**161 / 131 ms → 6.3 ms**；
+- 端到端（改完 → 位图回来）：**192.5 ms → 53.5 ms**。
+
+回归：`tests/worker/`（新增 add/remove 增量、复合容器真子节点、队列顺序、回退守门等 6 条）、
+`e2e/visual/worker-mirror.spec.ts`（断言 5 步里 `appliedScenes` 恒为 1、`appliedAdds/Removes > 0`，
+像素仍 0 差异）、IED 的 `e2e/worker-mirror.spec.ts`（新增结构通路场景：加 2 删 2 条 op、0 次重同步、
+几何 0 不一致）。
+
 ## [4.0.0] - 2026-09-20
 
 > ⚠️ **破坏性：路径命令流新增 `roundRect`**（读 `component.path2D._commands` 自行重放/翻译的第三方代码

@@ -19,7 +19,8 @@
  * 2. `ICE.addChild()` / `ICE.removeChild()` —— 顶层结构
  * 3. `ICEGroup.addChild()` / `ICEGroup.removeChild()` —— 容器内结构
  *
- * v1 里**结构变更不产生增量 op**，只把桥标成"需要全量重同步"（见 `MirrorBridge.recordStructureChange`）。
+ * v2 里结构变更也走**增量 op**（`add` / `remove`）；只有"拿不到可寻址信息"这类情况才退回
+ * 全量重同步（见 `MirrorBridge.recordStructureChange`）。
  */
 export function notifyStateChange(component: any, patch: any): void {
   const ice = component && component.ice;

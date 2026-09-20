@@ -418,6 +418,15 @@ class ICEGroup extends ICERect {
       if (markDirty) this.ice.dirty = true;
       if (this.ice.renderer) this.ice.renderer.markQueueDirty();
     }
+    /**
+     * 镜像钩子：容器内结构变更（`['add', parentId, 子树文档]`）。
+     *
+     * ⚠️ 与 `ICE.addChild` 同理，**要排在 `doLayout()` 之前**：布局会写子组件的 `left/top`
+     *（走 `setState`），而状态补丁与结构 op 是同一条**有序**队列 —— 反过来就是"worker 收到
+     * 未知 id 的补丁" → `missing` → 全量重同步（结构增量白做）。此时 child 已在 `childNodes` 里，
+     * 派生件判定（`getSerializableChildren()`）读得到它。
+     */
+    notifyChildAdded(this, child);
     // 布局接管：新加入的子组件必须立即参与重排。
     // 旧实现只在 setLayout() 时排一次，之后 addChild 不重排 → 加进去的子组件位置全错。
     // 注意：**不**给子容器继承本容器的策略（对齐 Swing 的 Container.setLayout：父布局只摆位置，
@@ -425,8 +434,6 @@ class ICEGroup extends ICERect {
     if (this.layoutManager && !this.__inBatch) {
       this.doLayout();
     }
-    // 镜像钩子：容器内结构变更（v1 只标记"需要全量重同步"）
-    notifyChildAdded(this, child);
   }
 
   public addChildren(arr: Array<ICEComponent>): void {
