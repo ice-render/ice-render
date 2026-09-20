@@ -152,6 +152,14 @@ describe('Path2DRecorder', () => {
     expect(native.calls).toEqual([['rect', 0, 0, 10, 20]]);
   });
 
+  it('数组半径入队时拷贝一份：命令流不会被调用方事后改动', () => {
+    const radii = [4, 8, 12, 16];
+    const path = new Path2DRecorder();
+    path.roundRect(0, 0, 100, 50, radii);
+    radii[0] = 99;
+    expect(path._commands[0][5]).toEqual([4, 8, 12, 16]);
+  });
+
   it('roundRect 非法半径抛 RangeError（与原生同口径，不静默降级）', () => {
     const path = new Path2DRecorder(new FakeNativePath2D());
     expect(() => path.roundRect(0, 0, 10, 10, -1)).toThrow(RangeError);

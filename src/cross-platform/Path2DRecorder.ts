@@ -163,7 +163,7 @@ export default class Path2DRecorder {
    * 圆角矩形（`roundRect`，2021 年进入 Canvas 2D 规范的成员）。
    *
    * 这是引擎里**最值得吃规范红利**的一个：圆角矩形是流程图 / 卡片 / 面板 / 图例的主力形状，
-   * 改造前由 `ICERect` 用 4 次 `arcTo` 手撸（每条 10 条命令，每个角一次
+   * 改造前由 `ICERect` 用 4 次 `arcTo` 手撸（展开后 14 条命令，每个角一次
    * `sqrt/acos/tan/atan2` 三角运算），而平台自己一次调用就能做完。
    *
    * 三件事分开记，各取所需：
@@ -185,7 +185,9 @@ export default class Path2DRecorder {
       this.rect(x, y, width, height);
       return;
     }
-    this._commands.push(['roundRect', x, y, width, height, radii]);
+    // 数组半径拷一份再入队：命令流是**几何描述**，不该被调用方事后改了同一个数组而悄悄变样
+    const recorded = Array.isArray(radii) ? (radii as number[]).slice() : radii;
+    this._commands.push(['roundRect', x, y, width, height, recorded]);
     if (this.native) {
       if (this.__nativeRoundRect) {
         this.native.roundRect(x, y, width, height, radii);
