@@ -346,7 +346,8 @@ export default class MirrorTarget {
   /**
    * 注册**下发过来的图片**（宿主在主线程解码好的 `ImageBitmap`）。
    *
-   * 两件事：① 记进 `ice.__mirrorImages`（`ImageCache.setImage()` 会先查它，命中就直接画）；
+   * 两件事：① 注册进**模块级**解码结果表（`registerImageBitmap()`；`ImageCache.setImage()` 会先查它，
+   * 命中就直接画 —— 是模块级而不是挂在 `ice` 上，因为同一页可能有多个 ICE 实例都要用这份像素）；
    * ② 把**用到这张图的组件**标脏 —— 它们在"图还没到"的那几帧里画的是空，必须重画一遍；
    * 光置 `ice.dirty` 不够（组件自己不脏的话，脏矩形那条路不会重画它）。
    */
