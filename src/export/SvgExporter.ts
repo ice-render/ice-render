@@ -13,6 +13,7 @@ import ICEImage from '../graphic/ICEImage';
 import { SHADOW_PRESETS } from '../graphic/ICEComponent';
 import { isTokenRef, resolveThemeValue } from '../theme/ICETheme';
 import { paintOrderChildrenOf, sortSiblingsByZIndex } from '../util/data-util';
+import { resolveRoundRect } from '../util/round-rect';
 
 /**
  * @file SVG 导出
@@ -277,11 +278,42 @@ function commandsToPathData(commands: Array<Array<any>>, closed: boolean, digits
       }
       hasCurrent = true;
     } else if (name === 'arcTo') {
-      // arcTo 依赖「当前点 + 控制点」的切线关系，SVG 没有对应命令：
-      // 圆角矩形等场景由 ICERect 用 arc 之外的写法兜底，这里退化为直线，保证不崩、不跑形
+      // arcTo 依赖「当前点 + 控制点」的切线关系，SVG 没有对应命令，这里退化为直线。
+      // 内置形状已经不走这条命令了：圆角矩形是 `roundRect`（见下），圆弧是 `arc` / `ellipse`。
+      // 保留这一支是给直接往 `path2D` 上写命令流的自定义 `ICEPath` 子类兜底 —— 不跑形、不崩。
       const [x1, y1] = cmd.slice(1);
       parts.push(`L${n(x1)},${n(y1)}`);
       hasCurrent = true;
+    } else if (name === 'roundRect') {
+      // `roundRect`（2021 进入规范）同样没有同名的 SVG 命令，但几何是确定的：
+      // 四条边 + 四个角弧，逐条写出来即可（**不经过 arcTo** —— 那条路径上没有可换算的控制点）。
+      // 归一化（半径补齐 / 负宽高镜像 / 超限等比缩放）与记录器共用 util/round-rect.ts，
+      // 保证「画布上圆角多大、导出就多大」。
+      const g = resolveRoundRect(cmd[1], cmd[2], cmd[3], cmd[4], cmd[5]);
+      if (g.plain) {
+        // 全 0 半径：roundRect 与 rect 等价，输出直角矩形
+        parts.push(`M${n(g.x)},${n(g.y)}h${n(g.width)}v${n(g.height)}h${n(-g.width)}z`);
+        hasCurrent = false;
+      } else {
+        const [tl, tr, br, bl] = g.radii;
+        const { x, y, width: w, height: h } = g;
+        // sweep=1（角度增加方向 = 屏幕坐标里的顺时针），与 canvas 画圆角的方向一致；
+        // 半径都 <= 半边长，因此每段弧必然是小弧（largeArc=0）。
+        parts.push(
+          `M${n(x + tl)},${n(y)}`,
+          `L${n(x + w - tr)},${n(y)}`,
+          `A${n(tr)},${n(tr)} 0 0 1 ${n(x + w)},${n(y + tr)}`,
+          `L${n(x + w)},${n(y + h - br)}`,
+          `A${n(br)},${n(br)} 0 0 1 ${n(x + w - br)},${n(y + h)}`,
+          `L${n(x + bl)},${n(y + h)}`,
+          `A${n(bl)},${n(bl)} 0 0 1 ${n(x)},${n(y + h - bl)}`,
+          `L${n(x)},${n(y + tl)}`,
+          `A${n(tl)},${n(tl)} 0 0 1 ${n(x + tl)},${n(y)}`,
+          'Z'
+        );
+        // 闭合后当前点回到子路径起点：后续命令（如再多画一条分隔线）从左上角弧起点继续
+        hasCurrent = true;
+      }
     } else if (name === 'ellipse') {
       // 标准椭圆（引擎只在 ICEEllipse 里用整圆/整椭圆）：用 SVG ellipse 语义等价的两段弧表达
       const [cx, cy, rx, ry, rotation, a0, a1, ccw] = cmd.slice(1);

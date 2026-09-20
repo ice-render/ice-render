@@ -63,14 +63,15 @@ describe('贝塞尔曲线（curveType）', () => {
 });
 
 describe('圆角矩形（radius）', () => {
-  it('radius > 0 的四个角用圆弧表达（命令流里是 arc，不是直角）', () => {
+  it('radius > 0 走 roundRect：命令流里就一条，不再手撸 4 个角', () => {
     const rect = new ICERect({ width: 100, height: 50, radius: 10 });
     const path = (rect as any).createPathObject();
-    // 形状仍然用 arcTo 描述圆角，但 Path2DRecorder 在**记录阶段**就把 arcTo 展开成
-    // 「lineTo(切点) + arc(圆心/半径/起止角)」—— 因为 SVG 没有 arcTo，展开后命令流才是
-    // 可移植的（导出、无原生 Path2D 的运行时重放都不用再懂 arcTo 的切线语义）。
-    expect(commands(path).filter((name) => name === 'arc')).toHaveLength(4);
-    expect(commands(path)).not.toContain('arcTo');
+    // 2026-09-20 起圆角矩形交给平台的 roundRect（2021 进入 Canvas 2D 规范的成员）：
+    // 改造前这里是 4 次 arcTo（10 条命令 + 每角一次三角函数），现在命令流只记一条。
+    // 没有原生 roundRect 的运行时由 Path2DRecorder 展开成等价的 arcTo 序列
+    //（只转发给原生对象、不再重复入队），见 tests/cross-platform/path2d-recorder.test.ts。
+    expect(commands(path)).toEqual(['roundRect']);
+    expect(path._commands[0]).toEqual(['roundRect', 0, 0, 100, 50, 10]);
   });
 
   it('radius = 0（默认）用直角 rect', () => {
