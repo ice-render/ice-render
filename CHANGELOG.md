@@ -7,6 +7,49 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 变更（破坏性：命令流新增 `roundRect`）
+
+圆角矩形不再由引擎手撸，而是走平台的 `Path2D.roundRect`。**路径命令流里因此多了一个命令名**
+（`['roundRect', x, y, w, h, radii]`），凡是从 `component.path2D._commands` 读命令流自行
+重放 / 翻译的第三方代码，都要认识这个新命令（引擎自带的 SVG 导出器已支持）。
+引擎内部形状、渲染结果与数据格式的其余部分不变。
+
+### 性能
+
+- **圆角矩形改用平台 `roundRect`**（2021 年进入 Canvas 2D 规范）。改造前 `ICERect` 用 4 次 `arcTo`
+  手撸（每个角一次 `sqrt/acos/tan/atan2`），现在是一次 `roundRect`：每个圆角矩形的命令流
+  **14 条 → 1 条**（1000 个图形 14000 → 1000 条），路径重建 **127.9µs → 88.0µs**（500 个形状，
+  1/3 是圆角矩形）。没有原生 `roundRect` 的运行时（老 Safari / 某些 headless 的 Path2D 实现）
+  由 `Path2DRecorder` 展开成等价的 `moveTo / lineTo / arcTo`，真机 12 组边角场景实测**逐像素 0 差异**。
+  归一化规则（1~4 个半径的补齐、负宽高按视觉角镜像、超限半径等比缩放而非各自截断）只写一份，
+  放在 `src/util/round-rect.ts`，记录器与 SVG 导出器共用 —— 两边各写一份必然漂移成
+  「画布上是圆角、导出成直角」。回归：`tests/util/round-rect.test.ts`、
+  `tests/cross-platform/path2d-recorder.test.ts`、`e2e/visual/round-rect-parity.spec.ts`。
+
+### 修复
+
+- **`style.filter` 漏出内容指纹**（`ObjectCache.__styleKey`）。`filter` 走的是「style 透传给 ctx」
+  这条既有通道，会被烤进离屏位图；指纹里没有它，改滤镜时会继续贴旧位图（属性改了画面不动）。
+- **`ctx.filter` 的落墨外扩量算错单位**。模糊/投影的墨迹会溢出几何盒，位图与脏矩形都要扩边，
+  但**滤镜的长度参数是设备像素、不随视图缩放**（实测 `blur(8px)` 在 `setTransform(1 / 0.62 / 0.5)`
+  下溢出恒为 18~19 设备像素，与随变换缩放的 `stroke` / `shadowBlur` 相反）。改为
+  `stylePaintPad(state, scale)` 把滤镜那部分按渲染视口缩放换算回世界坐标后，缩略视图下不再切掉尾巴
+  （改造前 scale=0.62 时 `drop-shadow` 差 118 像素、`blur(8px)` 差 76 像素，现在严格 0）。
+  同时把带滤镜的组件按「非不透明落墨」处理（边界像素半透明、墨迹溢出几何盒 → 不参与局部重绘，
+  与阴影同一档）。回归：`tests/graphic/style-filter.test.ts`、`tests/renderer/dirty-rect-util.test.ts`、
+  `e2e/visual/filter-cache-fidelity.spec.ts`。
+- **微基准 `路径重建 · 只转发不记录（对照）` 的对照组失效**：`createPathObject()` 第一句就是
+  `this.path2D = root.createPath2D()`，原先塞进去的 `ForwardOnlyPath2D` 下一行就被覆盖，
+  两个基准测的其实是同一件事（差值只是噪声）。改为换掉工厂（`global.createPath2D`）后才量得准：
+  记录的边际成本 ≈ 156ns/形状（≈11ns/命令）。
+
+### 文档
+
+- `docs/architecture/08-compatibility.md` 增补「现代 Canvas 能力：用哪些、兜底是什么」——
+  `roundRect` / `ctx.filter` / `createConicGradient` / 文本状态已采用，`OffscreenCanvas + Worker` /
+  `ImageBitmap` / `ctx.reset()` 未采用（各写了理由与后续条件），并记下两个坑：
+  滤镜长度是设备像素、新命令必须有导出映射。
+
 ## [3.0.0] - 2026-09-20
 
 > ⚠️ **破坏性：不再支持小程序**（2026-09-20，分支 `remove/mini-program-support`）。

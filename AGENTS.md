@@ -11,6 +11,15 @@ Canvas 2D 交互图形渲染引擎（MIT，作者 大漠穷秋）。运行时依
 > 但 **Node/headless 仍须能跑**（SVG 导出走 `Path2DRecorder` 的命令流、无 rAF 时定时器兜底、
 > `ICE.init(ctx)` 入口）—— 这是两条互不冲突的要求，别把"去小程序"顺手做成"去 headless"。
 
+**现代 Canvas 能力铁律（2026-09-20 确立）**：规范里较新的成员可以**优先用**，但每一条都必须
+①**带兜底**（headless 的 canvas 实现与浏览器跟进节奏不一）、②**有真机像素回归**、③**在
+`docs/architecture/08-compatibility.md` 的账目表里有位置**。已采用：`Path2D.roundRect`（圆角矩形，
+无原生时展开成等价 `arcTo`）、`ctx.filter`（写在 `style.filter`，画布可用、SVG 导出留白）、
+`createConicGradient`、`ctx.letterSpacing` 一族。**两条硬约束**：命令流新增命令必须同步
+`SvgExporter.commandsToPathData()`（否则静默画错，且对读 `_commands` 的第三方是破坏性变更）；
+**滤镜的长度参数是设备像素、不随视图缩放**（`stroke`/`shadowBlur` 相反），凡按它扩边
+（位图 / 脏矩形）都要除以渲染视口缩放，否则缩略视图下切掉滤镜尾巴。
+
 ## 引擎架构铁律（改动前必读）
 
 - 运行时链路：`FrameManager`（全局单例，包装 rAF）→ `EventBus`（每 ICE 实例一条）→ 各 Manager 订阅 → `CanvasRenderer`。
