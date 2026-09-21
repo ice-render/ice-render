@@ -7,14 +7,15 @@
 
 > 下一个版本发布前，改动在这里累积。
 
-### 新功能（虚拟子源 P0 + P3：10 万图元 5.8 MB、平移 121fps、命中 0.15µs）
+### 新功能（虚拟子源 P0 + P1 + P3：10 万图元 5.8 MB、平移 121fps、命中 0.15µs、点一下就是真组件）
 
 **让"文档里的图元"和"内存里的组件对象"解耦**：容器挂一份 `childSource`（`VirtualChildSource`），
 引擎按**可见窗口**向它要批量落墨（`paint(ctx, view)`），需要真组件时再由应用 `materialize()` 一个挂进来。
 目标场景是"**文档大、屏幕小**"：IED 工艺图、水务管网、地图、大画布编辑器。
 
-设计（含分期、六个缝隙、风险与验收）见 `plans/virtual-child-source.md`；这批落地 **P0（批量绘制 + 窗口裁剪）**
-与 **P3（窗口内物化的廉价增删）**，P1（命中/选中/控制面板）与 P2（导出/序列化/undo/a11y）待做。
+设计（含分期、六个缝隙、风险与验收）见 `plans/virtual-child-source.md`；这批落地
+**P0（批量绘制 + 窗口裁剪）**、**P1（命中即物化 + 事件重定向）**与 **P3（窗口内物化的廉价增删）**，
+P2（导出/序列化/undo/a11y）待做。
 
 ```ts
 import { ICEVirtualLayer, type VirtualChildSource } from 'ice-render';
@@ -23,6 +24,12 @@ const layer = new ICEVirtualLayer({ left: 0, top: 0, width: doc.w, height: doc.h
 ice.addChild(layer);
 layer.addChild(source.materialize!(i)); // 窗口内物化：引擎自动走"窗口变更"的廉价通道
 ```
+
+**命中即物化（P1）**：点到批量图元时，引擎用 `source.hitTest()` 找到那一个子项，把它物化成真组件
+（幂等：`materializeVirtualChild`）并把 `evt.target` **重定向**过去 —— 选中、控制面板、拖动、
+对齐参考线**零改动**可用，应用不需要再自己接 `mousedown/mousemove/mouseup` 与覆写 `containsPoint`
+（spike 页面里的那几十行胶水已整段删除）。移动类事件不做命中检测，所以 hover 不会批量物化；
+`setVirtualHitPolicy(container, 'container')` 可以退回"命中给容器、应用自己接管"的旧行为。
 
 真机 Chrome + CDP（10 万图元、1600×1000 视口、与对象树同几何对拍；括号内为改前）：
 
@@ -39,7 +46,9 @@ layer.addChild(source.materialize!(i)); // 窗口内物化：引擎自动走"窗
 
 回归：`tests/graphic/virtual-child-source.test.ts`（9 条：绑定/序列化安全、窗口跟着视口走、
 局部坐标换算、绘制次序、ctx 状态隔离）、`tests/renderer/window-churn.test.ts`（4 条：
-保留快照、普通容器仍全清、整屏重画但照旧裁剪、真结构变更优先）。
+保留快照、普通容器仍全清、整屏重画但照旧裁剪、真结构变更优先）、
+`tests/event/virtual-hit-materialize.test.ts`（7 条：命中即物化、幂等、空白不命中、
+策略切换、回收再物化、物化组件是真组件能拖、对普通组件恒等）。
 
 ### 性能（视口平移：官方 API 9.9 → 116.6fps，长任务 28 → 0）
 

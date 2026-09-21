@@ -1,7 +1,7 @@
 # 虚拟子源（VirtualChildSource）设计草案
 
-> 状态（2026-09-21）：**P0 + P3 已落地**（批量绘制 + 窗口裁剪 + 窗口内物化的廉价增删），
-> P1（命中/选中/控制面板）与 P2（导出/序列化/undo/a11y）待做。依据是 `/tmp/ice-virt-spike/`
+> 状态（2026-09-21）：**P0 + P1 + P3 已落地**（批量绘制 + 窗口裁剪 + 命中即物化 + 窗口内物化的廉价增删），
+> P2（导出/序列化/undo/a11y）待做。依据是 `/tmp/ice-virt-spike/`
 > 那份可运行 spike（真机 Chrome + CDP 实测）+ 引擎 API 版 spike 的复测。
 
 ## 0. 一句话
@@ -160,13 +160,35 @@ layer.addChild(source.materialize!(i));
 **实测**：纯批量 5.8 MB / 单帧 0.3 ms / 平移 121.2 fps / 0 长任务 / 像素差 3 个（0.0002%）✓；
 回归见 `tests/graphic/virtual-child-source.test.ts`（9 条）。
 
-### P1 —— 命中 / 选中 / 控制面板（约 1 周）
+### P1 —— 命中 / 选中 / 控制面板 ✅ 已落地（2026-09-21）
 
 交付：`containsPoint` → `source.hitTest`；命中策略（自动物化 + 重定向 `evt.target`）；
 `AlignmentGuideManager` 尊重虚拟源；窗口内物化/回收的循环（含滞后带）。
 
 验收：真鼠标"按下 → 拖动 → 抬起"位移精确；命中 ≤5 µs/次（含 100 万文档）；
 缩放平移期间无 >50 ms 长任务；命中/选中的回归用例进 `tests/`。
+
+**落地形态**（与设计稿的差异写在括号里）：
+
+- `ICEGroup.containsLocalPoint()`：挂了虚拟子源就走 `source.hitTest()`，并把命中的**下标**记下来
+  （模块级侧表）。**语义定死为"命中 = 命中子项"**：不回退到容器自己的盒子 —— 虚拟容器的盒通常
+  覆盖整个世界，回退会让"点空白处"命中巨型容器（控制面板挂上去、空白拖拽变成拖容器）。
+- **命中即物化 + 事件重定向**（`resolveVirtualHit`）：派发器在"按下 / 点击 / 右键"这一支
+  （**移动类事件不做命中检测，所以 hover 不会批量物化**）与 `ICE.hitTest()` 里把容器换成
+  **被点中那一个子项物化出来的真组件**；随后 `componentCache` 就是它，mousemove/mouseup
+  自然落到它身上 ⇒ 选中、控制面板、引擎默认拖动**零改动**可用。
+- **幂等与回收**：引擎维护 `容器 → (下标 → 组件)`；`materializeVirtualChild` 幂等
+  （同一下标只物化一次），`releaseVirtualChild` 回收后可再物化。
+- **策略**：`setVirtualHitPolicy(container, 'materialize' | 'container')`，默认前者；
+  后者保持"命中给容器、应用自己接管"的旧行为。
+- **对齐参考线**：`AlignmentGuideManager.__computeTargets` 对虚拟容器用
+  `forEachInBox(被拖盒 ± 阈值×2)` + `boxAt` 取候选 —— 否则"对齐到看不见的图元"直接失效。
+  （设计稿里提到的"窗口内物化/回收的循环"仍由应用在 `paint` 里驱动；引擎只提供两个助手。）
+
+**实测**：真鼠标"按下 → 拖 40 步 → 抬起"位移精确 **[+80, +40]**，且 **spike 页面里的胶水代码已删除**
+（原来要自己接 `mousedown`/`mousemove`/`mouseup` + 覆写 `containsPoint`）；
+纯命中 0.85 µs（含 10 万文档）；平移 121.3 fps / 0 长任务；像素仍差 3/1,600,000。
+回归见 `tests/event/virtual-hit-materialize.test.ts`（7 条）。
 
 ### P2 —— 导出 / 序列化 / undo / a11y（约 1～2 周）
 

@@ -12,7 +12,12 @@ import { bumpVisibilityEpoch, rebindComponentTree } from '../../util/data-util';
 import ICERect from '../shape/ICERect';
 import type ICELayoutManager from '../../layout/ICELayoutManager';
 import { notifyChildAdded, notifyChildMoved, notifyChildRemoved, notifyStateChange } from '../../worker/mirror-hooks';
-import { notifyStructureChanged, paintVirtualWindow } from '../virtual/virtual-child-source';
+import {
+  childSourceOf,
+  notifyStructureChanged,
+  paintVirtualWindow,
+  setVirtualHitIndex,
+} from '../virtual/virtual-child-source';
 
 /**
  * 正在"搬家"的组件（`adoptChild` 期间抑制 `addChild` 的"新增"通知）。
@@ -376,6 +381,29 @@ class ICEGroup extends ICERect {
      */
     paintVirtualWindow(this);
     super.doRender();
+  }
+
+  /**
+   * **命中检测**：挂了虚拟子源的容器，用源自己的空间索引回答"点到哪个子项"，并把下标记下来 ——
+   * 事件路径随后据此把命中的那一个**物化成真组件**（见 `resolveVirtualHit`）。
+   *
+   * 为什么在这里而不是让应用自己写：命中是"引擎的语义"（`evt.target`、选中、控制面板都建立在它上面），
+   * 应用各写一遍必然会与引擎的 `containsPoint` 口径漂移（矩阵/裁剪/容差）。
+   *
+   * 局部坐标由基类算好（`composedMatrix` 求逆），所以这里的入参与 `boxAt`/`hitTest` 的坐标系一致。
+   *
+   * ⚠️ **不回退到容器自己的盒子**：虚拟容器的盒子通常覆盖整个世界（20000×12000 那种），
+   * 回退会让"点空白处"命中这个巨型容器 —— 控制面板会挂到它上面、空白拖拽也会变成拖容器。
+   * 语义定死为"命中 = 命中子项"；容器自己的背景需要响应的话，应用在 `paint` 里画、自己接事件。
+   */
+  protected containsLocalPoint(localX: number, localY: number): boolean {
+    const source = childSourceOf(this);
+    if (source) {
+      const index = source.hitTest(localX, localY);
+      setVirtualHitIndex(this, index);
+      return index >= 0;
+    }
+    return super.containsLocalPoint(localX, localY);
   }
 
   protected initEvents(): void {

@@ -9,6 +9,7 @@ import { buildDomEventList, MOVE_ICE_EVENTS } from '../consts/DOM_EVENT_MAPPING_
 import root from '../cross-platform/root';
 import ICE from '../ICE';
 import { hitTestComponents } from '../util/data-util';
+import { resolveVirtualHit } from '../graphic/virtual/virtual-child-source';
 import ICEEvent from './ICEEvent';
 import { normalizeInput, applyNormalizedInput, toLegacyMouseName, NormalizedInput } from './input-normalize';
 import { isEventNameListened } from './listened-event-names';
@@ -115,6 +116,15 @@ class DOMEventDispatcher {
           // 2026-09-08 修掉之后回归钉在 `tests/event/DOMEventDispatcher.test.ts`：
           // 面板覆盖父容器包围盒时，点击子组件仍命中子组件。）
           componentCache = this.findTargetComponent(evt);
+          /**
+           * **虚拟化：命中批量图元 → 物化它，并把事件重定向到那个真组件**（P1）。
+           *
+           * 只在这一支（按下 / 点击 / 右键这类"落到具体对象上"的事件）做 —— **移动类事件根本不做命中检测**
+           * （高频 + 脏矩形，见上一条注释），所以 hover 不会因为划过就批量物化。
+           * 物化之后 `componentCache` 就是那个真组件，后续的 mousemove / mouseup 自然落到它身上
+           * （引擎的拖拽归属靠 `componentCache` 跨事件保持），于是选中 / 控制面板 / 拖动与普通组件逐条同义。
+           */
+          componentCache = resolveVirtualHit(componentCache);
         }
 
         // 交互状态自动驱动（默认关闭，`ice.enableInteractionStates()` 打开）：

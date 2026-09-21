@@ -71,6 +71,33 @@ export interface VirtualChildSource {
 const CHILD_SOURCE = new WeakMap<any, VirtualChildSource>();
 /** 上一次批量落墨用的窗口（**只为调试与断言**：测试要确认"窗口跟着视口走"）。 */
 const LAST_WINDOW = new WeakMap<any, number[]>();
+/** 命中检测刚问到的那一个子项下标（`containsPoint` 写、事件路径读；-1 = 没命中子项）。 */
+const HIT_INDEX = new WeakMap<any, number>();
+/** 命中策略（默认 `materialize`：命中批量图元就把它物化成真组件，事件重定向过去）。 */
+const HIT_POLICY = new WeakMap<any, VirtualHitPolicy>();
+/** 容器 → （下标 → 已物化的真组件）。引擎维护它，保证"同一下标只物化一次"与可回收。 */
+const MATERIALIZED = new WeakMap<any, Map<number, any>>();
+/** 下标的稳定自增号（用于把 `forEachInBox` 的候选按"离窗口中心近"排序，见 `syncWindowMaterialization`）。 */
+
+/** 命中策略：`materialize`（默认）命中批量图元就物化成真组件；`container` 命中容器本身。 */
+export type VirtualHitPolicy = 'materialize' | 'container';
+
+export function setVirtualHitIndex(container: any, index: number): void {
+  HIT_INDEX.set(container, index);
+}
+
+export function virtualHitIndexOf(container: any): number {
+  const i = HIT_INDEX.get(container);
+  return i === undefined ? -1 : i;
+}
+
+export function setVirtualHitPolicy(container: any, policy: VirtualHitPolicy): void {
+  HIT_POLICY.set(container, policy === 'container' ? 'container' : 'materialize');
+}
+
+export function virtualHitPolicyOf(container: any): VirtualHitPolicy {
+  return HIT_POLICY.get(container) || 'materialize';
+}
 
 /** 绑定 / 解绑虚拟子源（`null` = 解绑）。返回 `this` 以便链式。 */
 export function setChildSourceFor(target: any, source: VirtualChildSource | null): void {
@@ -221,4 +248,76 @@ export function notifyStructureChanged(ice: any, parent: any, child: any): void 
     return;
   }
   renderer.markQueueDirty();
+}
+
+/**
+ * **把一个虚拟子项物化成真组件**（幂等：同一个下标只会物化一次，重复调用返回同一个组件）。
+ *
+ * 物化出来的组件会被挂进容器的 `childNodes` —— 于是它自动获得引擎的全部能力：
+ * 命中、选中、控制面板、拖动、序列化（`getSerializableChildren`）、worker 镜像、无障碍。
+ *
+ * ⚠️ 实现方的 `materialize(i)` **必须**在文档里把这一项标记为"已物化"（批量落墨时跳过它），
+ * 否则会被画两遍（引擎不知道你的文档长什么样）。
+ */
+export function materializeVirtualChild(container: any, index: number): any {
+  const existing = MATERIALIZED.get(container);
+  if (existing && existing.has(index)) {
+    return existing.get(index);
+  }
+  const source = CHILD_SOURCE.get(container);
+  if (!source || typeof source.materialize !== 'function') return null;
+  const child = source.materialize(index);
+  if (!child) return null;
+  const map = existing || new Map<number, any>();
+  if (!existing) MATERIALIZED.set(container, map);
+  map.set(index, child);
+  container.addChild(child);
+  return child;
+}
+
+/** **回收**一个已物化的子项（滚出窗口时用）：摘除并允许下次再物化。返回是否真的回收了。 */
+export function releaseVirtualChild(container: any, index: number): boolean {
+  const map = MATERIALIZED.get(container);
+  const child = map && map.get(index);
+  if (!child) return false;
+  map!.delete(index);
+  container.removeChild(child);
+  return true;
+}
+
+/** 反查：某个已经物化出来的组件对应哪个下标；没有返回 -1。 */
+export function materializedIndexOf(container: any, child: any): number {
+  const map = MATERIALIZED.get(container);
+  if (!map) return -1;
+  for (const [i, c] of map) {
+    if (c === child) return i;
+  }
+  return -1;
+}
+
+/** 当前物化着的全部下标（调试 / 断言 / 窗口同步用）。 */
+export function materializedIndices(container: any): number[] {
+  const map = MATERIALIZED.get(container);
+  return map ? [...map.keys()] : [];
+}
+
+/**
+ * **命中 → 物化 → 重定向**（P1 的核心，2026-09-21）。
+ *
+ * 引擎的命中检测会命中"虚拟容器"本身（批量图元没有对象）。这里按策略把它换成**刚被点到的那一个**
+ * 子项物化出来的真组件 —— 于是上层（`evt.target`、选中、控制面板、拖动）**完全不用知道虚拟化的存在**，
+ * 与"点到一个普通组件"逐条同义。
+ *
+ * - 策略 `container`（`setVirtualHitPolicy`）：保持旧行为，返回容器本身（应用自己接管）。
+ * - 同一子项重复命中：返回**第一次**物化的那个组件（幂等，不会越点越多）。
+ * - `materialize` 缺失 / 返回 null：退回容器本身（不炸）。
+ */
+export function resolveVirtualHit(container: any): any {
+  if (!container) return container;
+  const source = CHILD_SOURCE.get(container);
+  if (!source || typeof source.materialize !== 'function') return container;
+  if (virtualHitPolicyOf(container) === 'container') return container;
+  const index = virtualHitIndexOf(container);
+  if (!(index >= 0)) return container;
+  return materializeVirtualChild(container, index) || container;
 }

@@ -89,7 +89,7 @@ import { flattenAllComponents, hitTestComponents } from './util/data-util';
 import { deepMerge } from './theme/ICETheme';
 import { HIT_BOX_TOLERANCE } from './renderer/dirty-rect-util';
 import { notifyChildAdded, notifyChildRemoved, notifyViewportChange } from './worker/mirror-hooks';
-import { notifyStructureChanged } from './graphic/virtual/virtual-child-source';
+import { notifyStructureChanged, resolveVirtualHit } from './graphic/virtual/virtual-child-source';
 
 /**
  * @class ICE
@@ -1783,7 +1783,8 @@ class ICE {
    */
   public hitTest(sx: number, sy: number): any {
     const [wx, wy] = this.screenToWorld(sx, sy);
-    return hitTestComponents(this, wx, wy, HIT_BOX_TOLERANCE);
+    // 虚拟化：命中批量图元时返回**物化出来的真组件**（策略 `container` 时仍返回容器）
+    return resolveVirtualHit(hitTestComponents(this, wx, wy, HIT_BOX_TOLERANCE));
   }
 
   /** 递归清除组件子树上的主题作用域缓存（主题变化后必须失效）。 */

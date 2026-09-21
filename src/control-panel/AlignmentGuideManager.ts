@@ -542,6 +542,24 @@ class AlignmentGuideManager {
           const b = this.__boxOf(c);
           if (b) out.push(b);
         }
+        /**
+         * **虚拟容器**：它的子项不是组件（`childNodes` 里只有窗口内物化出来的那几个），
+         * 直接递归会"对齐到看不见的图元" —— 与被拖组件的子树无关的目标一个都取不到。
+         * 所以按**被拖组件附近的窗口**向虚拟源要候选盒（`forEachInBox` + `boxAt`）：
+         * 范围取被拖盒 + 吸附阈值 ×2 的外扩（吸附只关心近邻，不必扫全文档）。
+         */
+        const source = typeof c.getChildSource === 'function' ? c.getChildSource() : null;
+        if (source && typeof source.forEachInBox === 'function' && typeof source.boxAt === 'function') {
+          const self = this.__boxOf(this.active);
+          if (self) {
+            const pad = (this.options.threshold + this.options.hysteresis) * 2;
+            const box = new Float64Array(4);
+            source.forEachInBox(self.minX - pad, self.minY - pad, self.maxX + pad, self.maxY + pad, (i: number) => {
+              source.boxAt(i, box);
+              out.push(toBox(box[0], box[1], box[2], box[3]));
+            });
+          }
+        }
         if (c.childNodes && c.childNodes.length) visit(c.childNodes);
       }
     };
