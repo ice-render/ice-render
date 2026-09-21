@@ -1217,7 +1217,13 @@ class ICE {
    * 设置视口（视图缩放 + 平移）。
    *
    * 屏幕坐标 = 世界坐标 * scale + translate。这是「视图缩放」，不改变任何组件的 state，
-   * 只影响渲染结果与命中检测的坐标换算。视口变化会让渲染器回退一次全量重绘并重建快照。
+   * 只影响渲染结果与命中检测的坐标换算。
+   *
+   * 视口变化会让渲染器**整屏重画一次**，但**不清渲染队列、也不清上屏快照**（2026-09-21 修正）：
+   * 队列与世界坐标的快照都不随视口失效，清掉它们等于每帧推翻重来（还没有快照 → 视口裁剪失效）。
+   * 真机实测（10 万图元、每帧平移 3px）：旧写法 **9.9fps**（p50 103ms、3s 内 28 个长任务），
+   * 现在 **119.9fps**（p50 8.3ms、0 长任务）。缩放变化时静态层位图仍会按纪律重建
+   * （位图的栅格与当时的视口绑定，见 `ObjectCache.beginFrame`）。
    */
   public setViewport(scale: number, tx: number = 0, ty: number = 0): this {
     const s = Number(scale);
@@ -1226,11 +1232,10 @@ class ICE {
     const unchanged = !!prev && prev.scale === next.scale && prev.tx === next.tx && prev.ty === next.ty;
     this.viewport = next;
     this.dirty = true;
-    // 视口**没变**时不要回退全量：`markQueueDirty()` 会重建渲染队列、清掉上屏快照与静态层，
-    // 而平移/缩放驱动里重复调用 `setViewport(同值)` 很常见（钳制边界、视口跟随同步），
-    // 每帧白打掉一次队列就等于每帧丢一次静态层（实测这类调用下静态层每帧重建，反而慢 35%）。
+    // 视口**没变**时什么都不用做（平移/缩放驱动里重复下发同值很常见：钳制边界、视口跟随同步）；
+    // 变了则只请求"整屏重画"——**不要**用 `markQueueDirty()`，那是给结构变更用的。
     if (this.renderer && !unchanged) {
-      this.renderer.markQueueDirty();
+      this.renderer.markViewportChanged();
     }
     // 镜像钩子：视口必须跟着走，否则两边"看的是不同区域"（见 mirror-hooks 的说明）
     if (!unchanged) {
