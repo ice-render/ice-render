@@ -150,6 +150,20 @@ const LEAKY_INDEX: Record<string, number> = (() => {
 
 /** 单位矩阵（gl-matrix mat2d 布局）；`__activeWorldMatrix` 为空时代表世界→设备是恒等变换。 */
 const IDENTITY_MATRIX = Object.freeze([1, 0, 0, 1, 0, 0]) as unknown as number[];
+
+/**
+ * **渲染期间的临时缓冲**（模块级共享，不给实例加字段）。
+ *
+ * 为什么不放在实例上：`__localBoxScratch` / `__transScratch` / `__absScratchB` 这类"一次调用内用完就扔"
+ * 的数组，每实例各留一份的话，10 万图元就是 30 万个数组、约 25MB 常驻（真机 Chrome + V8 堆快照实测）。
+ *
+ * 为什么共享是安全的：渲染器是**按队列逐个**调用 `doRender()`（不是父组件递归渲染子组件），
+ * 而这些缓冲的生命周期都**不跨组件**——写进 `state.*` 的那些（如 `absoluteLinearMatrix`）继续用实例字段。
+ * 唯一的例外是 `__absScratchA`（它会被别名进 state），所以它仍是实例字段。
+ */
+const LOCAL_BOX_SCRATCH: number[] = [0, 0, 0, 0];
+const TRANS_SCRATCH: number[] = [1, 0, 0, 1, 0, 0];
+const ABS_SCRATCH_B: number[] = [0, 0, 0, 0, 0, 0];
 import { skew } from '../util/gl-matrix-skew';
 import { uuid } from '../util/uuid';
 
@@ -339,8 +353,8 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   protected __everRendered: boolean = false;
 
-  // __localBox() 的复用缓冲（避免每帧为每个组件的包围盒分配数组）
-  private __localBoxScratch: number[] = [0, 0, 0, 0];
+  // 注：气泡临时缓冲（矩阵 / 包围盒 / 平移）一律用**模块级**的（见文件末尾的 XXX_SCRATCH 常量）——
+  // 每实例各留一份的话，10 万图元就是几十万个数组、几十 MB 常驻（实测见 docs/architecture/04）。
 
   /** 本渲染通道的「本地 → 设备」CTM（主画布通道 = 视口·composed；离屏位图通道 = base·composed）。 */
   private __activeCtm: number[] | null = null;
@@ -389,9 +403,9 @@ abstract class ICEComponent extends ICEEventTarget {
   private __paramsRev: number = 0;
 
   //@perf: 复用矩阵计算的临时缓冲，避免每帧为每个组件 / 每层祖先分配新数组（降低 GC 压力）。
+  // 注意：只有 `__absScratchA` 是**实例**字段 —— 它的值会被写进 `state.absoluteLinearMatrix`（别名），
+  // 属于"这个组件自己的矩阵"；B / 平移 / 包围盒这些都是调用期间的临时值，用模块级共享缓冲（见文件末尾）。
   private __absScratchA: any = null;
-  private __absScratchB: any = null;
-  private __transScratch: any = null;
   private __originScratch: any = null;
   private __composeScratch: any = null;
   private __viewportScratch: any = null;
@@ -1180,7 +1194,7 @@ abstract class ICEComponent extends ICEEventTarget {
    * 注意：返回的是实例内复用缓冲，调用方应**立即读取**，不要持有。
    */
   protected __localBox(): number[] {
-    const box = this.__localBoxScratch;
+    const box = LOCAL_BOX_SCRATCH;
     box[0] = 0;
     box[1] = 0;
     box[2] = this.state.width || 0;
@@ -1406,7 +1420,6 @@ abstract class ICEComponent extends ICEEventTarget {
     let matrix = component.calcLinearMatrix();
     //@perf: 复用普通数组作为 scratch，既避免每帧分配，又保持矩阵为 Array 类型（兼容序列化/Array.isArray）
     if (!this.__absScratchA) this.__absScratchA = [0, 0, 0, 0, 0, 0];
-    if (!this.__absScratchB) this.__absScratchB = [0, 0, 0, 0, 0, 0];
     let out = this.__absScratchA;
     while (component.parentNode) {
       const parent = component.parentNode;
@@ -1420,11 +1433,26 @@ abstract class ICEComponent extends ICEEventTarget {
           : //@ts-ignore
             parent.calcLinearMatrix();
       //@perf: 复用两个 scratch 缓冲做矩阵连乘，避免每层祖先都分配新数组
-      out = out === this.__absScratchA ? this.__absScratchB : this.__absScratchA;
+      out = out === this.__absScratchA ? ABS_SCRATCH_B : this.__absScratchA;
       //@ts-ignore
       mat2d.multiply(out, parentLinearMatrix, matrix);
       matrix = out;
       component = parent;
+    }
+    /**
+     * 结果最终**必须落回实例自己的那个数组**：`state.absoluteLinearMatrix` 是它的别名，
+     * 而 `ABS_SCRATCH_B` 是跨组件共享的 —— 直接别名会把所有组件的绝对矩阵指向同一块内存
+     *（祖先层数为奇数时就会走到这一支）。
+     */
+    if (matrix === ABS_SCRATCH_B) {
+      const own = this.__absScratchA as number[];
+      own[0] = matrix[0];
+      own[1] = matrix[1];
+      own[2] = matrix[2];
+      own[3] = matrix[3];
+      own[4] = matrix[4];
+      own[5] = matrix[5];
+      matrix = own;
     }
     this.state.absoluteLinearMatrix = matrix;
     return matrix;
@@ -1461,10 +1489,15 @@ abstract class ICEComponent extends ICEEventTarget {
     //step-1: 移动到指定原点（全局坐标系）。
     const origin = this.calcAbsoluteOrigin();
     //@perf: 复用平移矩阵 scratch，避免每帧分配新数组
-    if (!this.__transScratch) this.__transScratch = [1, 0, 0, 1, 0, 0];
-    this.__transScratch[4] = origin[0];
-    this.__transScratch[5] = origin[1];
-    const translationMatrix = this.__transScratch;
+    // 平移矩阵是纯临时值（下一步就乘进 composedMatrix），用模块级共享缓冲；
+    // 它不跨组件存活：父组件的 composeMatrix() 在本函数更早处就已返回，写入时不会互相踩。
+    const translationMatrix = TRANS_SCRATCH;
+    translationMatrix[0] = 1;
+    translationMatrix[1] = 0;
+    translationMatrix[2] = 0;
+    translationMatrix[3] = 1;
+    translationMatrix[4] = origin[0];
+    translationMatrix[5] = origin[1];
 
     //step-2: 计算线性变换矩阵，包含了所有祖先节点的线性变换。
     // calcAbsoluteLinearMatrix 内部会实时重新计算每一层祖先的线性矩阵，不再依赖缓存。
