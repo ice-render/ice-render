@@ -37,6 +37,19 @@ const FULL_FALLBACK_AREA_RATIO = 0.35;
 const MAX_DIRTY_REGIONS = 6;
 
 /**
+ * 上屏快照盒 arena 的分块参数：`SNAP_CHUNK_SIZE` 个组件一块
+ * （4096 × 4 × 8B = 128KB/块，10 万图元约 25 块）。
+ */
+const SNAP_CHUNK_SHIFT = 12;
+const SNAP_CHUNK_SIZE = 1 << SNAP_CHUNK_SHIFT; // 4096
+const SNAP_CHUNK_MASK = SNAP_CHUNK_SIZE - 1;
+/**
+ * 捕获快照时的中转盒：`__paintWorldBox()` 只认「从下标 0 开始的 4 元素目标」，
+ * 先写这个复用缓冲再拷进 arena 的槽位 —— 每帧零分配。
+ */
+const SNAP_PAINT_SCRATCH = new Float64Array(4);
+
+/**
  * 静态层位图的下限：连续干净段至少这么多成员才值得做成一层。
  * 一层的固定开销是「清屏 + 贴一张位图」（1600×1000 下约 0.2~0.4ms），
  * 而每个成员逐组件重画约 1.5~2µs —— 少于 256 个时两者打平，不划算。
@@ -107,8 +120,21 @@ class CanvasRenderer extends ICEEventTarget {
    * 每个「曾上屏」组件的世界轴对齐包围盒快照（[minX,minY,maxX,maxY]，已含 paint pad）。
    * WeakMap：不污染组件 state/props（序列化安全）、对 zIndex 重排免疫、组件 GC 自动回收。
    * 用于：部分重绘帧的旧区域擦除 + 未变组件的「是否与本帧区域相交」判断。
+   *
+   * **值是槽位号（Smi），盒数据在共享 arena 里**（2026-09-21）。改造前每个曾上屏的组件各持一个
+   * `Float64Array(4)`：真机 Chrome + V8 堆快照实测（10 万图元）**10 万个 JSTypedArray + 10 万个
+   * ArrayBuffer = 10.7MB**，只为了存 32 字节。改成「一个 WeakMap 表项（Smi）+ 分块 Float64Array」
+   * 后对象数直接省掉 20 万个，数据本身从 3.2MB 的散块并成连续内存（更好的缓存局部性）。
+   *
+   * 槽位在 `__finalizeHidden()` 里归还（`__snapFree`），归零重置时也会一起复位 —— 不会无限增长。
    */
-  private __snap = new WeakMap<object, Float64Array>();
+  private __snap = new WeakMap<object, number>();
+  /** 槽位 → 数据的分块存储，每块 `SNAP_CHUNK_SIZE` 个组件（每组件 4 个 float64）。 */
+  private __snapChunks: Float64Array[] = [];
+  /** 下一个未分配的槽位号。 */
+  private __snapNext = 0;
+  /** 已归还的槽位（隐藏组件不再需要快照时归还，供后续分配复用）。 */
+  private __snapFree: number[] = [];
   /** 距离最近一次队列重建后，是否已完成过至少一次「全量/prime」渲染（快照就绪）。 */
   private __primed: boolean = false;
   /** 组件级离屏缓存（v1 缓存 ICEText），与快照一样不污染组件 state/props。 */
@@ -370,7 +396,7 @@ class CanvasRenderer extends ICEEventTarget {
     this.__snapshotZ();
     if (!keepSnapshots) {
       // 结构变了：快照整体失效，下一次渲染必须先全量 prime。
-      this.__snap = new WeakMap();
+      this.__snapReset();
       this.__primed = false;
     }
     // 结构变了：静态层的成员集合/次序也失效（成员是队列里的连续一段）。
@@ -439,8 +465,8 @@ class CanvasRenderer extends ICEEventTarget {
       // 脏组件一律照画：它可能正从屏外移入，快照仍是旧位置，用旧盒判定会误裁。
       // 无快照（从未上屏）也照画：没有可靠盒子可判定。
       if (visible && component.isEffectivelyVisible() && !component.dirty) {
-        const snap = this.__snap.get(component);
-        if (snap && !intersects(snap as any, visible)) {
+        const slot = this.__snapSlotOf(component);
+        if (slot >= 0 && !this.__snapIntersects(slot, visible)) {
           culled++;
           continue;
         }
@@ -763,8 +789,8 @@ class CanvasRenderer extends ICEEventTarget {
         continue;
       }
       if (visible && component.isEffectivelyVisible() && !component.dirty) {
-        const snap = this.__snap.get(component);
-        if (snap && !intersects(snap as any, visible)) {
+        const slot = this.__snapSlotOf(component);
+        if (slot >= 0 && !this.__snapIntersects(slot, visible)) {
           culled++;
           continue;
         }
@@ -898,8 +924,8 @@ class CanvasRenderer extends ICEEventTarget {
       if (!c.isEffectivelyVisible()) {
         // 隐藏且曾上屏：只需擦除旧盒。判据是「有快照」而不是「脏」——
         // 父容器被设为 false 时子组件不会有脏标记，但它的墨迹必须被擦掉。
-        const old = this.__snap.get(c);
-        if (old) boxes.push([old[0], old[1], old[2], old[3]]);
+        const slot = this.__snapSlotOf(c);
+        if (slot >= 0) boxes.push(this.__snapCopy(slot));
         continue;
       }
       if (!c.dirty) continue;
@@ -909,9 +935,9 @@ class CanvasRenderer extends ICEEventTarget {
       c.__paramsDirtyAtCollect = c.paramsDirty;
       const nb = this.__freshBox(c);
       if (!nb) return false;
-      const old = this.__snap.get(c);
       // 同一个组件的移动/变形区间（旧盒 ∪ 新盒）必然要一起擦一起画 → 先并成一条
-      boxes.push(old ? mergeBox(old as any, nb) : nb);
+      const slot = this.__snapSlotOf(c);
+      boxes.push(slot >= 0 ? mergeBox(this.__snapCopy(slot), nb) : nb);
     }
     return true;
   }
@@ -952,13 +978,13 @@ class CanvasRenderer extends ICEEventTarget {
        * - 干净但**无快照**：没有可信盒子 —— **保持改造前的保守口径**（照旧走分类，risky 就回退），
        *   因为"没有快照"既可能是"从未上屏"、也可能是别处把盒丢了；这一档数量极少，保守不吃性能。
        */
-      let box: any = null;
+      let slot = -1;
       if (!c.dirty) {
-        box = this.__snap.get(c);
-        if (box) {
+        slot = this.__snapSlotOf(c);
+        if (slot >= 0) {
           let hit = false;
           for (let k = 0; k < regions.length; k++) {
-            if (intersects(box, regions[k])) {
+            if (this.__snapIntersects(slot, regions[k])) {
               hit = true;
               break;
             }
@@ -996,10 +1022,10 @@ class CanvasRenderer extends ICEEventTarget {
       // 干净的已缓存组件：主画布只是 drawImage 不透明位图，clip 不影响 → 不阻塞
       if (this.cache.isCachable(c) && this.cache.has(c)) continue;
 
-      const snap: any = box || this.__snap.get(c);
-      if (!snap) return true; // 干净但无快照：没有可信盒子 → 保守回退
+      if (slot < 0) slot = this.__snapSlotOf(c);
+      if (slot < 0) return true; // 干净但无快照：没有可信盒子 → 保守回退
       for (let k = 0; k < regions.length; k++) {
-        if (intersects(snap as any, regions[k])) return true;
+        if (this.__snapIntersects(slot, regions[k])) return true;
       }
     }
     return false;
@@ -1032,8 +1058,8 @@ class CanvasRenderer extends ICEEventTarget {
       for (let i = 0; i < this.componentQueue.length; i++) {
         const component = this.componentQueue[i];
         if (!component.isEffectivelyVisible()) continue;
-        const snap = this.__snap.get(component);
-        const needDraw = component.dirty || (snap && intersects(snap as any, r));
+        const slot = this.__snapSlotOf(component);
+        const needDraw = component.dirty || (slot >= 0 && this.__snapIntersects(slot, r));
         if (!needDraw) continue;
         this.__ensureContext(component);
         this.__renderComponent(component);
@@ -1096,12 +1122,65 @@ class CanvasRenderer extends ICEEventTarget {
     }
   }
 
+  // ------------------------------------------------------------------ 上屏快照盒（arena）
+
+  /** 组件的快照槽位；`-1` = 这个组件没有快照（从未上屏 / 已被移除）。 */
+  private __snapSlotOf(component: any): number {
+    const slot = this.__snap.get(component);
+    return slot === undefined ? -1 : slot;
+  }
+
+  /** 分配一个槽位（优先复用归还的）。**只在 `__capture()` 里调用**：分配后立刻写入。 */
+  private __snapAlloc(): number {
+    const slot = this.__snapFree.length ? (this.__snapFree.pop() as number) : this.__snapNext++;
+    const ci = slot >>> SNAP_CHUNK_SHIFT;
+    if (!this.__snapChunks[ci]) {
+      this.__snapChunks[ci] = new Float64Array(SNAP_CHUNK_SIZE * 4);
+    }
+    return slot;
+  }
+
+  /** 归还槽位（组件隐藏 / 快照整体作废时）。 */
+  private __snapRelease(component: any): void {
+    const slot = this.__snap.get(component);
+    if (slot !== undefined) {
+      this.__snap.delete(component);
+      this.__snapFree.push(slot);
+    }
+  }
+
+  /** 快照整体作废（成员集合变化时必须重新 prime）：槽位从 0 重新发号，块存储保留复用。 */
+  private __snapReset(): void {
+    this.__snap = new WeakMap<object, number>();
+    this.__snapNext = 0;
+    this.__snapFree.length = 0;
+  }
+
+  /** 槽位上的盒与 `box` 是否相交（直接读 arena，不为每次判定建视图）。 */
+  private __snapIntersects(slot: number, box: any): boolean {
+    const chunk = this.__snapChunks[slot >>> SNAP_CHUNK_SHIFT];
+    const o = (slot & SNAP_CHUNK_MASK) << 2;
+    return !(chunk[o] > box[2] || chunk[o + 2] < box[0] || chunk[o + 1] > box[3] || chunk[o + 3] < box[1]);
+  }
+
+  /** 槽位上的盒（复制成普通数组，供区域收集复用既有工具函数）。 */
+  private __snapCopy(slot: number): number[] {
+    const chunk = this.__snapChunks[slot >>> SNAP_CHUNK_SHIFT];
+    const o = (slot & SNAP_CHUNK_MASK) << 2;
+    return [chunk[o], chunk[o + 1], chunk[o + 2], chunk[o + 3]];
+  }
+
   /**
    * @internal 取组件上一次上屏的世界包围盒（含 paint pad，格式 [minX,minY,maxX,maxY]）。
    * 供命中检测做「廉价包围盒预筛」，避免对屏外组件做矩阵反变换 + 形状判定。无快照返回 null。
    */
   public getWorldBox(component: any): Float64Array | null {
-    return this.__snap.get(component) || null;
+    const slot = this.__snapSlotOf(component);
+    if (slot < 0) return null;
+    const chunk = this.__snapChunks[slot >>> SNAP_CHUNK_SHIFT];
+    const o = (slot & SNAP_CHUNK_MASK) << 2;
+    // 视图直接映到 arena 的那 4 个槽位：调用方读到的是当前值（与改造前返回内部缓冲同义）
+    return chunk.subarray(o, o + 4);
   }
 
   /**
@@ -1179,17 +1258,24 @@ class CanvasRenderer extends ICEEventTarget {
    * 渲染后捕获组件的世界包围盒（含 pad）到快照，供后续帧做旧区域擦除与相交判断。
    */
   private __capture(c: any): void {
-    let out = this.__snap.get(c);
-    if (!out) {
-      out = new Float64Array(4);
-      this.__snap.set(c, out);
-    }
+    const out = SNAP_PAINT_SCRATCH;
     c.__paintWorldBox(out);
     const pad = stylePaintPad(c.state, this.__renderViewport().scale);
     out[0] -= pad;
     out[1] -= pad;
     out[2] += pad;
     out[3] += pad;
+    let slot = this.__snap.get(c);
+    if (slot === undefined) {
+      slot = this.__snapAlloc();
+      this.__snap.set(c, slot);
+    }
+    const chunk = this.__snapChunks[slot >>> SNAP_CHUNK_SHIFT];
+    const o = (slot & SNAP_CHUNK_MASK) << 2;
+    chunk[o] = out[0];
+    chunk[o + 1] = out[1];
+    chunk[o + 2] = out[2];
+    chunk[o + 3] = out[3];
   }
 
   /**
@@ -1202,7 +1288,7 @@ class CanvasRenderer extends ICEEventTarget {
       const c = queue[i];
       if (!c.isEffectivelyVisible() && c.dirty) {
         c.dirty = false;
-        this.__snap.delete(c);
+        this.__snapRelease(c);
       }
     }
   }

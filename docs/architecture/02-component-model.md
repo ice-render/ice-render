@@ -164,7 +164,7 @@ render() {
 
 | 阶段 | 说明 |
 |---|---|
-| 构造 | `merge(props)` → `cloneDeep` 得到 `state`，注册默认事件（`mousedown/keydown/keyup`） |
+| 构造 | `merge(props)` → `cloneDeep` 得到 `state`，启用默认事件（`mousedown/keydown/keyup`，类级声明，见 [05 事件系统](05-event-system.md)） |
 | 挂载 | `addChild` 注入 `ice/ctx/evtBus`，触发 `BEFORE_ADD`/`AFTER_ADD` |
 | 渲染 | 每帧 `render()` 模板方法 |
 | 卸载 | `destory()`：清空事件、置空 `ice/ctx/root/evtBus/parentNode`；容器会先递归销毁子节点 |

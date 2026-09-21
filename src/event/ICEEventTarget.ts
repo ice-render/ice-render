@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { isEmpty } from '../util/lang';
 import root from '../cross-platform/root';
 import ICEEvent from './ICEEvent';
 import type { ICEEventListenerOptions, ICEEventName, ICEEventOf } from './event-types';
@@ -21,6 +20,35 @@ function monotonicNow(): number {
   const perf: any = (root as any) && (root as any).performance;
   return perf && typeof perf.now === 'function' ? perf.now() : Date.now();
 }
+
+/**
+ * **引擎默认处理器：类级声明，派发时解析**（2026-09-21）。
+ *
+ * 改造前：`ICEComponent.initEvents()` 在每个组件的构造期 `on('mousedown'|'keydown'|'keyup', …)`，
+ * 于是**每个图元**都常驻 `1 个 listeners 对象 + 3 个数组 + 3 条记录`（7 个堆对象）。
+ * 10 万图元的真实场景里这只是"每个图元默认都得会拖动/会响应方向键"的记账成本 ——
+ * 真机 Chrome + V8 堆快照实测：`Array` 19.8MB 里的大头、`Object` 32MB 里的一块。
+ *
+ * 改造后：
+ * - 默认处理器**不进 `listeners`**，改由类级声明表（事件名 → 本实例上的方法名）描述；
+ * - `trigger()` 在该事件没有实例级监听时**现场解析并调用**（次序与"构造期先注册"一致：默认在前）；
+ * - `hasListener` / `off` / `removeEventListener` 的身份匹配把默认处理器一并算上，
+ *   语义与"它真的在 `listeners` 里"逐条一致（含 `off(name)` 清空该事件全部监听）。
+ *
+ * `on` 的 `scope` 语义照旧：默认处理器的 scope 恒为组件自己（`this`）。
+ *
+ * **开关放在 `listeners` 对象上（Symbol 键），不新增实例字段**：见 AGENTS「热路径类不加实例字段铁律」
+ * （新增一个布尔字段会让整条继承链的属性访问退化 3~4×）。两个 Symbol 键都不可枚举，
+ * `Object.keys(listeners)` 看不到它们，所以 `isEmpty()` 之类的既有判断不受影响；
+ * 而 `purgeEvents()` 会把 `listeners` 换成新的空对象 —— 默认开关随之消失，与改造前"一起清掉"一致。
+ */
+const DEFAULT_EVENTS = Symbol('ice.defaultEvents');
+/** 被显式摘除（`off` / `removeEventListener`）的默认事件名。按需创建：绝大多数组件一生都不会摘。 */
+const DEFAULT_EVENTS_OFF = Symbol('ice.defaultEventsOff');
+/** 空的实例级监听快照（只有默认处理器时复用，避免每次派发都分配一个空数组）。 */
+const NO_LISTENERS: readonly any[] = Object.freeze([]);
+/** 类 → 声明表（构造器作键，避免每次派发都重新解析原型链）。 */
+const DEFAULT_TABLE_CACHE = new WeakMap<any, any>();
 
 /**
  * @class ICEEventTarget
@@ -70,6 +98,90 @@ abstract class ICEEventTarget {
   protected suspendedEventNames: string[] | null = null;
 
   constructor() {}
+
+  /**
+   * **类级默认监听表**：事件名 → 本实例上的处理方法名（子类覆盖此方法即可改默认行为）。
+   *
+   * 基类没有默认处理器（总线 / 模型这些不是组件树的类不受影响）；`ICEComponent` 给出
+   * `mousedown` / `keydown` / `keyup` 三项。返回的对象会被按构造器缓存，实现里请返回常量表。
+   */
+  protected defaultEventListenerMap(): { [eventName: string]: string } | null {
+    return null;
+  }
+
+  /** 取（并缓存）本类别的默认监听表。 */
+  private __defaultTable(): { [eventName: string]: string } | null {
+    const ctor: any = this.constructor;
+    let table = DEFAULT_TABLE_CACHE.get(ctor);
+    if (table === undefined) {
+      table = this.defaultEventListenerMap() || null;
+      DEFAULT_TABLE_CACHE.set(ctor, table);
+    }
+    return table;
+  }
+
+  /**
+   * **启用默认处理器**（`ICEComponent.initEvents()` 调用）。
+   *
+   * 子类把 `initEvents()` 覆盖成空实现、且不调 `super.initEvents()` 时，默认处理器就不会被启用 ——
+   * 与改造前"没注册就没人响应"完全一致（`ICEControlPanelManager` 之外还有第三方组件依赖这条）。
+   */
+  protected __enableDefaultEvents(): this {
+    if (!this.listeners || typeof this.listeners !== 'object') {
+      this.listeners = {};
+    }
+    this.listeners[DEFAULT_EVENTS] = true;
+    // 顺带登记事件名：一次原生指针输入会派发两个名字，派发器据此跳过没人听的那一次
+    // （见 `event/listened-event-names.ts`）。改造前这一步由逐实例 `on()` 完成，不能漏。
+    const table = this.__defaultTable();
+    for (const name in table) {
+      markEventNameListened(name);
+    }
+    return this;
+  }
+
+  /** 默认处理器是否处于启用状态。 */
+  private __defaultEventsOn(): boolean {
+    return this.listeners ? this.listeners[DEFAULT_EVENTS] === true : false;
+  }
+
+  /**
+   * 解析这一事件名上的默认处理器。
+   *
+   * 被显式摘除（`off` / `removeEventListener`）过的事件名返回 `null` —— 与改造前"它已经不在数组里"
+   * 一致：再摘一次无副作用、`hasListener` 也会如实返回 `false`。
+   */
+  private __defaultHandlerFor(eventName: string): any {
+    if (!this.__defaultEventsOn()) {
+      return null;
+    }
+    const off = this.listeners[DEFAULT_EVENTS_OFF];
+    if (off && off[eventName]) {
+      return null;
+    }
+    const table = this.__defaultTable();
+    if (!table) {
+      return null;
+    }
+    const methodName = table[eventName];
+    if (!methodName) {
+      return null;
+    }
+    const fn = (this as any)[methodName];
+    return typeof fn === 'function' ? fn : null;
+  }
+
+  /** 摘除某个默认事件（`off` / `removeEventListener` / 重新 `on` 同一处理器时的去重都会走到）。 */
+  private __disableDefaultEvent(eventName: string): void {
+    if (!this.__defaultEventsOn()) {
+      return;
+    }
+    let off = this.listeners[DEFAULT_EVENTS_OFF];
+    if (!off) {
+      off = this.listeners[DEFAULT_EVENTS_OFF] = {};
+    }
+    off[eventName] = true;
+  }
 
   /**
    * **注册监听的唯一实现**：`on`（jQuery 风格）与 `addEventListener`（W3C 风格）都走这里。
@@ -135,11 +247,23 @@ abstract class ICEEventTarget {
    * 监听器身份是 `(type, listener, capture)`，跟回调里的 `this` 无关）。
    */
   private __remove(eventName: string, listener: any, scope: any, capture: boolean, ignoreScope: boolean): boolean {
+    let removed = false;
+    /**
+     * 默认处理器不在 `listeners` 里，身份单独判定 —— 它的记录形态是
+     * `(callback = 本实例上的方法, scope = this, capture = false, once = false, passive = false)`。
+     * `removeEventListener` 的 W3C 身份不看 scope（`ignoreScope`），`off` 看 scope。
+     */
+    if (!capture) {
+      const handler = this.__defaultHandlerFor(eventName);
+      if (handler && handler === listener && (ignoreScope || scope === this)) {
+        this.__disableDefaultEvent(eventName);
+        removed = true;
+      }
+    }
     const arr: any[] = this.listeners[eventName];
     if (!arr || !arr.length) {
-      return false;
+      return removed;
     }
-    let removed = false;
     for (let i = arr.length - 1; i >= 0; i--) {
       const item = arr[i];
       const cb: any = item.callback;
@@ -191,17 +315,15 @@ abstract class ICEEventTarget {
    * @returns
    */
   public off(eventName: string, fn?: any, scope: any = root) {
-    const arr = this.listeners[eventName];
-    if (!arr) {
-      return this;
-    }
     /**
      * `off(name)`（不传回调）＝ **移除该事件上的全部监听**。
      * 旧实现只支持"按 (fn, scope) 摘一个"，想清空一个事件只能自己遍历，
      * 而 `purgeEvents()` 又会把**所有**事件的监听一起清掉 —— 中间这一档一直是缺的。
+     * 引擎的默认处理器也算"该事件上的监听"，一并摘掉（改造前它就在这个数组里）。
      */
     if (fn === undefined) {
       delete this.listeners[eventName];
+      this.__disableDefaultEvent(eventName);
       return this;
     }
     // 摘掉该 (listener, scope) 的**全部**匹配（capture 两个维度都摘）
@@ -225,7 +347,12 @@ abstract class ICEEventTarget {
   public trigger<K extends ICEEventName>(eventName: K, originalEvent?: any, param?: any): boolean;
   public trigger(eventName: string, originalEvent?: any, param?: any): boolean;
   public trigger(eventName: string, originalEvent: any = null, param = {}) {
-    if (isEmpty(this.listeners[eventName])) return false;
+    const ownList: any[] = this.listeners[eventName];
+    const hasOwn = !!ownList && ownList.length > 0;
+    // 默认处理器与实例级监听**并存**（改造前它俩就在同一个数组里，只是默认那条由构造期注册）。
+    // 代价是一次"开关读取 + 方法名解析"：`trigger` 只对命中的组件与其祖先调用，不是全场景开销。
+    const defaultHandler = this.__defaultHandlerFor(eventName);
+    if (!hasOwn && !defaultHandler) return false;
     if (this.suspendedEventNames && this.suspendedEventNames.includes(eventName)) return false;
 
     let iceEvent: ICEEvent;
@@ -279,21 +406,35 @@ abstract class ICEEventTarget {
     const previousCurrentTarget = iceEvent.currentTarget;
     iceEvent.currentTarget = this as any;
 
+    /**
+     * 默认处理器先跑：改造前它是**构造期最先注册**的那一条（`initEvents()` 在用户的 `on/once` 之前），
+     * 次序与它完全一致。快照也在它跑之前取 —— 它在自己里面新注册的监听本轮不触发（与改造前的快照语义同）。
+     */
+    const arr = ownList ? [...ownList] : NO_LISTENERS;
     // 遍历**快照**，并在调用前确认监听仍在线：
     // `once` 的回调会先把自己 off 掉（splice 原数组），如果直接 `for (i...) arr[i]`，
     // 数组缩短会让紧随其后的监听被整体跳过 —— 同一个事件上挂的 once 越多漏得越多。
     // 快照 + 在线校验既修掉「漏触发」，又保留「派发期间被 off 掉的监听不再触发」的语义。
-    const arr = [...this.listeners[eventName]];
+    if (defaultHandler) {
+      iceEvent.__icePassiveListener = false;
+      defaultHandler.call(this, iceEvent);
+      if (iceEvent.__iceImmediateStopped) {
+        // stopImmediatePropagation()：当前目标上剩下的监听器不再执行（W3C 语义）
+        iceEvent.currentTarget = previousCurrentTarget;
+        return true;
+      }
+    }
     for (let i = 0; i < arr.length; i++) {
       const item = arr[i];
-      if (this.listeners[eventName].indexOf(item) === -1) {
+      const live: any[] = this.listeners[eventName];
+      if (!live || live.indexOf(item) === -1) {
         continue;
       }
       // `once`：**先摘再调**（与旧 wrapper 一致 —— 回调里再触发同一事件不会重入）
       if (item.once) {
-        const at = this.listeners[eventName].indexOf(item);
+        const at = live.indexOf(item);
         if (at !== -1) {
-          this.listeners[eventName].splice(at, 1);
+          live.splice(at, 1);
         }
       }
       // `passive`：该监听器里调 `preventDefault()` 不生效（与 W3C 一致）
@@ -363,6 +504,8 @@ abstract class ICEEventTarget {
    * 清除所有事件。
    */
   public purgeEvents() {
+    // 换掉整个 listeners 对象：默认处理器（类级声明）的启用开关也随对象一起消失 ——
+    // 与改造前"默认处理器就在这个对象里、一起被清掉"逐字一致。`destory()` 依赖这条。
     this.listeners = {};
     this.suspendedEventNames = null;
     return this;
@@ -377,6 +520,13 @@ abstract class ICEEventTarget {
    * @returns
    */
   public hasListener(eventName: string, fn: (...args: any[]) => any, scope: any = root): boolean {
+    // 默认处理器同样算"带有这个监听器"（改造前它就在数组里，身份 = 方法 + scope=this）
+    if (scope === this) {
+      const handler = this.__defaultHandlerFor(eventName);
+      if (handler && handler === fn) {
+        return true;
+      }
+    }
     if (!this.listeners[eventName]) {
       return false;
     }

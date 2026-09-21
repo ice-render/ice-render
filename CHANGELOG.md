@@ -7,6 +7,42 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 性能（内存：10 万图元堆 234.6 → 171.3 MB，−27.0%；拖动/平移帧率翻倍）
+
+口径：**你机器上的真实 Chrome**（CDP :9223）+ `examples/performance/bench-scene.html` 10 万图元，
+V8 heap snapshot 的「全堆自有大小」+ 12 帧同步单帧成本 + 每场景 3 秒真实 rAF。
+三刀都是"每图元一个对象"的成本，全部由堆快照指出来（不是拍脑袋）：
+
+- **几何签名 → 双 32 位哈希**（`ICEPath.__pathSig`）：签名只用来判"和上次一样吗"，却按图元常驻
+  12~20 元素数组（实测 **11.7 MB**）。改成「长度 + 两个 32 位哈希」（每图元 12 字节），
+  口径与逐项 `!==` **逐条对齐**：`-0`≡`0`、`NaN` 一律判过期（旧实现 `NaN !== NaN` 就是每帧重建）、
+  对象/数组按**引用身份**比较（弱引用发号，不漏判也不逼第三方子类每帧重建）、类型标签防混淆
+  （数字 `1` ≠ 字符串 `'1'`）。漏判重建的概率 2⁻⁶⁴ 量级，回归 `tests/renderer/path-signature-hash.test.ts`。
+- **引擎默认事件监听改「类级声明 + 派发时解析」**：改造前每个组件在构造期 `on('mousedown'|'keydown'|'keyup')`，
+  于是每个图元常驻 **3 个数组 + 3 条记录 + 1 份属性存储**；现在声明表挂在类上（`defaultEventListenerMap()`），
+  `trigger()` 在没有实例级监听时现场解析并**先于**用户监听调用。语义逐条不变：
+  子类覆盖 `initEvents()` 且不调 `super` 就不启用（`LineControlPanel` 依赖这条）、
+  `off`/`off(name)`/`removeEventListener`/`hasListener` 都能摘到默认处理器、`suspend`/`purgeEvents` 照旧、
+  按需派发的"事件名登记"照旧。开关挂在 `listeners` 的 Symbol 属性上，**没有新增实例字段**（热路径铁律）。
+  回归 `tests/event/default-listeners.test.ts`。
+- **上屏快照盒 arena 化**：`__snap` 原本每组件一个 `Float64Array(4)` —— 10 万图元实测
+  **10 万个 JSTypedArray + 10 万个 ArrayBuffer = 10.7 MB**，只为存 32 字节。现在 `WeakMap` 里存**槽位号**，
+  数据在分块 `Float64Array`（4096 组件/块）里连续存放；隐藏组件**归还槽位**、结构变化时槽位从头发号
+  （不会无限增长）；`getWorldBox()` 仍返回指向当前值的视图，对外语义不变。
+  回归 `tests/renderer/snapshot-arena.test.ts`。
+
+结果：全堆自有大小 **234.6 → 171.3 MB（−63.3 MB，−27.0%）**，堆节点 **681.5 万 → 454.9 万**；
+`(object elements)` 103.9 → 72.9 MB、`Object` 31.3 → 16.8 MB、`Array` 19.8 → 13.7 MB、
+`Float64Array`（5.7 MB）+ 对应 `ArrayBuffer`（5.0 MB）→ 0。
+端到端（真机 Chrome，每场景 3 秒 rAF）：**拖动 53.8 → 95.8~108.7 fps**、**平移 77.7 → 105~112 fps**、
+空转 120 fps 不变、压测前后堆漂移 ≈ 0；10 万图元**全量重绘**单帧最小 **203.5 → 192.8 ms**，
+中位数落在 ±5% 噪声内（该项没有实质变化，也没有引入新的 per-frame 分配）。
+
+仍然留着没做的（都带公开契约代价，见 `docs/architecture/04-rendering-performance.md` 的 0c）：
+`state.linearMatrix` 的每组件 `Float32Array(6)`（10.7 MB，共享 slab 只省其中 5 MB，且要配套"销毁即归还"）、
+每组件 5 个数值数组（约 15 MB，矩阵按序列化契约必须是普通 `Array`）、
+每组件一个 `ICE_`+uuid 字符串（约 7.1 MB，`id` 是公开字段）。
+
 ### 新功能（LOD：缩略视图跳过亚像素图元）+ 遮挡剔除的实测结论（**不做**）
 
 **先量后做**：这一批不是拍脑袋加的开关，是三轮真机探针（脚本在 `/tmp`，不入库）之后的结论。

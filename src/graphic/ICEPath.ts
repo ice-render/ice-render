@@ -19,6 +19,101 @@ import ICEComponent from './ICEComponent';
 const PATH_SIG_SCRATCH: any[] = [];
 
 /**
+ * 几何签名 → **指纹**（双 32 位哈希）的实现细节（2026-09-21）。
+ *
+ * 为什么要哈希：签名只用来做「和上一次一样吗」这一件事，却要按图元常驻。10 万图元的堆快照里
+ * `__pathSig` 一项就是 **11.7MB**。改成「长度 + 两个 32 位哈希」后每图元只多 12 字节，
+ * 而漏判（碰撞 → 该重建却没重建）的概率是 2⁻⁶⁴ 量级 —— 比"进程被宇宙射线打穿"还低。
+ *
+ * **口径必须与改造前的逐项 `!==` 比较一致**，逐条对齐：
+ * - 数字：`-0` 归一化成 `0`（`-0 === 0` 为真）；`NaN` → `forceStale`（旧实现里 `NaN !== NaN`，
+ *   含义就是"每次都当它变了"）。数字按 IEEE754 位型混入（`1` 与 `1.0` 位型相同，正确）。
+ * - 字符串 / 布尔 / `undefined` / `bigint`：按值混入（`===` 的语义）。
+ * - 对象 / 数组 / 函数：按**引用身份**混入（`WeakMap` 发号），与 `===` 的引用比较等价 ——
+ *   同一个引用恒等，换了引用必然换号，既不漏判也不会像"一律 forceStale"那样逼第三方子类每帧重建。
+ * - `symbol` / `null`：前者无法做弱引用发号、后者在签名里没有意义，一并 `forceStale`（保守）。
+ *
+ * 返回值：**函数返回 `forceStale`，哈希值经模块级的 `sigHashH1` / `sigHashH2` 带出** ——
+ * 热路径（每帧每个脏图元一次）不分配对象，避免给 GC 添无谓的压力。
+ */
+const sigF64 = new Float64Array(1);
+const sigU32 = new Uint32Array(sigF64.buffer);
+/** 对象/函数的引用身份表：弱引用，键没了项就没了，不构成泄漏；值是页内自增号。 */
+const SIG_OBJ_IDS = new WeakMap<object, number>();
+let nextSigObjId = 1;
+let sigHashH1 = 0;
+let sigHashH2 = 0;
+
+// 类型标签：直接混值的话，「数字 1」和「字符串 '1'」会撞成同一个指纹。
+const SIG_TAG_FLOAT = 1;
+const SIG_TAG_STRING = 2;
+const SIG_TAG_BOOL = 3;
+const SIG_TAG_UNDEFINED = 4;
+const SIG_TAG_OBJECT = 5;
+const SIG_TAG_BIGINT = 6;
+
+/** 混入一个 32 位字（两条独立的链：一条乘法混淆、一条加法混淆，保证不同位置不可交换）。 */
+function sigMix(tag: number, x: number): void {
+  let h1 = sigHashH1 ^ Math.imul(tag, 0x9e3779b1);
+  h1 = Math.imul(h1 ^ x, 0x01000193);
+  sigHashH1 = (h1 ^ (h1 >>> 13)) >>> 0;
+  let h2 = (sigHashH2 + x) >>> 0;
+  h2 = Math.imul(h2 ^ (h2 >>> 15), 0x85ebca6b);
+  sigHashH2 = (h2 ^ (h2 >>> 16)) >>> 0;
+}
+
+function sigMixFloat(v: number): void {
+  sigF64[0] = v === 0 ? 0 : v; // -0 → 0
+  sigMix(SIG_TAG_FLOAT, sigU32[0]);
+  sigMix(SIG_TAG_FLOAT, sigU32[1]);
+}
+
+function sigMixString(s: string): void {
+  for (let i = 0; i < s.length; i++) sigMix(SIG_TAG_STRING, s.charCodeAt(i));
+  sigMix(SIG_TAG_STRING, s.length); // 长度也混一次，避免「按字符混」带来的拼接歧义
+}
+
+function signatureHash(sig: any[]): boolean {
+  sigHashH1 = 0x811c9dc5;
+  sigHashH2 = 0x9e3779b9;
+  sigMix(0, sig.length);
+  for (let i = 0; i < sig.length; i++) {
+    const v = sig[i];
+    const t = typeof v;
+    if (t === 'number') {
+      if (v !== v) return true; // NaN
+      sigMixFloat(v);
+    } else if (t === 'string') {
+      sigMixString(v);
+    } else if (t === 'boolean') {
+      sigMix(SIG_TAG_BOOL, v ? 1 : 0);
+    } else if (t === 'undefined') {
+      sigMix(SIG_TAG_UNDEFINED, 0);
+    } else if (t === 'bigint') {
+      sigMixString(String(v));
+      sigMix(SIG_TAG_BIGINT, 0);
+    } else if (t === 'object' && v !== null) {
+      sigMix(SIG_TAG_OBJECT, sigObjIdOf(v));
+    } else if (t === 'function') {
+      sigMix(SIG_TAG_OBJECT, sigObjIdOf(v));
+    } else {
+      return true; // symbol / null：无从判定，宁可多重建
+    }
+  }
+  return false;
+}
+
+/** 引用身份 → 稳定编号（同一个引用恒等，换了引用必然换号）。 */
+function sigObjIdOf(o: object): number {
+  let id = SIG_OBJ_IDS.get(o);
+  if (!id) {
+    id = nextSigObjId++;
+    SIG_OBJ_IDS.set(o, id);
+  }
+  return id;
+}
+
+/**
  * **几何 → `Path2D` 的共享缓存**（2026-09-21）。
  *
  * 为什么值得共享：真机 Chrome + V8 堆快照实测（`examples/performance/bench-scene.html`，10 万图元）
@@ -78,14 +173,17 @@ abstract class ICEPath extends ICEComponent {
    * `-1` = 还没建过。
    */
   private __pathRev: number = -1;
-  /** 上次构建命令流时的几何签名；`null` = 还没建过。 */
-  private __pathSig: any[] | null = null;
   /**
-   * 几何签名的采样缓冲 —— **模块级共享**（见文件末尾）。
+   * 上次几何签名的**指纹**（长度 + 两个 32 位哈希），`__pathSigLen === -1` = 还没建过。
    *
-   * 它只在 `__pathStale()` / `__capturePathSignature()` **内部**存活：采样完当场比较或 `slice()` 存走，
-   * 不跨组件、不跨调用。每实例各留一份的话，10 万图元就是 10 万个 12 元素的数组（≈12MB 常驻）。
+   * 为什么不存签名数组本身（2026-09-21）：签名只用于**相等比较**，而它是 12~20 个元素的数组 ——
+   * 10 万图元实测 **11.7MB** 常驻（堆快照里 `__pathSig` 一项）。双哈希把"碰撞导致漏判重建"的概率压到
+   * 2⁻⁶⁴ 量级，同时**逐条对齐旧语义**：`-0` 与 `0` 视为相等、NaN 一律判"过期"（旧实现里
+   * `NaN !== NaN` 就是每帧重建），非原始值（对象 / 数组）一律判"过期"（宁可多重建，不可贴旧图）。
    */
+  private __pathSigLen: number = -1;
+  private __pathSigH1 = 0;
+  private __pathSigH2 = 0;
   /** 本类是否提供了精确签名（惰性判定一次，避免给自定义子类每帧白采样）。 */
   private __pathSigPrecise: boolean | undefined = undefined;
 
@@ -139,18 +237,13 @@ abstract class ICEPath extends ICEComponent {
     if (sig === null) {
       return true; // 覆盖了却返回 null（子类动态决定不判定）→ 同样保守
     }
-    const prev = this.__pathSig;
-    if (!prev || prev.length !== sig.length) {
+    if (this.__pathSigLen !== sig.length || this.__pathSigLen < 0) {
       return true;
     }
-    // 用 `!==` 而不是 `Object.is`：前者是单条标量比较，且与改造前的**字符串比较**口径更接近
-    //（字符串比较里 NaN 与 NaN 相等、-0 与 0 相等，`!==` 同样如此；`Object.is` 反而不同）。
-    for (let i = 0; i < sig.length; i++) {
-      if (prev[i] !== sig[i]) {
-        return true;
-      }
+    if (signatureHash(sig)) {
+      return true; // 含 NaN / symbol / null → 与旧口径一致：当作"变了"
     }
-    return false;
+    return sigHashH1 !== this.__pathSigH1 || sigHashH2 !== this.__pathSigH2;
   }
 
   /** 采样并记下当前签名（在命令流**建完之后**调用：`createPathObject()` 可能触发 `ensureDots()`）。 */
@@ -158,7 +251,15 @@ abstract class ICEPath extends ICEComponent {
     const out = PATH_SIG_SCRATCH;
     out.length = 0;
     const sig = this.__pathSignature(out);
-    this.__pathSig = sig === null ? null : out.slice();
+    if (sig === null) {
+      this.__pathSigLen = -1;
+    } else {
+      const forceStale = signatureHash(sig);
+      // 含 NaN / symbol / null → 记成"没建过"，下一帧必然重算（与旧实现每帧重建一致）
+      this.__pathSigLen = forceStale ? -1 : sig.length;
+      this.__pathSigH1 = sigHashH1;
+      this.__pathSigH2 = sigHashH2;
+    }
     this.__pathRev = this.paramsRev;
   }
 
