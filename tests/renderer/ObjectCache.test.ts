@@ -322,6 +322,59 @@ describe('ObjectCache 组件级离屏缓存', () => {
     expect(cache.isCachable(line(3000, 3000))).toBe(false);
   });
 
+  /**
+   * 2026-09-21 修：**"不描边"（`strokeStyle: 'transparent'`）不再被当成半透明**。
+   *
+   * 旧行为：`isOpaqueDrawing()` 看到字符串里有 `transparent` 就判非不透明 →
+   * `isCachable()` 命中"半透明 path"分支 → 每个这样的图元都建一块离屏画布。
+   * 实测（真机 Chrome + V8 堆快照，10 万图元）：66,642 个图元中招，JS 堆白吃 133MB。
+   */
+  it('只填充不描边（strokeStyle: transparent）的 path 不再被判为半透明、不进缓存', () => {
+    const { cache } = makeHarness();
+    const path = (strokeStyle: any) => ({
+      state: { display: true, width: 20, height: 20, style: { fillStyle: '#10B981', strokeStyle } },
+      createPathObject: () => ({}),
+    });
+    // 不落墨的描边 → 不透明落墨 → 不可缓存（省掉一块离屏画布）
+    expect(cache.isCachable(path('transparent'))).toBe(false);
+    expect(cache.isCachable(path('rgba(0,0,0,0)'))).toBe(false);
+    // 真的半透明描边 → 仍然缓存（这条分支没被修复改坏）
+    expect(cache.isCachable(path('#00000080'))).toBe(true);
+  });
+
+  it('总预算对所有缓存分支生效：半透明 path 记满 32MB 后不再新增（已缓存的继续复用）', () => {
+    const { cache } = makeHarness();
+    // 200×200 的半透明 path：每块位图（含 pad）约 204×204×4 ≈ 166KB → 32MB 预算约能装 200 块
+    const big = () => {
+      const c: any = new FakeComponent();
+      c.measureText = undefined; // 不是文本（FakeComponent 原型上有 measureText）
+      c.state.width = 200;
+      c.state.height = 200;
+      c.state.style = { ...c.state.style, fillStyle: 'rgba(16,185,129,0.5)' };
+      c.createPathObject = () => ({});
+      c.getMaxBoundingBox = () => ({ getMinAndMaxPoint: () => ({ minX: 0, minY: 0, maxX: 200, maxY: 200 }) });
+      return c;
+    };
+    const first: any = big();
+    expect(cache.isCachable(first)).toBe(true);
+    cache.render(first); // 记账：200×200 位图（含 pad）进预算
+
+    let accepted = 1;
+    const kept: any[] = [first];
+    for (let i = 0; i < 400; i++) {
+      const c: any = big();
+      if (!cache.isCachable(c)) break;
+      cache.render(c);
+      kept.push(c);
+      accepted++;
+    }
+    // 预算内（32MB / 每块 ~200KB ≈ 160 块），既不该是 1，也不该无上限地全收
+    expect(accepted).toBeGreaterThan(10);
+    expect(accepted).toBeLessThan(400);
+    // 已缓存的条目不受影响（"只约束新增"）
+    expect(cache.isCachable(first)).toBe(true);
+  });
+
   it('dot-path 纯平移复用位图且 dots 不累积偏移', () => {
     const { cache } = makeHarness();
     const c: any = new FakeDotPath();

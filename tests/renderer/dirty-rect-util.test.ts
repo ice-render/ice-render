@@ -111,11 +111,33 @@ describe('isOpaqueDrawing（局部重绘场景级门控判定）', () => {
     expect(isOpaqueDrawing({ style: { fillStyle: { _gradient: true } } })).toBe(true);
   });
 
-  test('alpha 色 / rgba / 8位hex / transparent 视为非不透明', () => {
+  test('会落墨但非全不透明的颜色（rgba / 8 位 hex / hsla）视为非不透明', () => {
     expect(isOpaqueDrawing({ style: { fillStyle: 'rgba(0,0,0,0.5)' } })).toBe(false);
     expect(isOpaqueDrawing({ style: { fillStyle: '#10B98180' } })).toBe(false);
-    expect(isOpaqueDrawing({ style: { fillStyle: 'transparent' } })).toBe(false);
     expect(isOpaqueDrawing({ style: { fillStyle: 'red', strokeStyle: 'hsla(0,0%,0%,0.2)' } })).toBe(false);
+    // 四参写法（alpha=1）与三参写法一样是不透明的
+    expect(isOpaqueDrawing({ style: { fillStyle: 'rgba(16,185,129,1)' } })).toBe(true);
+    expect(isOpaqueDrawing({ style: { fillStyle: 'rgb(16 185 129 / 100%)' } })).toBe(true);
+  });
+
+  /**
+   * 2026-09-21 修：**alpha=0 的通道不落墨，不算"半透明落墨"**。
+   *
+   * 场景：`style: { fillStyle: '#10B981', strokeStyle: 'transparent' }` = 只填充、不描边
+   *（家族代码里 14 处这么写）。旧口径一看到字符串里有 `transparent` 就判非不透明 →
+   * ① dirty-rect 把它当 risky，富场景稳定回退全量；② 缓存走"半透明 path"分支，
+   * 给每个图元单独建一块离屏画布（实测 10 万图元白吃 133MB JS 堆）。
+   */
+  test('alpha=0 的通道视为"不落墨"，不把整个图元判成半透明', () => {
+    expect(isOpaqueDrawing({ style: { fillStyle: '#10B981', strokeStyle: 'transparent' } })).toBe(true);
+    expect(isOpaqueDrawing({ style: { fillStyle: '#10B981', strokeStyle: 'rgba(0,0,0,0)' } })).toBe(true);
+    expect(isOpaqueDrawing({ style: { fillStyle: '#10B981', strokeStyle: '#00000000' } })).toBe(true);
+    expect(isOpaqueDrawing({ style: { fillStyle: '#10B981', strokeStyle: 'hsla(0,0%,0%,0)' } })).toBe(true);
+    // 反向：真的会落墨且非全不透明，仍然是半透明（别把修复做成"看见 alpha 就放行"）
+    expect(isOpaqueDrawing({ style: { fillStyle: '#10B981', strokeStyle: '#00000080' } })).toBe(false);
+    expect(isOpaqueDrawing({ style: { fillStyle: '#10B981', strokeStyle: 'rgba(0,0,0,0.01)' } })).toBe(false);
+    // 解析不出 alpha 的写法（rgba 少参）仍旧保守当半透明
+    expect(isOpaqueDrawing({ style: { fillStyle: 'rgba(0,0,0)' } })).toBe(false);
   });
 
   test('带 ctx.filter 的组件按非不透明落墨处理（边界像素半透明、墨迹溢出几何盒）', () => {
