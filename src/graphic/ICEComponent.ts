@@ -35,6 +35,7 @@ import {
   mergeThemes,
   type ICETheme,
 } from '../theme/ICETheme';
+import { childSourceOf, setChildSourceFor, type VirtualChildSource } from './virtual/virtual-child-source';
 
 /**
  * 阴影简写预设：style.shadow: 'sm' | 'md' | 'lg' 一行搞定浮起效果，
@@ -498,6 +499,16 @@ abstract class ICEComponent extends ICEEventTarget {
 
   constructor(props: any = {}) {
     super();
+    /**
+     * **非 state 的构造选项**（`childSource` 等）：不进 `props`/`state`，也就不进快照与序列化。
+     * 这里先剥出来再走既有流程 —— 复制一份 props 而不是改调用方的对象。
+     */
+    if (props && props.childSource !== undefined) {
+      const source = props.childSource;
+      props = { ...props };
+      delete props.childSource;
+      setChildSourceFor(this, source);
+    }
     // 记录用户原始 props（preset 展开前），供主题热切换时重新 resolve preset
     this.__userProps = props;
     // 预设样式：props.preset 引用 STYLE_PRESETS 里的命名预设，作为默认 props 补丁（用户 props 可覆盖）
@@ -856,6 +867,31 @@ abstract class ICEComponent extends ICEEventTarget {
     } finally {
       this.ctx = origCtx;
     }
+  }
+
+  /**
+   * 绑定**虚拟子源**（`VirtualChildSource`）：本容器的子项不再逐个是组件对象，
+   * 而是由这份只读视图描述 —— 引擎按可见窗口向它要批量落墨（`source.paint`），
+   * 需要真组件时再由应用 `materialize()` 一个进来。
+   *
+   * 见 `plans/virtual-child-source.md`；10 万图元实测堆 173.8 MB → 5.4 MB、单帧 123.1 ms → 0.2 ms。
+   *
+   * 副作用：绑定之后，本容器的**子项进出**会被当成"窗口变更"（`renderer.markWindowChanged`）——
+   * 队列照重建，但**保留其他组件的上屏快照**（否则每物化一次就让整屏失去视口裁剪）。
+   */
+  public setChildSource(source: VirtualChildSource | null): this {
+    setChildSourceFor(this, source);
+    this.dirty = true;
+    if (this.ice) {
+      this.ice.dirty = true;
+      if (this.ice.renderer) this.ice.renderer.markWindowChanged(this);
+    }
+    return this;
+  }
+
+  /** 当前绑定的虚拟子源；没绑定返回 `null`。 */
+  public getChildSource(): VirtualChildSource | null {
+    return childSourceOf(this);
   }
 
   /**

@@ -67,6 +67,14 @@ export { default as GeoPoint } from './geometry/GeoPoint';
 export { default as GeoUtil } from './geometry/GeoUtil';
 export { default as ICEBoundingBox } from './geometry/ICEBoundingBox';
 export { default as ICEGroup } from './graphic/container/ICEGroup';
+export { default as ICEVirtualLayer } from './graphic/container/ICEVirtualLayer';
+export type { VirtualChildSource, VirtualChildView } from './graphic/virtual/virtual-child-source';
+export {
+  childSourceOf,
+  setChildSourceFor,
+  visibleLocalRect,
+  lastVirtualWindow,
+} from './graphic/virtual/virtual-child-source';
 export { default as ICEComponent } from './graphic/ICEComponent';
 export { default as ICEDotPath } from './graphic/ICEDotPath';
 export { default as ICEImage } from './graphic/ICEImage';

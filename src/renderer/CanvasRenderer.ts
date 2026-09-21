@@ -110,7 +110,7 @@ class CanvasRenderer extends ICEEventTarget {
   public __forceFullRender = false;
 
   /**
-   * 「本帧必须整屏重画」的一次性请求（视口变化用，**不是**结构变更）。
+   * 「本帧必须整屏重画」的一次性请求（视口变化 / 虚拟容器的窗口变更用，**不是**结构变更）。
    *
    * 为什么要和 `markQueueDirty()` 分开：视口是**视图**状态，组件队列与上屏快照盒（世界坐标）
    * 都不受它影响 —— 平移时把它们清掉等于每帧重来一遍：`flattenTree` + 排序 + 丢快照 +
@@ -122,7 +122,16 @@ class CanvasRenderer extends ICEEventTarget {
    * 一块裁剪区、区外留着旧视图的像素。所以这里只跳过"局部重绘"这一条，
    * 静态层（纯平移可整体贴回）与全量重绘照常参与。
    */
-  private __viewportRepaint = false;
+  private __fullRepaintOnce = false;
+  /**
+   * 「这次队列重建**保留**上屏快照」的一次性标记（虚拟容器的窗口内物化 / 回收用）。
+   *
+   * 为什么可以保留：上屏快照存的是**世界坐标盒**，与队列成员无关 —— 成员还在、盒没变，
+   * 快照就仍然可信（新进来的组件自己 dirty，不会被裁；出去的那个由 `markWindowChanged(child)` 单独丢）。
+   * 保留的收益：窗口变更后的那一帧**照常做视口裁剪**；否则 10 万图元世界里一次 `addChild` 就要
+   * 全屏重画所有图元（实测 117 ms/帧）。
+   */
+  private __keepSnapshotsOnce = false;
 
   private componentQueue = []; //等待渲染的组件队列，FIFO
   private toolsQueue = []; //等待渲染的工具组件队列，FIFO
@@ -205,6 +214,8 @@ class CanvasRenderer extends ICEEventTarget {
    */
   public markQueueDirty(): void {
     this.__queueDirty = true;
+    // 真·结构变更优先：成员进出之外如果还有"整棵树变了"，必须丢快照（见 markWindowChanged）
+    this.__keepSnapshotsOnce = false;
   }
 
   /**
@@ -213,7 +224,37 @@ class CanvasRenderer extends ICEEventTarget {
    * 都不随视口失效。视口不是结构变更，别走 `markQueueDirty()`（实测 9.9fps vs 119.9fps）。
    */
   public markViewportChanged(): void {
-    this.__viewportRepaint = true;
+    this.__fullRepaintOnce = true;
+  }
+
+  /**
+   * **虚拟容器的窗口变更**（窗口内物化 / 回收一个子项）：队列照重建，但
+   * **保留其他组件的上屏快照**、只丢"进出窗口的那个"（`component`）的快照，并要求本帧整屏重画。
+   *
+   * 为什么不走 `markQueueDirty()`：那是"整棵树的结构变了"的语义 —— 清掉所有快照等于
+   * 本帧与下一帧都失去视口裁剪（还有全量 prime）。虚拟化每帧都在进出子项，代价会乘以帧数。
+   *
+   * 安全性：① 新进来的组件自身是 dirty（新建的默认脏，重挂的会被 `detach/attach` 那条老路径接管），
+   * 不会被裁；② 出去的组件由这里丢快照，避免它日后（复用同一对象）拿旧盒参与裁剪；
+   * ③ 本帧整屏重画，旧墨一定被清掉。
+   */
+  public markWindowChanged(component?: any): void {
+    if (component && typeof component === 'object') {
+      this.__snapRelease(component);
+    }
+    this.__queueDirty = true;
+    this.__keepSnapshotsOnce = true;
+    this.__fullRepaintOnce = true;
+  }
+
+  /**
+   * 当前可见世界矩形 `[x0,y0,x1,y1]`；拿不到（画布尺寸为 0 / 未 init）返回 `null`。
+   *
+   * 与视口裁剪同源（culling 用的就是它），也是虚拟子源的窗口来源 —— 两处必须是同一个矩形，
+   * 否则会出现"裁剪把图元留着、但虚拟源没画它"的洞。
+   */
+  public getVisibleWorldRect(): number[] | null {
+    return this.__visibleWorldRect();
   }
 
   public setRenderMode(mode: 'full' | 'dirty-rect'): void {
@@ -242,14 +283,14 @@ class CanvasRenderer extends ICEEventTarget {
       // 先让离屏缓存知道「本帧视口是否变过」：视口一变，位图栅格与设备栅格错位，
       // 本帧一律退回直接绘制（见 ObjectCache.beginFrame）。
       this.cache.beginFrame();
-      // 视口变化帧的"整屏重画"请求是一次性的（本帧消费掉；视口值没变时 setViewport 不会置位）
-      const viewportRepaint = this.__viewportRepaint;
-      this.__viewportRepaint = false;
+      // 「本帧整屏重画」是一次性请求（视口变化 / 虚拟容器窗口变更；值没变时 setViewport 不置位）
+      const fullRepaint = this.__fullRepaintOnce;
+      this.__fullRepaintOnce = false;
       // dirty-rect：能构造出局部重绘计划就走局部；否则回退全量。
       //
       // ⚠️ 视口变化帧**不能**走局部重绘：屏幕上的每一处落墨都错位了，裁剪区外会留着旧视图的像素。
       // 静态层与全量重绘随后照常参与（静态层自己会判"纯平移复用/需要重建/退回全量"）。
-      if (this.renderMode === 'dirty-rect' && !this.__forceFullRender && !viewportRepaint) {
+      if (this.renderMode === 'dirty-rect' && !this.__forceFullRender && !fullRepaint) {
         const plan = this.__collect();
         if (plan) {
           this.__renderDirtyRect(plan);
@@ -345,7 +386,10 @@ class CanvasRenderer extends ICEEventTarget {
 
   private refreshQueue() {
     if (this.__queueDirty) {
-      this.__rebuildQueue();
+      // 虚拟容器的窗口变更会置 `__keepSnapshotsOnce`：成员进出不等于"整棵树的盒都不可信"
+      const keep = this.__keepSnapshotsOnce;
+      this.__keepSnapshotsOnce = false;
+      this.__rebuildQueue(keep);
       return;
     }
     //结构未变：仅检查 zIndex 是否真的发生变化（O(n) 整数比对，无数组分配）。
@@ -549,6 +593,13 @@ class CanvasRenderer extends ICEEventTarget {
    */
   private __layerEligible(c: any): boolean {
     if (c.dirty || !c.isEffectivelyVisible()) return false;
+    /**
+     * **虚拟容器永不入层**（2026-09-21）：它的内容**依赖当前视口**（只画可见窗口）。
+     * 静态层位图是"按当时的视口烤好、之后整层贴回/平移复用"的 —— 把虚拟容器烤进去，
+     * 平移时就会把**旧窗口**的内容整体挪走（新露出来的那条带空白、旧内容错位）。
+     * 判据用 `getChildSource()`：挂了虚拟子源的组件一律逐帧自己重画。
+     */
+    if (typeof c.getChildSource === 'function' && c.getChildSource()) return false;
     const style = c.state && c.state.style;
     const op = style && style.globalCompositeOperation;
     if (op && op !== 'source-over') return false;
