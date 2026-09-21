@@ -254,6 +254,8 @@ worker 的 —— 视口/选择要一起发过去，否则新镜像从默认视�
   （`tests/renderer/snapshot-arena.test.ts`；**不许改回"每组件一个 TypedArray"**）。
   加新的每组件对象前先问：10 万图元时它是多少钱？实证口径是"真机 Chrome + CDP 抓 V8 heap snapshot，
   看全堆自有大小"（本批合计 234.6 → 171.3 MB）。
+  **完整的决策记录**（每一刀的 A/B 数字 + 明确否决的候选 + 验收纪律）见
+  `docs/architecture/23-memory-and-virtualization.md` —— 讨论内存方案前先读它，别重复否决过的路。
 - **虚拟子源铁律（2026-09-21 落地 P0+P3，见 `plans/virtual-child-source.md`）**：容器可以挂
   `childSource`（`VirtualChildSource`：`count` / `version` / `boxAt` / `forEachInBox` / `hitTest` /
   可选 `paint` / 可选 `materialize`），由引擎按**可见窗口**向它要批量落墨。纪律：
