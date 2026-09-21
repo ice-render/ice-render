@@ -1,7 +1,8 @@
 # 虚拟子源（VirtualChildSource）设计草案
 
-> 状态：**草案 / 未实现**（2026-09-21）。依据是 `/tmp/ice-virt-spike/` 里那份可运行的 spike
-> （749 行页面 + 194 行探针，真机 Chrome + CDP 实测）。本文只定契约、缝隙、分期与验收，不含代码改动。
+> 状态（2026-09-21）：**P0 + P3 已落地**（批量绘制 + 窗口裁剪 + 窗口内物化的廉价增删），
+> P1（命中/选中/控制面板）与 P2（导出/序列化/undo/a11y）待做。依据是 `/tmp/ice-virt-spike/`
+> 那份可运行 spike（真机 Chrome + CDP 实测）+ 引擎 API 版 spike 的复测。
 
 ## 0. 一句话
 
@@ -14,22 +15,26 @@
 
 真机 Chrome + CDP，10 万图元、1600×1000 视口、同一份确定性几何，**对象树 vs 虚拟层**对拍：
 
-| 指标 | 对象树（现状） | 虚拟层 spike |
-|---|---|---|
-| 堆自有大小 | 173.8 MB | **5.4 MB**（纯批量）/ 6.5 MB（1/3 带标签的混合） |
-| 堆节点 | 548 万 | 4.7 万 |
-| 单帧（强制全量重画，zoom 1×） | 123.1 ms | **0.2 ms** |
-| 单帧（zoom 0.1×，几乎全在屏） | 180.4 ms | 44.4 ms |
-| 真实 rAF 平移 | 116.6 fps（官方 API，2026-09-21 修正后） | **121 fps**（官方 API，0 长任务） |
-| 命中（空点最坏 / 命中图元） | 3,994 µs / ~3.2 µs | **0.14 µs** |
-| 按需新建 1 个图元 | 117 ms | **0.3 ms** |
-| 拖动 1 个物化图元 | 5.3 ms/帧 | 0.5 ms/帧 |
-| 像素一致性 | — | 160 万像素差 3 个（0.0002%），最大通道差 9 |
+| 指标 | 对象树（现状） | 虚拟层 spike（自绘） | 引擎 API 版（P0/P3） |
+|---|---|---|---|
+| 堆自有大小 | 173.8 MB | 5.4 MB / 6.5 MB（1/3 带标签） | **5.8 MB / 6.9 MB** |
+| 堆节点 | 548 万 | 4.7 万 | 4.7 万 |
+| 单帧（强制全量重画，zoom 1×） | 123.1 ms | 0.2 ms | **0.3 ms** |
+| 单帧（zoom 0.1×，几乎全在屏） | 180.4 ms | 44.4 ms | — |
+| 真实 rAF 平移 | 116.6 fps（官方 API，2026-09-21 修正后） | 121 fps | **121.2 fps / 0 长任务** |
+| 命中（空点最坏 / 命中图元） | 3,994 µs / ~3.2 µs | 0.14 µs | **0.15 µs** |
+| 按需新建 1 个图元 | 117 ms | 0.3 ms | **0.3 ms** |
+| 拖动 1 个物化图元 | 5.3 ms/帧 | 0.5 ms/帧 | **0.6 ms/帧** |
+| 像素一致性（vs 对象树） | — | 3/1,600,000 像素差，最大通道差 9 | **同上（3 个）** |
 
-百万级：**堆 32.0 MB**、窗口内画 6,653 个、单帧 1.1 ms、平移 121 fps、命中 0.6 µs。
+百万级：堆 32.0 MB（引擎 API 版 35.9 MB —— 那 4 MB 是 spike 页自己加的 `forEachInBox` 去重数组
+`1M × 4B`，不是引擎的开销）、窗口内画 6,653 个、单帧 1.1 ms、平移 121 fps、命中 0.6 µs。
+混合模式（标签只在窗口 ±400 内物化）：**6.9 MB**、单帧 1.8 ms、平移 121 fps / 0 长任务。
 
 **证明了的**：窗口裁剪 + 批量落墨 + 网格索引命中 + "点到才物化"这条链路在真实输入下成立
-（CDP 真鼠标：按下 → 命中 → 物化真实 `ICEStar` → 拖 40 步位移精确 [+80,+40]）；**引擎侧 0 改动**。
+（CDP 真鼠标：按下 → 命中 → 物化真实 `ICEStar` → 拖 40 步位移精确 [+80,+40]）；
+而且**引擎侧 0 改动就能跑通** —— 所以 P0/P3 的价值不是"让它能跑"，而是把"每个应用各写一遍"
+收成一份有契约、有隔离、有廉价通道的 API（见 §3 的落地口径修正：坐标系、ctx 隔离、挂树归属）。
 
 **没证明的**：① 导出/序列化/undo/无障碍**完全没接**；② 只有一台 ICE、一个容器层；
 ③ 文字类图元用"窗口内物化成真组件"兜（混合模式），没有做字形图集；
@@ -47,6 +52,8 @@
    （与刚落地的 `markViewportChanged()` 同源：把"非结构性的可见集变化"从"结构变更"里分出来）。
 
 ## 3. 契约定稿（引擎只认这几个方法）
+
+> **已落地（P0/P3）**。实际实现与下面这份契约的差异有三处，见本节末尾的"落地后的口径修正"。
 
 引擎**不碰**应用的数据结构，只认接口：
 
@@ -91,7 +98,39 @@ export interface VirtualChildSource {
 const group = new ICEGroup({ width: W, height: H, childSource: doc.source });
 
 // 形态 B：纯批量层（spike 的形态）——树里一个子组件都没有，只有一块"会自己画"的组件
-const layer = new ICEVirtualLayer({ childSource: doc.source });
+const layer = new ICEVirtualLayer({ left: 0, top: 0, width: W, height: H, childSource: doc.source });
+```
+
+### 落地后的口径修正（2026-09-21，实现完才发现的）
+
+1. **坐标系是"容器局部"而不是"世界"**（本文上一版写的是世界盒）。理由：这样虚拟容器可以像任何
+   组件一样被摆放 / 嵌套 / 放进变换组；引擎负责把可见窗口经逆合成矩阵变换到局部坐标
+   （`visibleLocalRect`，旋转/缩放下取 4 角的包围盒）。常见用法（容器在 (0,0)、无变换）下两者等价。
+2. **`paint` 被引擎包在 `save/restore` 里**：容器自己的样式在 `doRender` 之前就写进了 ctx，
+   而批量落墨会一路改 `fillStyle` —— 不隔离的话，紧接着画容器自己的盒子时会用**最后一个图元的颜色**
+   填满整块容器。真机实测：整张画布被紫色盖住、像素对拍 99.9% 不一致；加隔离后回到 3/1,600,000。
+3. **`materialize` 只负责"造"，挂树由调用方做**（`layer.addChild(comp)`）。引擎的贡献是保证
+   这类增删走**窗口变更**通道（保留其他组件的上屏快照），而不是"引擎自动帮你挂"。
+
+### 已落地 API 速览
+
+```ts
+import { ICEVirtualLayer, type VirtualChildSource } from 'ice-render';
+
+const source: VirtualChildSource = {
+  count: doc.length,
+  version: doc.version,
+  boxAt: (i, out) => doc.boxAt(i, out),
+  forEachInBox: (x0, y0, x1, y1, visit) => doc.grid.forEachInBox(x0, y0, x1, y1, visit),
+  hitTest: (lx, ly) => doc.grid.hitTest(lx, ly),
+  paint: (ctx, view) => { doc.paintWindow(ctx, view); doc.syncMaterialized(view); return true; },
+  materialize: (i) => doc.createComponent(i), // 只造，不挂
+};
+
+const layer = new ICEVirtualLayer({ left: 0, top: 0, width: doc.w, height: doc.h, childSource: source });
+ice.addChild(layer);
+// 物化 / 回收：挂到 layer 上（引擎自动判定为"窗口变更"，保留其他组件的快照）
+layer.addChild(source.materialize!(i));
 ```
 
 **引擎侧的存储纪律**：`childSource` 这类"每实例一个引用"**不许加实例字段**（AGENTS「热路径类不加
@@ -110,13 +149,16 @@ const layer = new ICEVirtualLayer({ childSource: doc.source });
 
 ## 5. 分期与验收
 
-### P0 —— 接口 + 批量绘制 + 窗口裁剪（引擎约 1 周）
+### P0 —— 接口 + 批量绘制 + 窗口裁剪 ✅ 已落地（2026-09-21）
 
 交付：`VirtualChildSource` 类型 + `ICEGroup({ childSource })` + `ICEVirtualLayer`；
 窗口由渲染期的可见世界矩形算（复用 culling 已有的视口语义）。
 
 验收（真机，10 万图元）：堆 ≤10 MB；zoom 1× 单帧 ≤1 ms；平移 ≥60 fps 且 0 长任务；
 与对象树**覆盖率严格一致**、通道差 ≤3/255；引擎 `verify:full` + 家族 11/11 不破。
+
+**实测**：纯批量 5.8 MB / 单帧 0.3 ms / 平移 121.2 fps / 0 长任务 / 像素差 3 个（0.0002%）✓；
+回归见 `tests/graphic/virtual-child-source.test.ts`（9 条）。
 
 ### P1 —— 命中 / 选中 / 控制面板（约 1 周）
 
@@ -134,13 +176,20 @@ const layer = new ICEVirtualLayer({ childSource: doc.source });
 验收：一条 1 万图元的工艺图能"虚拟渲染 → 导出 SVG → 反序列化 → 再渲染"往返一致；
 undo/redo 100 次无泄漏（堆漂移 ≤1 MB）。
 
-### P3 —— 窗口物化的廉价增删（约 1 周，**可与 P1 并行**）
+### P3 —— 窗口物化的廉价增删 ✅ 已落地（2026-09-21，与 P0 同批）
 
 交付：`renderer.markWindowChanged(container)`：只重排**容器这一段**、**不清上屏快照**、
 不整队重建；`ICEGroup` 的物化增删走它。
 
 验收：10 万图元世界里连续平移 3 秒，物化/回收 ~2 万次：0 长任务、堆漂移 ≈0
 （现状：一次 `addChild` = 117 ms）。
+
+**实测**：`materialize + 挂树 + 渲染一帧` 0.3 ms（对象树世界同操作 117 ms）；
+混合模式连续平移 3 秒（每帧进出标签）121 fps / 0 长任务 ✓；
+回归见 `tests/renderer/window-churn.test.ts`（4 条：保留快照 / 普通容器仍全清 / 整屏重画但照旧裁剪 / 真结构变更优先）。
+
+**顺带修掉两条**：① 虚拟容器**永不入静态层**（它的内容依赖视口，烤进位图后平移会把旧窗口整体挪走）；
+② `source.paint` 被 `save/restore` 包住（否则容器自己的盒子会被"最后一个图元的颜色"填满）。
 
 ## 6. 与既有机制的关系（必须写进文档的口径）
 

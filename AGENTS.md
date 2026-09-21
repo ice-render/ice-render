@@ -254,6 +254,24 @@ worker 的 —— 视口/选择要一起发过去，否则新镜像从默认视�
   （`tests/renderer/snapshot-arena.test.ts`；**不许改回"每组件一个 TypedArray"**）。
   加新的每组件对象前先问：10 万图元时它是多少钱？实证口径是"真机 Chrome + CDP 抓 V8 heap snapshot，
   看全堆自有大小"（本批合计 234.6 → 171.3 MB）。
+- **虚拟子源铁律（2026-09-21 落地 P0+P3，见 `plans/virtual-child-source.md`）**：容器可以挂
+  `childSource`（`VirtualChildSource`：`count` / `version` / `boxAt` / `forEachInBox` / `hitTest` /
+  可选 `paint` / 可选 `materialize`），由引擎按**可见窗口**向它要批量落墨。纪律：
+  ① **坐标系是容器局部**（局部 == 世界只在"容器在 (0,0) 且无变换"时成立），引擎把可见窗口经
+  **逆合成矩阵**变换过去（`visibleLocalRect`，旋转/缩放下取 4 角包围盒）—— 别拿世界盒当局部盒；
+  ② **`paint` 必须被 `save/restore` 包住**：容器自己的样式在 `doRender` 之前就写进了 ctx，
+  批量落墨会一路改 `fillStyle`，不隔离就会用"最后一个图元的颜色"填满整块容器（真机实测：
+  整屏被紫色盖住、像素对拍 99.9% 不一致）；
+  ③ **虚拟容器永不入静态层**（`__layerEligible` 里显式排除）：它的内容依赖视口，烤进位图后
+  平移会把**旧窗口**整体挪走；同理它也不进组件级离屏缓存；
+  ④ **窗口内的物化 / 回收走 `markWindowChanged(child)`**（`ICE.addChild` / `ICEGroup.addChild` /
+  `removeChild` 里的 `notifyStructureChanged` 会自动判定）：队列照重建，但**保留其他组件的上屏快照**、
+  只丢"进出那个"的快照，并要求本帧整屏重画 —— 老路径（清全部快照）在 10 万图元世界里一次 **117 ms**；
+  ⑤ `childSource` **不进 `props` / `state`**（构造期被剥出来，走模块级 WeakMap 侧表）：它不可序列化，
+  文档是应用的数据；`materialize()` 出来的组件才进 `childNodes`、才被序列化/镜像/a11y 看见；
+  ⑥ 命中 / 选中 / 控制面板 / 导出 / 布局是 **P1/P2**（未落地）：在它们落地前，应用要自己接
+  `containsPoint` → `hitTest` → `materialize` → 改写 `evt.target` 转发（AGENTS 事件铁律 ⑦）。
+  回归：`tests/graphic/virtual-child-source.test.ts`（9 条）、`tests/renderer/window-churn.test.ts`（4 条）。
 - **脏矩形局部重绘铁律（2026-09-09 v1 确立）**：默认渲染路径为 `dirty-rect`（`ICE.init(ctx, { renderMode })` 可切 `'full'`；`renderer.setRenderMode/__forceFullRender` 为内部测试钩子，非公开 API）。全量路径 `doRenderFull()` 原样保留为参考与回退。约束：① 组件渲染上下文必须自包含——`render()` 末尾 `__resetLeakyCtxState()` 把本组件写过的泄漏属性（shadow/globalAlpha/globalCompositeOperation/lineCap/lineJoin/miterLimit/textAlign/textBaseline/虚线）归位，这是 full 与 partial 逐像素一致的前提；② 结构变更（markQueueDirty）仍回退全量并重建快照（WeakMap，存每组件上次上屏的世界盒）；③ **相交级门控**（2026-09-10 由 v1「整场景」细化而来）：干净的「非不透明落墨 / 点集路径(dot-path) / ICEText」只在与本次脏区**相交**时才回退全量；已离屏缓存的同类组件不阻塞局部重绘（主画布只是 `drawImage` 不透明位图）。**刚变脏的「非文本」risky 组件也放行**（old∪new 盒已并入脏区，clip 切不到墨迹）；刚变脏的**文本**只有「仅位置变化 + 已缓存」才放行（字形墨迹可能超出几何盒）。③' **`coalesceRegions` 必须带「划算护栏」**：只合并「合并后面积 ≤ 两块面积之和 × 2」的盒，且 `maxRegions` 是**软**上限（没有划算的合并时宁可多留几块，超 24 才塌缩成一个并集盒）—— 否则细长盒（横跨画布的关系连线）会被串成一个整屏大盒，`面积占比 > 0.35` 那条门会把局部重绘**永久**挡在门外（编辑器实测 100% 回退）。实测富场景（含旋转组/文本/星形/连线/半透明控制面板）局部重绘执行次数由 **0 → 2**，10 步逐像素比对仍 100% 一致；④ `display:false` 组件擦除旧区域后清脏位并删快照，避免「永久脏组件」把后续局部帧反复顶成全量；⑤ 局部帧 `BEFORE_RENDER/AFTER_RENDER` 仅对区域内的组件触发（有意的可观测差异，内部无依赖）。
 - **组件级离屏缓存铁律（2026-09-10 确立，v3 扩展 dot-path/半透明 shape）**：`CanvasRenderer` 内置 `ObjectCache`（`WeakMap`，与快照同生命周期、不污染组件 state/props），缓存「非编辑态、可见」的 `ICEText`、「封闭点集路径」（星形/正N边形/玫瑰，面积 `>= 40000`（200x200）；排除连线类 `isLine` 与蚂蚁线 `lineDashFlow`）与「半透明普通 path 图形」（rgba/阴影/globalAlpha/composite；排除容器/图片/连线）。约束：① `ICEComponent.renderTo(targetCtx, baseMatrix)` 把组件渲染重定向到离屏 ctx，最终 CTM = `baseMatrix · composedMatrix`，`render()` 语义保持不变；② 缓存命中帧（未 dirty 且已有 cache）直接 `drawImage`，跳过 `measureText/fillText/strokeText` 或 `calcDots/路径重建/fill/stroke`；③ 纯平移（内容指纹 + 线性部分 a,b,c,d 不变、仅 e,f 变化）复用位图，只刷新贴图位置，不重建；④ 仅当内容指纹或线性变换变化时才重建位图；内容指纹按**向量逐项比较**（`ObjectCache.contentKeyVector` + `keyEquals`，复用缓冲、零分配），字符串形态（`contentKey()`）由同一份向量拼出、只在真要重建时才拼 —— 原实现每帧给每个已缓存组件拼一个 40 段长串，实测占文本静态帧的 ~13%；⑤ **像素保真契约（2026-09-11 修正，硬性）**：位图必须与「直接落墨」逐像素一致，否则缓存就是**画质回归**。做法是把位图栅格**对齐到主画布的设备像素栅格**：光栅化缩放取渲染视口的 `scale`（`getRenderViewport().scale`，已含 dpr 与视口缩放，**不要用 `root.devicePixelRatio`**），base 矩阵显式写成 `[rs,0,0,rs, ox-dx, oy-dy]`（不是 `translate(-minX,-minY)`），贴图落点 `dx/dy` 取**整数设备像素**、以 1:1 贴回（`drawImage(img, dx, dy)`，**不传目标宽高**）。于是 `device(world) = world*rs + (ox,oy)` 被「位图内坐标 + 整数平移」精确复现，全程零重采样。
   另外：① **不要**依赖 `ctx.scale()` 放大离屏上下文 —— `renderTo()` 内部的 `setTransform()` 会把整条 CTM 覆盖掉（踩过这个坑，是死代码）；② 子类在 `super.doRender()` 之后复原变换必须用 **`applyActiveTransform()`**（它同时适配主画布与离屏通道），**严禁** `applyTransformToCtx(null, true)` —— 那条路径按主画布视口重算，会丢掉位图原点的平移（连线箭头/标签会在缓存位图里整块消失）；③ 重建位图前要扣回旧条目的字节数（否则总预算被提前耗尽）；④ 缓存只在**视口稳定**的帧生效：`CanvasRenderer` 每帧开头调 `cache.beginFrame()`，视口变过的那一帧 `isCachable` 一律返回 false（位图栅格已错位、重建代价与直接落墨同阶），手势停下后的第一帧再统一重建。回归用例见 `tests/renderer/offscreen-cache-fidelity.test.ts` 与 `e2e/visual/offscreen-cache-fidelity.spec.ts`（6 配置 × 12 步：alpha 零差异、预乘通道差 ≤3/255、墨迹守恒）。**注意这组口径只在「简单场景」成立**（少量大对象、互不重叠、透明底）；**密集文本 / 重叠 / 底下已有墨迹**时实测上界另计：差异像素占比 ≤1.4%、alpha 差占比 ≤0.5%、单像素最大通道差 ≤5、最大预乘差 ≤2（2026-09-14 实测，含重叠与不透明底的更差组合见 `e2e/visual/component-cache-fidelity-repro.spec.ts` 的文件头表格）。机制是「8bit 预乘位图贴回时与已有墨迹再合成一次」，属固有代价，不是赋值写错。

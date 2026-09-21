@@ -7,6 +7,7 @@
  */
 
 import ICEGroup from '../graphic/container/ICEGroup';
+import ICEVirtualLayer from '../graphic/container/ICEVirtualLayer';
 import ICEImage from '../graphic/ICEImage';
 import ICEBezier from '../graphic/link/ICEBezier';
 import ICEPolyLine from '../graphic/link/ICEPolyLine';
@@ -48,6 +49,8 @@ export const componentTypeEntries: ComponentTypeEntry[] = [
   { typeId: 'ice-render:Text', ctor: ICEText },
   { typeId: 'ice-render:Image', ctor: ICEImage },
   { typeId: 'ice-render:Group', ctor: ICEGroup },
+  // 虚拟层：子项由 `childSource` 描述（文档是应用的数据，不进快照）；这里登记是为了往返时可重建
+  { typeId: 'ice-render:VirtualLayer', ctor: ICEVirtualLayer },
   { typeId: 'ice-render:VisioLink', ctor: ICEVisioLink },
   { typeId: 'ice-render:PolyLine', ctor: ICEPolyLine },
   { typeId: 'ice-render:Bezier', ctor: ICEBezier },

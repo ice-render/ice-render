@@ -7,6 +7,40 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 新功能（虚拟子源 P0 + P3：10 万图元 5.8 MB、平移 121fps、命中 0.15µs）
+
+**让"文档里的图元"和"内存里的组件对象"解耦**：容器挂一份 `childSource`（`VirtualChildSource`），
+引擎按**可见窗口**向它要批量落墨（`paint(ctx, view)`），需要真组件时再由应用 `materialize()` 一个挂进来。
+目标场景是"**文档大、屏幕小**"：IED 工艺图、水务管网、地图、大画布编辑器。
+
+设计（含分期、六个缝隙、风险与验收）见 `plans/virtual-child-source.md`；这批落地 **P0（批量绘制 + 窗口裁剪）**
+与 **P3（窗口内物化的廉价增删）**，P1（命中/选中/控制面板）与 P2（导出/序列化/undo/a11y）待做。
+
+```ts
+import { ICEVirtualLayer, type VirtualChildSource } from 'ice-render';
+const source: VirtualChildSource = { count, version, boxAt, forEachInBox, hitTest, paint, materialize };
+const layer = new ICEVirtualLayer({ left: 0, top: 0, width: doc.w, height: doc.h, childSource: source });
+ice.addChild(layer);
+layer.addChild(source.materialize!(i)); // 窗口内物化：引擎自动走"窗口变更"的廉价通道
+```
+
+真机 Chrome + CDP（10 万图元、1600×1000 视口、与对象树同几何对拍；括号内为改前）：
+
+- 堆自有大小 **5.8 MB**（173.8 MB）；堆节点 4.7 万（548 万）；100 万图元 **35.9 MB**
+- 单帧（强制全量重画）**0.3 ms**（123.1 ms）；平移 **121.2 fps、0 长任务**（116.6 fps）
+- 命中 **0.15 µs**（空点最坏 3,994 µs）；按需新建 1 个图元 **0.3 ms**（117 ms）；拖动 0.6 ms/帧
+- 与对象树**像素一致**：160 万像素差 3 个（0.0002%），最大通道差 9/255
+- 混合模式（1/3 图元带文字标签，标签只在窗口 ±400 内物化）：**6.9 MB**、单帧 1.8 ms、平移 121 fps
+
+配套两条硬约束（实现中真机抓到的问题，已写进 AGENTS 铁律）：
+**① 虚拟容器永不入静态层**（内容依赖视口，烤进位图后平移会挪走旧窗口）；
+**② `source.paint` 必须包在 `save/restore` 里**（否则容器自己的盒子会被"最后一个图元的颜色"填满整屏 ——
+实测像素对拍 99.9% 不一致）。
+
+回归：`tests/graphic/virtual-child-source.test.ts`（9 条：绑定/序列化安全、窗口跟着视口走、
+局部坐标换算、绘制次序、ctx 状态隔离）、`tests/renderer/window-churn.test.ts`（4 条：
+保留快照、普通容器仍全清、整屏重画但照旧裁剪、真结构变更优先）。
+
 ### 性能（视口平移：官方 API 9.9 → 116.6fps，长任务 28 → 0）
 
 `ICE.setViewport()` 以前调 `renderer.markQueueDirty()` —— 那是给**结构变更**用的路径：重建渲染队列

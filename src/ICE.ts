@@ -89,6 +89,7 @@ import { flattenAllComponents, hitTestComponents } from './util/data-util';
 import { deepMerge } from './theme/ICETheme';
 import { HIT_BOX_TOLERANCE } from './renderer/dirty-rect-util';
 import { notifyChildAdded, notifyChildRemoved, notifyViewportChange } from './worker/mirror-hooks';
+import { notifyStructureChanged } from './graphic/virtual/virtual-child-source';
 
 /**
  * @class ICE
@@ -451,7 +452,7 @@ class ICE {
     this.toolNodes.push(tool);
     this.__toolSet.add(tool);
     this.dirty = true;
-    if (this.renderer) this.renderer.markQueueDirty();
+    notifyStructureChanged(this, null, tool);
 
     // 实例级主题：组件构造时按模块级默认主题解析了 preset，加入本实例时按本实例主题再解析一次
     if (tool && typeof tool.__reapplyPreset === 'function') {
@@ -523,7 +524,8 @@ class ICE {
      * 所以这里只能"按需置真"，绝不能置假。
      */
     if (markDirty) this.dirty = true;
-    if (this.renderer) this.renderer.markQueueDirty();
+    // 根级组件：父级是 ICE 实例本身（不是组件），不存在"虚拟容器"一说
+    notifyStructureChanged(this, null, component);
 
     /**
      * 镜像钩子：结构变更（`['add', parentId, 子树文档]`，见 src/worker/MirrorBridge.ts）。
@@ -564,7 +566,7 @@ class ICE {
     component.trigger(ICE_EVENT_NAME_CONSTS.AFTER_REMOVE);
     // 同上：`markDirty=false` 只是"别主动置脏"，不能把已有的待重绘清掉
     if (markDirty) this.dirty = true;
-    if (this.renderer) this.renderer.markQueueDirty();
+    notifyStructureChanged(this, null, component);
     // 镜像钩子：必须在 destory() 之前（destory 会把 child.ice 摘掉）
     notifyChildRemoved(this, component);
     component.destory();
@@ -1398,9 +1400,7 @@ class ICE {
     component.parentNode = null;
     if (markDirty) {
       this.dirty = true;
-      if (this.renderer) {
-        this.renderer.markQueueDirty();
-      }
+      notifyStructureChanged(this, null, component);
     }
     return true;
   }

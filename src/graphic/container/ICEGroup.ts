@@ -12,6 +12,7 @@ import { bumpVisibilityEpoch, rebindComponentTree } from '../../util/data-util';
 import ICERect from '../shape/ICERect';
 import type ICELayoutManager from '../../layout/ICELayoutManager';
 import { notifyChildAdded, notifyChildMoved, notifyChildRemoved, notifyStateChange } from '../../worker/mirror-hooks';
+import { notifyStructureChanged, paintVirtualWindow } from '../virtual/virtual-child-source';
 
 /**
  * 正在"搬家"的组件（`adoptChild` 期间抑制 `addChild` 的"新增"通知）。
@@ -367,6 +368,13 @@ class ICEGroup extends ICERect {
     if (this.__layoutRequested || this.__layoutInvalid) {
       this.doLayout();
     }
+    /**
+     * 虚拟子源：**先批量落墨窗口内的子项，再画物化出来的真子项**（子项画在上面）。
+     *
+     * 次序是刻意的：`materialize()` 出来的组件替代了批量层里的那一个（应用会在源里标记它"已物化"），
+     * 画在批量层之后，选中态 / 控制面板手柄才不会被批量层盖住。
+     */
+    paintVirtualWindow(this);
     super.doRender();
   }
 
@@ -427,7 +435,7 @@ class ICEGroup extends ICERect {
       this.syncChildEvents(child);
       // `markDirty=false` 只是"别主动置脏"，不能把实例上已有的待重绘清掉（见 ICE.addChild 的说明）
       if (markDirty) this.ice.dirty = true;
-      if (this.ice.renderer) this.ice.renderer.markQueueDirty();
+      notifyStructureChanged(this.ice, this, child);
     }
     /**
      * 镜像钩子：容器内结构变更（`['add', parentId, 子树文档]`）。
@@ -491,9 +499,7 @@ class ICEGroup extends ICERect {
         oldParent.__childSet.delete(child);
       }
       child.parentNode = null;
-      if (oldParent.ice && oldParent.ice.renderer && typeof oldParent.ice.renderer.markQueueDirty === 'function') {
-        oldParent.ice.renderer.markQueueDirty();
-      }
+      notifyStructureChanged(oldParent.ice, oldParent, child);
     } else if (!oldParent) {
       // 根级组件（ICE.addChild 会把 parentNode 置为 null）：从 ice 的 childNodes 上摘除
       const ice: any = this.ice || child.ice;
@@ -505,9 +511,7 @@ class ICEGroup extends ICERect {
         if (ice.__childSet && typeof ice.__childSet.delete === 'function') {
           ice.__childSet.delete(child);
         }
-        if (ice.renderer && typeof ice.renderer.markQueueDirty === 'function') {
-          ice.renderer.markQueueDirty();
-        }
+        notifyStructureChanged(ice, null, child);
       }
     }
     /**
@@ -554,7 +558,7 @@ class ICEGroup extends ICERect {
     if (this.ice) {
       // 同上：只置真、不置假
       if (markDirty) this.ice.dirty = true;
-      if (this.ice.renderer) this.ice.renderer.markQueueDirty();
+      notifyStructureChanged(this.ice, this, child);
     }
     child.destory();
     // 删除后同样需要重排，否则会留下空位
