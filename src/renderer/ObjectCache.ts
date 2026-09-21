@@ -49,10 +49,14 @@ const MIN_DOT_PATH_CACHE_AREA = 40000;
 const MAX_LINE_CACHE_DEVICE_AREA = 2000000;
 
 /**
- * 离屏缓存的总位图预算（字节）：超出后**不再新增**连线缓存条目（已缓存的继续复用）。
+ * 离屏缓存的总位图预算（字节）：超出后**不再新增**缓存条目（已缓存的继续复用）。
  *
- * 只约束新增、不做 LRU 淘汰：淘汰会让「哪些连线能被贴图」随访问顺序抖动，
+ * 只约束新增、不做 LRU 淘汰：淘汰会让「哪些组件能被贴图」随访问顺序抖动，
  * 而门控依赖「已缓存」这个稳定事实；停止新增则是可预测的。
+ *
+ * 2026-09-21 起**所有**缓存分支都过这道门（此前只有连线过）：文本 / 点集路径 / 半透明 path
+ * 三条分支没有上界，一个 10 万图元的场景里半透明分支实测记到 124MB，而且每个条目还额外带
+ * canvas + 2D 上下文 ≈3KB 的固定开销。
  */
 const MAX_CACHE_BYTES = 32 * 1024 * 1024;
 
@@ -166,6 +170,31 @@ class ObjectCache {
   }
 
   /**
+   * 组件的位图在**设备像素**下的面积（用于总预算估值）。
+   *
+   * 与连线分支同口径：优先取 `__localBox()`（含描边/阴影的真实墨迹盒），拿不到再退回 state 的宽高。
+   */
+  private __deviceArea(component: any, rs: number): number {
+    const box = typeof component.__localBox === 'function' ? component.__localBox() : null;
+    const w = box ? box[2] - box[0] : Number(component.state.width) || 0;
+    const h = box ? box[3] - box[1] : Number(component.state.height) || 0;
+    return Math.max(0, w) * Math.max(0, h) * rs * rs;
+  }
+
+  /**
+   * 总预算门：新条目按「设备像素面积 × 4」估值，超预算就不再新增（**已缓存的继续复用**）。
+   *
+   * 2026-09-21 起**所有**缓存分支都过这道门。此前只有连线分支过：文本 / 点集路径 / 半透明 path
+   * 三条分支没有上界，实测一个 10 万图元的场景里半透明分支记到了 124MB（预算本是 32MB），
+   * 每个条目还额外带 canvas + 2D 上下文 ≈3KB 的固定开销。
+   * 只约束新增、不做淘汰，理由与连线同：门控依赖「已缓存」这个稳定事实，停止新增才可预测。
+   */
+  private __budgetOk(component: any, deviceArea: number): boolean {
+    if (this.map.has(component)) return true;
+    return this.__bytes + Math.max(0, deviceArea) * 4 <= MAX_CACHE_BYTES;
+  }
+
+  /**
    * 渲染器每帧开头调用：记录「渲染视口是否相对上一帧发生了变化」。
    *
    * 视口一变，所有位图的栅格都要重算（重新光栅化），代价与「这一帧直接落墨」同阶；
@@ -242,7 +271,9 @@ class ObjectCache {
       return false;
     }
     if (isText) {
-      return !component.state.editing && isEffectivelyVisible(component);
+      if (component.state.editing || !isEffectivelyVisible(component)) return false;
+      const rs = this.__rvp().scale;
+      return rs > 0 && this.__budgetOk(component, this.__deviceArea(component, rs));
     }
     // 连线（折线 / 贝塞尔 / Visio 连线）：`dots` 已进入 `contentKey`，纯平移复用位图同样成立，
     // 因此「缓存后被视为不透明贴图」的结论对连线也适用 —— 这正是让富场景局部重绘生效的关键
@@ -252,13 +283,10 @@ class ObjectCache {
       if (!isEffectivelyVisible(component)) return false;
       const rs = this.__rvp().scale; // 只有连线按「设备像素面积」设上限，这里才需要渲染视口
       if (!(rs > 0)) return false;
-      const box = typeof component.__localBox === 'function' ? component.__localBox() : null;
-      const w = box ? box[2] - box[0] : Number(component.state.width) || 0;
-      const h = box ? box[3] - box[1] : Number(component.state.height) || 0;
-      const deviceArea = Math.max(0, w) * Math.max(0, h) * rs * rs;
+      const deviceArea = this.__deviceArea(component, rs);
       if (deviceArea > MAX_LINE_CACHE_DEVICE_AREA) return false;
       // 已缓存的连线继续复用；只有「新增」受总预算约束
-      if (!this.map.has(component) && this.__bytes + deviceArea * 4 > MAX_CACHE_BYTES) return false;
+      if (!this.__budgetOk(component, deviceArea)) return false;
       return true;
     }
     // 封闭点集路径（星形/正N边形/玫瑰）：排除蚂蚁线流动，
@@ -266,13 +294,18 @@ class ObjectCache {
     if (typeof component.calcDots === 'function' && !component.isLine) {
       const w = Number(component.state.width) || 0;
       const h = Number(component.state.height) || 0;
-      return isEffectivelyVisible(component) && !component.state.lineDashFlow && w * h >= MIN_DOT_PATH_CACHE_AREA;
+      if (!isEffectivelyVisible(component) || component.state.lineDashFlow) return false;
+      if (w * h < MIN_DOT_PATH_CACHE_AREA) return false;
+      const rs = this.__rvp().scale;
+      return rs > 0 && this.__budgetOk(component, this.__deviceArea(component, rs));
     }
     // 半透明普通 path 图形（rgba/阴影/globalAlpha/composite）：排除容器/图片/连线。
     if (!opaqueDrawing) {
       if (typeof component.createPathObject !== 'function') return false;
       if (component.childNodes || component.isLine) return false;
-      return isEffectivelyVisible(component);
+      if (!isEffectivelyVisible(component)) return false;
+      const rs = this.__rvp().scale;
+      return rs > 0 && this.__budgetOk(component, this.__deviceArea(component, rs));
     }
     return false;
   }

@@ -363,7 +363,39 @@ export function regionRatio(box: number[], canvasWidth: number, canvasHeight: nu
   return boxArea(box) / (canvasWidth * canvasHeight);
 }
 
-const ALPHA_COLOR_PATTERN = /(rgba|hsla)\(|transparent|#[0-9a-fA-F]{8}|opacity/i;
+/**
+ * 颜色字符串的 alpha（0~1）。
+ *
+ * 为什么要**解析值**而不是看字符串里有没有半透明写法：`'transparent'` / `rgba(…,0)` / `#RRGGBB00`
+ * 的 alpha 是 **0 —— 该通道根本不落墨**。"不描边"最常见的写法就是 `strokeStyle: 'transparent'`，
+ * 旧实现一看到 `transparent` 就把整个图元判成半透明，后果见 `isOpaqueDrawing` 的注释。
+ *
+ * 返回 `null` = 解析不出（当未知处理，由调用方决定保守口径）。
+ */
+function colorAlpha(v: any): number | null {
+  if (typeof v !== 'string') return null;
+  const s = v.trim().toLowerCase();
+  if (!s) return null;
+  if (s === 'transparent') return 0;
+  const hex = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/.exec(s);
+  if (hex) {
+    const h = hex[1];
+    if (h.length === 4) return parseInt(h[3], 16) / 15; // #RGBA
+    if (h.length === 8) return parseInt(h.slice(6), 16) / 255; // #RRGGBBAA
+    return 1;
+  }
+  const fn = /^(rgba?|hsla?)\(([^)]*)\)$/.exec(s);
+  if (fn) {
+    // 兼容两种写法：`rgba(0,0,0,.5)` 与 `rgb(0 0 0 / 50%)`
+    const args = fn[2].split(/[,\s/]+/).filter((x: string) => x !== '');
+    const token = args.length >= 4 ? args[3] : null;
+    if (token === null) return fn[1].endsWith('a') ? null : 1; // `rgba()` 少写 alpha：未知
+    const n = token.endsWith('%') ? parseFloat(token) / 100 : parseFloat(token);
+    return Number.isFinite(n) ? n : null;
+  }
+  // 具名颜色 / currentColor / 其它关键字：canvas 侧都是不透明的
+  return 1;
+}
 
 /**
  * 判断组件是否以「完全不透明、仅 source-over」的方式绘制。
@@ -385,7 +417,22 @@ export function isOpaqueDrawing(state: any): boolean {
   if (style.filter && style.filter !== 'none') return false;
   for (const key of ['fillStyle', 'strokeStyle']) {
     const v = style[key];
-    if (typeof v === 'string' && ALPHA_COLOR_PATTERN.test(v)) return false;
+    // 非字符串（语义化渐变 / 图案对象）：沿用旧口径 —— 视为不透明（见上方注释）
+    if (typeof v !== 'string') continue;
+    const a = colorAlpha(v);
+    if (a === null) return false; // 解析不出 alpha：按半透明保守处理
+    /**
+     * **alpha === 0 的通道不落墨，不构成"半透明落墨"**（2026-09-21 修）。
+     *
+     * 旧口径是"字符串里有 `transparent` / `rgba(` 就算半透明"，于是
+     * `style: { fillStyle: '#10B981', strokeStyle: 'transparent' }`（= 只填充、不描边）被误判为半透明：
+     * ① dirty-rect 会把它当 risky 组件 → 富场景稳定回退全量；
+     * ② `ObjectCache` 会走"半透明 path"分支，**给每个这样的图元单独建一块离屏画布**。
+     * 实测（`examples/performance/bench-scene.html` 10 万图元、真机 Chrome + V8 堆快照）：
+     * 66,642 个图元命中 ②，JS 堆 364.7MB → 231.6MB（`strokeStyle` 换成实色后），**白吃 133MB**。
+     */
+    if (a <= 0) continue;
+    if (a < 1) return false;
   }
   return true;
 }

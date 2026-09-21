@@ -85,6 +85,20 @@ graph TD
 排除容器/图片/连线），把 alpha 落墨先画进位图，再 source-over 贴回。
 大量小图形不缓存——小图形的 `drawImage` 光栅化会反超直接 `fill/stroke`。
 
+**两条 2026-09-21 收紧的口径**：
+
+1. **"半透明"按 alpha 值判，而不是按字符串**：`transparent` / `rgba(…,0)` / `#RRGGBB00` / `hsla(…,0)`
+   的 alpha 是 **0 —— 该通道不落墨**，不构成"半透明落墨"。旧实现看见字符串里有 `transparent` 就判半透明，
+   于是 `style: { fillStyle: '#10B981', strokeStyle: 'transparent' }`（= 只填充、不描边，家族代码里 14 处）
+   会被逐块缓存。真机 Chrome + V8 堆快照实测（10 万图元）：
+   `HTMLCanvasElement` **66,644 → 2**、`CanvasRenderingContext2D` **66,644 → 2**、
+   同场景"每帧全量重绘"单帧 p50 **274.7ms → 254ms（−8%）**；代价是空转帧的簿记略升
+   （6.8ms → 8.0ms / 10 万图元，因为不可缓存的组件要走一遍缓存判定分支）。
+   顺带把 dirty-rect 的 risky 判定也修正回"不透明"。
+2. **总位图预算 `MAX_CACHE_BYTES = 32MB` 对全部分支生效**（此前只有连线分支过）：文本 / 点集路径 /
+   半透明 path 三条分支此前没有上界，实测一个 10 万图元场景里半透明分支记到 **124MB**。
+   现在按"设备像素面积 × 4"估值统一过门，**只约束新增、已缓存的继续复用**（不做 LRU 淘汰）。
+
 收益三点：
 
 1. 缓存命中帧跳过 `measureText`（DOM 测量）与 `fillText/strokeText`，或跳过 `calcDots`、路径重建与 `fill/stroke`；
