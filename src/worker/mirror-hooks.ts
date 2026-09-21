@@ -33,8 +33,32 @@ export function notifyStateChange(component: any, patch: any): void {
 export function notifyChildAdded(parent: any, child: any): void {
   const bridge = findBridge(parent, child);
   if (bridge) {
+    // 只有在**真的挂了镜像桥**时才提醒（否则每个虚拟容器入树都会喊一句，测试与无镜像场景全被刷屏）
+    warnVirtualMirrorOnce(parent);
     bridge.recordStructureChange('add', parent, child);
   }
+}
+
+/** 已经提醒过"虚拟容器在镜像里只暴露物化子项"的容器（模块级 WeakSet，不给组件加字段）。 */
+const MIRROR_VIRTUAL_WARNED = new WeakSet<any>();
+
+/**
+ * **虚拟容器 + worker 镜像的边界**（P2 第 5 条）：提醒一次并说明后果。
+ *
+ * 镜像走的是"结构钩子 + 应用层补丁重放"，而虚拟容器的**文档**不在组件树里 ——
+ * 所以镜像侧只会看到"窗口内物化出来的那点"。文档下发（把列存推给 worker 重建）是 P2 之后的事，
+ * 这里的选择是**显式告警**而不是静默分叉：静默的症状是"镜像画面看着对，滚出去就少了一大片"。
+ */
+function warnVirtualMirrorOnce(container: any): void {
+  if (!container || typeof container.getChildSource !== 'function') return;
+  if (!container.getChildSource()) return;
+  if (MIRROR_VIRTUAL_WARNED.has(container)) return;
+  MIRROR_VIRTUAL_WARNED.add(container);
+  console.warn(
+    '[ICE] 虚拟容器（childSource）进入了 worker 镜像树：镜像侧**只包含窗口内物化出来的子项**，' +
+      '文档本体不会下发（P2 未支持）。需要完整镜像的话请让该容器留在主线程渲染，' +
+      '或等引擎支持"文档列存下发"之后再用。'
+  );
 }
 
 /**

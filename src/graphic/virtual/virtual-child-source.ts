@@ -102,6 +102,26 @@ export interface VirtualChildSource {
   serializeDocument?(): any;
 
   /**
+   * **文档的唯一写入口**（可选，P2 第 3 条）：把补丁写进**文档**（不是写进物化组件）。
+   *
+   * 引擎的 `applyVirtualPatch(container, i, patch)` 会调它，然后**同步到那个物化组件** ——
+   * 于是"文档是真相、组件是投影"这条契约在代码上只有一个入口；undo/redo 记的是这里发生的补丁，
+   * 而不是物化组件的 state 变化（后者的记录会在物化/回收时丢掉）。
+   *
+   * 实现里请 `version++`（引擎与宿主用 version 判断"要不要重算派生内容"）。
+   */
+  applyPatch?(index: number, patch: Record<string, any>): boolean;
+
+  /**
+   * **物化组件被改动后的回流**（可选，P2 第 3 条）：用户在画布上拖动 / 属性面板改了那个真组件时，
+   * 引擎把补丁回调给应用，应用据此写进文档并 `version++`。
+   *
+   * 为什么引擎不自己写文档：只有应用知道"文档的 `x/y` 对应 state 的哪些字段"。
+   * 引擎的职责是把这个信号**可靠地发出来**（物化时包一层 `setState`，见 `materializeVirtualChild`）。
+   */
+  onChildPatched?(index: number, patch: Record<string, any>): void;
+
+  /**
    * 文档类型键（可选）：反序列化时用它在引擎的虚拟源注册表里找回工厂。
    * 与 `ICE.registerType` 同源思路：**不写类名**（会被打包器 mangle）。
    */
@@ -123,6 +143,14 @@ const HIT_INDEX = new WeakMap<any, number>();
 const HIT_POLICY = new WeakMap<any, VirtualHitPolicy>();
 /** 容器 → （下标 → 已物化的真组件）。引擎维护它，保证"同一下标只物化一次"与可回收。 */
 const MATERIALIZED = new WeakMap<any, Map<number, any>>();
+/**
+ * 容器 → **由 `syncVirtualWindow` 物化出来的**下标集合。
+ *
+ * 为什么单独记：命中路径（用户点一下）也会物化条目，那些**不属于窗口同步的管辖范围** ——
+ * 回收时若按"窗口里的下标集合"一刀切，会把用户刚点中的那个当场拆掉
+ * （真机实测：点中符号 → 立刻被回收 → 属性面板找不到节点）。
+ */
+const SYNC_MANAGED = new WeakMap<any, Set<number>>();
 /** 下标的稳定自增号（用于把 `forEachInBox` 的候选按"离窗口中心近"排序，见 `syncWindowMaterialization`）。 */
 
 /** 命中策略：`materialize`（默认）命中批量图元就物化成真组件；`container` 命中容器本身。 */
@@ -318,8 +346,71 @@ export function materializeVirtualChild(container: any, index: number): any {
   if (!existing) MATERIALIZED.set(container, map);
   map.set(index, child);
   container.addChild(child);
+  watchMaterializedChild(container, index, child);
   return child;
 }
+
+/** 已经包过 `setState` 的物化子项（模块级 WeakSet：不给组件加实例字段）。 */
+const WATCHED = new WeakSet<any>();
+
+/**
+ * 包一层物化子项的 `setState`：把改动回流给文档（`source.onChildPatched`）。
+ *
+ * 为什么包实例方法而不是钩 `ICEComponent.setState`：后者是**每帧每组件**的热路径，
+ * 在那里加一次 WeakMap 查（"我的父级是不是虚拟容器"）会让 10 万图元的 setState 都变慢；
+ * 而物化子项只有几百个，包一次的成本可以忽略（且不进全局热路径）。
+ */
+function watchMaterializedChild(container: any, index: number, child: any): void {
+  if (!child || WATCHED.has(child) || typeof child.setState !== 'function') return;
+  WATCHED.add(child);
+  const original = child.setState;
+  child.setState = function (patch: any, options?: any) {
+    const result = original.call(this, patch, options);
+    const source = CHILD_SOURCE.get(container);
+    // 程序化写入（`applyVirtualPatch`）不再回流：文档已经写过这份补丁了（见 APPLYING）
+    if (
+      !APPLYING.has(this) &&
+      source &&
+      typeof source.onChildPatched === 'function' &&
+      patch &&
+      typeof patch === 'object'
+    ) {
+      source.onChildPatched(index, patch);
+    }
+    return result;
+  };
+}
+
+/**
+ * **往文档里写补丁**（P2 第 3 条的唯一写入口）：`source.applyPatch(i, patch)` → 再同步到物化组件。
+ *
+ * 两条顺序是刻意的：**先文档后组件** —— 文档是真相，组件是投影；反过来的话，
+ * 组件的那次 `setState` 会先回流（`onChildPatched`）造成"重复写一遍"，
+ * 而且失败时会出现"屏幕变了、文档没变"。
+ */
+export function applyVirtualPatch(container: any, index: number, patch: Record<string, any>): boolean {
+  const source = CHILD_SOURCE.get(container);
+  if (!source || typeof source.applyPatch !== 'function') return false;
+  if (!source.applyPatch(index, patch)) return false;
+  const child = materializedChild(container, index);
+  if (child && typeof child.setState === 'function') {
+    APPLYING.add(child);
+    try {
+      child.setState(patch);
+    } finally {
+      APPLYING.delete(child);
+    }
+  }
+  return true;
+}
+
+/**
+ * 正在被 `applyVirtualPatch` 同步的物化组件。
+ *
+ * 为什么需要它：`child.setState(patch)` 会触发包好的回流（`onChildPatched`），
+ * 而文档刚刚已经写过这份补丁了 —— 不拦的话每次程序化写都多回流一次（undo/redo 里会翻倍）。
+ */
+const APPLYING = new WeakSet<any>();
 
 /** **回收**一个已物化的子项（滚出窗口时用）：摘除并允许下次再物化。返回是否真的回收了。 */
 export function releaseVirtualChild(container: any, index: number): boolean {
@@ -350,6 +441,158 @@ export function materializedIndexOf(container: any, child: any): number {
 export function materializedChild(container: any, index: number): any {
   const map = MATERIALIZED.get(container);
   return map ? map.get(index) || null : null;
+}
+
+/**
+ * **窗口同步**（P2 第 4 条）：按当前窗口把"需要真组件"的条目物化、把出窗口的回收。
+ *
+ * 为什么要有它：P0~P2 之前每个应用都在自己的 `paint` 里写一遍这段循环（IED 也不例外），
+ * 而它有几处容易写错：① 用哪个窗口（必须和批量落墨同一个，否则边界上一条会被建了又拆）；
+ * ② 滞后带（`pad`：没有它，指针在边界上抖一下就会反复物化/回收）；
+ * ③ 每帧新建上限（`budget`：一屏滚进一大片新内容时，几百次 `addChild` 集中在同一帧会造成尖峰）。
+ *
+ * ```ts
+ * // 在 paint 里（拿得到窗口）或渲染后调：
+ * syncVirtualWindow(layer, { needs: (i) => doc.type[i] === LABEL, pad: 300 });
+ * ```
+ *
+ * 不传 `view` 时用最近一次批量落墨记下的窗口（`lastVirtualWindow`）。
+ */
+export interface VirtualWindowOptions {
+  /** 这条条目要不要物化成真组件（不实现 = 全部都要，通常不是你想要的）。 */
+  needs?: (index: number) => boolean;
+  /**
+   * 「被访问的下标 → 要物化的下标」（默认恒等）。
+   *
+   * 为什么需要：条目之间会**互相派生** —— IED 的标注就是"扫到符号、物化它的标注"，
+   * 被访问的是符号下标、物化了的是标注下标。不写映射的话，回收那段会拿"物化过的下标"
+   * 去跟"窗口里的下标"比，结果**建完立刻全回收**（实测 `created 104 / released 104 / live 0`）。
+   * 返回 <0 表示这条跳过。
+   */
+  map?: (index: number) => number;
+  /** 窗口外扩（局部坐标，默认 0）：滞后带，避免边界抖动反复建/拆。 */
+  pad?: number;
+  /** 每帧最多**新建**几个（默认 64）：把"滚进一大片新内容"的尖峰摊到几帧上。 */
+  budget?: number;
+  /** 自定义物化（默认走 `materializeVirtualChild`，幂等）。 */
+  materialize?: (index: number) => any;
+}
+
+export interface VirtualWindowResult {
+  created: number;
+  released: number;
+  live: number;
+  /** 本帧想建但因为 budget 没建的个数（>0 说明下一帧还要继续消化）。 */
+  deferred: number;
+}
+
+export function syncVirtualWindow(container: any, options: VirtualWindowOptions = {}): VirtualWindowResult {
+  const source = CHILD_SOURCE.get(container);
+  const out: VirtualWindowResult = { created: 0, released: 0, live: 0, deferred: 0 };
+  if (!source) return out;
+  const view = lastVirtualWindow(container);
+  if (!view) return out;
+  const pad = Number(options.pad) > 0 ? Number(options.pad) : 0;
+  const budget = Number.isFinite(Number(options.budget)) ? Math.max(0, Number(options.budget)) : 64;
+  const needs = options.needs;
+  const map = options.map || ((i: number) => i);
+  const doMaterialize = options.materialize || ((i: number) => materializeVirtualChild(container, i));
+
+  const keep = new Set<number>();
+  if (typeof source.forEachInBox === 'function') {
+    source.forEachInBox(view[0] - pad, view[1] - pad, view[2] + pad, view[3] + pad, (i: number) => {
+      if (needs && !needs(i)) return;
+      const li = map(i);
+      if (!(li >= 0)) return;
+      keep.add(li);
+      if (materializedChild(container, li)) return;
+      if (out.created >= budget) {
+        out.deferred++;
+        return;
+      }
+      if (doMaterialize(li)) {
+        out.created++;
+        // 登记"这是我建的"（回收只在这个集合里进行，见下面 SYNC_MANAGED 的说明）
+        let owned = SYNC_MANAGED.get(container);
+        if (!owned) {
+          owned = new Set<number>();
+          SYNC_MANAGED.set(container, owned);
+        }
+        owned.add(li);
+      }
+    });
+  }
+  // 回收**只管自己物化的那些**（命中路径 / 应用自己物化的条目不在管辖范围，交给应用决定）
+  const managed = SYNC_MANAGED.get(container);
+  if (managed) {
+    for (const i of [...managed]) {
+      if (keep.has(i)) continue;
+      if (releaseVirtualChild(container, i)) {
+        managed.delete(i);
+        out.released++;
+      }
+    }
+  }
+  out.live = materializedIndices(container).length;
+  return out;
+}
+
+/**
+ * **自检**（P2 第 5 条）：扫一遍文档的盒子，报出"跨度异常"的条目。
+ *
+ * 为什么需要：虚拟化把"图元的盒别跨全图"从隐含约束变成了硬约束 —— 我实测踩过：一条跨行的
+ * 管线盒横跨 12,000 单位，网格索引的节点数按格子数爆炸（6 万条目 → 3,000 万节点 / 236MB / 11.8fps）。
+ * 这类错误**不报任何异常**，只表现为"帧率莫名很低、内存莫名很高"，所以值得给一个显式的自检。
+ *
+ * 只在开发期调用（O(count) 次 `boxAt`）；返回值可直接打进控制台。
+ */
+export function diagnoseVirtualSource(
+  source: VirtualChildSource,
+  options: { sample?: number; spanRatio?: number } = {}
+): { scanned: number; maxSpan: number; offenders: Array<{ index: number; span: number; box: number[] }> } {
+  const sample = Number(options.sample) > 0 ? Number(options.sample) : Infinity;
+  const ratio = Number(options.spanRatio) > 0 ? Number(options.spanRatio) : 0.5;
+  const box = new Float64Array(4);
+  const bounds = new Float64Array(4);
+  const hasBounds = typeof source.documentBounds === 'function' ? !!source.documentBounds(bounds) : false;
+  let docSpan = 0;
+  if (hasBounds) {
+    docSpan = Math.max(bounds[2] - bounds[0], bounds[3] - bounds[1]);
+  } else {
+    // 没有 documentBounds 就扫一遍求并集（同一次 O(count) 扫描）
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (let i = 0; i < source.count && i < sample; i++) {
+      source.boxAt(i, box);
+      if (box[0] < x0) x0 = box[0];
+      if (box[1] < y0) y0 = box[1];
+      if (box[2] > x1) x1 = box[2];
+      if (box[3] > y1) y1 = box[3];
+    }
+    docSpan = isFinite(x0) ? Math.max(x1 - x0, y1 - y0) : 0;
+  }
+  const limit = docSpan > 0 ? docSpan * ratio : Infinity;
+  const offenders: Array<{ index: number; span: number; box: number[] }> = [];
+  let maxSpan = 0;
+  let scanned = 0;
+  for (let i = 0; i < source.count && scanned < sample; i++, scanned++) {
+    source.boxAt(i, box);
+    const span = Math.max(box[2] - box[0], box[3] - box[1]);
+    if (span > maxSpan) maxSpan = span;
+    if (span > limit && offenders.length < 20) {
+      offenders.push({ index: i, span: Math.round(span), box: [box[0], box[1], box[2], box[3]] });
+    }
+  }
+  if (offenders.length) {
+    console.warn(
+      `[ICE] 虚拟文档自检：${offenders.length} 条图元的跨度超过文档跨度的 ${Math.round(ratio * 100)}%` +
+        `（最大 ${Math.round(maxSpan)}）—— 这类盒子会让空间索引按格子数爆炸，` +
+        `帧率与内存都会莫名恶化。样本：${JSON.stringify(offenders.slice(0, 3))}`
+    );
+  }
+  return { scanned, maxSpan: Math.round(maxSpan), offenders };
 }
 
 /** 当前物化着的全部下标（调试 / 断言 / 窗口同步用）。 */
