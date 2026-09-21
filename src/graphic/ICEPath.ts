@@ -10,6 +10,15 @@ import { resolveThemeValue } from '../theme/ICETheme';
 import ICEComponent from './ICEComponent';
 
 /**
+ * 几何签名的**采样缓冲**（模块级共享，不给实例加字段）。
+ *
+ * 只在 `__pathStale()` / `__capturePathSignature()` 内部存活：采样完当场比较，或 `slice()` 存成
+ * 组件自己的 `__pathSig`。采样过程不会调用别的组件的代码（各 builder 只是往 `out` 里 push 标量），
+ * 所以跨组件共享是安全的；每实例一份的话，10 万图元就是 10 万个 12 元素数组（≈12MB）。
+ */
+const PATH_SIG_SCRATCH: any[] = [];
+
+/**
  * @abstract
  * @class ICEPath 路径
  * @author 大漠穷秋<damoqiongqiu@126.com>
@@ -24,8 +33,12 @@ abstract class ICEPath extends ICEComponent {
   private __pathRev: number = -1;
   /** 上次构建命令流时的几何签名；`null` = 还没建过。 */
   private __pathSig: any[] | null = null;
-  /** 几何签名的复用缓冲（每帧采样一次，避免为每个组件分配数组）。 */
-  private __pathSigScratch: any[] = [];
+  /**
+   * 几何签名的采样缓冲 —— **模块级共享**（见文件末尾）。
+   *
+   * 它只在 `__pathStale()` / `__capturePathSignature()` **内部**存活：采样完当场比较或 `slice()` 存走，
+   * 不跨组件、不跨调用。每实例各留一份的话，10 万图元就是 10 万个 12 元素的数组（≈12MB 常驻）。
+   */
   /** 本类是否提供了精确签名（惰性判定一次，避免给自定义子类每帧白采样）。 */
   private __pathSigPrecise: boolean | undefined = undefined;
 
@@ -73,7 +86,7 @@ abstract class ICEPath extends ICEComponent {
     if (this.__pathRev !== this.paramsRev) {
       return true; // 派生参数重算过（点集 / 尺寸 / 本地原点都在这一步产出）
     }
-    const out = this.__pathSigScratch;
+    const out = PATH_SIG_SCRATCH;
     out.length = 0;
     const sig = this.__pathSignature(out);
     if (sig === null) {
@@ -95,7 +108,7 @@ abstract class ICEPath extends ICEComponent {
 
   /** 采样并记下当前签名（在命令流**建完之后**调用：`createPathObject()` 可能触发 `ensureDots()`）。 */
   private __capturePathSignature(): void {
-    const out = this.__pathSigScratch;
+    const out = PATH_SIG_SCRATCH;
     out.length = 0;
     const sig = this.__pathSignature(out);
     this.__pathSig = sig === null ? null : out.slice();
