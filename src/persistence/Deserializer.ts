@@ -10,6 +10,7 @@ import { SERIALIZATION_VERSION } from './Serializer';
 import { toIsoTime } from './document-time';
 import { zIndexOf, zIndexForPaintRank } from '../util/data-util';
 import { ICE_ERROR_CODES, iceError } from '../util/errors';
+import { registerMaterializedChild, restoreVirtualSource } from '../graphic/virtual/virtual-child-source';
 
 /**
  * 序列化格式迁移表：`to` 为目标版本，按升序执行。
@@ -227,6 +228,16 @@ export default class Deserializer {
     parentNode.addChild(instance);
     this.__restoreLayout(instance, nodeData.layout);
 
+    /**
+     * **虚拟文档**（2026-09-21）：文档里带 `{ type, count, version, payload }` 时，
+     * 按 `type` 找回工厂、用 `payload` 重建子源接回去。载荷是**应用的数据**，引擎原样传回。
+     *
+     * 顺序在子节点之前：物化子项的 `virtualIndex` 要靠子源/已物化表才认得回来（见下）。
+     */
+    if (nodeData.virtual) {
+      restoreVirtualSource(instance, nodeData.virtual, this.ice);
+    }
+
     // 复合组件的子节点由构造函数按 state 重建；即使旧文档里带了 childNodes 也不能再挂一遍
     // （否则重复）。这类组件通过 hasDerivedChildren() 声明自己，见 ICEComponent 的注释。
     //
@@ -240,7 +251,17 @@ export default class Deserializer {
     const childNodes = nodeData.childNodes;
     if (childNodes && childNodes.length) {
       for (let i = 0; i < childNodes.length; i++) {
-        this.decodeRecursively(instance, childNodes[i]);
+        const child = this.decodeRecursively(instance, childNodes[i]);
+        /**
+         * 物化出来的子项：把它的下标重新登进"已物化"表。
+         *
+         * 不登的话会出现最阴的一类 bug：子项在树上（是"真组件"）、而虚拟源以为它**没被物化** ——
+         * 批量落墨再画一遍 ⇒ 画面上两个重叠的符号"看起来只是粗了一点"。
+         * 有了下标才把两套状态对齐。
+         */
+        if (child && typeof childNodes[i].virtualIndex === 'number') {
+          registerMaterializedChild(instance, childNodes[i].virtualIndex, child);
+        }
       }
     }
     return instance;

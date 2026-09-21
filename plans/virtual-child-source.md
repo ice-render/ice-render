@@ -190,13 +190,27 @@ layer.addChild(source.materialize!(i));
 纯命中 0.85 µs（含 10 万文档）；平移 121.3 fps / 0 长任务；像素仍差 3/1,600,000。
 回归见 `tests/event/virtual-hit-materialize.test.ts`（7 条）。
 
-### P2 —— 导出 / 序列化 / undo / a11y（约 1～2 周）
+### P2 —— 导出 / 序列化 / undo / a11y（**第 1+2 条已落地** 2026-09-21，其余待做）
 
 交付：`Serializer` 的虚拟容器契约（物化子项 + `virtual` 标记）、`SvgExporter` 的虚拟源导出、
 应用侧 undo 契约（写回文档、`version` 递增）、a11y 只认物化子项并把口径写进文档。
 
 验收：一条 1 万图元的工艺图能"虚拟渲染 → 导出 SVG → 反序列化 → 再渲染"往返一致；
 undo/redo 100 次无泄漏（堆漂移 ≤1 MB）。
+
+**第 1 条「全量导出通道」已落地**：`VirtualChildSource.paintToSvg?(sink, bounds)`（`sink` 有
+`raw` / `define` / `use`）+ `documentBounds?(out)`；`SvgExporter` 在容器位置开 `<g transform>`，
+把应用写的**局部坐标**内容包进去，**次序是"批量内容 → 容器自身 → 物化子项"**（与画布一致）。
+IED 侧实测：导出从"只有窗口里那点"（102.9 KB）变成**整份文档**（2 万符号 / 2 万管线 / 2 万标注 →
+7.46 MB，21 份 def + 2 万 `<use>`）。
+
+**第 2 条「序列化契约」已落地**：容器写 `virtual: { type, count, version, payload }`，物化子项写
+`virtualIndex`；`ICE.registerVirtualSource(type, factory)`（进程级，同名不同工厂抛错）负责重建；
+读回时把子项重新登进"已物化"表。IED 侧实测：5,000 符号档快照 **133.6 KB**（只存参数 + 少量编辑，
+不是 3 MB 的列存），**存盘 → 清空 → 读盘**后文档规模、被拖过的坐标、物化子项全部保留。
+
+**剩下的第 3~5 条**（undo 的文档补丁入口 / 引擎级窗口同步助手 / 盒子跨度自检与 a11y·镜像口径）
+仍待做 —— 前两条是应用**绕不过去**的（校验 / 导出 / 存盘都堵在这），所以按 IED 反馈的优先级先做掉了。
 
 ### P3 —— 窗口物化的廉价增删 ✅ 已落地（2026-09-21，与 P0 同批）
 

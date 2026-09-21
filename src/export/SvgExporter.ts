@@ -13,6 +13,7 @@ import ICEImage from '../graphic/ICEImage';
 import { SHADOW_PRESETS } from '../graphic/ICEComponent';
 import { isTokenRef, resolveThemeValue } from '../theme/ICETheme';
 import { paintOrderChildrenOf, sortSiblingsByZIndex } from '../util/data-util';
+import { createSvgSink } from '../graphic/virtual/virtual-child-source';
 import { resolveRoundRect } from '../util/round-rect';
 
 /**
@@ -545,7 +546,31 @@ function exportLayersResult(targets: any[], options: SvgExportOptions = {}): Svg
           component.composeMatrix();
         }
         let box: number[] | null = null;
-        if (typeof component.__paintWorldBox === 'function') {
+        /**
+         * 虚拟容器：优先用**文档自身**的包围盒（`documentBounds`，局部坐标 → 按容器矩阵变换到世界）。
+         * 容器盒未必等于文档范围（例如容器比内容大、或内容超出容器），此时用容器盒会把
+         * `area: 'content'` 的边距算错。
+         */
+        const src: any = typeof component.getChildSource === 'function' ? component.getChildSource() : null;
+        const local = new Float64Array(4);
+        if (src && typeof src.documentBounds === 'function' && src.documentBounds(local)) {
+          const m = component.state.composedMatrix;
+          const xs = [local[0], local[2], local[2], local[0]];
+          const ys = [local[1], local[1], local[3], local[3]];
+          let x0 = Infinity;
+          let y0 = Infinity;
+          let x1 = -Infinity;
+          let y1 = -Infinity;
+          for (let ci = 0; ci < 4; ci++) {
+            const wx = m[0] * xs[ci] + m[2] * ys[ci] + m[4];
+            const wy = m[1] * xs[ci] + m[3] * ys[ci] + m[5];
+            if (wx < x0) x0 = wx;
+            if (wy < y0) y0 = wy;
+            if (wx > x1) x1 = wx;
+            if (wy > y1) y1 = wy;
+          }
+          box = [x0, y0, x1, y1];
+        } else if (typeof component.__paintWorldBox === 'function') {
           box = component.__paintWorldBox();
         } else if (typeof component.getMinBoundingBox === 'function') {
           const b = component.getMinBoundingBox(true);
@@ -593,6 +618,27 @@ function exportLayersResult(targets: any[], options: SvgExportOptions = {}): Svg
       const style = mergedStyle(component);
       const matrix = typeof component.composeMatrix === 'function' ? component.composeMatrix() : state.composedMatrix;
       const attrs: string[] = [];
+
+      /**
+       * **虚拟容器：先导"整份文档"**（`VirtualChildSource.paintToSvg`，可选）。
+       *
+       * 位置很关键：这一段必须在容器自己的元素之前、在它**物化出来的子项**之前 ——
+       * 与画布上的次序一致（批量层在下、物化子项在上），否则导出会比画布少一层或叠反。
+       * 应用写的是**局部坐标**，所以这里开一个 `<g transform="{容器矩阵}">` 把它的输出包起来。
+       * 不实现 `paintToSvg` 的子源：导出只含物化子项（应用自己知道这个边界，见反馈文档）。
+       */
+      const virtualSource: any = typeof component.getChildSource === 'function' ? component.getChildSource() : null;
+      if (virtualSource && typeof virtualSource.paintToSvg === 'function') {
+        const box = new Float64Array(4);
+        const hasBounds =
+          typeof virtualSource.documentBounds === 'function' ? !!virtualSource.documentBounds(box) : false;
+        const bounds = hasBounds
+          ? { x0: box[0], y0: box[1], x1: box[2], y1: box[3] }
+          : { x0: 0, y0: 0, x1: Number(state.width) || 0, y1: Number(state.height) || 0 };
+        body.push(`<g transform="${matrixAttr(matrix, digits)}">`);
+        virtualSource.paintToSvg(createSvgSink(body, defs), bounds);
+        body.push('</g>');
+      }
 
       // 裁剪：祖先链上的 clipChildren（与 __applyAncestorClips 同口径，世界包围盒）
       const clips: any[] = [];

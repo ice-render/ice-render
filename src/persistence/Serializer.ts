@@ -9,6 +9,7 @@ import ICE from '../ICE';
 import { toIsoTime } from './document-time';
 import ICELayoutManager from '../layout/ICELayoutManager';
 import { zIndexOf } from '../util/data-util';
+import { serializedVirtualIndexOf, virtualBlockOf } from '../graphic/virtual/virtual-child-source';
 
 /**
  * 序列化时排除的运行时缓存/计算值：这些值在反序列化后会由引擎重新计算，
@@ -142,12 +143,12 @@ export default class Serializer {
    * 把"钉住"这件事丢掉。读回时子节点按文件顺序构造（= 加入次序），配合写下的数值，
    * 往返之后绘制次序逐项不变。
    */
-  private __encodeChildren(children: any[], parentData: any): void {
+  private __encodeChildren(children: any[], parentData: any, parentComponent?: any): void {
     if (!children || !children.length) {
       return;
     }
     for (let i = 0; i < children.length; i++) {
-      this.encodeRecursively(children[i], parentData);
+      this.encodeRecursively(children[i], parentData, parentComponent);
     }
   }
 
@@ -170,7 +171,7 @@ export default class Serializer {
   }
 
   //递归序列化  //递归序列化
-  private encodeRecursively(component, parentData) {
+  private encodeRecursively(component, parentData, parentComponent?: any) {
     // 优先用注册表反查稳定 typeId（与类名解耦，压缩改名不破坏数据）；
     // 未注册的自定义类型回退到 constructor.name（保持既有约定），但会记录 + 告警：
     // 这类数据（尤其是被 mangle 过的类名）下次可能读不回来。
@@ -193,6 +194,18 @@ export default class Serializer {
       // 容器的布局策略属于文档内容（"怎么排"），见 __encodeLayout
       layout: undefined,
     };
+    /**
+     * **虚拟文档块**（2026-09-21）：容器挂了虚拟子源时，写 `{ type, count, version, payload }`。
+     *
+     * 分工：`payload` 是**应用的数据**（引擎原样存取，不理解也不该理解）；`type` 是反序列化时
+     * 找工厂的键（与组件类型注册表同源：不写类名，避免打包改名）；物化出来的子项照旧写进
+     * `childNodes`，并各自带上 `virtualIndex` —— 读回时能重新登进"已物化"表，
+     * 不会出现"子项在树上、文档却以为它还没物化"的双份绘制。
+     */
+    const virtualBlock = virtualBlockOf(component);
+    if (virtualBlock) {
+      currentData.virtual = virtualBlock;
+    }
     // zIndex 默认值（'auto' = auto 层）不进文档；显式值原样保留（口径见 __encodeChildren）
     if (zIndexOf(component) === 0) {
       delete currentData.state.zIndex;
@@ -200,6 +213,14 @@ export default class Serializer {
     this.__encodeLayout(component, currentData);
 
     parentData.childNodes.push(currentData);
+
+    // 物化出来的子项：记下它在虚拟文档里的下标（父容器带 virtual 块时才有意义）
+    if (parentData.virtual && parentComponent) {
+      const index = serializedVirtualIndexOf(parentComponent, component);
+      if (index >= 0) {
+        currentData.virtualIndex = index;
+      }
+    }
 
     // 复合组件的内部子组件是派生的（构造函数会按 state 重建），不写入文档：
     // 否则反序列化时会「构造函数建一份 + Deserializer 再挂一份」导致重复。
@@ -211,7 +232,8 @@ export default class Serializer {
       typeof component.getSerializableChildren === 'function' ? component.getSerializableChildren() : null;
     const children = customChildren || (derived ? [] : component.childNodes);
     if (children && children.length) {
-      this.__encodeChildren(children, currentData);
+      // 带上"父组件"：虚拟容器的物化子项要逐个写下 `virtualIndex`（见 `virtualBlockOf` 的说明）
+      this.__encodeChildren(children, currentData, component);
     }
   }
 

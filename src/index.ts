@@ -78,12 +78,16 @@ export {
   releaseVirtualChild,
   materializedIndexOf,
   materializedIndices,
+  materializedChild,
   resolveVirtualHit,
   setVirtualHitPolicy,
   virtualHitPolicyOf,
   virtualHitIndexOf,
+  registerVirtualSource,
+  restoreVirtualSource,
+  createSvgSink,
 } from './graphic/virtual/virtual-child-source';
-export type { VirtualHitPolicy } from './graphic/virtual/virtual-child-source';
+export type { VirtualHitPolicy, VirtualSvgSink, VirtualSourceFactory } from './graphic/virtual/virtual-child-source';
 export { default as ICEComponent } from './graphic/ICEComponent';
 export { default as ICEDotPath } from './graphic/ICEDotPath';
 export { default as ICEImage } from './graphic/ICEImage';
