@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import Path2DRecorder from './Path2DRecorder';
+import Path2DRecorder, { setPath2DNativeFactory } from './Path2DRecorder';
 import { ICE_ERROR_CODES, iceError } from '../util/errors';
 
 /**
@@ -54,12 +54,11 @@ let root: any = null;
   //
   // 之所以一律走记录器：原生 Path2D 不透明，导出（SVG/服务端出图）、命令重放、以及
   // 「断言形状生成了哪几条命令」都需要路径的几何描述，而不只是「能画出来」。
-  root.createPath2D = () => {
-    if (typeof root.Path2D === 'function') {
-      return new Path2DRecorder(new root.Path2D());
-    }
-    return new Path2DRecorder();
-  };
+  //
+  // `new Path2DRecorder()`（不传参）会自己按这份工厂造原生对象 —— 自定义子类 clone 构造函数时
+  // 也能拿到能上屏的记录器，不会再"静默画不出来"（见 Path2DRecorder 的构造注释）。
+  setPath2DNativeFactory(() => (typeof root.Path2D === 'function' ? new root.Path2D() : null));
+  root.createPath2D = () => new Path2DRecorder();
   // 字体加载：浏览器 FontFace API；没有则兜底空实现（headless / 测试桩）。
   root.loadFont = (family: string, source: string) => {
     if (typeof root.FontFace === 'function' && root.document && root.document.fonts) {
