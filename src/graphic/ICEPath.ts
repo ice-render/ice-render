@@ -19,6 +19,53 @@ import ICEComponent from './ICEComponent';
 const PATH_SIG_SCRATCH: any[] = [];
 
 /**
+ * **几何 → `Path2D` 的共享缓存**（2026-09-21）。
+ *
+ * 为什么值得共享：真机 Chrome + V8 堆快照实测（`examples/performance/bench-scene.html`，10 万图元）
+ * 里有 **100,018 个 `Path2D`（55.7MB）**，而其中**只有 3 种几何**（10×10 圆、12×12 星、14×14 矩形）。
+ * 工艺图/流程图/组件库里的重复符号更是成百上千个同形图元 —— 每个图元各建一份路径，纯属重复。
+ *
+ * **只对"签名能精确描述几何"的类生效**（`__hasPrecisePathSignature()`，即内置的四个 builder 与
+ * 显式实现了 `__pathSignature()` 的第三方子类）：它们的 `createPathObject()` 被契约约束为
+ * "只是签名里那些值的纯函数"（见 `__pathSignature` 的注释），因此同一签名 → 同一条路径。
+ * 没实现签名的子类继续**每实例一份**（保守，语义与改造前逐字一致）。
+ *
+ * 生命周期与安全性：
+ * - 路径**发布后只读**：`closePath()` 在 `Path2DRecorder` 里是幂等标记（`_closed`），不会重复入队；
+ *   除此之外引擎只在 `createPathObject()` 里写它。位置/缩放一律走 CTM，不进路径坐标。
+ * - 有上界（`PATH_CACHE_MAX`），按插入顺序淘汰最旧的：路径重建很便宜，淘汰只意味着少共享一次。
+ */
+const PATH_CACHE = new Map<string, any>();
+const PATH_CACHE_MAX = 512;
+
+/**
+ * 每个类一个稳定编号（用于缓存键）。
+ *
+ * 不用 `constructor.name`：打包器会 mangle 类名（引擎的类型注册表就是为此引入 `typeId` 的）。
+ * 页内自增编号足够 —— 缓存本身也是页内生命周期。
+ */
+const CLASS_IDS = new WeakMap<any, number>();
+let nextClassId = 1;
+function classIdOf(ctor: any): number {
+  let id = CLASS_IDS.get(ctor);
+  if (!id) {
+    id = nextClassId++;
+    CLASS_IDS.set(ctor, id);
+  }
+  return id;
+}
+
+/**
+ * 清空共享路径缓存（测试用；宿主应用一般不需要 —— 有上界、会按插入顺序淘汰）。
+ *
+ * 之所以要暴露：它是**模块级**状态，单测之间会互相看到对方建过的几何 ——
+ * 断言"这次一定重建了"的用例需要先把它清掉（引擎的 `clearImageBitmaps()` 同理）。
+ */
+export function clearSharedPathCache(): void {
+  PATH_CACHE.clear();
+}
+
+/**
  * @abstract
  * @class ICEPath 路径
  * @author 大漠穷秋<damoqiongqiu@126.com>
@@ -120,7 +167,55 @@ abstract class ICEPath extends ICEComponent {
     if (!this.__pathStale()) {
       return;
     }
+    this.__buildPath();
+  }
+
+  /**
+   * 几何 → 缓存键；`null` = 本类不参与共享（自定义子类没提供精确签名，或签名采样失败）。
+   *
+   * 采样前先 `ensureDots()`：点集是惰性算的，不先铺开的话签名拿到的是"还没算"的空值，
+   * 键会分叉（同几何拿不到同一份路径）。
+   */
+  private __sharedPathKey(): string | null {
+    if (!this.__hasPrecisePathSignature()) {
+      return null;
+    }
+    const ensure = (this as any).ensureDots;
+    if (typeof ensure === 'function') {
+      ensure.call(this);
+    }
+    const out = PATH_SIG_SCRATCH;
+    out.length = 0;
+    const sig = this.__pathSignature(out);
+    if (sig === null || sig.length === 0) {
+      return null;
+    }
+    let key = String(classIdOf(this.constructor));
+    for (let i = 0; i < sig.length; i++) {
+      key += '\u0001' + sig[i];
+    }
+    return key;
+  }
+
+  /** 建路径：**先查共享缓存**，未命中才真的建，并把结果登记进去。 */
+  private __buildPath(): void {
+    const key = this.__sharedPathKey();
+    if (key) {
+      const hit = PATH_CACHE.get(key);
+      if (hit) {
+        this.path2D = hit;
+        this.__capturePathSignature();
+        return;
+      }
+    }
     this.createPathObject();
+    if (key && this.path2D) {
+      PATH_CACHE.set(key, this.path2D);
+      if (PATH_CACHE.size > PATH_CACHE_MAX) {
+        const oldest = PATH_CACHE.keys().next().value;
+        PATH_CACHE.delete(oldest);
+      }
+    }
     this.__capturePathSignature();
   }
 
@@ -133,8 +228,7 @@ abstract class ICEPath extends ICEComponent {
   public ensurePathBuilt(): void {
     const commands = this.path2D && this.path2D._commands;
     if (!commands || commands.length === 0 || (this.dirty && this.__pathStale())) {
-      this.createPathObject();
-      this.__capturePathSignature();
+      this.__buildPath();
       if (this.state.closePath) {
         this.path2D.closePath();
       }
