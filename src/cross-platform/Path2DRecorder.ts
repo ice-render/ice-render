@@ -31,6 +31,19 @@ import type { RoundRectRadii } from '../util/round-rect';
  * 命令格式（与外部消费者 / 导出器约定一致）：
  * `[['moveTo', x, y], ['rect', x, y, w, h], ['roundRect', x, y, w, h, radii], ...]`
  */
+/**
+ * 原生 `Path2D` 的工厂：由 `root` 在平台初始化时注入。
+ *
+ * 为什么是注入而不是直接读全局：`root` 依赖 recorder（`createPath2D()` 要用它），
+ * recorder 再反向 import `root` 就成环了。注入只写一次、读在构造期，热路径无开销。
+ */
+let nativePath2DFactory: (() => any) | null = null;
+
+/** @internal 引擎内部使用：注册「当前平台怎么造原生 Path2D」。 */
+export function setPath2DNativeFactory(factory: (() => any) | null): void {
+  nativePath2DFactory = factory;
+}
+
 export default class Path2DRecorder {
   /** 记录的命令序列 */
   public _commands: Array<Array<any>> = [];
@@ -50,8 +63,17 @@ export default class Path2DRecorder {
   /** 当前子路径的起点（closePath 后当前点回到这里） */
   private __subpathStart: [number, number] | null = null;
 
-  constructor(native: any = null) {
-    this.native = native || null;
+  /**
+   * @param native 原生 `Path2D`。**不传 = 按当前平台自己造一份**（有原生 Path2D 的运行时就转发给它），
+   *   显式传 `null` 才是"纯记录器"（命令流可用、不上屏；headless / 测试桩走这条）。
+   *
+   * ⚠️ 为什么默认要自己造：构造参数式设计下 `new Path2DRecorder()` 会**静默**得到一份不上屏的
+   *   记录器 —— 自定义图元 clone 这个构造函数是很自然的写法，而引擎 3.0.0 起又不再把命令重放到
+   *   ctx，于是这类组件变成"命令流 / SVG 导出 / 单测全正常，屏幕上一个轮廓都没有"。
+   *   真机踩过两次（IED 的池/泳道、虚拟文档的批量精灵），所以把默认值改成"给你一份真能上屏的"。
+   */
+  constructor(native: any = undefined) {
+    this.native = native === undefined ? (nativePath2DFactory ? nativePath2DFactory() : null) : native || null;
     this.__nativeRoundRect = !!(this.native && typeof this.native.roundRect === 'function');
   }
 

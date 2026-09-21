@@ -11,7 +11,7 @@
  * 3. `arc` 必须被记录 —— 它曾经缺过，导致事件圆这类形状在无原生 Path2D 的运行时直接抛
  *    `path.arc is not a function`。
  */
-import Path2DRecorder from '../../src/cross-platform/Path2DRecorder';
+import Path2DRecorder, { setPath2DNativeFactory } from '../../src/cross-platform/Path2DRecorder';
 
 /** 记录调用序列的原生 Path2D 替身 */
 class FakeNativePath2D {
@@ -86,12 +86,36 @@ describe('Path2DRecorder', () => {
     expect(path._commands.filter((c) => c[0] === 'closePath')).toHaveLength(2);
   });
 
-  it('没有原生 Path2D：退化为纯记录器（命令流可用，但引擎不负责重放上屏）', () => {
+  it('平台没有原生 Path2D（headless / 测试桩）：退化为纯记录器（命令流可用，但引擎不负责重放上屏）', () => {
+    setPath2DNativeFactory(() => null);
     const path = new Path2DRecorder();
     path.moveTo(5, 6);
 
     expect(path.native).toBeNull();
     expect(path._commands).toEqual([['moveTo', 5, 6]]);
+    setPath2DNativeFactory(null);
+  });
+
+  it('不传原生参数 = 按平台工厂自己造一份（自定义子类 clone 构造函数也能上屏）', () => {
+    /**
+     * 真实事故（2026-09-21，IED 踩了两次）：应用的形状子类这样 clone 构造函数
+     * —— `const PathCtor = this.path2D.constructor; new PathCtor()` —— 在"构造参数式"的旧设计下
+     * 拿到的是 native=null 的纯记录器，而引擎 3.0.0 起不再把命令重放到 ctx，
+     * 于是组件变成"命令流 / SVG 导出 / 单测全正常，屏幕上没有轮廓"。
+     * 现在默认值改为"给你一份真能上屏的"，显式传 null 才保留纯记录器语义。
+     */
+    const fake = new FakeNativePath2D();
+    setPath2DNativeFactory(() => fake);
+
+    const auto = new Path2DRecorder();
+    expect(auto.native).toBe(fake);
+    auto.moveTo(1, 2);
+    expect(fake.calls).toEqual([['moveTo', 1, 2]]);
+
+    // 显式传 null：依然是纯记录器（headless / 测试桩的显式表达）
+    expect(new Path2DRecorder(null).native).toBeNull();
+
+    setPath2DNativeFactory(null);
   });
 
   it('arc 既被记录、也转发给原生对象', () => {

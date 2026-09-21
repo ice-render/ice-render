@@ -855,6 +855,11 @@ abstract class ICEComponent extends ICEEventTarget {
    * - baseMatrix：在组件自身 composedMatrix 之前再叠加的基准矩阵。离屏缓存用它把世界盒
    *   平移到离屏画布左上角，即最终 CTM = baseMatrix · composedMatrix。
    * - 渲染期间临时把 this.ctx 重定向到 targetCtx，结束后恢复，不改变组件状态。
+   *
+   * ⚠️ **只画「组件自己」，不遍历子组件** —— 子组件由渲染队列逐个绘制（`ObjectCache` /
+   *   静态层都是逐组件调用本方法）。要渲染**一棵子树**请用 `renderSubtreeTo(component, ctx, base)`
+   *   （它按与渲染队列同源的绘制次序递归，离屏结果与上屏一致）；对复合组件只调本方法会得到
+   *   一张空白位图（IED 的批量精灵踩过这个坑）。
    */
   public renderTo(targetCtx: any, baseMatrix: number[] | null = null): void {
     if (!targetCtx) {

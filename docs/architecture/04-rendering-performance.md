@@ -163,6 +163,12 @@ graph TD
   由 `root.createOffscreenCanvas()` 统一创建；物理尺寸按 `root.devicePixelRatio` 缩放。
 - `ICEComponent.renderTo(targetCtx, baseMatrix)`：渲染期间临时重定向 `this.ctx`，
   最终 CTM = `baseMatrix · composedMatrix`（`baseMatrix` 把世界盒平移到离屏左上角）。`render()` 语义不变。
+  ⚠️ **只画「组件自己」，不遍历子组件** —— 子组件由渲染队列逐个绘制（`ObjectCache` / 静态层都是逐组件
+  调用它）。应用要**把一棵子树**画进离屏画布（批量精灵 / 导出缩略图 / 服务端出图）时用
+  `renderSubtreeTo(component, ctx, baseMatrix)`（2026-09-21 新增）：它按**与渲染队列 / SVG 导出同源**
+  的绘制次序递归（`paintOrderChildrenOf`：先父后子、同级派生件在前、各自按 `zIndex` 升序），
+  因此离屏结果与上屏逐像素一致。对复合组件只调一次 `renderTo()` 会得到**空白位图** ——
+  `ice-entity-designer` 的虚拟文档批量精灵就这样产出过 21 张全空位图（"只有管线、一个图元都没有"）。
 - 缓存决策（`ObjectCache.render`）：
   - 未 dirty 且已有 cache → 直接贴图；
   - dirty → 先 `refreshParams()` **按需**刷新派生状态（只有自身派生参数变脏时才重算点集 / 文本量测；

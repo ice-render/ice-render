@@ -221,6 +221,13 @@ export type { ICEError, ICEErrorCode, ICEErrorDetails } from './util/errors';
  */
 export { default as Z_INDEX_AUTO } from './consts/Z_INDEX_AUTO';
 export { paintOrderChildrenOf, sortSiblingsByZIndex, zIndexOf, zIndexForPaintRank } from './util/data-util';
+/**
+ * 把**一棵子树**渲染到指定上下文（离屏 / 服务端出图 / 应用自己做批量精灵）。
+ *
+ * 与 `renderTo()` 的区别见函数注释：`renderTo()` 只画组件自己，本函数按渲染队列同源的
+ * 绘制次序递归整棵子树 —— 应用对复合组件出图时应该用这个。
+ */
+export { renderSubtreeTo } from './renderer/render-subtree';
 export { buildAccessibilityTree } from './a11y/accessibility';
 export type { ICEAccessibleNode, ICEAccessibleRole, ICEAccessibilityOptions } from './a11y/accessibility';
 
