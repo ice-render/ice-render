@@ -11,140 +11,38 @@
   <img src="https://img.shields.io/badge/TypeScript-100%25-3178c6.svg" alt="TypeScript">
 </p>
 
-ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 ER 图 / 流程图 / 拓扑图等图表编辑场景。它借鉴 React 的组件模型与 W3C 的事件模型，提供嵌套坐标系、序列化、动画、Visio 风格连接线等能力，同时以「极简依赖 + 多运行时兼容 + 高性能」为设计约束。
+ICERender 是一款 **Canvas 2D 交互图形渲染引擎**，面向 **ER 图 / 流程图 / 工艺图（给排水、电力二次）/ 拓扑图 / 大画布编辑器**。
+它借鉴 React 的组件模型与 W3C 的事件模型，提供嵌套坐标系、序列化、动画与 Visio 风格连接线；
+三条设计约束贯穿始终：**零运行时依赖**、**浏览器与 Node 双运行时**、**大规模下的内存与帧率**。
 
-## ⭐ 差异化能力
+> 当前版本 **4.3.0** · 变更见 [CHANGELOG.md](./CHANGELOG.md) · 文档站 <https://ice-render.github.io/ice-render-doc/>
+> 要求：**现代浏览器**或 **Node ≥ 18**；包体提供 ESM / CJS / UMD 三种格式。
+> 引擎对较新规范成员（`Path2D.roundRect` / `PointerEvent` / `Intl.Segmenter` / `ResizeObserver`…）都做了特性检测与等价回退，
+> 但**回归与基准目前只在 Chromium 上跑**（Playwright + 无头），其他浏览器请以自测为准。
 
-以下三点是本引擎在同类 Canvas 图形引擎中较少同时具备的能力，且都有回归测试或基准数据支撑。
+## ⭐ 三条差异化能力
 
-**1. 极端规模下的内存与构建效率**
+### 1. 大文档、小窗口：看不见的图元根本不存在（虚拟子源）
 
-- **默认配置不复制（实例侧）** —— 所有实例原型继承同一份默认 `props` / `state`，只有显式传入的字段才落到实例上；嵌套对象在合并时才做写时复制。**例外是 `style`**：它是每实例按当前主题派生的对象（共享会串味），实例的 `style` 各有一份。
-- **挂载去重为 O(1)** —— 用 `WeakSet`，批量挂载不再有 `indexOf` 的 O(n²) 放大。
-- **实测**（2026-09-15，Apple Silicon 开发机，`npm run bench:mem`：node + 每档独立进程 + 造对象前后各两次 gc 的**真增量**）：
-  **100 万个最小矩形的堆增量约 2.3GB（2.4KB/图元；10 万 ≈232MB、50 万 ≈1.16GB）**；
-  同一场景把整份默认表显式传给每个实例约 7.4GB（3.3×）——而"默认配置"（`props` + `state`）那部分只占 **0.98KB/图元**。
-  这类数字跨机器会差数倍，以本机 `npm run bench:mem` 为准；**100 万图元构建约 6s** 是 2026-09-10 示例页的数据（本轮未复测）。
-- **回归**：`tests/graphic/ICEComponent.props-sharing.test.ts`、`tests/ICE.add-child.test.ts`；内存基准 `npm run bench:mem`（已纳入 `verify:full`），其余微基准见 `bench/micro/`。
+容器挂一份应用提供的**列存文档**（`childSource`），引擎按可见窗口向它要**批量落墨**；
+点到某个批量图元时再由应用物化一个真组件、引擎把 `evt.target` 重定向过去 ——
+选中 / 控制面板 / 拖动 / 对齐参考线**零改动**可用。典型场景：厂站工艺图、管网图、地图、大画布编辑器。
 
-**2. 局部重绘是一条可证明的像素契约**
+代价是应用要提供列存 + 空间索引 + `paint()`（IED 的参考实现约 350 行）。
 
-- 默认渲染路径为**脏矩形局部重绘**，不满足局部条件时自动回退全量；`ICE.init(ctx, { renderMode: 'full' })` 可强制全量。
-  同一个入口还接外壳配置：`ICE.init(ctx, { dpr })`（高分屏）与
-  `ICE.init(ctx, { controlPanel: { resizeControlSize, rotateControlSize, rotateControlOffsetY, lineControlSize } })`
-  （变换/连线手柄的尺寸，默认 16 / 8 / 60 / 16）。
-- 为保证两条路径**逐像素一致**，每个组件在 `render()` 末尾把自身污染过的 `ctx` 全局状态（阴影 / `globalAlpha` / 合成模式 / 虚线等）归位，使组件渲染自包含。
-- 用 golden image 做像素一致性回归（`e2e/visual/dirty-rect-pixel.spec.ts`），覆盖文本、参数化图元、半透明落墨等场景。
-- 配套优化：组件级离屏缓存（含纯平移复用位图）、渲染队列缓存、矩阵零分配。
-  **性能数字请以本机 `npm run bench 5000` 的输出为准**（引擎 JS 逻辑开销，不含光栅化）：
-  2026-09-11 在 Apple Silicon 开发机上实测 **约 2.2ms/帧**（场景 A 静态重绘，5000 图元、多层嵌套）。
-  这里刻意不再写一个固定数字 —— 这类数字跨机器可差数倍，写死就会像本文旧版本那样变成不可复现的宣称。
+### 2. 局部重绘是一条可证明的像素契约
 
-**3. 浏览器与 Node 双运行时，不依赖任何专有 API**
+默认渲染路径是**脏矩形局部重绘**（不满足局部条件时自动回退全量，`renderMode: 'full'` 可强制全量）。
+为保证两条路径**逐像素一致**，每个组件在 `render()` 末尾把自身污染过的 ctx 全局状态（阴影 / `globalAlpha` /
+合成模式 / 虚线等）归位，使组件渲染自包含；配套组件级离屏缓存（含纯平移复用位图）、静态层与渲染队列缓存。
+这条契约由 golden image 与像素一致性回归守着（`e2e/visual/dirty-rect-pixel.spec.ts` 等）。
 
-- 目标运行时只有两个：**现代浏览器**与 **Node / headless**（服务端出图、单测、React 服务端渲染）。
-  所有全局对象访问收敛到 `cross-platform/root` 适配层；没有小程序适配层。
-- **路径几何可导出**：路径对象一律走 `Path2DRecorder`（一边转发原生 `Path2D`、一边记录命令流），
-  于是同一份场景既能上屏，也能导出 SVG 与断言形状（见 `docs/architecture/08-compatibility.md`）。
-- `ICE.init(ctx)` 支持直接传入 Canvas 上下文，绕开 DOM —— 测试与 headless 场景用得上。
-- **无 rAF 时用定时器兜底**（Node / headless），引擎在这些环境里也能启动、出帧。
+### 3. 浏览器 + Node 双运行时，零运行时依赖
 
-> ⚠️ 2026-09-20 起**不再支持小程序**（此前是"一等公民"）：`wx.*` 适配、无 `Path2D` 时的命令重放、
-> 「小程序形状运行时」回归夹具与该示例都已移除。见 CHANGELOG 的破坏性小节。
-
-## ✨ 核心特性
-
-**架构与组件模型**
-
-- **声明式渐变（可序列化）** —— `style.fillGradient` / `style.strokeGradient` 用纯对象描述
-  `linear` / `radial` / `conic` 渐变（`{ type, from/to | center/radius | startAngle, stops }`），
-  渲染时构造 `CanvasGradient` 并按描述对象引用缓存。与手搓 `CanvasGradient` 的关键差别是
-  **能进 JSON**（存盘不丢）且**能写进主题 preset**（随 `setTheme` 重新展开）。
-- **主题与样式：四层 token + 主题引用 + 状态样式** ——
-  ① base（色 ramp / spacing / radius / fontSize）→ ② semantic（primary / text / border / palette / motion）
-  → ③ chrome（选中框 / 手柄 / 插槽 / 引导线 / 连线标签 / 选区 / 阴影色）→ ④ preset（card / panel / button …）。
-  样式里可以直接**引用** token：`style: { fillStyle: token('primary') }`，**在绘制那一刻解析**，
-  所以 `setTheme()` 之后任意组件（不只是用了 preset 的）都会跟着换；
-  交互状态用 `states: { hover, active, selected, disabled, focus }` 声明，
-  引擎提供 `setInteractionState()` 与可选的自动驱动（`ice.enableInteractionStates()`）；
-  主题支持**深合并**（`{ motion: { duration: { fast: 50 } } }` 不会抹掉 `easing`）、
-  **子树作用域**（`new ICEGroup({ theme: {...} })`）、**进快照**（`theme: { name | patch }`）、
-  **变更通知**（`ice.onThemeChange(fn)`：上层能被动跟随，不必等下一次重建）、
-  **结构化校验**（`ice.validateTheme()`：拼错内置 token / 类型不对 / WCAG 对比度不足；
-  应用自带词汇只给 `info`，因为 `$app.highlight` 这类引用是能被解析的）。
-  命名主题注册有护栏：内置 `default` / `dark` 不可覆盖、重复注册抛错（要覆盖显式传 `{ overwrite: true }`）。
-  细节见 [`docs/architecture/21-theme-and-style.md`](./docs/architecture/21-theme-and-style.md)。
-- **`display: false` 是整棵子树隐藏** —— 隐藏父容器后子组件不再被绘制、也不参与命中
-  （判定收敛在 `isEffectivelyVisible()`，渲染/命中/a11y/离屏缓存共用）。
-- **变换手柄支持修改键约束** —— `Shift` 拖角手柄保持宽高比、`Shift` 拖旋转手柄吸附 15°。
-  输入层会把 DOM 事件的修饰键显式透传到组件事件（`shiftKey` 是原型上的不可枚举 getter，
-  默认拷贝带不过来）。
-- **脏矩形局部重绘在缩放/平移与高分屏下同样生效** —— 脏区按「世界坐标收集、渲染坐标裁剪」
-  （`dpr · viewport` 一次换算），并把分散脏区聚合成多块裁剪区，而不是并成一个把干净区域也圈进去的大盒。
-- **零运行时依赖** —— `gl-matrix` 在构建时被**内联**进产物（它只列在 devDependencies，产物里没有任何 `import`/`require`），安装后开箱即用，不需要额外装包。内联的第三方代码保留其许可声明，见 `dist/THIRD-PARTY-NOTICES.txt`。
-- **纯 TypeScript** —— 100% TS 源码，产出完整的 `.d.ts` 类型声明，`tsc --noEmit` 零错误。
-- **React 式组件模型** —— `props`（不可变构造入参）/ `state`（可变运行时状态）分离，`render()` 模板方法 + 清晰的类继承体系。
-- **无限嵌套容器** —— `ICEGroup` 可任意嵌套，形成组件树。
-
-**文本与国际化**
-
-- **断行策略** —— `wrap` 开启后按 `wordBreak: 'normal'`（默认）断行：拉丁词不被硬拆、
-  CJK 逐字断并做**禁则**（行首不放闭标点、行尾不放开标点）、**泰/老/高棉/缅甸这类无空格脚本
-  按词典分词断行**（复用运行时的 `Intl.Segmenter` word 粒度，宿主不支持则退回逐字），
-  单个词整行放不下时才硬拆；`'break-all'` 保留逐字贪心（代码 / 艺术字场景）。
-- **文字方向（RTL / BiDi）** —— `direction: 'ltr' | 'rtl' | 'auto'` 与 `textAlign: 'start' | 'end'`：
-  `'auto'` 按首个强方向字符判定，写 `ctx.direction` 前做**特性检测**、渲染完归位；
-  SVG 导出同口径（`direction` + 按方向映射的 `text-anchor`）。
-- **溢出截断（不变形）** —— 文本放不下盒子时按宽度截断并追加省略号（`textOverflow: 'ellipsis'`，默认），
-  也可以用 `textOverflow: 'clip'` 允许溢出交给调用方裁；多行配合 `maxLines` 截末行。
-  **绝不压字形**：以前把盒子宽度当 `fillText(..., maxWidth)` 传下去，canvas 会把文字横向挤扁
-  （长中文尤其明显），现在这条路径已经去掉。
-- **i18n 边界** —— 引擎**不做 i18n**（没有词条表、没有 locale 状态）：词条、复数与 `Intl`
-  格式化归应用层，组件库的内置文案可配置且不持全局状态；引擎只负责断行、方向、输入法，
-  并让错误带**稳定错误码**（`ICE_ERROR_CODES` / `getICEErrorCode(err)`，应用据此映射自己的语言包）。
-  完整契约见 [`docs/architecture/17-i18n-boundary.md`](./docs/architecture/17-i18n-boundary.md)。
-
-**坐标系与变换**
-
-- **完整仿射变换** —— 平移 / 缩放 / 旋转 / 错切（skew），基于 `gl-matrix` 的列向量 `mat2d` 约定。
-- **嵌套坐标系** —— 子组件自动复合祖先变换，`localToGlobal` / `globalToLocal` 双向换算；支持在嵌套场景下做全局位移与旋转。
-- **容器移动时后代自动跟随** —— `setPosition()` 会向所有后代**递归派发 `AFTER_MOVE`**（只派发事件、
-  不改任何 state）：容器移动后，订阅了宿主事件的组件（如 `ICEPolyLine` 监听两端图元重算折点）
-  会自动跟上，应用层不必手动遍历子树。`BEFORE_MOVE` 仍只给被移动的组件自己。
-- **HiDPI** —— `ICE.init(el, { dpr })` 把 backing store 放大到内容盒尺寸 × dpr（默认 1，行为与旧版一致）。
-
-**交互与连接线**
-
-- **统一输入层** —— 鼠标 / 触控 / 触控笔 / 滚轮收敛到 Pointer 事件族（无 `PointerEvent` 的运行时自动回退 `mouse* + touch*`）；完整事件系统（`on/off/once/trigger` 及 W3C 别名），支持拖拽与方向键微调。
-- **变换控制面板** —— 选中组件后出现旋转 / 缩放手柄。
-- **连接线形态可切换** —— 同一套「插槽吸附」之上可选 **Visio 正交折线**（默认）或**普通贝塞尔曲线**
-  （`linkShape: 'visio' | 'bezier'`）：贝塞尔沿插槽法线出/入，控制点长度随两端距离自适应。
-- **Visio 风格连接线** —— 端点插槽吸附（上 / 右 / 下 / 左 / 中心五个方向），建立组件间的连线关系；
-  正交路由会**避障**：把走廊里的其他图元当障碍绕开（逐个绕，绕不开时按"挡路图元的并集"再绕一轮），
-  给排水工艺图实测 37 条管线由 24 处穿线降到 **0**；
-  端点箭头**默认实心**（用线色填充），`arrowStyle: 'hollow'` 可切回空心描边。
-- **视口缩放 / 平移** —— `setViewport()` 与锚点缩放 `zoomAt(screenX, screenY, factor)`；「视图缩放」与「图元缩放」严格分离。
-- **对齐吸附** —— 边缘 / 中心 / 等间距吸附与提示线，默认关闭、按需 `enable()`（零开销）。
-
-**扩展与可访问性**
-
-- **插件机制** —— `ICE.use(plugin)` 开放三层注册点：自定义图元类型（`components` 的键是 canonical typeId，形如 `'my-app:Badge'`，格式非法或与已注册类型冲突会明确抛错；自动获得 typeId 反查，因此可序列化）、每帧渲染回调、自定义交互工具。
-- **无障碍原语** —— `getAccessibilityTree()` 产出可访问节点快照（角色 / 可读名称 / 屏幕坐标盒 / tab 顺序），`setFocusedComponent()` 让键盘事件派发给焦点组件。**引擎不自建 DOM 镜像层**：镜像结构、ARIA 与文案由应用层决定（参考实现见 `examples/a11y/`）。
-
-**序列化与动画**
-
-- **整图序列化** —— 组件树可序列化为 JSON 字符串并无损反序列化；类型键用**稳定 typeId**（格式为 `namespace:Type`，如 `ice-render:Rect`、`ice-chart:PlotArea`；由构造函数反查得到，与类的 JS 名解耦，压缩改名不影响已存数据），带 `version` 字段与可扩展迁移表；未注册类型跳过并记录而不是整份数据打不开。自定义组件用 `registerType('my-app:Badge', Badge)` 注册后才能持久化与加载 —— **同一个 typeId 注册不同构造函数、或同一个构造函数注册第二个 typeId 都会明确抛错**，不再静默覆盖。
-- **产物自带文档时间戳** —— `createTime` / `lastModifyTime` 是 ISO 8601 UTC（与运行环境的语言、时区无关，可直接排序与解析）；`createTime` 表示「这份文档首次创建的时刻」，载入时读回、`ice.clearAll()` 后重新计，所以「打开 → 编辑 → 保存」里只有 `lastModifyTime` 在变。
-- **关键帧动画** —— 动画配置类似 CSS `keyframes`：单段 `{ from, to, duration }` 或
-  多段 `{ keyframes: [{ offset, value, easing? }], duration }`（`easing` 写在段起始帧上，只作用于该段；
-  `offset` 缺省按顺序均分、超界夹紧）。内置线性 / 缓入 / 缓出等缓动函数与**弹簧类缓动**
-  （`spring` / `springSoft` / `springSnappy`，自带过冲）；支持 `delay`、`loop`、`iterationCount`、
-  `round`；动画键可为 `'transform.rotate'` 这类**点路径**，取值可为**数组**（`transform.scale` 等逐元素补间）。
-
-**性能与工程质量**
-
-- **高性能** —— 脏标记 + **脏矩形局部重绘**（默认，不满足局部条件时自动回退全量），配合组件级离屏缓存、渲染队列缓存与矩阵零分配。性能数字以**本机** `npm run bench 5000` 为准（2026-09-11 在 Apple Silicon 开发机上实测约 2.2ms/帧，见上文第 2 条「局部重绘」）。
-- **完整工程化** —— **153 个测试套件 / 1284 个用例**（jest，带「只许上调」的覆盖率门槛，2026-09-19 实测）、Playwright 可视化回归（103 条：golden-image + 脏矩形像素一致性 + 视口/对齐/交互 + 94 个示例页冒烟）、发布包完整性门禁（`publint` + `attw`）、eslint、架构设计文档。
+目标运行时只有两个：**现代浏览器**与 **Node / headless**。所有全局对象访问收敛到 `cross-platform/root` 适配层，
+无 rAF 时用定时器兜底；`ICE.init(ctx)` 可直接传 Canvas 上下文绕开 DOM，`ICE.headless()` 用于服务端建树与出图。
+路径对象一律走 `Path2DRecorder`（一边转发原生 `Path2D` 上屏、一边记录命令流），因此**同一份场景**既能上屏、
+又能导出 SVG、还能用断言校验形状，不需要 canvas。
 
 ## 🚀 快速开始
 
@@ -177,48 +75,10 @@ const ice = new ICE().init('canvas-1');
 ice.addChild(new ICERect({ width: 100, height: 50 }));
 ```
 
-发布包提供 **ESM（`dist/index.mjs`）/ CJS（`dist/index.cjs`）/ UMD（`dist/index.umd.js`）** 三种格式。
-
-### 接下来：写一个「页面」
-
-上面的例子是**引擎原语** —— 画一个图形、加一个子节点。但一个应用里真正要写的是**页面**：
-若干控件、数据由宿主推给你、切换 / 刷新时只改值不重建结构。那种情况下别继续堆
-`ice.addChild(...)`，家族统一的写法是**一页一个类**：
-
-```ts
-import { ICEContainer, ICELabel, ICETable } from 'ice-web-components';
-
-class DataPage extends ICEContainer {
-  private readonly table: ICETable;                 // ① 构造期建树，树只建一次
-
-  constructor(ctx: { width: number; height: number }) {
-    super({ left: 0, top: 0, width: ctx.width, height: ctx.height });
-    this.addChild(new ICELabel({ left: 16, top: 12, text: '运行数据' }));
-    this.table = new ICETable({ left: 16, top: 48, width: ctx.width - 32 });
-    this.addChild(this.table);
-  }
-
-  /** ② 唯一改值入口：宿主在"数据换成新的"之后调它 */
-  onUpdate(snapshot: { rows: any[] }): void {
-    this.table.setData(snapshot.rows);
-  }
-}
-```
-
-三条判据说明"什么时候该从脚本升级成页面"：**有第二个页面**、**数据由宿主推给你**、
-**同一块结构要反复改值**。页面自己**不回调宿主**（要宿主做事就声明 `headerActions()` /
-`statusTags()` / `islandSpecs()`，宿主来取）。
-
-完整契约（宿主在什么时机调 `onUpdate()`、哪一层该用哪个入口、稳定结构与可变内容的边界、
-验收清单、常见坑）见
-[应用层：一个页面怎么写](https://ice-render.github.io/ice-render-doc/docs/conventions/app-pages)。
-组件库侧对应的容器契约见 [`ice-web-components`](https://github.com/ice-render/ice-web-components)
-的 `docs/guides/layout.md` 第六节。
-
 ### 事件：先订阅，再渲染
 
-组件与全局总线（`ice.evtBus`）共用一套 API。**组件上用 `on` / `off` / `once`，DOM 元素才用
-`addEventListener`** —— 两套在组件上是**同一个实现、两种参数形状**，不存在"哪套更强"。
+组件与全局总线（`ice.evtBus`）共用一套 API。**组件上用 `on` / `off` / `once`，DOM 元素才用 `addEventListener`**
+—— 两套在组件上是**同一个实现、两种参数形状**。
 
 ```js
 const rect = new ICERect({ left: 100, top: 100, width: 120, height: 80 });
@@ -235,41 +95,31 @@ ice.evtBus.on('click', (evt) => console.log('总线最后收到一次：', evt.p
 ```
 
 派发路径固定三段：**命中组件（`AT_TARGET`）→ 各级父容器（`BUBBLING_PHASE`）→ 全局总线（最后收一次）**。
-`evt.target` 恒为命中的组件，`evt.currentTarget` 随"正在处理它的组件"走；
-`stopPropagation()` 只挡祖先、**挡不住总线**（总线是引擎内部通道）；容器只想认「点在自己身上」用
-`evt.target === this` 守卫。
+`evt.target` 恒为命中的组件、`evt.currentTarget` 随"正在处理它的组件"走；`stopPropagation()` 只挡祖先、
+**挡不住总线**（总线是引擎内部通道）；容器只想认「点在自己身上」用 `evt.target === this` 守卫。
 
-完整口径（两套 API 的对应关系、常见困惑排查表、从 2.17 升级要改的三处）见
-[事件系统](https://ice-render.github.io/ice-render-doc/docs/guide/events)；
-可运行示例见 [`examples/event/`](./examples/event)（冒泡 / 键盘 / 双击 / 总线 / POJO 事件）。
+完整口径见 [事件系统](https://ice-render.github.io/ice-render-doc/docs/guide/events)，
+可运行示例在 [`examples/event/`](./examples/event)。
 
 ### 导出 SVG（矢量，不依赖 canvas）
 
-画布的 `toDataURL()` / `toBlob()` 是**光栅快照**（分辨率写死、放大就糊）。引擎的路径对象是
-`Path2DRecorder`：一边把命令写给原生 Path2D 上屏、一边留下**命令流**，所以同一份场景可以再生成
-一份**矢量描述**——任意放大、进 Illustrator/Figma、走打印/PDF 流程，或者在 Node 里出图（不需要 canvas）。
+画布的 `toDataURL()` / `toBlob()` 是**光栅快照**（分辨率写死、放大就糊）。引擎的路径对象保留**命令流**，
+所以同一份场景能再生成一份**矢量描述**——任意放大、进 Illustrator / Figma、走打印 / PDF 流程，
+或者在 Node 里出图（不需要 canvas）。
 
 ```javascript
-const svg = ice.toSvg();                                    // 内容自适应 + 透明背景
-const svg = ice.toSvg({ background: '#ffffff', padding: 16 }); // 白底 + 留白
-const svg = ice.toSvg({ area: 'viewport' });                 // 当前视口所见即所得
-const { svg, width, height } = ice.toSvgResult({ scale: 2 }); // 需要宽高（写文件/排版预览）
+const svg = ice.toSvg();                                       // 内容自适应 + 透明背景
+const svg = ice.toSvg({ background: '#ffffff', padding: 16 });  // 白底 + 留白
+const svg = ice.toSvg({ area: 'viewport' });                    // 当前视口所见即所得
+const { svg, width, height } = ice.toSvgResult({ scale: 2 });   // 需要宽高（写文件 / 排版预览）
 
-// 不在浏览器里也能用：Node 侧同样导出（路径命令流不依赖 canvas）
+// 不在浏览器里也能用（路径命令流不依赖 canvas）
 const svg = exportSvg(ice);   // 或 exportSvg(任意组件) 导出子树
 ```
 
-导出**镜像渲染口径**而不是另起一套：绘制顺序（z 序稳定排序、工具层默认排除）、每个组件的
-`composeMatrix()` 世界矩阵、`props.style`/`state.style` 的合并顺序、有效透明度（自身 × 祖先）、
-祖先 `clipChildren` 裁剪、阴影预设（`sm`/`md`/`lg`）、线性/径向渐变、虚线都按同一份口径落到 SVG。
-
-限制（都会明确写进 JSDoc）：阴影用 `feDropShadow` 近似（`stdDeviation = shadowBlur / 2`，模糊观感
-与 canvas 不会逐像素一致）；雪碧图切图（`sx/sy/sw/sh`）暂不支持；文本导出的是**静态瞬间**，
-且 SVG 与 canvas 的字形度量/基线定义不同，因此导出的文字位置是「对齐口径一致、逐像素允许微差」。
-
-可运行示例：`examples/export/svg-export.html`（画布与 SVG 并排对比，可调背景/留白/倍数、勾选是否
-包含工具层），以及 `examples/node/export.mjs`（**服务端出图**：`ICE.headless()` 建树 → `toSvg()`
-落盘，装了 `@resvg/resvg-js` 时再转一张 2× PNG）。
+导出**镜像渲染口径**而不是另起一套：绘制顺序、世界矩阵、`props.style` / `state.style` 合并顺序、
+有效透明度、祖先 `clipChildren`、阴影预设、线性 / 径向渐变、虚线都按同一份口径落到 SVG。
+限制（阴影用 `feDropShadow` 近似、雪碧图切图暂不支持、文本为静态瞬间且字形度量允许微差）都写在 JSDoc 里。
 
 ```js
 // 服务端（Node，没有 document / canvas）
@@ -279,31 +129,165 @@ ice.addChild(new ICERect({ width: 240, height: 120, radius: 12, style: { fillSty
 const svg = ice.toSvg({ padding: 16, background: '#ffffff' });
 ```
 
-PNG / PDF 不内置依赖：SVG 是通用中间格式，`resvg`、`sharp`、`rsvg-convert`、headless Chrome
-打印都能接着走 —— 引擎保持零运行时依赖。
+PNG / PDF 不内置依赖：SVG 是通用中间格式，`resvg`、`sharp`、`rsvg-convert`、headless Chrome 打印都能接着走
+—— 引擎保持零运行时依赖。示例：`examples/export/svg-export.html`、`examples/node/export.mjs`。
 
-## 📚 文档
+## ✨ 核心特性
 
-- **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：共 22 篇 —— 运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件 / 序列化 / 交互动画 / 多运行时兼容 / 路线图与边界 / Worker 与离屏渲染 / 视口缩放 / 对齐吸附 / 能力缺口分析 / 无障碍 / 应用驱动复盘 / 连线端点（插槽）扩展评估 / 主题与样式机制 / 布局（LayoutManager）。
-- **示例** —— [`examples/`](./examples/index.html) 目录提供 **94 个**可直接在浏览器运行的示例（图形、容器、事件、拖拽、连接线、动画、布局、文本、视口、对齐、插件、无障碍、性能基准等）。
+**架构与组件模型**
 
-## 🧪 工程化
+- **React 式组件模型** —— `props`（不可变构造入参）/ `state`（可变运行时状态）分离，`render()` 模板方法 + 清晰的类继承体系；`ICEGroup` 可无限嵌套。
+- **默认配置原型共享（实例侧）** —— 所有实例原型继承同一份默认 `props` / `state`，只有显式传入的字段才落到实例上；嵌套对象在合并时才写时复制。**例外是 `style`**：它按当前主题每实例派生（共享会串味）。
+- **`display: false` 是整棵子树隐藏** —— 隐藏父容器后子组件不再绘制、也不参与命中（判定收敛在 `isEffectivelyVisible()`，渲染 / 命中 / a11y / 离屏缓存共用）。
+- **声明式渐变（可序列化）** —— `style.fillGradient` / `style.strokeGradient` 用纯对象描述 `linear` / `radial` / `conic`，**能进 JSON**（存盘不丢）且**能写进主题 preset**（随 `setTheme` 重新展开）。
+
+**坐标系与变换**
+
+- **完整仿射变换** —— 平移 / 缩放 / 旋转 / 错切（skew），基于 `gl-matrix` 的列向量 `mat2d` 约定（构建期内联，运行时零依赖）。
+- **嵌套坐标系** —— 子组件自动复合祖先变换，`localToGlobal` / `globalToLocal` 双向换算；容器移动时向所有后代递归派发 `AFTER_MOVE`（只派发事件、不改 state），订阅了宿主事件的组件自动跟上。
+- **视口与图元分离** —— `setViewport()` 与锚点缩放 `zoomAt(screenX, screenY, factor)` 只动视图，**不与图元自身的缩放混淆**；视口变化不再触发渲染队列重建。
+- **HiDPI** —— `ICE.init(el, { dpr })` 把 backing store 放大到内容盒尺寸 × dpr。
+
+**交互与连接线**
+
+- **统一输入层** —— 鼠标 / 触控 / 触控笔 / 滚轮收敛到 Pointer 事件族（无 `PointerEvent` 的运行时回退 `mouse* + touch*`）；拖拽、方向键微调、修饰键透传（`Shift` 拖角手柄保持宽高比、`Shift` 拖旋转手柄吸附 15°）。
+- **Visio 风格连接线** —— 端点插槽吸附（上 / 右 / 下 / 左 / 中心），正交路由**避障**（把走廊里的其他图元当障碍绕开；给排水工艺图实测 37 条管线由 24 处穿线降到 **0**）；`linkShape: 'visio' | 'bezier'` 可切换折线 / 贝塞尔，端点箭头默认实心（`arrowStyle: 'hollow'` 切空心）。
+- **对齐吸附** —— 边缘 / 中心 / 等间距吸附与提示线，默认关闭、按需 `alignmentGuide.enable()`（未启用零开销）。
+- **变换控制面板** —— 选中后出现旋转 / 缩放手柄，尺寸可配。
+
+**文本与国际化**
+
+- **断行策略** —— `wrap` 后按 `wordBreak: 'normal'`（默认）：拉丁词不硬拆、CJK 逐字断并做**禁则**、泰 / 老 / 高棉 / 缅甸等无空格脚本按 `Intl.Segmenter` 词典分词断行（不支持则退回逐字）。
+- **文字方向（RTL / BiDi）** —— `direction: 'ltr' | 'rtl' | 'auto'` 与 `textAlign: 'start' | 'end'`，写 `ctx.direction` 前做特性检测、渲染完归位；SVG 导出同口径。
+- **溢出截断不变形** —— 放不下按宽度截断加省略号（`textOverflow: 'ellipsis'`，默认），多名行配合 `maxLines`；**绝不压字形**（不再把盒子宽度当 `fillText` 的 `maxWidth`）。
+- **i18n 边界** —— 引擎**不做 i18n**：词条、复数与 `Intl` 格式化归应用层；引擎只负责断行、方向、输入法与**稳定错误码**（`ICE_ERROR_CODES`）。契约见 [`docs/architecture/17-i18n-boundary.md`](./docs/architecture/17-i18n-boundary.md)。
+
+**主题与样式**
+
+- **四层 token** —— base（色 ramp / spacing / radius / fontSize）→ semantic（primary / text / border / palette / motion）→ chrome（选中框 / 手柄 / 插槽 / 引导线 / 连线标签 / 选区 / 阴影色）→ preset（card / panel / button …）。
+- **主题引用在绘制那一刻解析** —— `style: { fillStyle: token('primary') }`，`setTheme()` 之后**任意组件**（不只是用了 preset 的）都会跟着换；交互状态用 `states: { hover, active, selected, disabled, focus }` 声明。
+- **主题能力** —— 深合并、子树作用域（`new ICEGroup({ theme })`）、进快照（`theme: { name | patch }`）、变更通知（`ice.onThemeChange(fn)`）、结构化校验（`ice.validateTheme()`：拼错 token / 类型不对 / WCAG 对比度不足）、命名主题注册护栏（内置 `default` / `dark` 不可覆盖，重复注册抛错）。
+- 机制细节见 [`docs/architecture/21-theme-and-style.md`](./docs/architecture/21-theme-and-style.md)。
+
+**序列化与动画**
+
+- **整图序列化** —— 组件树可无损序列化 / 反序列化；类型键用**稳定 typeId**（`namespace:Type`，如 `ice-render:Rect`，由构造函数反查，与类名解耦，压缩改名不影响已存数据），带 `version` 与迁移表；未注册类型跳过并记录而不是整份数据打不开。同一 typeId 注册不同构造函数、或同一构造函数注册第二个 typeId 都**明确抛错**。
+- **文档时间戳** —— `createTime` / `lastModifyTime` 是 ISO 8601 UTC（与语言、时区无关，可直接排序）；`createTime` 表示首次创建时刻，载入时读回、`clearAll()` 后重新计。
+- **关键帧动画** —— 单段 `{ from, to, duration }` 或多段 `{ keyframes: [{ offset, value, easing? }], duration }`；内置缓动 + **弹簧类缓动**（`spring` / `springSoft` / `springSnappy`，自带过冲）；支持 `delay` / `loop` / `iterationCount` / `round`，动画键可为 `'transform.rotate'` 这类点路径，取值可为数组。
+- **动画写值通道** —— `setState(patch, { paramsDirty: false })` + `ANIMATION_SAFE_KEYS` 白名单让纯绘制 / 变换键**复用离屏位图**（1,000 个文本平移动画 35.1ms → 2.7ms/帧）；`ice.setContinuousFrames(true)` 供应用自行做逐帧计算（空闲停帧默认开启）。
+
+**Worker 镜像与虚拟化（4.0 起）**
+
+- **Worker / OffscreenCanvas 镜像渲染** —— `new ICE.MirrorHost({ canvas, ice, workerUrl })` 一行把落墨通道交给 Worker：主线程持有组件树与状态（唯一真相，命中检测也在主线程），Worker 持镜像树只负责画，位图用 `transferToImageBitmap` 回传（`transferCanvas: true` 可直绘省掉回传）。
+- **起不来就回退** —— `MirrorHost.detect()` 启动前探测 + 运行期看门狗，任一失败立即还原落墨通道并用主线程重绘一帧；不支持的浏览器上页面与"从没接过 worker"完全一致。帧节拍有背压（至多一帧在途），镜像滞后上界是一次往返。
+- **虚拟子源（`ICVirtualLayer` + `VirtualChildSource`）** —— 见上文「差异化能力 1」；配套 `paintToSvg` 全量导出、`virtual` + `virtualIndex` 序列化契约（`registerVirtualSource` 重建）、`applyPatch` / `onChildPatched` 文档补丁入口、`syncVirtualWindow` 窗口物化循环、`diagnoseVirtualSource` 自检。引擎侧的契约回归在 `tests/graphic/virtual-*.test.ts`；**应用侧参考实现**见 IED 的 `examples/water-large.html`（2 万符号厂站图）。
+- **LOD** —— `renderer.setLodMinDeviceArea(px²)`（默认 `0` = 关闭）：设备像素面积小于阈值的图元不画，缩略视图下 10 万图元整屏重绘 237.5ms → **107.3ms（−54.8%）**；1× 场景无亚像素图元、收益为 0，所以默认关闭对既有场景零影响。
+
+**扩展与可访问性**
+
+- **插件机制** —— `ICE.use(plugin)` 开放三层注册点：自定义图元类型、每帧渲染回调、自定义交互工具；`registerType('my-app:Badge', Badge)` 注册后即可持久化与加载。
+- **无障碍原语** —— `getAccessibilityTree()` 产出可访问节点快照（角色 / 可读名称 / 屏幕坐标盒 / tab 顺序），`setFocusedComponent()` 让键盘事件派发给焦点组件。**引擎不自建 DOM 镜像层**：镜像结构、ARIA 与文案由应用层决定（参考实现见 `examples/a11y/`）。
+
+**出图与离屏**
+
+- **`ICEComponent.renderTo(ctx, baseMatrix)`** —— 把**单个组件**渲染到指定上下文（组件级离屏缓存用的就是它），**不遍历子组件**。
+- **`renderSubtreeTo(component, ctx, baseMatrix)`（4.3.0 新增）** —— 把**一棵子树**渲染到指定上下文，次序与渲染队列 / SVG 导出同源（先父后子、同级派生件在前、各自按 `zIndex` 升序）。批量精灵、导出缩略图、服务端出图都应该用它；对复合组件只调一次 `renderTo()` 只会得到一张空白位图。
+
+## 📈 规模与性能
+
+> **口径**：Apple M4 / Chrome 153 / 1600×1000 / dpr=1，真机（CDP 接管可见窗口）与无头各跑一遍，
+> `examples/performance/bench-scene.html` 与 `max-elements.html`，每档开新页面、取 p50。
+> **数字跨机器会差数倍**——以本机 `npm run bench*` 的输出为准；仓库里的基准都带**棘轮基线**（`--check` 漂了就红）。
+
+### 按负载分类的规模边界
+
+"不可用"不能只看图元数，要看**每帧要重新光栅化多少**：
+
+| 图元数 | 静态整屏重绘 | **每帧全量重光栅** | 单组件拖动（局部重绘） | 命中检测 / 次 |
+|---|---|---|---|---|
+| 1,000 | 0.1 ms | 2.3 ms（435 fps） | 0.2 ms | ~0 ms |
+| 5,000 | 0.2 ms | 12.9 ms（78 fps） | 0.6 ms | — |
+| 10,000 | 0.3 ms | 24.6 ms（41 fps） | 1.2 ms | 0.2 ms |
+| 20,000 | 0.7 ms | 53.9 ms（19 fps） | 2.6 ms | — |
+| 50,000 | 3.1 ms | 123 ms（8 fps） | 11.3 ms（88 fps） | 2.0 ms |
+| 100,000 | **8.3 ms（120 fps）** | 282 ms（4 fps） | **20.6 ms（49 fps）** | 7.6 ms |
+
+同一批页面里的**常规动画**路径（写值通道 + 位图复用）：1,000 → 1.1ms、5,000 → 6.2ms、
+10,000 → 13.6ms（73 fps）、20,000 → 27.4ms（36.5 fps）。
+
+**四条结论**：
+
+1. **60 fps 线按负载分类**：每帧全量重光栅只有 **4~5 千**；常规动画 **1 万**；**"静态大图 + 局部编辑"到 10 万仍可用**
+   （稳态 120 fps、拖动 49 fps）；带 hover 的交互受命中检测限制（10 万 **7.6 ms/次**），60 fps 线约 **3~5 万**。
+2. **内存先于渲染成为硬天花板**：对象树每图元约 **2.37 KB**（node 独立进程真增量：10 万 232MB / 50 万 1156MB / **100 万 2312MB**），
+   且这是最简单矩形的口径，文本 / 连线 / 阴影更低。
+3. **构建 / 首帧 / 整屏重绘**（`max-elements.html?full=1`）：10 万 0.51s / 0.26s / 89ms；
+   50 万 2.6s / 1.5s / 213ms；**100 万（堆约 2.3GB）6.1s / 4.3s / 455ms** —— 100 万在对象树模式下"建得起来但不可用"。
+4. **真机 GPU 只帮"光栅化密集"那一档**（比无头快 1.6~1.7×），静态整屏、局部重绘、命中检测、常规动画四类基本一致
+   —— 瓶颈在每组件的 JS，不在 GPU。
+
+### 内存：4.2.0 的四刀（10 万图元）
+
+| 措施 | 效果 |
+|---|---|
+| 几何签名：每图元常驻数组 → 双 32 位哈希 | 少常驻 ≈11.7 MB |
+| 默认事件监听：构造期注册 → 类级声明 + 派发时解析 | 每图元少 3 个数组 + 3 条记录 |
+| 上屏快照盒：每组件一个 `Float64Array(4)` → 分块 arena | 少 10 万个 JSTypedArray + ArrayBuffer ≈10.7 MB |
+| 同几何图元共享 `Path2D` | 10 万图元 100,018 条路径 → **24 条**（55.7 MB → ≈13 KB） |
+
+合计（真机堆快照"全堆自有大小"）：**234.6 → 171.3 MB（−27.0%）**、堆节点 **681.5 万 → 454.9 万**；
+拖动 53.8 → **95.8~108.7 fps**、平移 77.7 → **105~112 fps**；相对最初的 648.5 MB 基线**累计 −73.6%**。
+
+### 虚拟子源：把"文档规模"和"内存"解耦
+
+| 指标 | 对象树（现状） | 虚拟子源 |
+|---|---|---|
+| 堆（10 万图元） | 173.8 MB | **5.8 MB**（纯批量）/ 6.9 MB（1/3 带标注） |
+| 单帧（强制全量重画） | 123.1 ms | **0.3 ms** |
+| 平移（官方 API） | 116.6 fps | **121.2 fps / 0 长任务** |
+| 命中（空点最坏） | 3,994 µs | **0.15 µs** |
+| 按需新建 1 个图元 | 117 ms | **0.3 ms** |
+| **100 万图元** | 建不起来 | **32 MB、窗口内画 6,653 个、单帧 1.1 ms** |
+
+> 边界（不是万能药）：收益 = **看不见的比例**（全都在一屏时只有每项成本那点收益）；文字 / 图片 / 自定义子类走"窗口内物化"（内存 O(窗口)）；Worker 镜像目前只含物化子项（引擎会告警一次）。
+> 完整决策记录（每一刀的 A/B、被否决的方案、复现口径）见 [`docs/architecture/23-memory-and-virtualization.md`](./docs/architecture/23-memory-and-virtualization.md)。
+
+## 🧪 工程化与质量门禁
+
+| 门禁 | 现状（2026-09-21，v4.3.0） |
+|---|---|
+| 单元测试 | **175 套 / 1,466 条**（jest，镜像 `src/` 结构；带只许上调的覆盖率门槛） |
+| 像素 / 交互回归 | **Playwright 111 条 / 25 个 spec**：golden image、脏矩形像素一致性、离屏缓存保真、SVG 与画布对照、viewport / 对齐 / 交互、**95 个示例页冒烟** |
+| 基准（带棘轮基线） | 场景基准 + 微基准 + 动画 + 分层 + 内存四套，`--check` 在 `verify:full` 里跑，数字漂了会红 |
+| 发布包门禁 | `publint`（exports / types / files 契约）+ `attw`（各解析模式下的类型）+ **`prepublishOnly = npm run verify`**（发布前必过类型 / 构建 / 单测，避免打包旧产物） |
 
 | 命令 | 说明 |
 |---|---|
-| `npm test` | 单元测试（jest，镜像 src/ 结构，见 `tests/`） |
-| `npm run test:visual` | Playwright：golden 可视化回归 + 脏矩形局部重绘像素一致性（`dirty-rect-pixel.spec.ts`）+ 真实画布/worker 性能采集 |
-| `npm run lint` / `npm run lint:fix` | 代码检查 / 自动修复 |
-| `npm run types:check` | TypeScript 类型检查 |
-| `npm run bench` | 场景基准（stub ctx，`bench/render.cjs`，改 `src/` 后先 `npm run build`） |
-| `npm run bench:micro` | 微基准（mitata，`bench/micro/`，逐个测矩阵/渲染/命中/状态热函数，防 DCE，需先 `npm run build`） |
-| `npm run pkg:check` | 发布包完整性门禁：`publint`（exports/types/files 契约）+ `attw`（各解析模式下的类型是否正确） |
-| `npm run test:visual:ci` | CI 用的可视化回归子集（示例冒烟 + 交互 + 像素一致性），刻意不含跨平台会漂移的 golden 比对 |
-| `npm run build` | 构建（类型声明 + rollup） |
+| `npm run verify` | lint + 类型检查 + 构建 + 单测 + 场景基准 + 发布包门禁（**发版前必跑**） |
+| `npm run verify:full` | `verify` + 可视化回归 + 动画 / 分层 / 微基准 / 内存基准（CI 与发版的完整门禁） |
+| `npm test` / `npm run test:visual` | 单测 / Playwright 回归（`test:visual:ci` 是跨平台稳定子集） |
+| `npm run bench` / `bench:micro` / `bench:anim` / `bench:layers` / `bench:mem` | 五套基准（改 `src/` 后先 `npm run build`） |
+| `npm run pkg:check` | 发布包完整性（`publint` + `attw`） |
 
-提交前会自动执行 lint-staged（husky）；CI 配置在 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)，依次跑 lint + 类型检查 + 单测（含覆盖率门槛）+ 构建 + 包完整性 + 可视化回归。
+提交前自动跑 lint-staged（husky）；CI 在 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)。
+代码同时托管在 **GitHub**（`package.json` 的 `repository` 指向这里）与 Gitee 镜像，CI 只在 GitHub 上跑。
 
-> 代码同时托管在 **GitHub**（`https://github.com/ice-render/ice-render`，`package.json` 的 `repository` 指向这里）与 Gitee 镜像；CI 跑在 GitHub 上（Gitee 侧没有 runner），因此徽章不声称 CI 状态。
+## 📚 文档与生态
+
+- **架构设计文档** —— [`docs/architecture/`](./docs/architecture/README.md)：**23 篇**。运行时链路 / 组件模型 / 坐标系与矩阵 / 渲染性能 / 事件系统 / 序列化 / 交互动画 / 多运行时兼容 / 路线图与边界 / Worker 与离屏 / 视口缩放 / 对齐吸附 / 能力缺口 / 无障碍 / 应用驱动复盘 / 连线端点评估 / i18n 边界 / 动画机制 / 主题与样式 / 布局 / 性能评估（脏矩形与空间索引）/ 引擎升级验证 / **内存与虚拟化决策记录**。
+- **在线文档站** —— <https://ice-render.github.io/ice-render-doc/>（含可交互示例、API 参考、家族产品页）。
+- **示例** —— [`examples/`](./examples/index.html)：**95 个**可直接在浏览器打开的页面（图形、容器、事件、拖拽、连接线、动画、布局、文本、视口、对齐、插件、无障碍、worker、虚拟化、性能基准…）。
+
+**家族成员**（都建立在同一套引擎 / 组件模型之上）
+
+| 层 | 项目 | 说明 |
+|---|---|---|
+| 引擎 | **ice-render** | 本仓 |
+| 应用 | [ice-entity-designer](https://github.com/ice-render/ice-entity-designer) | 可视化建模工具集：ER / 流程图 / BPMN / UML / 状态机 / 甘特 / 电力一次 / 电力二次 / 给水排水，9 个域包 |
+| 应用 | [ice-chart](https://github.com/ice-render/ice-chart) | 交互式图表库（折线 / 柱 / 饼 / 雷达 / 桑基 / 关系图…），命中与交互全部交给引擎 |
+| 应用 | [ice-web-components](https://github.com/ice-render/ice-web-components) | 仿 Swing 风格的 Canvas 原生 UI 组件库（86 个组件 + Bootstrap 5 令牌主题） |
+| 应用 | [ice-trading-chart](https://github.com/ice-render/ice-trading-chart) | 金融交易图表：K 线、影线命中、OHLC 提示框、价格轴量程 |
+| DSL | ice-render-dsl / [ice-chart-dsl](https://github.com/ice-render/ice-chart-dsl) / [ice-entity-designer-dsl](https://github.com/ice-render/ice-entity-designer-dsl) / ice-web-components-dsl | 让 AI Agent 只产出 JSON 就能驱动引擎与产品（带结构化自修复诊断） |
 
 ## 🔧 二次开发
 
@@ -324,25 +308,19 @@ export default class Relation extends ICEVisioLink {
       if (!id) return {};
       return { [prefix + 'Id']: id, [prefix + 'Name']: this.ice.findComponent(id).state.entityName };
     };
-    return {
-      title,
-      relationType,
-      referencedColumnName,
-      ...resolveEndpoint('start', 'from'),
-      ...resolveEndpoint('end', 'to'),
-    };
+    return { title, relationType, referencedColumnName, ...resolveEndpoint('start', 'from'), ...resolveEndpoint('end', 'to') };
   }
 }
 ```
 
-> [`ice-entity-designer`](https://github.com/ice-render/ice-entity-designer) 是一款基于 ICERender 开发的 ER 图设计器，完整示范了引擎的二次开发方式；它已应用于 [`craft-codeless-designer`](https://github.com/craft-codeless-designer) 低代码项目。
+> [`ice-entity-designer`](https://github.com/ice-render/ice-entity-designer) 是引擎二次开发的完整示范（9 个域包 + 虚拟文档 + worker 镜像）；
+> 它已被用于 [`craft-codeless-designer`](https://github.com/craft-codeless-designer) 低代码项目。
 
 ## 📸 截图
 
-> 截图由 `examples/` 下的示例页直接采集（Playwright、2× 像素比、**按内容包围盒裁切**，不含浏览器外壳与页面留白）。
-> 全部 94 个示例都可以在 [`examples/index.html`](./examples/index.html) 里点开运行。
+> 截图由 `examples/` 下的示例页直接采集（Playwright、2× 像素比、按内容包围盒裁切，不含浏览器外壳与页面留白）。
 
-**图元与样式** —— 形状库、渐变、阴影、虚线等（`examples/shapes/shapes-basic.html`）
+**图元与样式** —— 形状库、渐变、阴影、虚线（`examples/shapes/shapes-basic.html`）
 
 <img src="./examples/assets/shot-shapes-basic.png" alt="图元与样式">
 
@@ -370,7 +348,8 @@ export default class Relation extends ICEVisioLink {
 
 <img src="./examples/assets/shot-plugin.png" alt="插件三层注册点">
 
-**极端规模** —— 密集小图元铺满画布；100 万图元构建约 6s、稳态整帧约 1.2s（2026-09-10 实测，`examples/performance/max-elements.html`）
+**极端规模** —— 100 万图元对象树：构建 6.1s、首帧 4.3s、整屏重绘 455ms（堆约 2.3GB，2026-09-20 真机实测）；
+同规模改用**虚拟子源**则是 32 MB / 单帧 1.1 ms（`examples/performance/max-elements.html`）
 
 <img src="./examples/assets/shot-max-elements.jpg" alt="极端规模下的图元密度">
 
