@@ -52,6 +52,7 @@
     "pkg:check": "npm run pkg:lint && npm run pkg:types",
     "test:visual:ci": "playwright test e2e/visual/examples-smoke.spec.ts e2e/visual/interaction.spec.ts e2e/visual/dirty-rect-pixel.spec.ts e2e/visual/viewport.spec.ts e2e/visual/alignment.spec.ts e2e/visual/hidpi.spec.ts e2e/visual/worker-perf.spec.ts e2e/visual/svg-parity.spec.ts",
     "verify": "npm run lint && npm run types:check && npm run build && npm test -- --runInBand && npm run bench 2000 -- --check && npm run pkg:check",
+    "prepublishOnly": "npm run verify",
     "verify:full": "npm run verify && npm run test:visual && npm run bench:anim -- --check && npm run bench:layers -- --check && npm run bench:micro -- --check && npm run bench:mem -- --check",
     "regression:unit": "node scripts/family-regression.cjs --tier=unit",
     "regression:affected": "node scripts/family-regression.cjs --tier=affected",
