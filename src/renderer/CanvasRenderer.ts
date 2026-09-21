@@ -43,6 +43,20 @@ const MAX_DIRTY_REGIONS = 6;
  */
 const MIN_LAYER_MEMBERS = 256;
 
+/**
+ * 静态层最多做几段（2026-09-21）。
+ *
+ * 为什么从「一段」放宽到「两段」：层只能整段贴回，而成员与非成员在 z 序上交错会画错，
+ * 所以此前只挑**最长的一段连续干净组件**。于是「被拖动的组件落在队列中部」时，
+ * 最长干净段只剩一半 —— 另外一半（10 万图元场景里约 5 万个组件）每帧逐组件重画，
+ * 实测 **99.9ms/帧（10fps）**；而拖动靠队首/队尾的组件（最长段覆盖 99.99%）只要 **16.6ms（60fps）**。
+ *
+ * 两段层是 z 序安全的：贴图层时**按队列顺序**遍历，第 i 段在自己的 start 位置贴回，
+ * 其余组件照旧在队列位置上逐个画 —— 叠放次序与全量重绘一致。
+ * 上限取 2 是因为收益集中在「前段 + 后段」，再多段会成倍吃位图内存与贴图次数。
+ */
+const MAX_LAYER_RUNS = 2;
+
 /** 静态层位图的运行时状态。 */
 interface StaticLayer {
   canvas: any;
@@ -59,6 +73,9 @@ interface StaticLayer {
   oy: number;
   /** 这一层包含的组件（队列里的连续一段，顺序即 z 序）。 */
   members: any[];
+  /** 这一段在渲染队列里的起止下标（贴回时要按队列顺序落在自己的位置上）。 */
+  start?: number;
+  end?: number;
 }
 
 /**
@@ -104,7 +121,16 @@ class CanvasRenderer extends ICEEventTarget {
    * 静态层位图：把「本帧不需要重画」的**连续一段**组件整体光栅化成一张位图，
    * 之后每帧只清屏 + 贴一张图 + 画剩下的那几个（脏的）。见 `__renderWithStaticLayer`。
    */
-  private __layer: StaticLayer | null = null;
+  /** 当前生效的静态层（最多 `MAX_LAYER_RUNS` 段，按队列顺序排列）。 */
+  private __layers: StaticLayer[] = [];
+  /**
+   * 上一次建层时的渲染缩放值。
+   *
+   * 用途：视口变化帧默认"不建层"（重建位图比重画还贵），但**平移手势**里值得破例一次 ——
+   * 建好之后后续每一帧都能靠 `__shiftLayer()` 整体平移复用（见那里的注释）。
+   * 只有 `rs` 没变（= 纯平移，不是缩放）才允许这次重建。
+   */
+  private __layerRs = 0;
   /** @internal 静态层开关（默认开）；关掉即完全回到「逐组件重画」的旧行为，供 A/B 与像素对比。 */
   private __layerEnabled = true;
 
@@ -177,7 +203,7 @@ class CanvasRenderer extends ICEEventTarget {
   public setStaticLayerEnabled(enabled: boolean): void {
     this.__layerEnabled = !!enabled;
     if (!this.__layerEnabled) {
-      this.__layer = null;
+      this.__layers = [];
     }
   }
 
@@ -208,7 +234,7 @@ class CanvasRenderer extends ICEEventTarget {
     }
     // ⚠️ 显式丢静态层，**不要**依赖 `markQueueDirty()` → `__rebuildQueue()` 的副作用：
     // 哪天那条路径被优化掉，这里会静默退化成"换了主题、整段位图还是旧的"。
-    this.__layer = null;
+    this.__layers = [];
     return this;
   }
 
@@ -299,7 +325,7 @@ class CanvasRenderer extends ICEEventTarget {
       this.__primed = false;
     }
     // 结构变了：静态层的成员集合/次序也失效（成员是队列里的连续一段）。
-    this.__layer = null;
+    this.__layers = [];
   }
 
   /**
@@ -418,14 +444,18 @@ class CanvasRenderer extends ICEEventTarget {
   }
 
   /**
-   * 在 z 序队列里挑出**最长的一段连续可入层组件**。
+   * 在 z 序队列里挑出**至多 `MAX_LAYER_RUNS` 段连续可入层组件**（按规模优先）。
    *
-   * 为什么必须是「连续」：队列是全局 zIndex 排序，位图只能整层贴回；
+   * 为什么必须是「连续」：队列是全局 zIndex 排序，位图只能整段贴回；
    * 成员与非成员在 z 序上交错的话，叠放次序会变（画错）。所以只认连续段。
+   *
+   * 为什么是多段（2026-09-21）：只挑「最长的一段」时，被拖动的组件落在队列中部会把干净区
+   * 切成前后两半，最长的一半之外还有一半要逐组件重画（10 万图元实测 99.9ms/帧）。
+   * 取前 2 段即可覆盖「前段 + 后段」，把这一档拉回 60fps。
+   * 多段本身不破坏 z 序：合成时按队列顺序遍历，每段在自己的 start 位置贴回。
    */
-  private __pickLayerRun(queue: any[]): { start: number; end: number } | null {
-    let bestStart = 0;
-    let bestEnd = 0;
+  private __pickLayerRuns(queue: any[]): { start: number; end: number }[] {
+    const runs: { start: number; end: number }[] = [];
     let i = 0;
     while (i < queue.length) {
       if (!this.__layerEligible(queue[i])) {
@@ -436,14 +466,21 @@ class CanvasRenderer extends ICEEventTarget {
       while (j < queue.length && this.__layerEligible(queue[j])) {
         j++;
       }
-      if (j - i > bestEnd - bestStart) {
-        bestStart = i;
-        bestEnd = j;
-      }
+      runs.push({ start: i, end: j });
       i = j;
     }
-    if (bestEnd - bestStart < MIN_LAYER_MEMBERS) return null;
-    return { start: bestStart, end: bestEnd };
+    if (!runs.length) return [];
+    // 按成员数从多到少取前 MAX_LAYER_RUNS 段（规模优先：多覆盖一个成员就少重画一个）
+    runs.sort((a, b) => b.end - b.start - (a.end - a.start));
+    const picked = runs.filter((r, idx) => idx < MAX_LAYER_RUNS && r.end - r.start >= MIN_LAYER_MEMBERS);
+    if (!picked.length) {
+      // 没有任何一段够长：退化到「最长的一段」也要满足下限，否则不做层
+      const best = runs[0];
+      return best.end - best.start >= MIN_LAYER_MEMBERS ? [best] : [];
+    }
+    // 合成本身要按队列顺序（z 序）
+    picked.sort((a, b) => a.start - b.start);
+    return picked;
   }
 
   /**
@@ -459,9 +496,14 @@ class CanvasRenderer extends ICEEventTarget {
     // 为什么：位图的栅格是**按当时的渲染视口**对齐的，视口一变整层就作废；这一帧「重建位图 + 贴回」
     // 比重画一遍还贵（多一次整层 blit），而下一帧视口再变又要重建 —— 实测拖拽平移/滚轮缩放时
     // 每帧慢约 35%（13.0ms → 17.6ms）。所以手势期间直接逐组件画，手势停下后的第一帧再统一重建一次。
-    if (this.cache.viewportChangedThisFrame()) return false;
-    const run = this.__pickLayerRun(this.componentQueue);
-    if (!run) return false;
+    //
+    // ⚠️ **2026-09-21 起有一条例外：纯平移（缩放值不变 + 设备像素位移是整数）**。
+    // 这种情况下把已有的层位图**整体平移**贴回即可 —— 内容与世界盒都没变，只是视口挪了整数设备像素，
+    // 1:1 drawImage 仍然逐像素精确。10 万图元实测：平移期间走全量重绘约 225ms/帧（4.6fps），
+    // 复用层只要几毫秒。缩放（rs 变了）仍然按原纪律回退全量。
+    const vpChanged = this.cache.viewportChangedThisFrame();
+    const runs = this.__pickLayerRuns(this.componentQueue);
+    if (!runs.length) return false;
 
     const vp = this.__renderViewport();
     const rs = vp.scale;
@@ -470,27 +512,102 @@ class CanvasRenderer extends ICEEventTarget {
     if (!(rs > 0)) return false;
 
     const queue = this.componentQueue;
-    let layer = this.__layer;
-    let sameMembers = !!layer && layer.members.length === run.end - run.start;
-    if (sameMembers && layer) {
-      for (let i = run.start; i < run.end; i++) {
-        if (layer.members[i - run.start] !== queue[i]) {
-          sameMembers = false;
-          break;
-        }
+    const ready: StaticLayer[] = [];
+    for (const run of runs) {
+      const cached = this.__layers.find((l) => l.start === run.start && l.end === run.end);
+      if (cached && this.__layerMatches(cached, queue, run, rs, ox, oy)) {
+        ready.push(cached);
+        continue;
       }
-    }
-    if (!layer || !sameMembers || layer.rs !== rs || layer.ox !== ox || layer.oy !== oy) {
-      layer = this.__buildLayer(queue, run, rs, ox, oy);
-      if (!layer) {
-        this.__layer = null;
-        return false;
+      // 纯平移：把已有层整体挪一个整数设备像素位移（内容与世界盒都没变，1:1 贴图仍然精确）
+      if (cached && this.__shiftLayer(cached, queue, run, rs, ox, oy)) {
+        ready.push(cached);
+        continue;
       }
-      this.__layer = layer;
+      if (vpChanged) {
+        // 视口变了又不满足"纯平移复用"：
+        // - 缩放（rs 变了）→ 本帧不做层，退回逐组件重画（位图栅格已作废，重建也只白建）；
+        // - 平移（rs 没变）→ **允许建这一次**：建好之后本手势的后续帧都能整体平移复用。
+        if (rs !== this.__layerRs) return false;
+      }
+      const built = this.__buildLayer(queue, run, rs, ox, oy);
+      if (!built) {
+        // 建不出来（运行时没有离屏 canvas / 位图超预算）：这一段不做层，其余段照旧。
+        // 注意这里**不清空**已缓存的层 —— 下一帧视口/成员没变时还能命中（省一次重建）。
+        continue;
+      }
+      built.start = run.start;
+      built.end = run.end;
       this.__layerBuilds++;
+      ready.push(built);
     }
-    this.__compositeLayer(layer, run);
+    if (!ready.length) {
+      this.__layers = [];
+      return false;
+    }
+    this.__layers = ready;
+    this.__layerRs = rs;
+    this.__compositeLayer(ready);
     return true;
+  }
+
+  /** 缓存的层是否还能用：成员逐个同一、渲染视口一致（栅格对齐的前提）。 */
+  private __layerMatches(
+    layer: StaticLayer,
+    queue: any[],
+    run: { start: number; end: number },
+    rs: number,
+    ox: number,
+    oy: number
+  ): boolean {
+    return layer.rs === rs && layer.ox === ox && layer.oy === oy && this.__layerSameMembers(layer, queue, run);
+  }
+
+  /** 层的成员是否还是队列里的那一段（同起点、同长度、逐个同一）。 */
+  private __layerSameMembers(layer: StaticLayer, queue: any[], run: { start: number; end: number }): boolean {
+    if ((layer.start ?? -1) !== run.start) return false;
+    if (layer.members.length !== run.end - run.start) return false;
+    for (let i = run.start; i < run.end; i++) {
+      if (layer.members[i - run.start] !== queue[i]) return false;
+    }
+    return true;
+  }
+
+  /**
+   * **纯平移复用**：缩放没变、成员没变，而渲染视口只平移了整数设备像素时，
+   * 把已有层位图的贴图落点整体挪一下就能逐像素精确地跟过去（内容与世界盒都没动）。
+   *
+   * 为什么要求整数：`drawImage` 只有落在整数设备像素上才是 1:1 零重采样；
+   * 半像素位移会引入双线性重采样 → 与全量重绘不再逐像素一致。
+   */
+  private __shiftLayer(
+    layer: StaticLayer,
+    queue: any[],
+    run: { start: number; end: number },
+    rs: number,
+    ox: number,
+    oy: number
+  ): boolean {
+    if (layer.rs !== rs) return false; // 缩放变了：位图栅格作废，不能挪
+    if (!this.__layerSameMembers(layer, queue, run)) return false;
+    const dx = ox - layer.ox;
+    const dy = oy - layer.oy;
+    if (!Number.isInteger(dx) || !Number.isInteger(dy)) return false;
+    layer.dx += dx;
+    layer.dy += dy;
+    layer.ox = ox;
+    layer.oy = oy;
+    return true;
+  }
+
+  /** 队列下标 i 是否落在某一段层的成员区间里（层最多两段，循环开销可忽略）。 */
+  private __isLayerMember(layers: StaticLayer[], i: number): boolean {
+    for (let k = 0; k < layers.length; k++) {
+      const s = layers[k].start ?? -1;
+      const e = layers[k].end ?? -1;
+      if (i >= s && i < e) return true;
+    }
+    return false;
   }
 
   /** 把成员整体光栅化到一张离屏位图（栅格对齐纪律与 `ObjectCache.build` 完全一致）。 */
@@ -547,14 +664,19 @@ class CanvasRenderer extends ICEEventTarget {
       // 宿主页面直接白屏。整个会话关掉静态层，退回逐组件重画（与 ObjectCache
       // 遇到 `createOffscreenCanvas` 不可用时的降级口径一致）。
       this.__layerEnabled = false;
-      this.__layer = null;
+      this.__layers = [];
       return null;
     }
     return { canvas: off.canvas, ctx: off.ctx, dx, dy, pw, ph, rs, ox, oy, members };
   }
 
-  /** 清屏 → 在位图对应的 z 位置整层贴回 → 逐组件画非成员（脏组件与段外组件）。 */
-  private __compositeLayer(layer: StaticLayer, run: { start: number; end: number }): void {
+  /**
+   * 清屏 → 按**队列顺序**把每一段层贴回它在 z 序里的位置 → 逐组件画非成员（脏组件与段外组件）。
+   *
+   * 多段的顺序语义：`layers` 已按 start 升序排列，遍历队列时在每段的 start 处贴它，
+   * 段内成员跳过 —— 与全量重绘的叠放次序逐条一致（段与段之间的组件照常逐个画）。
+   */
+  private __compositeLayer(layers: StaticLayer[]): void {
     const ctx = this.ice.ctx;
     // 清屏前回到单位变换：上一帧残留的 CTM 会让 clearRect 擦不干净。
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -562,16 +684,19 @@ class CanvasRenderer extends ICEEventTarget {
     const visible = this.__visibleWorldRect();
     const queue = this.componentQueue;
     let culled = 0;
+    let layerIdx = 0;
 
     for (let i = 0; i < queue.length; i++) {
-      if (i === run.start) {
+      if (layerIdx < layers.length && i === (layers[layerIdx].start ?? -1)) {
         // 整数设备像素 1:1 贴回，零重采样（与离屏缓存同口径）。
         // 注意：位图的 dx/dy 是**设备像素**偏移，贴之前必须把 CTM 归回单位变换 ——
         // 组件渲染不会还原 CTM（每个组件自己 setTransform），沿用上一个组件的矩阵会把整层画歪。
+        const layer = layers[layerIdx];
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.drawImage(layer.canvas, layer.dx, layer.dy);
+        layerIdx++;
       }
-      if (i >= run.start && i < run.end) continue; // 成员已经在位图里
+      if (this.__isLayerMember(layers, i)) continue; // 成员已经在位图里
       const component = queue[i];
       if (visible && component.isEffectivelyVisible() && !component.dirty) {
         const snap = this.__snap.get(component);
@@ -748,6 +873,34 @@ class CanvasRenderer extends ICEEventTarget {
     for (let i = 0; i < queue.length; i++) {
       const c = queue[i];
       if (!c.isEffectivelyVisible()) continue;
+      /**
+       * **先做廉价的空间预筛，再判"风险类别"**（2026-09-21）。
+       *
+       * 为什么顺序重要：`isOpaqueDrawing()` 带着两条颜色正则，是这条谓词里最贵的一段；
+       * 而它是**逐组件**跑的 —— 10 万图元实测这一段占掉 `__collect()` 的 12.1ms（总 16.2ms）。
+       * 但"风险"只在**墨迹与本次脏区相交**时才成立（clip 只作用在脏区里），
+       * 于是先用快照盒做 4 次比较（绝大多数组件当场被筛掉），再对剩下的少数做分类。
+       *
+       * 语义与改造前逐条对齐：
+       * - 脏组件：它的盒已经并进脏区（收集阶段做的），必然相交 → 跳过预筛。
+       * - 干净且**有快照**：不相交 → 本帧的 clip 碰不到它的墨迹 → 直接放行（原来也要走到最后一步才放行）。
+       * - 干净但**无快照**：没有可信盒子 —— **保持改造前的保守口径**（照旧走分类，risky 就回退），
+       *   因为"没有快照"既可能是"从未上屏"、也可能是别处把盒丢了；这一档数量极少，保守不吃性能。
+       */
+      let box: any = null;
+      if (!c.dirty) {
+        box = this.__snap.get(c);
+        if (box) {
+          let hit = false;
+          for (let k = 0; k < regions.length; k++) {
+            if (intersects(box, regions[k])) {
+              hit = true;
+              break;
+            }
+          }
+          if (!hit) continue;
+        }
+      }
       const risky = this.__isDotPath(c) || this.__isText(c) || !isOpaqueDrawing(c.state);
       if (!risky) continue;
       // 变脏：先按「墨迹是否可能超出几何盒」分两类。
@@ -778,10 +931,10 @@ class CanvasRenderer extends ICEEventTarget {
       // 干净的已缓存组件：主画布只是 drawImage 不透明位图，clip 不影响 → 不阻塞
       if (this.cache.isCachable(c) && this.cache.has(c)) continue;
 
-      const box: any = this.__snap.get(c);
-      if (!box) return true; // 干净但无快照：没有可信盒子 → 保守回退
+      const snap: any = box || this.__snap.get(c);
+      if (!snap) return true; // 干净但无快照：没有可信盒子 → 保守回退
       for (let k = 0; k < regions.length; k++) {
-        if (intersects(box as any, regions[k])) return true;
+        if (intersects(snap as any, regions[k])) return true;
       }
     }
     return false;

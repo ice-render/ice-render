@@ -62,15 +62,16 @@ describe('换主题 → 位图缓存作废', () => {
     it(`${name}：清组件级离屏缓存 + 丢静态层 + 保证有帧`, () => {
       const ice = makeIce();
       const clearSpy = jest.spyOn((ice.renderer as any).cache, 'clear');
-      // 造一个"已经烤好的静态层"，验证它被显式丢掉（不是靠 markQueueDirty 的副作用）
-      (ice.renderer as any).__layer = { canvas: {}, members: [] };
+      // 造一段"已经烤好的静态层"，验证它被显式丢掉（不是靠 markQueueDirty 的副作用）
+      // 2026-09-21 起静态层是**数组**（最多两段，见 CanvasRenderer 的 MAX_LAYER_RUNS）
+      (ice.renderer as any).__layers = [{ canvas: {}, members: [] }];
       ice.dirty = false;
       if (name === 'clearThemePatch') ice.setThemePatch('probe', { primary: '#123456' });
 
       apply(ice);
 
       expect(clearSpy).toHaveBeenCalled();
-      expect((ice.renderer as any).__layer).toBeNull();
+      expect((ice.renderer as any).__layers).toEqual([]);
       // ⚠️ 用对象断言而不是 `expect(x, '消息')` —— 本仓 jest 的 expect 只吃一个参数
       expect({ 有帧: ice.dirty }).toEqual({ 有帧: true });
     });
