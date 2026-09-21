@@ -40,6 +40,7 @@ ICERender 是一款 **Canvas 2D 交互图形渲染引擎**（MIT 协议，作者
 | [20 · 引擎升版后的应用侧验证清单](20-engine-upgrade-verification.md) | 给"升级引擎的人"的操作清单：对齐依赖 → 门禁 → **全部示例页逐页** → 按引擎改动类型做定向检查（静态层是否真参与 / hover 命中路径 / 序列化往返）→ 发布；含**像素对照的两档口径**、**归因顺序**（先量噪声底线再切变量）与六个踩过的坑 |
 | [21 · 主题与样式机制](21-theme-and-style.md) | 四层 token（base / semantic / chrome / preset）、**主题引用在 paint 时解析**（自定义组件也能跟随 `setTheme`）、**主题变更通知**（`ice.onThemeChange`，上层被动跟随的唯一时机）、交互状态样式与可选自动驱动、主题作用域、主题进快照、`validateTheme()` 结构化校验（拼错内置名报 warning、应用自带词汇报 info、含 WCAG 对比度）、命名主题注册护栏、预设注册纪律、**热路径性能约束**（快路径与基线同构，微基准 0.98×）与已知取舍 |
 | [22 · 布局（LayoutManager）](22-layout.md) | 容器持有策略、策略只算位置；7 个内置策略与构造参数；**尺寸协商只走 `getPreferredSize()`**（构造期的宽高是边界不是首选尺寸）；内外距只有一套实现；子项声明（`margin`/`grow`/`gridSpan`/`layoutConstraint`）；择时四步（测量 → 排布 → `fitContent` → `validateTree` 校验趟）；交互锁的副作用与还原；显隐口径；布局序列化（`layout: { type, props }`）与未注册类型的降级 |
+| [23 · 内存与虚拟化](23-memory-and-virtualization.md) | **内存这块的决策记录**：10 万图元的成本剖面（1.7KB/图元、29 个对象/图元、钱花在"记账"上）、四刀（原型共享 / 懒创建 / 签名哈希 / 默认监听 / 快照盒 arena）与各自的 A/B 数字、**明确否决的候选**（linearMatrix slab、每组件数值数组、id 惰性、SoA 内核、遮挡剔除）、以及"虚拟子源"为什么是唯一的下一档（收益 = 看不见的比例），另附验收纪律与口径 |
 
 ## 运行时全景（一图概览）
 
