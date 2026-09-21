@@ -256,3 +256,23 @@ undo/redo 100 次无泄漏（堆漂移 ≤1 MB）。
 - 探针：`/tmp/ice-virt-spike/probe.mjs`（heap / perf / zoom / pixel / 真事件拖动）
 - 堆快照：`/tmp/heap/spike-pure-100k.heapsnapshot`（5.4 MB）、`spike-hybrid-100k.heapsnapshot`（6.5 MB）、
   `spike-virtual-1000000.heapsnapshot`（32.0 MB）、`spike-objects-100000.heapsnapshot`（173.8 MB，对照）
+
+## 附：应用侧实测反馈（IED，2026-09-21）
+
+把 `ice-entity-designer` 的给排水工艺图接成虚拟文档（2 万符号 = 2 万标注 + 2 万管线，共 6 万条目），
+页面 `examples/water-large.html`、实现 `src/virtual/WaterVirtualDoc.ts`、回归 `e2e/water-large.spec.ts`，
+完整反馈见 `ice-entity-designer/docs/virtual-integration-feedback.md`。要点：
+
+- **内存**：2,000 符号（6,000 条目）**7.4 MB vs 对象树 235.3 MB（−96.9%）**；
+  20,000 符号档虚拟 **23.8 MB**，对象模式**构建即把标签页拖到无响应**（线性外推 ≈2.3GB）。
+- **交互**：平移 **120.2 fps / 0 长任务**；真鼠标"按下 → 物化 → 选中 → 拖动 → 属性面板"全通，
+  **页面零胶水**（P1 之前要 ~40 行）。
+- **两条应用侧纪律**（写进反馈文档）：图元的盒**不能跨全图**（第一版连跨行长管线 → 索引节点
+  6 万 → 3,000 万、236MB、11.8fps）；文档生成要**分两趟**（先铺坐标再连管线）。
+- **顺手修掉一个既有缺陷**（与虚拟化无关）：IED 的 `FlowDesigner.__handleMouseDown` 只认精确
+  `typeId`，`WaterSymbol extends ICEGroup` 点不中；改成可覆盖的 `isSelectableComponent()`。
+- **P2 的形态由这次反馈定型**（比设计稿更具体）：
+  ① 全量导出通道（`describe(i)` 或 `paintToSvg`）；② 序列化契约（`virtual: {count, version}` +
+  文档载荷钩子）；③ 文档补丁入口 `applyPatch(i, patch)` 让 undo 记在文档上而不是物化组件上；
+  ④ 引擎级窗口同步助手 `syncWindow(container, { needs(i), pad })`；⑤ 盒子跨度过大时自检告警 +
+  a11y/worker 镜像"只暴露物化子项"的显式开关。
