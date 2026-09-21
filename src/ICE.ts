@@ -89,7 +89,12 @@ import { flattenAllComponents, hitTestComponents } from './util/data-util';
 import { deepMerge } from './theme/ICETheme';
 import { HIT_BOX_TOLERANCE } from './renderer/dirty-rect-util';
 import { notifyChildAdded, notifyChildRemoved, notifyViewportChange } from './worker/mirror-hooks';
-import { notifyStructureChanged, resolveVirtualHit } from './graphic/virtual/virtual-child-source';
+import {
+  notifyStructureChanged,
+  registerVirtualSource,
+  resolveVirtualHit,
+  type VirtualSourceFactory,
+} from './graphic/virtual/virtual-child-source';
 
 /**
  * @class ICE
@@ -740,6 +745,24 @@ class ICE {
 
     this.typeMapping[typeId] = Clazz;
     this.__typeIdMapping = null; // 反查表失效，下次序列化重建
+  }
+
+  /**
+   * **注册虚拟文档工厂**（虚拟子源的反序列化入口，2026-09-21）。
+   *
+   * 容器挂了 `VirtualChildSource` 时，快照里会写 `virtual: { type, count, version, payload }`；
+   * 读回时引擎按 `type` 到这里找工厂、把 `payload` 原样交回去重建子源。
+   *
+   * ```ts
+   * ice.registerVirtualSource('ied:water-doc', (payload) => WaterVirtualDoc.fromPayload(payload));
+   * ```
+   *
+   * 与 `registerType` 同一条纪律：**用稳定的字符串键，不用类名**（打包器会 mangle）；
+   * 同名不同工厂**抛错**（静默覆盖会让"谁生效"取决于加载顺序）。
+   * 注册表是**进程级**的（与类型注册表不同：它不随实例销毁而清）—— 工厂是纯函数，没有实例状态。
+   */
+  public registerVirtualSource(type: string, factory: VirtualSourceFactory): void {
+    registerVirtualSource(type, factory);
   }
 
   /** 是否注册了某个 canonical typeId。 */

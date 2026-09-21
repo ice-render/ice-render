@@ -7,6 +7,28 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 新功能（虚拟子源 P2 第 1+2 条：全量导出通道 + 序列化契约）
+
+虚拟文档上线后，"存盘 / 导出只看组件树"就只剩下窗口里那点内容（IED 实测：6 万条目的文档，
+导出 SVG 102.9KB、快照 499.7KB —— 都只是物化出来的那一小部分）。这一批把两条**应用绕不过去**的通道补上：
+
+- **全量导出**：`VirtualChildSource.paintToSvg?(sink, bounds)`（sink 提供 `raw` / `define` / `use`）
+  ＋ `documentBounds?(out)`。引擎在容器位置开 `<g transform>`、拼 `<defs>`，并保证
+  **"批量内容 → 容器自身 → 物化子项"** 的次序与画布一致；应用写的是**局部坐标**。
+  复合符号的正确形态是"少数 def + 每个实例一条 `<use>`"（IED：21 份 def + 2 万条 use）。
+- **序列化契约**：容器写 `virtual: { type, count, version, payload }`（`payload` 是应用的数据，
+  引擎原样存取），物化子项写 `virtualIndex`；反序列化按 `type` 经
+  `ICE.registerVirtualSource(type, factory)` 重建子源，并用 `virtualIndex` 把子项重新登进
+  "已物化"表（**不登会画两遍**：子项在树上、文档以为它没物化）。`type` 用稳定字符串（不写类名），
+  同名不同工厂**抛错**。
+- 配套：`materializedChild(container, i)`（应用在读回后重建"活对象"表）。
+
+IED 实测（`examples/water-large.html`，5,000 符号 = 15,000 条目）：
+导出 SVG 从"窗口那点"变成整份文档（20,000 符号档 **7.46 MB** = 21 def + 2 万 use + 2 万 polyline + 2 万 text）；
+快照 **133.6 KB**（只存参数 + 少量编辑，不是 3 MB 列存）；存盘 → 清空 → 读盘后文档规模、
+被拖过的坐标、物化子项全部保留。回归：`tests/graphic/virtual-serialize-export.test.ts`（5 条）+
+IED `e2e/water-large.spec.ts`（3 条）。
+
 ### 新功能（虚拟子源 P0 + P1 + P3：10 万图元 5.8 MB、平移 121fps、命中 0.15µs、点一下就是真组件）
 
 **让"文档里的图元"和"内存里的组件对象"解耦**：容器挂一份 `childSource`（`VirtualChildSource`），

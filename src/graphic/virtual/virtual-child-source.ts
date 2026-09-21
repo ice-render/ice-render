@@ -26,6 +26,23 @@ export interface VirtualChildView {
 }
 
 /**
+ * **SVG 导出的 sink**（`paintToSvg` 用）：应用按文档顺序把条目写进来，引擎负责
+ * 包 `<g transform>`（容器的世界矩阵）、拼 `<defs>`、转义与最终文档结构。
+ *
+ * 为什么给 `raw` 的逃生舱：领域图元千奇百怪（IED 的 21 种工艺符号都是复合形状），
+ * 引擎不可能预定义"足够的图元词汇"；而"复合符号复用一份 def + 逐实例 `<use>`"这类做法
+ * 恰恰是导出体积与正确性的关键（2 万个符号 = 21 份 def + 2 万个 `<use>`）。
+ */
+export interface VirtualSvgSink {
+  /** 原样插入一段 SVG（应用自己拼 `<use>` / `<polyline>` / `<text>` …）。 */
+  raw(svg: string): void;
+  /** 登记一份可复用的 def（`id` 由应用给，重复登记会覆盖）。 */
+  define(id: string, svg: string): void;
+  /** 引用一份 def：`<use href="#id" x y>`（引擎不改应用的坐标口径）。 */
+  use(id: string, x: number, y: number): void;
+}
+
+/**
  * 虚拟子源：应用实现的只读视图。**引擎不碰应用的数据结构**，只认这几个方法。
  *
  * 实现纪律（写在契约里，违反会出问题）：
@@ -56,10 +73,39 @@ export interface VirtualChildSource {
   paint?(ctx: any, view: VirtualChildView): boolean;
 
   /**
+   * **全量导出**（可选）：把**整份文档**（不是窗口）写进 sink，成功返回 true。
+   *
+   * 只被 SVG 导出调用；应用在这里按自己的文档顺序写条目 —— 想复用复合符号就
+   * `sink.define(id, svg)` + `sink.use(id, x, y)`（引擎不管，也不该管）。
+   * 不实现它时，导出**只包含物化出来的子项**（窗口里那点），这一点必须让应用知道。
+   */
+  paintToSvg?(sink: VirtualSvgSink, bounds: { x0: number; y0: number; x1: number; y1: number }): boolean;
+
+  /**
+   * 文档包围盒（可选，**局部坐标**）：`exportSvg(..., { area: 'content' })` 与"适应视图"用它。
+   * 不实现时用容器自己的盒（对"容器盒 = 文档范围"的常见写法没有影响）。
+   */
+  documentBounds?(out: Float64Array): boolean;
+
+  /**
    * **按需物化**（可选）：要一个真实组件（可交互 / 文字 / 图片 / 自定义子类）。
    * 返回的组件由引擎挂进本容器的 `childNodes`；`null` = 这次放弃（引擎跳过它）。
    */
   materialize?(i: number): any | null;
+
+  /**
+   * **文档载荷**（可选）：序列化时原样写进容器的 `virtual.payload`，反序列化时原样传回
+   * 给 `ICE.registerVirtualSource(type, factory)` 注册的工厂。
+   *
+   * 引擎不理解它，也不该理解：文档是应用的数据。引擎保证的是"它跟着快照进出、位置正确"。
+   */
+  serializeDocument?(): any;
+
+  /**
+   * 文档类型键（可选）：反序列化时用它在引擎的虚拟源注册表里找回工厂。
+   * 与 `ICE.registerType` 同源思路：**不写类名**（会被打包器 mangle）。
+   */
+  readonly documentType?: string;
 }
 
 /**
@@ -295,6 +341,17 @@ export function materializedIndexOf(container: any, child: any): number {
   return -1;
 }
 
+/**
+ * 取某个下标已物化出来的组件；没物化返回 `null`。
+ *
+ * 用途：应用在"从快照读回"之后重建自己的"活对象"表（引擎会把物化子项与下标一起还原，
+ * 应用据此把引用重新挂上，否则这些组件再被拖动时应用写不回自己的文档）。
+ */
+export function materializedChild(container: any, index: number): any {
+  const map = MATERIALIZED.get(container);
+  return map ? map.get(index) || null : null;
+}
+
 /** 当前物化着的全部下标（调试 / 断言 / 窗口同步用）。 */
 export function materializedIndices(container: any): number[] {
   const map = MATERIALIZED.get(container);
@@ -320,4 +377,116 @@ export function resolveVirtualHit(container: any): any {
   const index = virtualHitIndexOf(container);
   if (!(index >= 0)) return container;
   return materializeVirtualChild(container, index) || container;
+}
+
+// ------------------------------------------------------------------ 序列化 / 导出
+
+/** 虚拟源工厂注册表：`documentType` → 工厂（与组件类型注册表同源思路，避免写类名）。 */
+const SOURCE_FACTORIES = new Map<string, VirtualSourceFactory>();
+
+export type VirtualSourceFactory = (
+  payload: any,
+  ctx: { ice: any; component: any; count: number; version: number }
+) => VirtualChildSource | null;
+
+/**
+ * 注册"虚拟文档工厂"：反序列化时按容器里的 `virtual.type` 重建子源。
+ *
+ * ```ts
+ * ice.registerVirtualSource('ied:water-doc', (payload) => WaterVirtualDoc.fromPayload(payload));
+ * ```
+ *
+ * 重复注册同名（不同工厂）**抛错** —— 与 `registerType` 同一条纪律：静默覆盖会让
+ * "谁的工厂生效"取决于加载顺序，那种 bug 只在生产上出现。
+ */
+export function registerVirtualSource(factoryType: string, factory: VirtualSourceFactory): void {
+  if (!factoryType || typeof factoryType !== 'string') {
+    throw new Error('[ICE] registerVirtualSource 的 type 必须是非空字符串');
+  }
+  if (typeof factory !== 'function') {
+    throw new Error(`[ICE] registerVirtualSource("${factoryType}") 的工厂必须是函数`);
+  }
+  const prev = SOURCE_FACTORIES.get(factoryType);
+  if (prev && prev !== factory) {
+    throw new Error(`[ICE] registerVirtualSource("${factoryType}") 重复注册（同名不同工厂）`);
+  }
+  SOURCE_FACTORIES.set(factoryType, factory);
+}
+
+export function virtualSourceFactory(type: string): VirtualSourceFactory | null {
+  return SOURCE_FACTORIES.get(type) || null;
+}
+
+/**
+ * 序列化时取容器的"虚拟块"：`{ type, count, version, payload }`；没有子源返回 null。
+ * 物化出来的子项由 Serializer 逐个带上 `virtualIndex`（见 `serializedVirtualIndexOf`）。
+ */
+export function virtualBlockOf(container: any): any | null {
+  const source = CHILD_SOURCE.get(container);
+  if (!source) return null;
+  const payload = typeof source.serializeDocument === 'function' ? source.serializeDocument() : undefined;
+  return {
+    type: source.documentType || null,
+    count: source.count,
+    version: source.version,
+    payload,
+  };
+}
+
+/** 反序列化时把虚拟源接回去：按 `virtual.type` 找工厂，用 `payload` 重建。 */
+export function restoreVirtualSource(container: any, block: any, ice: any): VirtualChildSource | null {
+  if (!block || !block.type) return null;
+  const factory = SOURCE_FACTORIES.get(block.type);
+  if (!factory) {
+    console.warn(
+      `[ICE] 反序列化跳过未注册的虚拟文档类型：${block.type}` +
+        `（请先 ice.registerVirtualSource('${block.type}', factory) 注册）`
+    );
+    return null;
+  }
+  const source = factory(block.payload, {
+    ice,
+    component: container,
+    count: Number(block.count) || 0,
+    version: Number(block.version) || 0,
+  });
+  if (source) setChildSourceFor(container, source);
+  return source || null;
+}
+
+/** 物化子项在快照里的下标（Deserializer 用它把子项重新登进 `MATERIALIZED`）。 */
+export function registerMaterializedChild(container: any, index: number, child: any): void {
+  if (!(index >= 0)) return;
+  let map = MATERIALIZED.get(container);
+  if (!map) {
+    map = new Map<number, any>();
+    MATERIALIZED.set(container, map);
+  }
+  map.set(index, child);
+}
+
+/** 该组件在快照里对应的虚拟下标（有子源且确实物化过才有值；否则 -1）。 */
+export function serializedVirtualIndexOf(container: any, child: any): number {
+  return materializedIndexOf(container, child);
+}
+
+// ------------------------------------------------------------------ SVG 导出
+
+/** 导出的默认 sink 实现：把内容写进 `body` / `defs`（`SvgExporter` 内部用）。 */
+export function createSvgSink(body: string[], defs: string[]): VirtualSvgSink {
+  return {
+    raw(svg: string) {
+      if (svg) body.push(svg);
+    },
+    define(id: string, svg: string) {
+      if (id && svg) defs.push(`<g id="${id}">${svg}</g>`);
+    },
+    use(id: string, x: number, y: number) {
+      if (id) body.push(`<use href="#${id}" x="${round2(x)}" y="${round2(y)}"/>`);
+    },
+  };
+}
+
+function round2(v: number): number {
+  return Math.round((Number(v) || 0) * 100) / 100;
 }
