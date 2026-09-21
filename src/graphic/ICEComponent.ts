@@ -329,6 +329,18 @@ function triggerSubtreeMove(component: any, payload: any): void {
   }
 }
 
+/**
+ * `ICEComponent` 的**默认监听表**（事件名 → 本实例上的处理方法名）。
+ *
+ * 类级常量：`ICEEventTarget` 按构造器缓存它，派发时才解析成函数 —— 见那里的
+ * `DEFAULT_EVENTS` / `__enableDefaultEvents()` 说明（省掉每个图元常驻的 3 条监听记录）。
+ */
+const DEFAULT_EVENT_LISTENER_MAP: { [eventName: string]: string } = Object.freeze({
+  mousedown: 'mouseDownEvtHandler',
+  keydown: 'keyboardEvtHandler',
+  keyup: 'keyboardEvtHandler',
+});
+
 abstract class ICEComponent extends ICEEventTarget {
   //组件当前归属的 ICE 实例，在处理一些内部逻辑时需要引用当前所在的 ICE 实例。只有当组件被 addChild() 方法加入到显示列表中之后， ice 属性才会有值。
   public ice: ICE;
@@ -373,8 +385,13 @@ abstract class ICEComponent extends ICEEventTarget {
   private __displayChanged = false;
   /** 本帧是否因为子树不透明度过 ctx.globalAlpha（见 __renderCore / __resetLeakyCtxState）。 */
   private __opacityApplied = false;
-  /** 声明式渐变缓存：按描述对象引用判定，`refreshParams()` 里失效（setState 必然触发它）。 */
-  private __gradCache: { fill?: { src: any; grad: any }; stroke?: { src: any; grad: any } } = {};
+  /**
+   * 声明式渐变缓存：按描述对象引用判定，`refreshParams()` 里失效（setState 必然触发它）。
+   *
+   * **按需创建**（2026-09-21）：绝大多数图元不用渐变，`{}` 空对象在 10 万图元下就是 10 万个对象 +
+   * 它们的属性存储（堆快照里 `__gradCache` 约占 1.8MB、`__uiStates` 同量级）。用到才建。
+   */
+  private __gradCache: { fill?: { src: any; grad: any }; stroke?: { src: any; grad: any } } | null = null;
 
   /**
    * 「自身派生参数需要重算」标志（尺寸 / 点集 / 文本量测等，由 calcComponentParams 产出）。
@@ -465,7 +482,8 @@ abstract class ICEComponent extends ICEEventTarget {
    *
    * 放普通字段而不是 state：它是运行时状态、不该进快照（组件的 state 是要被序列化的）。
    */
-  private __uiStates: { [name: string]: boolean } = {};
+  /** 交互状态表：**按需创建**（理由同上：空对象不便宜）。读取一律走 `__uiStateCount` 快路径或判空。 */
+  private __uiStates: { [name: string]: boolean } | null = null;
   /** 处于打开状态的状态数（0 = 快路径，不必每帧遍历状态表）。 */
   private __uiStateCount = 0;
   /**
@@ -633,12 +651,13 @@ abstract class ICEComponent extends ICEEventTarget {
    */
   public setInteractionState(name: string, on: boolean): this {
     const next = !!on;
-    if (!!this.__uiStates[name] === next) return this;
+    const table = this.__uiStates;
+    if (!!(table && table[name]) === next) return this;
     if (next) {
-      this.__uiStates[name] = true;
+      (this.__uiStates || (this.__uiStates = {}))[name] = true;
       this.__uiStateCount++;
     } else {
-      delete this.__uiStates[name];
+      if (table) delete table[name];
       this.__uiStateCount = Math.max(0, this.__uiStateCount - 1);
     }
     this.dirty = true;
@@ -647,12 +666,12 @@ abstract class ICEComponent extends ICEEventTarget {
   }
 
   public getInteractionState(name: string): boolean {
-    return !!this.__uiStates[name];
+    return !!(this.__uiStates && this.__uiStates[name]);
   }
 
   /** 清空全部交互状态（例如组件被移出选择集时）。 */
   public clearInteractionStates(): this {
-    this.__uiStates = {};
+    this.__uiStates = null;
     this.__uiStateCount = 0;
     this.dirty = true;
     if (this.ice) this.ice.dirty = true;
@@ -662,8 +681,11 @@ abstract class ICEComponent extends ICEEventTarget {
   /** 状态名列表（有序，决定样式叠加顺序）。 */
   private activeStateNames(): string[] {
     const out: string[] = [];
-    for (const name of STATE_ORDER) {
-      if (this.__uiStates[name]) out.push(name);
+    const table = this.__uiStates;
+    if (table) {
+      for (const name of STATE_ORDER) {
+        if (table[name]) out.push(name);
+      }
     }
     return out;
   }
@@ -672,7 +694,7 @@ abstract class ICEComponent extends ICEEventTarget {
   private hasStateStyles(): boolean {
     const states = this.props && this.props.states;
     if (!states || typeof states !== 'object') return false;
-    for (const name in this.__uiStates) {
+    for (const name in this.__uiStates || {}) {
       if (states[name]) return true;
     }
     return false;
@@ -684,12 +706,23 @@ abstract class ICEComponent extends ICEEventTarget {
    * - ICEComponent 是顶级类，这里注册的事件所有子类都会响应。
    * - 子类可以提供自己特殊的实现，也可以把此方法覆盖成空函数。
    *
+   * 实现方式（2026-09-21 起）：**不再逐实例注册**，改成"类级声明 + 派发时解析"——
+   * 见 `ICEEventTarget.defaultEventListenerMap()` / `__enableDefaultEvents()`。
+   * 起因是 10 万图元的真实场景：每个图元常驻 `mousedown/keydown/keyup` 三个数组 + 三条记录
+   * （真机 V8 堆快照里 `Array`/`Object` 两块的大头），而这些默认处理器绝大多数一生都不会被触发。
+   *
+   * 语义不变：子类覆盖此方法且**不调 `super.initEvents()`** 时，默认处理器不会被启用 ——
+   * 与改造前"没注册就没人响应"一致（`LineControlPanel` 就依赖这条）。
+   *
    * @see {ICEComponent.keyboardEvtHandler}
    */
   protected initEvents() {
-    this.on('mousedown', this.mouseDownEvtHandler, this);
-    this.on('keydown', this.keyboardEvtHandler, this);
-    this.on('keyup', this.keyboardEvtHandler, this);
+    this.__enableDefaultEvents();
+  }
+
+  /** 默认监听表：按下起拖 + 方向键/删除键。表是类级常量，按构造器缓存，不逐实例分配。 */
+  protected defaultEventListenerMap(): { [eventName: string]: string } {
+    return DEFAULT_EVENT_LISTENER_MAP;
   }
 
   /**
@@ -981,7 +1014,7 @@ abstract class ICEComponent extends ICEEventTarget {
       if (states) {
         for (let i = 0; i < STATE_ORDER.length; i++) {
           const name = STATE_ORDER[i];
-          if (!this.__uiStates[name]) continue;
+          if (!(this.__uiStates && this.__uiStates[name])) continue;
           const patch = states[name];
           if (!patch) continue;
           for (const p in patch) {
@@ -1109,12 +1142,13 @@ abstract class ICEComponent extends ICEEventTarget {
     if (!desc || typeof desc !== 'object') {
       return null;
     }
-    const slot = this.__gradCache[kind];
+    const cache = this.__gradCache;
+    const slot = cache && cache[kind];
     if (slot && slot.src === desc) {
       return slot.grad;
     }
     const grad = this.__buildGradient(desc);
-    this.__gradCache[kind] = { src: desc, grad };
+    (this.__gradCache || (this.__gradCache = {}))[kind] = { src: desc, grad };
     return grad;
   }
 
@@ -1302,8 +1336,10 @@ abstract class ICEComponent extends ICEEventTarget {
     this.__paramsDirty = false;
     this.__paramsRev++;
     // 样式可能一起变了：渐变按描述对象引用缓存，这里失效一次即可（重建只发生一次）
-    this.__gradCache.fill = undefined;
-    this.__gradCache.stroke = undefined;
+    if (this.__gradCache) {
+      this.__gradCache.fill = undefined;
+      this.__gradCache.stroke = undefined;
+    }
   }
 
   /** 派生参数的重算代次（只读）。几何缓存用它判断「重算过没有」，见 `__paramsRev`。 */

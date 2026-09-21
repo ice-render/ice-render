@@ -196,7 +196,7 @@ composedPath / 别名与链式 / `off(name)` 全清）。
 
 一次原生指针输入会被派发**两个名字** —— 原生名（`pointermove`）+ 兼容名（`mousemove`）。
 而这两个名字通常只有一个有人听：**引擎自己的默认处理器挂在鼠标名上**
-（`ICEComponent` 构造期登记 `mousedown/keydown/keyup`，拖拽真正开始时才登记 `mousemove/mouseup`），
+（`ICEComponent` 的默认处理器是 `mousedown/keydown/keyup`，拖拽真正开始时才登记 `mousemove/mouseup`），
 应用要么用鼠标名（老代码）要么用指针名（新代码）。
 
 没人听的那一次，以前要白跑「祖先链数组 + 每层 `trigger` + 总线触发」：
@@ -230,7 +230,31 @@ graph LR
 
 - `DOMEventInterceptor` 在文档层做统一拦截/预处理（全局，跨 ICE）。
 - `DOMEventDispatcher` 把原生事件转成 `ICEEvent`（保留 `originalEvent`、`target` 指向命中组件），再注入 `EventBus` 分发。
-- 组件通过 `initEvents()` 注册默认事件（`mousedown`/`keydown`/`keyup`），子类可覆盖。
+- 组件的默认事件（`mousedown`/`keydown`/`keyup`）由 `initEvents()` 启用，子类可覆盖 ——
+  它们**不再逐实例注册**，见下一节。
+
+### 默认处理器：类级声明 + 派发时解析（2026-09-21）
+
+改造前 `ICEComponent.initEvents()` 在**每个组件的构造期** `on('mousedown'|'keydown'|'keyup', …)`，
+于是**每个图元**常驻 `1 个 listeners 对象 + 3 个数组 + 3 条记录`（7 个堆对象）。
+真机 Chrome + V8 堆快照实测（`examples/performance/bench-scene.html`，10 万图元）：
+`Array` 19.8MB 的大头与 `Object` 31.3MB 里的一块都是这些一辈子多半不会被触发的监听记录。
+
+现在：默认处理器**不进 `listeners`**，由**类级声明表**描述（`defaultEventListenerMap()`：
+事件名 → 本实例上的方法名，`ICEComponent` 给出 `mousedown`/`keydown`/`keyup` 三项），
+`trigger()` 在该事件没有实例级监听时现场解析并调用。口径逐条不变：
+
+| 语义 | 实现 |
+|---|---|
+| 次序 | 默认处理器在**用户注册的监听之前**（等价于改造前"构造期先注册"） |
+| 启用开关 | `initEvents()` 调 `__enableDefaultEvents()`；开关是 `listeners` 上的 Symbol 属性（**不新增实例字段**，见 AGENTS 热路径铁律） |
+| 子类覆盖 `initEvents()` 且不调 `super` | 默认处理器**不启用**（如 `LineControlPanel`）—— 与改造前"没注册就没人响应"一致 |
+| `off` / `off(name)` / `removeEventListener` | 把默认处理器当"真的在 `listeners` 里"匹配：`off(name, 处理器, 组件)`、`removeEventListener`（按 W3C 身份、忽略 scope）、`off(name)`（清空该事件全部监听）都要能摘掉它 |
+| `hasListener` | 未摘除时返回 `true`，摘除后返回 `false` |
+| `suspend` / `purgeEvents` | `suspend('keydown')` 照旧挡住默认处理器；`purgeEvents()` 换掉整个 `listeners` 对象 → 开关随之消失（与改造前一起被清掉同义） |
+| 事件名登记 | `__enableDefaultEvents()` 仍会 `markEventNameListened('mousedown'|'keydown'|'keyup')` —— 按需派发的前置条件不能漏 |
+
+回归：`tests/event/default-listeners.test.ts`（13 条）。
 
 ### 指针坐标：移动类事件**每帧重读** canvas 矩形
 
