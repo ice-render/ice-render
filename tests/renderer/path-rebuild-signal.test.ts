@@ -170,7 +170,7 @@ describe('路径命令流的重建信号', () => {
     expect(lastRectCmd(rect)![3]).toBe(50);
   });
 
-  it('几何连续多帧不变：只在第一帧重建一次', () => {
+  it('几何连续多帧不变：只在第一帧重建一次（同几何可能直接命中共享路径）', () => {
     const { ice, renderer } = makeHarness();
     const rect: any = new ICERect({ left: 0, top: 0, width: 20, height: 20 });
     ice.addChild(rect);
@@ -180,7 +180,10 @@ describe('路径命令流的重建信号', () => {
     const calls = spyCreatePath(rect);
     for (let i = 0; i < 4; i++) renderFrame(renderer, ice);
 
-    expect(calls()).toBe(1); // 只在第一帧重建
+    // 2026-09-21 起「同几何的内置图元共享同一条 Path2D」：这里可能一次都不建（命中缓存），
+    // 但**绝不会**逐帧重建，且命令流必须是新几何。
+    expect(calls()).toBeLessThanOrEqual(1);
+    expect(lastRectCmd(rect)![3]).toBe(50);
   });
 
   it('父组件直写子图形几何（Entity.ts 的写法）：必须重建', () => {
@@ -221,9 +224,24 @@ describe('路径命令流的重建信号', () => {
   it('从未渲染过的组件首帧仍会建命令流（dirty 语义不回归）', () => {
     const { ice, renderer } = makeHarness();
     const rect: any = new ICERect({ left: 10, top: 10, width: 20, height: 20 });
-    const calls = spyCreatePath(rect);
     ice.addChild(rect, false); // UIButton 那种「挂载时不要主动置脏」的写法
     renderFrame(renderer, ice);
-    expect(calls()).toBeGreaterThan(0);
+    // 判据是「首帧拿得到可用的命令流」，而不是「一定调用了 createPathObject」——
+    // 同几何若已在他处建过，这里会直接共享那条路径。
+    expect(lastRectCmd(rect)![3]).toBe(20);
+  });
+
+  it('同几何的内置图元共享同一条 Path2D；几何不同则不共享', () => {
+    const { ice, renderer } = makeHarness();
+    const a: any = new ICERect({ left: 0, top: 0, width: 33, height: 33 });
+    const b: any = new ICERect({ left: 100, top: 0, width: 33, height: 33 }); // 只有位置不同
+    const c: any = new ICERect({ left: 0, top: 100, width: 34, height: 33 }); // 宽度差 1
+    ice.addChild(a);
+    ice.addChild(b);
+    ice.addChild(c);
+    renderFrame(renderer, ice);
+
+    expect(b.path2D).toBe(a.path2D); // 位置不进路径坐标（走 CTM），因此可共享
+    expect(c.path2D).not.toBe(a.path2D);
   });
 });

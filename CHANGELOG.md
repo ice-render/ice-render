@@ -7,6 +7,22 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 性能 / 内存（同几何图元共享 `Path2D`：10 万图元的 55.7MB → 0.6MB）
+
+- **`ICEPath` 新增「几何 → `Path2D`」的共享缓存**（上界 512 条，按插入顺序淘汰最旧）。
+  只对**签名能精确描述几何**的类生效（`__hasPrecisePathSignature()` —— 内置的 `ICERect` / `ICEEllipse` /
+  `ICEDotPath` / `ICEPolyLine`，以及显式实现了 `__pathSignature()` 的第三方子类）；没实现签名的子类
+  继续每实例一份，语义与改造前逐字一致。采样键之前先 `ensureDots()`（点集是惰性算的），
+  而位置/缩放一律走 CTM、不进路径坐标 —— 所以"只有位置不同"的图元命中同一条路径。
+- 实测（真机 Chrome，CDP `Runtime.queryObjects` 精确计数 + V8 堆快照，`bench-scene.html` 10 万图元）：
+  `Path2D` **100,018 → 24**（55.7MB → ≈13KB）、快照自有大小 **330.6 → 234.6 MB（−96.0 MB，−29%）**、
+  节点 9.58M → 6.81M、边 37.71M → 29.41M（少掉的还有每个路径的 `Path2DRecorder` 与它的 `_commands`）。
+- **共享的前提是"发布即只读"**（写进 `ICEPath` 的注释）：引擎只在 `createPathObject()` 里写路径，
+  `closePath()` 在 `Path2DRecorder` 里是幂等标记；第三方子类若在 `createPathObject()` 里做了
+  **路径之外的副作用**，就不能实现 `__pathSignature()`（否则会被共享）。
+- 回归：引擎 `verify:full`（164 套 / 1396 用例、111 条视觉 e2e、五套基准门禁）+
+  家族 12 个成员单测与 e2e 全绿。
+
 ### 性能 / 内存（每图元常驻数组 38 → 27：临时缓冲改模块级共享）
 
 - **渲染期间的临时缓冲不再挂到实例上**：`__localBoxScratch`（包围盒）、`__transScratch`（平移矩阵）、
