@@ -74,7 +74,16 @@ export {
   setChildSourceFor,
   visibleLocalRect,
   lastVirtualWindow,
+  materializeVirtualChild,
+  releaseVirtualChild,
+  materializedIndexOf,
+  materializedIndices,
+  resolveVirtualHit,
+  setVirtualHitPolicy,
+  virtualHitPolicyOf,
+  virtualHitIndexOf,
 } from './graphic/virtual/virtual-child-source';
+export type { VirtualHitPolicy } from './graphic/virtual/virtual-child-source';
 export { default as ICEComponent } from './graphic/ICEComponent';
 export { default as ICEDotPath } from './graphic/ICEDotPath';
 export { default as ICEImage } from './graphic/ICEImage';
