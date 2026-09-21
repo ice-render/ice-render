@@ -39,11 +39,12 @@ class FakePath2D {
 
 function makeHarness(renderMode: 'full' | 'dirty-rect' = 'full') {
   const noop = () => {};
+  const clears: any[] = [];
   const ctx: any = {
     fillStyle: '',
     strokeStyle: '',
     lineWidth: 1,
-    clearRect: noop,
+    clearRect: (...a: any[]) => clears.push(a),
     clip: noop,
     save: noop,
     restore: noop,
@@ -78,7 +79,7 @@ function makeHarness(renderMode: 'full' | 'dirty-rect' = 'full') {
   renderer.start();
   // 真实用法里 ICE.init 会把 renderer 挂回 ice（setViewport 的 markQueueDirty 依赖它）
   ice.renderer = renderer;
-  return { ice, renderer };
+  return { ice, renderer, clears };
 }
 
 function renderFrame(renderer: any, ice: any) {
@@ -152,8 +153,15 @@ describe('CanvasRenderer 视口裁剪', () => {
     expect(called).toContain(far);
   });
 
-  test('视口变化后快照被清空，当帧不误裁；下一帧按新可见区裁剪', () => {
-    const { ice, renderer } = makeHarness();
+  /**
+   * 视口变化**不再**清队列/快照（2026-09-21）：
+   * 上屏快照存的是**世界盒**，视口平移/缩放根本不让它失效；清掉它只会让平移期间
+   * "每帧重来一遍（队列重建 + 无快照 → 视口裁剪整体失效）"，实测 10 万图元 9.9fps → 119.9fps。
+   * 契约改成：视口变化帧**整屏重画**（跳过局部重绘，否则裁剪区外会留旧视图的像素），
+   * 但**按新可见区正常裁剪** —— 屏外的组件本来就不该画。
+   */
+  test('视口变化后按新可见区正常裁剪，且当帧是整屏重画（不再清快照）', () => {
+    const { ice, renderer, clears } = makeHarness('dirty-rect');
     const inside = new ICERect({ left: 100, top: 100, width: 40, height: 30, zIndex: 1 });
     const outsideAfterZoom = new ICERect({ left: 500, top: 400, width: 40, height: 30, zIndex: 2 });
     ice.addChild(inside);
@@ -164,8 +172,17 @@ describe('CanvasRenderer 视口裁剪', () => {
     expect(renderer.__lastFrameCulled).toBe(0); // 800x600 视口下两者都可见
 
     ice.setViewport(2, 0, 0); // 可见世界区收缩为 [0,0,400,300]
+    clears.length = 0;
+    const calledAtChange = trackRender([inside, outsideAfterZoom]);
     renderFrame(renderer, ice);
-    expect(renderer.__lastFrameCulled).toBe(0); // 快照刚被清空 → 一律照画
+    expect(calledAtChange).toContain(inside); // 可见的照画
+    expect(calledAtChange).not.toContain(outsideAfterZoom); // 屏外的当帧就能裁掉（快照还在）
+    expect(renderer.__lastFrameCulled).toBe(1);
+    // 当帧必须是整屏重画：视口一变，屏幕上每处落墨都错位，局部重绘会在裁剪区外留下旧像素
+    expect(renderer.__primed).toBe(true); // 快照没被清 → 仍然 prime
+    expect(renderer.__snap.has(inside)).toBe(true); // 上屏快照也还在（世界盒不随视口失效）
+    expect(renderer.__queueDirty).toBe(false); // 视口不是结构变更，队列不重建
+    expect(clears[clears.length - 1]).toEqual([0, 0, 800, 600]); // 整屏 clear，不是局部裁剪区
 
     const called = trackRender([inside, outsideAfterZoom]);
     renderFrame(renderer, ice);

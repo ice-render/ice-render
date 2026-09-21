@@ -286,14 +286,16 @@ describe('静态层位图', () => {
     const base = renderer.__layerBuilds;
     expect(base).toBe(2);
 
-    // ① 视口变化帧：不重建、也不用层（逐组件画全部 700 个）
+    // ① 视口变化帧：不重建、也不用层（整屏逐组件画 —— 但**上屏快照不再被清**，
+    //    所以屏外的组件当帧就能裁掉，拉进来的只有可见的那些。见 culling 用例的说明。）
     ice.setViewport(1.2, 10, 5);
     for (const c of dirty) c.dirty = true;
     const { counter, restore } = countRenders([...clean, ...dirty]);
     renderFrame(renderer, ice);
     restore();
     expect(renderer.__layerBuilds).toBe(base); // 视口变化帧不建位图
-    expect(counter.total).toBe(700); // 走的是直接落墨，不是层
+    expect(counter.total).toBe(700 - renderer.__lastFrameCulled); // 走的是直接落墨，不是层
+    expect(renderer.__lastFrameCulled).toBeGreaterThan(0); // 快照保留 → 当帧按新可见区裁剪
 
     // ② 视口稳定后的第一帧：统一重建一次
     for (const c of dirty) c.dirty = true;

@@ -29,7 +29,7 @@ viewportMatrix = [scale, 0, 0, scale, tx, ty]
 
 | API | 作用 |
 |---|---|
-| `ice.setViewport(scale, tx, ty)` | 设置视口，触发一次全量重绘（`markQueueDirty`），不改组件 state |
+| `ice.setViewport(scale, tx, ty)` | 设置视口，请求**本帧整屏重画**（`markViewportChanged()`），不改组件 state、**不清**渲染队列与上屏快照 |
 | `ice.screenToWorld(sx, sy)` | 屏幕像素 → 世界坐标（命中检测用） |
 | `ice.worldToScreen(wx, wy)` | 世界坐标 → 屏幕像素 |
 
@@ -39,8 +39,29 @@ viewportMatrix = [scale, 0, 0, scale, tx, ty]
    `renderTo()`（离屏缓存）不应用视口——缓存位图永远是「世界坐标下的组件外观」。
 2. **命中**：`DOMEventDispatcher` 先把 `offsetX/offsetY`（屏幕像素）经 `screenToWorld()` 转成世界坐标，
    再 `component.containsPoint()`。视口缩放后命中无需改组件命中逻辑。
-3. **脏矩形**：视口非单位时，世界盒与屏幕 `clearRect/clip` 不一致，`__collect()` 直接回退全量重绘；
-   视口变化本身经 `markQueueDirty` 回退一次全量并重建快照。
+3. **脏矩形**：视口非单位时，世界盒与屏幕 `clearRect/clip` 不一致 —— 这个不一致由 `mapBoxToRender()`
+   一处换算解决（不再回退全量）；**视口变化那一帧则必须整屏重画**（屏幕每处落墨都错位了，
+   局部重绘会在裁剪区外留旧视图的像素），但**不清**渲染队列、上屏快照与静态层。
+
+## 视口变化不是结构变更（2026-09-21 修正）
+
+`setViewport()` 以前调 `markQueueDirty()`（结构变更用的路径）：队列重建 + **清空上屏快照** + 丢静态层。
+而这三样都不随视口失效 —— 队列成员没变、快照存的是**世界坐标盒**、静态层自带 `(rs, ox, oy)` 栅格
+对齐校验（纯平移还能整体贴回）。清掉它们是复合损失：每帧从零重建，**而且没有快照就没有视口裁剪**，
+10 万图元里屏外的那批也要逐个走一遍。
+
+真机 Chrome + CDP（100,000 图元、每帧平移 3px、3 秒真实 rAF）：
+
+| 平移写法 | fps | p50 | 长任务 |
+|---|---|---|---|
+| 改前：`setViewport()` → `markQueueDirty()` | 9.9 | 103.4ms | 28 个 / 2,895ms |
+| 改后：`setViewport()` → `markViewportChanged()` | **116.6** | **8.4ms** | **0** |
+| 直改 `ice.viewport.tx`（旧写法绕开这条路） | 119.9 → 115.6 | 8.3ms | 0 |
+
+口径：① 视口值没变时**什么都不做**（`平移驱动里重复下发同值很常见：钳制边界、视口跟随同步`）；
+② 视口变化帧跳过局部重绘、照走"静态层 → 全量"；③ 快照保留 ⇒ 当帧就按**新可见区**裁剪。
+回归：`tests/renderer/viewport-repaint.test.ts`、`tests/renderer/CanvasRenderer.culling.test.ts`、
+`e2e/visual/viewport.spec.ts`。
 
 ## 离屏缓存与视口
 
