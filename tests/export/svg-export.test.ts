@@ -150,6 +150,38 @@ describe('SVG 导出', () => {
     expect(exportSvg(hollow)).not.toContain('stroke="none"');
   });
 
+  /**
+   * 旋转的连线标签（`style.label.angle`，弧度）：导出必须与画布同口径 ——
+   * `drawLabel()` 是「平移到中心 → rotate → 以 (0,0) 为中心画未旋转的盒子」，
+   * 所以 SVG 也要是「未旋转尺寸的 rect + `transform="rotate(角度 x y)"`」。
+   * 拿 `halfW / halfH`（它们已经是旋转后的 AABB）去画矩形会得到一个"横躺的盒子"。
+   */
+  it('旋转的连线标签：带 rotate(...) transform，且矩形用未旋转的 w / h', () => {
+    const rotated = new ICEPolyLine({
+      points: [
+        [0, 0],
+        [0, 100],
+      ],
+      label: '1 : N',
+      style: { strokeStyle: '#333333', label: { fontSize: 20, angle: -Math.PI / 2 } },
+    });
+    const svg = exportSvg(rotated);
+    expect(svg).toMatch(/<g transform="rotate\(-90 0 50\)">/);
+    // 未旋转的盒子：5×20 + 8 = 108 宽、20 + 8 = 28 高，中心在折线中点 (0, 50)
+    expect(svg).toContain('x="-54" y="36" width="108" height="28"');
+
+    // 不转的标签不套 <g>，矩形的宽高就是字体推算出来的那一份
+    const plain = new ICEPolyLine({
+      points: [
+        [0, 0],
+        [0, 100],
+      ],
+      label: '1 : N',
+      style: { strokeStyle: '#333333', label: { fontSize: 20 } },
+    });
+    expect(exportSvg(plain)).not.toContain('<g transform="rotate(');
+  });
+
   it('虚线、透明度都进 SVG', () => {
     const rect = new ICERect({
       width: 40,

@@ -153,6 +153,19 @@ class ICEPolyLine extends ICEDotPath {
              * 非法值（不是长度 2 的数组 / 含非有限数）一律当作没写，不抛错。
              * 默认**不写**这个键（写了会进 state 与快照，零偏移没有表达价值）。
              */
+            /**
+             * 标签的旋转角（**弧度**，绕标签中心；与 `arrowAngel` 同一口径）。
+             *
+             * 什么时候用：**竖线上的长标注**。横排的盒子宽度就是字宽（十几到上百像素），
+             * 无论往左还是往右挪都可能仍然压着线；转 90°（`-Math.PI / 2`，自下而上读）
+             * 之后盒子在横向只剩字高，挪一点点就完全离开线条 —— 这是制图惯例。
+             *
+             * 三个消费者一起走：画布 `drawLabel()` 绕中心 `rotate`；`__labelMetrics()` 返回
+             * **旋转后的 AABB**（脏区擦除盒 / 离屏缓存范围按它算，否则转 90° 会留下残影）；
+             * `getLabelRenderInfo()` 带上 `angle` 与未旋转的 `w / h`，SVG 导出据此加 `transform`。
+             *
+             * 非法值（非有限数）一律当 0，不抛错。默认**不写**这个键。
+             */
           },
         },
       },
@@ -1022,7 +1035,18 @@ class ICEPolyLine extends ICEDotPath {
    * 本方法设置 font 但**不负责恢复**：绘制路径由 `ctx.save/restore` 兜住，包围盒路径见
    * `__measureLabelBoxForBounds()`（盒子计算不应留下渲染副作用）。
    */
-  private __labelMetrics(): { x: number; y: number; halfW: number; halfH: number } | null {
+  private __labelMetrics(): {
+    x: number;
+    y: number;
+    /** **旋转之后**的轴对齐包围盒半宽/半高（未旋转时就是盒子的半宽/半高）。 */
+    halfW: number;
+    halfH: number;
+    /** 未旋转的盒子尺寸（`w × h`）—— 绘制与导出要用它，不能用上面那两个 AABB 值。 */
+    w: number;
+    h: number;
+    /** 生效的旋转角（弧度，绕标签中心）。 */
+    angle: number;
+  } | null {
     const label = this.state.label;
     if (!label) {
       return null;
@@ -1043,7 +1067,23 @@ class ICEPolyLine extends ICEDotPath {
     } else {
       textWidth = label.length * fontSize; // 降级估算
     }
-    return { x: cx, y: cy, halfW: textWidth / 2 + padding, halfH: fontSize / 2 + padding };
+    const w = textWidth + padding * 2;
+    const h = fontSize + padding * 2;
+    const angle = this.__labelAngle(style);
+    // 旋转后的**轴对齐**包围盒：|w·cos| + |h·sin| / |w·sin| + |h·cos|。
+    // 三个消费者（画布脏区 / 离屏缓存范围 / SVG 导出）都按这份 AABB 算，所以它必须是 AABB
+    // 而不是"未旋转的盒子"—— 否则转 90° 之后擦除盒会窄一半，留下残影。
+    const cos = Math.abs(Math.cos(angle));
+    const sin = Math.abs(Math.sin(angle));
+    return {
+      x: cx,
+      y: cy,
+      halfW: (w * cos + h * sin) / 2,
+      halfH: (w * sin + h * cos) / 2,
+      w,
+      h,
+      angle,
+    };
   }
 
   /**
@@ -1066,6 +1106,19 @@ class ICEPolyLine extends ICEDotPath {
   }
 
   /**
+   * 解析 `style.label.angle`：**弧度**，绕标签中心旋转。非法值（非有限数）当 0。
+   *
+   * 为什么要有一个角度：竖线上的长标注横排时，盒子宽度是字宽（十几到上百像素），
+   * 无论往左还是往右挪都可能仍然压着线；**转 90° 之后盒子在横向只剩下字高**，
+   * 挪一点点就完全离开线条，而且文字顺着管子读 —— 这是制图惯例（竖向标注自下而上读）。
+   * 与 `arrowAngel`（箭头张角，同样存弧度）同一口径。
+   */
+  private __labelAngle(style: any): number {
+    const raw = Number(style && style.angle);
+    return isFinite(raw) ? raw : 0;
+  }
+
+  /**
    * 连线标签的**渲染信息**（公开口径）：位置、尺寸、字体与配色。
    *
    * 与 `drawLabel()` / `__labelMetrics()` 同源 —— 画布怎么画，导出（SVG）就怎么描述。
@@ -1076,8 +1129,14 @@ class ICEPolyLine extends ICEDotPath {
     text: string;
     x: number;
     y: number;
+    /** 旋转后的轴对齐包围盒半宽/半高（脏区与命中按它算）。 */
     halfW: number;
     halfH: number;
+    /** 未旋转的盒子尺寸 —— 导出器要用它画矩形（配合 `angle` 旋转）。 */
+    w: number;
+    h: number;
+    /** 旋转角（弧度，绕 `x, y`）。0 = 不转。 */
+    angle: number;
     fontSize: number;
     fillStyle: string;
     backgroundColor: string;
@@ -1090,7 +1149,13 @@ class ICEPolyLine extends ICEDotPath {
     const style: any = (this.state.style && this.state.style.label) || {};
     return {
       text: String(this.state.label),
-      ...metrics,
+      x: metrics.x,
+      y: metrics.y,
+      halfW: metrics.halfW,
+      halfH: metrics.halfH,
+      w: metrics.w,
+      h: metrics.h,
+      angle: metrics.angle,
       fontSize: style.fontSize || 14,
       fillStyle: resolveThemeValue(style.fillStyle, theme) || '#000000',
       backgroundColor: resolveThemeValue(style.backgroundColor, theme) || '#ffffff',
@@ -1131,10 +1196,18 @@ class ICEPolyLine extends ICEDotPath {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const theme = this.themeOf();
+    // 绕**标签中心**旋转：底块与文字在同一坐标系里画，转一次两样都跟着转。
+    // `lm.w / lm.h` 是未旋转的盒子尺寸（`halfW / halfH` 是旋转后的 AABB，画图不能用它们）。
+    if (lm.angle) {
+      ctx.translate(lm.x, lm.y);
+      ctx.rotate(lm.angle);
+    }
+    const cx = lm.angle ? 0 : lm.x;
+    const cy = lm.angle ? 0 : lm.y;
     ctx.fillStyle = resolveThemeValue(style.backgroundColor, theme) || '#ffffff';
-    ctx.fillRect(lm.x - lm.halfW, lm.y - lm.halfH, lm.halfW * 2, lm.halfH * 2);
+    ctx.fillRect(cx - lm.w / 2, cy - lm.h / 2, lm.w, lm.h);
     ctx.fillStyle = resolveThemeValue(style.fillStyle, theme) || '#000000';
-    ctx.fillText(label, lm.x, lm.y);
+    ctx.fillText(label, cx, cy);
     ctx.restore();
   }
 

@@ -7,6 +7,22 @@
 
 > 下一个版本发布前，改动在这里累积。
 
+### 新增
+
+- **连线标签的旋转入口 `style.label.angle`**（弧度，绕标签中心；与 `arrowAngel` 同一口径）。
+  补的是"标签朝向"这个自由度：`offset` 解决"压在别的东西上"，但**竖线上的长标注横排时太宽**——
+  实测下游一条 `DN1000 污水` 的盒子 79px 宽，往右挪 12px 之后左边还有约 28px 盖在线上；
+  转 90°（`-Math.PI / 2`，自下而上读）之后盒子在横向只剩字高，挪一点点就完全离开线条。
+
+  ⚠️ `__labelMetrics()` 返回的是**旋转后的 AABB**（`|w·cos| + |h·sin|` / `|w·sin| + |h·cos|`），
+  因为脏区擦除盒 / 离屏缓存范围只吃 AABB —— 不这么做的话转 90° 会留下残影。
+  同时它把**未旋转的 `w / h`** 一并给出，绘制（`drawLabel` 绕中心 `translate → rotate`）与
+  SVG 导出（`<g transform="rotate(...)">` + 未旋转尺寸的 rect）都用那一份；
+  非法角度当 0，默认不写这个键。
+
+  spec：`docs/superpowers/specs/2026-09-26-edge-label-angle-design.md`；
+  回归：`tests/link/polyline-label-angle.test.ts`（7 条）+ `tests/export/svg-export.test.ts` 一条。
+
 ## [4.3.0] - 2026-09-21
 
 > **主题：出图通道的两处"静默画不出来"。** 两次真机事故（IED 的池/泳道、虚拟文档的批量精灵）都不是
