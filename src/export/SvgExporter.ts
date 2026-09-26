@@ -769,17 +769,25 @@ function exportLayersResult(targets: any[], options: SvgExportOptions = {}): Svg
               ? (component as any).getLabelRenderInfo()
               : null;
           if (labelInfo) {
-            const rectX = Number((labelInfo.x - labelInfo.halfW).toFixed(digits));
-            const rectY = Number((labelInfo.y - labelInfo.halfH).toFixed(digits));
-            const rectW = Number((labelInfo.halfW * 2).toFixed(digits));
-            const rectH = Number((labelInfo.halfH * 2).toFixed(digits));
-            element +=
-              `<rect x="${rectX}" y="${rectY}" width="${rectW}" height="${rectH}" fill="${escapeXml(
+            // `w / h` 是**未旋转**的盒子尺寸（`halfW / halfH` 是旋转后的 AABB，不能拿来画矩形）；
+            // 有角度时整组绕标签中心转 —— 与 `drawLabel()` 的 `translate → rotate → 画` 同一口径。
+            const boxW = Number((labelInfo.w ?? labelInfo.halfW * 2).toFixed(digits));
+            const boxH = Number((labelInfo.h ?? labelInfo.halfH * 2).toFixed(digits));
+            const rectX = Number((labelInfo.x - boxW / 2).toFixed(digits));
+            const rectY = Number((labelInfo.y - boxH / 2).toFixed(digits));
+            const angle = Number(labelInfo.angle) || 0;
+            const body =
+              `<rect x="${rectX}" y="${rectY}" width="${boxW}" height="${boxH}" fill="${escapeXml(
                 labelInfo.backgroundColor
               )}"/>` +
               `<text x="${Number(labelInfo.x.toFixed(digits))}" y="${Number(labelInfo.y.toFixed(digits))}" ` +
               `font-family="Arial" font-size="${Number(labelInfo.fontSize)}" fill="${escapeXml(labelInfo.fillStyle)}" ` +
               `text-anchor="middle" dominant-baseline="central">${escapeXml(labelInfo.text)}</text>`;
+            element += angle
+              ? `<g transform="rotate(${Number(((angle * 180) / Math.PI).toFixed(digits))} ${Number(
+                  labelInfo.x.toFixed(digits)
+                )} ${Number(labelInfo.y.toFixed(digits))})">${body}</g>`
+              : body;
           }
         }
       } else if (component instanceof ICEText) {
